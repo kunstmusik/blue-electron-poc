@@ -19,11 +19,11 @@
 
 **Purpose**: Project initialization and basic tooling
 
-- [ ] T001 [P] Configure root workspace `package.json` with npm workspaces (already scaffolded)
-- [ ] T002 [P] Configure shared `tsconfig.base.json` (already scaffolded)
-- [ ] T003 [P] Add vitest, eslint, prettier as root devDependencies
-- [ ] T004 [P] Configure vitest workspace across packages
-- [ ] T005 [P] Add `@rgrove/parse-xml` as `blue-data` dependency
+- [x] T001 [P] Configure root workspace `package.json` with npm workspaces (already scaffolded)
+- [x] T002 [P] Configure shared `tsconfig.base.json` (already scaffolded)
+- [x] T003 [P] Add vitest, eslint, prettier as root devDependencies
+- [x] T004 [P] Configure vitest workspace across packages
+- [x] T005 [P] Add `@rgrove/parse-xml` as `blue-data` dependency
 
 ---
 
@@ -35,40 +35,40 @@
 
 ### XML Serialization System
 
-- [ ] T006 [US-all] Implement `Element` class wrapping parse-xml output in `packages/blue-data/src/serialization/xml-reader.ts` (mirrors Java `electric.xml.Element`: `getName()`, `getAttribute()`, `getTextString()`, `getElements()`, `addElement()`, `setText()`)
-- [ ] T007 [US-all] Implement `Elements` iterator class (mirrors Java `electric.xml.Elements`: `next()`, `hasMoreElements()`)
-- [ ] T008 [US-all] Implement `XmlWriter` in `packages/blue-data/src/serialization/xml-writer.ts` (produces matching output format to Java)
-- [ ] T009 [US-all] Implement `ObjRefMap` type in `packages/blue-data/src/serialization/obj-ref-map.ts` (bidirectional object↔string mapping)
-- [ ] T010 [US-all] Write XML round-trip tests in `packages/blue-data/src/serialization/xml-reader.test.ts`
+- [x] T006 [US-all] Implement `Element` class wrapping parse-xml output in `packages/blue-data/src/serialization/xml-reader.ts` (mirrors Java `electric.xml.Element`: `getName()`, `getAttribute()`, `getTextString()`, `getElements()`, `addElement()`, `setText()`)
+- [x] T007 [US-all] Implement `Elements` iterator class (mirrors Java `electric.xml.Elements`: `next()`, `hasMoreElements()`)
+- [x] T008 [US-all] Implement `XmlWriter` in `packages/blue-data/src/serialization/xml-writer.ts` (produces matching output format to Java)
+- [x] T009 [US-all] Implement `ObjRefMap` type in `packages/blue-data/src/serialization/obj-ref-map.ts` (bidirectional object↔string mapping)
+- [x] T010 [US-all] Write XML round-trip tests in `packages/blue-data/src/serialization/xml-reader.test.ts`
 
 ### Foundation Types
 
-- [ ] T011 [P] [US-all] Implement `DeepCopyable<T>` interface in `packages/blue-data/src/deep-copyable.ts`
-- [ ] T012 [P] [US-all] Implement `BlueDataObject` interface in `packages/blue-data/src/blue-data-object.ts`
-- [ ] T013 [P] [US-all] Implement `BlueConstants` in `packages/blue-data/src/blue-constants.ts` (version string, constants)
-- [ ] T014 [P] [US-all] Implement `CopyBuffer` in `packages/blue-data/src/copy-buffer.ts`
-- [ ] T015 [P] [US-all] Implement text utilities in `packages/blue-data/src/utilities/text.ts` (`replaceAll`, `stripSingleLineComments`)
-- [ ] T016 [P] [US-all] Implement XML utilities in `packages/blue-data/src/utilities/xml.ts` (`writeInt`, `readInt`, `writeDouble`, `readDouble`, `writeBoolean`, `readBoolean`)
-- [ ] T017 [US-all] Implement `CompileData` in `packages/blue-data/src/compile-data.ts` (compilation context, channel assignments, global orc/sco accumulators)
+- [x] T011 [P] [US-all] Implement `DeepCopyable<T>` interface in `packages/blue-data/src/deep-copyable.ts`
+- [x] T012 [P] [US-all] Implement `BlueDataObject` interface in `packages/blue-data/src/blue-data-object.ts`
+- [x] T013 [P] [US-all] Implement `BlueConstants` in `packages/blue-data/src/blue-constants.ts` (version string, constants)
+- [x] T014 [P] [US-all] Implement `CopyBuffer` in `packages/blue-data/src/copy-buffer.ts`
+- [x] T015 [P] [US-all] Implement text utilities in `packages/blue-data/src/utilities/text.ts` (`replaceAll`, `stripSingleLineComments`)
+- [x] T016 [P] [US-all] Implement XML utilities in `packages/blue-data/src/utilities/xml.ts` (`writeInt`, `readInt`, `writeDouble`, `readDouble`, `writeBoolean`, `readBoolean`)
+- [x] T017 [US-all] Implement `CompileData` in `packages/blue-data/src/compile-data.ts` (compilation context, channel assignments, global orc/sco accumulators)
 
 ### Migration System
 
-- [ ] T018 [P] [US-all] Implement `ProjectVersion` in `packages/blue-data/src/migration/project-version.ts` (parse, compare)
-- [ ] T019 [P] [US-all] Implement `ProjectUpgrader` abstract class in `packages/blue-data/src/migration/upgrader.ts`
-- [ ] T020 [US-all] Implement `UpgradeManager` in `packages/blue-data/src/migration/upgrade-manager.ts` (registry, performUpgrades on Element)
-- [ ] T021 [US-all] Port `ProjectUpgrader_2_1_10` in `packages/blue-data/src/migration/upgrades/upgrade-2-1-10.ts` (0dbfs extraction)
-- [ ] T022 [US-all] Port `ProjectUpgrader_2_3_0` in `packages/blue-data/src/migration/upgrades/upgrade-2-3-0.ts` (tempo/score restructuring, pattern layer fix)
+- [x] T018 [P] [US-all] Implement `ProjectVersion` in `packages/blue-data/src/migration/project-version.ts` (parse, compare)
+- [x] T019 [P] [US-all] Implement `ProjectUpgrader` abstract class in `packages/blue-data/src/migration/upgrader.ts`
+- [x] T020 [US-all] Implement `UpgradeManager` in `packages/blue-data/src/migration/upgrade-manager.ts` (registry, performUpgrades on Element)
+- [x] T021 [US-all] Port `ProjectUpgrader_2_1_10` in `packages/blue-data/src/migration/upgrades/upgrade-2-1-10.ts` (0dbfs extraction)
+- [x] T022 [US-all] Port `ProjectUpgrader_2_3_0` in `packages/blue-data/src/migration/upgrades/upgrade-2-3-0.ts` (tempo/score restructuring, pattern layer fix)
 
 ### Time System
 
-- [ ] T023 [P] [US-all] Implement `TimeBase` enum in `packages/blue-data/src/time/time-base.ts`
-- [ ] T024 [P] [US-all] Implement `SmpteFrameRate` enum in `packages/blue-data/src/time/smpte-frame-rate.ts`
-- [ ] T025 [P] [US-all] Implement `TimePosition` in `packages/blue-data/src/time/time-position.ts` (beats, seconds, SMPTE; `saveAsXML()`, `loadFromXML()`)
-- [ ] T026 [P] [US-all] Implement `TimeDuration` in `packages/blue-data/src/time/time-duration.ts` (beats, seconds; `saveAsXML()`, `loadFromXML()`)
-- [ ] T027 [US-all] Implement `TempoMap` in `packages/blue-data/src/time/tempo-map.ts`
-- [ ] T028 [US-all] Implement `TimeContext` in `packages/blue-data/src/time/time-context.ts`
-- [ ] T029 [US-all] Implement `TimeState` in `packages/blue-data/src/time/time-state.ts`
-- [ ] T030 [US-all] Implement `TimeUnitMath` and `TimeUtilities` in `packages/blue-data/src/time/`
+- [x] T023 [P] [US-all] Implement `TimeBase` enum in `packages/blue-data/src/time/time-base.ts`
+- [x] T024 [P] [US-all] Implement `SmpteFrameRate` enum in `packages/blue-data/src/time/smpte-frame-rate.ts`
+- [x] T025 [P] [US-all] Implement `TimePosition` in `packages/blue-data/src/time/time-position.ts` (beats, seconds, SMPTE; `saveAsXML()`, `loadFromXML()`)
+- [x] T026 [P] [US-all] Implement `TimeDuration` in `packages/blue-data/src/time/time-duration.ts` (beats, seconds; `saveAsXML()`, `loadFromXML()`)
+- [x] T027 [US-all] Implement `TempoMap` in `packages/blue-data/src/time/tempo-map.ts`
+- [x] T028 [US-all] Implement `TimeContext` in `packages/blue-data/src/time/time-context.ts`
+- [x] T029 [US-all] Implement `TimeState` in `packages/blue-data/src/time/time-state.ts`
+- [x] T030 [US-all] Implement `TimeUnitMath` and `TimeUtilities` in `packages/blue-data/src/time/`
 
 **Checkpoint**: Foundation ready — XML serialization works, migration system applies upgrades, time system is functional. User story implementation can now begin.
 
