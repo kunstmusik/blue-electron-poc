@@ -5,8 +5,7 @@
  * Holds accumulated orchestra code, score events, global orc/sco, F-tables,
  * and channel/mixer assignments during CSD generation.
  */
-import { Instrument } from '../instruments/instrument';
-import { Channel } from '../mixer/channel';
+import { Instrument } from './instruments/instrument';
 
 export class CompileData {
   /** Orchestra code accumulator. */
@@ -28,7 +27,7 @@ export class CompileData {
   private instrumentIdMap = new Map<Instrument, number>();
 
   /** Channel ID assignments for mixer routing. */
-  private channelIdAssignments = new Map<Channel, number>();
+  private channelIdAssignments = new Map<unknown, number>();
 
   /** Compilation variables (used for caching during CSD gen). */
   private compilationVariables = new Map<string, unknown>();
@@ -115,7 +114,7 @@ export class CompileData {
 
   // ─── Channel assignments ───
 
-  getChannelIdAssignments(): Map<Channel, number> {
+  getChannelIdAssignments(): Map<unknown, number> {
     return this.channelIdAssignments;
   }
 
