@@ -1,0 +1,21 @@
+{
+  "name": "@blue/engine-client",
+  "version": "0.0.1",
+  "description": "TypeScript client for the blue-engine C++ process (ZMQ + shared memory)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"TODO: tests\" && exit 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

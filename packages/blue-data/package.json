@@ -1,0 +1,21 @@
+{
+  "name": "@blue/data",
+  "version": "0.0.1",
+  "description": "Core data model for Blue — portable TypeScript data classes with XML serialization compatible with Java .blue files",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"TODO: tests\" && exit 0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}

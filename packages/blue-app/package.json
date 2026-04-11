@@ -1,0 +1,19 @@
+{
+  "name": "@blue/app",
+  "version": "0.0.1",
+  "description": "Electron application for Blue — Phase 1: load .blue file and play via blue-engine",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "electron .",
+    "test": "echo \"TODO: tests\" && exit 0"
+  },
+  "dependencies": {
+    "@blue/data": "workspace:*",
+    "@blue/engine-client": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0",
+    "electron": "^33.0.0"
+  }
+}

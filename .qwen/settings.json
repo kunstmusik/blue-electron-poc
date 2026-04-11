@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/stevenyi/work/nbprojects/blue/**)"
+    ]
+  },
+  "$version": 3
+}
