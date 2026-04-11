@@ -39,7 +39,13 @@ export class ProjectUpgrader_2_1_10 extends ProjectUpgrader {
         const stripped = stripSingleLineComments(trimmed);
         const eqIdx = stripped.indexOf('=');
         if (eqIdx !== -1) {
-          const value = stripped.substring(eqIdx + 1).trim();
+          // Extract value and trim any trailing whitespace/semicolons
+          let value = stripped.substring(eqIdx + 1).trim();
+          // Remove inline comments that might remain
+          const commentIdx = value.indexOf(';');
+          if (commentIdx !== -1) {
+            value = value.substring(0, commentIdx).trim();
+          }
           projectPropsNode.addElement('useZeroDbFS').setText('true');
           projectPropsNode.addElement('zeroDbFS').setText(value);
           projectPropsNode.addElement('diskUseZeroDbFS').setText('true');

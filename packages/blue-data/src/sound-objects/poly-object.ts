@@ -251,6 +251,8 @@ export class PolyObject extends Array<SoundLayer>
   }
 }
 
+import { GenericScore } from './generic-score';
+
 /**
  * Load a SoundObject from XML by dispatching based on type attribute.
  */
@@ -259,10 +261,6 @@ function loadSoundObjectFromXML(
   _objRefMap: ObjRefLoadMap | undefined,
 ): SoundObject | null {
   const type = data.getAttribute('type');
-
-  // Import GenericScore here to avoid circular dependency
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { GenericScore } = require('./generic-score.js') as { GenericScore: typeof import('./generic-score.js').GenericScore };
 
   switch (type) {
     case 'GenericScore':

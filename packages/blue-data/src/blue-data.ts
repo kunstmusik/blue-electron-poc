@@ -85,6 +85,7 @@ export class BlueData implements BlueDataObject {
   setScratchPadData(s: ScratchPadData): void { this.scratchData = s; }
 
   getNoteProcessorChainMap(): NoteProcessorChainMap { return this.noteProcessorChainMap; }
+  setNoteProcessorChainMap(n: NoteProcessorChainMap): void { this.noteProcessorChainMap = n; }
 
   getMarkersList(): MarkersList { return this.markersList; }
   setMarkersList(m: MarkersList): void { this.markersList = m; }
