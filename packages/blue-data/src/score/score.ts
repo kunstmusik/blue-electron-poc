@@ -17,8 +17,8 @@ import { ScoreGenerationException } from './score-generation-exception';
 import { CompileData } from '../compile-data';
 import { NoteList } from '../sound-objects/note-list';
 import { PolyObject } from '../sound-objects/poly-object';
-import { PolyObjectLayerGroupProvider } from '../sound-objects/poly-object-layer-group-provider';
-import { LayerGroupProviderManager } from './layers/layer-group-provider-manager';
+import { AudioLayerGroup } from './audio/audio-layer-group';
+import { PatternsLayerGroup } from './patterns/patterns-layer-group';
 
 export class Score extends Array<LayerGroup<Layer>> {
   private timeContext = new TimeContext();
@@ -124,23 +124,10 @@ export class Score extends Array<LayerGroup<Layer>> {
           // For Phase 3: skip — upgrade system handles this
           break;
         case 'audioLayerGroup':
-          // Audio layer groups — loaded by AudioLayerGroupProvider
-          try {
-            const { AudioLayerGroup } = require('./audio/audio-layer-group') as { AudioLayerGroup: typeof import('./audio/audio-layer-group').AudioLayerGroup };
-            const audioGroup = AudioLayerGroup.loadFromXML(node);
-            score.push(audioGroup);
-          } catch {
-            console.warn('Failed to load audioLayerGroup');
-          }
+          score.push(AudioLayerGroup.loadFromXML(node));
           break;
         case 'patternsLayerGroup':
-          try {
-            const { PatternsLayerGroup } = require('./patterns/patterns-layer-group') as { PatternsLayerGroup: typeof import('./patterns/patterns-layer-group').PatternsLayerGroup };
-            const patternGroup = PatternsLayerGroup.loadFromXML(node);
-            score.push(patternGroup);
-          } catch {
-            console.warn('Failed to load patternsLayerGroup');
-          }
+          score.push(PatternsLayerGroup.loadFromXML(node));
           break;
         case 'scoreObjectLayerGroup':
           // Generic layer group — may contain PolyObject-based layers

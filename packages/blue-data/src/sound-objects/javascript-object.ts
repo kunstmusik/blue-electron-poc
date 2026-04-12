@@ -45,34 +45,15 @@ function parseScoreText(scoreText: string): NoteList {
 
 /**
  * Execute JS code in a sandboxed context and return the `score` variable.
+ * Uses new Function() — works in both Node.js and browser.
  */
 function executeJavaScriptCode(code: string, duration: number): string {
-  if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-    // Node.js: use vm module
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const vm = require('vm');
-      const context = {
-        duration,
-        score: '',
-        console: { log: () => {} },
-        Math,
-      };
-      vm.runInNewContext(code, context, { timeout: 5000 });
-      return context.score;
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new SoundObjectException(`JavaScript execution error: ${msg}`, e as Error);
-    }
-  } else {
-    // Browser: use new Function()
-    try {
-      const fn = new Function('duration', code + '\nreturn score;');
-      return fn(duration);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      throw new SoundObjectException(`JavaScript execution error: ${msg}`, e as Error);
-    }
+  try {
+    const fn = new Function('duration', code + '\nreturn score;');
+    return fn(duration);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new SoundObjectException(`JavaScript execution error: ${msg}`, e as Error);
   }
 }
 

@@ -8,7 +8,7 @@ import { PolyObject } from '../../src/sound-objects/poly-object';
 import { TimePosition } from '../../src/time/time-position';
 import { TimeDuration } from '../../src/time/time-duration';
 import { TimeContext } from '../../src/time/time-context';
-import { loadSoundObjectFromXML, initSoundObjectRegistry } from '../../src/sound-objects/sound-object-registry';
+import { loadSoundObjectFromXML } from '../../src/sound-objects/sound-object-registry';
 import { Element } from '../../src/serialization/xml-reader';
 
 describe('PythonObject', () => {
@@ -54,12 +54,12 @@ describe('PythonObject', () => {
     expect(reloaded.isOnLoadProcessable()).toBe(true);
   });
 
-  it('loads via registry (async)', async () => {
+  it('loads via registry', () => {
     const obj = new PythonObject();
     obj.setPythonCode('score = "i1 0 2"');
     const xml = obj.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(PythonObject);
     expect((reloaded as PythonObject).getPythonCode()).toBe('score = "i1 0 2"');
   });
@@ -111,12 +111,12 @@ describe('JavaScriptObject', () => {
     expect(reloaded.getJavaScriptCode()).toBe('score = "i1 0 2";');
   });
 
-  it('loads via registry (async)', async () => {
+  it('loads via registry', () => {
     const obj = new JavaScriptObject();
     obj.setJavaScriptCode('score = "i1 0 2";');
     const xml = obj.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(JavaScriptObject);
     expect((reloaded as JavaScriptObject).getJavaScriptCode()).toBe('score = "i1 0 2";');
   });
@@ -148,12 +148,12 @@ describe('CSDSoundObject', () => {
     expect(reloaded.getCsdText()).toBe('<CSD>test</CSD>');
   });
 
-  it('loads via registry (async)', async () => {
+  it('loads via registry', () => {
     const obj = new CSDSoundObject();
     obj.setCsdText('<CSD/>');
     const xml = obj.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(CSDSoundObject);
   });
 });
@@ -190,44 +190,44 @@ describe('Comment', () => {
     expect(reloaded.getText()).toBe('This is important');
   });
 
-  it('loads via registry (async)', async () => {
+  it('loads via registry', () => {
     const obj = new Comment();
     obj.setText('Registry test');
     const xml = obj.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(Comment);
     expect((reloaded as Comment).getText()).toBe('Registry test');
   });
 });
 
 describe('SoundObjectRegistry', () => {
-  it('dispatches GenericScore via registry (async)', async () => {
+  it('dispatches GenericScore via registry', () => {
     const gs = new GenericScore();
     gs.setScoreText('i1 0 2');
     const xml = gs.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(GenericScore);
     expect((reloaded as GenericScore).getScoreText()).toBe('i1 0 2');
   });
 
-  it('dispatches PolyObject via registry (async)', async () => {
+  it('dispatches PolyObject via registry', () => {
     const pObj = new PolyObject();
     pObj.setName('Registry Test');
     const xml = pObj.saveAsXML();
 
-    const reloaded = await loadSoundObjectFromXML(xml);
+    const reloaded = loadSoundObjectFromXML(xml);
     expect(reloaded).toBeInstanceOf(PolyObject);
     expect((reloaded as PolyObject).getName()).toBe('Registry Test');
   });
 
-  it('returns null for unknown type', async () => {
+  it('returns null for unknown type', () => {
     const elem = new Element('soundObject');
     elem.setAttribute('type', 'UnknownType');
     elem.addElement('name').setText('Test');
 
-    const reloaded = await loadSoundObjectFromXML(elem);
+    const reloaded = loadSoundObjectFromXML(elem);
     expect(reloaded).toBeNull();
   });
 });

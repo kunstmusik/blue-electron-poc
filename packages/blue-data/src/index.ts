@@ -85,7 +85,7 @@ export { PythonObject } from './sound-objects/python-object';
 export { JavaScriptObject } from './sound-objects/javascript-object';
 export { CSDSoundObject } from './sound-objects/csd-sound-object';
 export { Comment } from './sound-objects/comment';
-export { loadSoundObjectFromXML, loadSoundObjectFromXMLSync, registerSoundObjectType, initSoundObjectRegistry } from './sound-objects/sound-object-registry';
+export { loadSoundObjectFromXML, registerSoundObjectType } from './sound-objects/sound-object-registry';
 
 // ─── Note Processors ───
 export { NoteProcessorChain } from './note-processors/note-processor-chain';
