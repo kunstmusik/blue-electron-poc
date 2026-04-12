@@ -222,21 +222,21 @@
 
 ### Tests for User Story 4
 
-- [ ] T096 [P] [US4] Round-trip test: pattern layer with grid in `packages/blue-data/tests/integration/pattern-layer-roundtrip.test.ts`
-- [ ] T097 [US4] CSD generation test: pattern-based repetition in `packages/blue-data/tests/integration/pattern-csd-gen.test.ts`
+- [x] T096 [P] [US4] Round-trip test: pattern layer with grid in `packages/blue-data/tests/integration/pattern-layer-roundtrip.test.ts`
+- [x] T097 [US4] CSD generation test: pattern-based repetition in `packages/blue-data/tests/integration/pattern-csd-gen.test.ts`
 
 ### Implementation — Pattern Score Layers
 
-- [ ] T098 [P] [US4] Implement `PatternData` in `packages/blue-data/src/score/patterns/pattern-data.ts` (boolean array, block size 16, auto-resize)
-- [ ] T099 [US4] Implement `PatternLayer` in `packages/blue-data/src/score/patterns/pattern-layer.ts` (Layer, holds SoundObject + PatternData, `generateForCSD()`)
-- [ ] T100 [US4] Implement `PatternsLayerGroup` in `packages/blue-data/src/score/patterns/patterns-layer-group.ts` (LayerGroup<PatternLayer>, patternBeatsLength, NoteProcessorChain)
-- [ ] T101 [US4] Implement `PatternsLayerGroupProvider` in `packages/blue-data/src/score/patterns/patterns-layer-group-provider.ts`
-- [ ] T102 [US4] Wire `LayerGroupProviderManager` to register PatternsLayerGroupProvider
+- [x] T098 [P] [US4] Implement `PatternData` in `packages/blue-data/src/score/patterns/pattern-data.ts` (boolean array, block size 16, auto-resize)
+- [x] T099 [US4] Implement `PatternLayer` in `packages/blue-data/src/score/patterns/pattern-layer.ts` (Layer, holds SoundObject + PatternData, `generateForCSD()`)
+- [x] T100 [US4] Implement `PatternsLayerGroup` in `packages/blue-data/src/score/patterns/patterns-layer-group.ts` (LayerGroup<PatternLayer>, patternBeatsLength, NoteProcessorChain)
+- [x] T101 [US4] Implement `PatternsLayerGroupProvider` in `packages/blue-data/src/score/patterns/patterns-layer-group-provider.ts`
+- [x] T102 [US4] Wire `LayerGroupProviderManager` to register PatternsLayerGroupProvider
 
 ### Implementation — CSD Generation for Patterns
 
-- [ ] T103 [US4] Update `BlueData.toCSD()` to handle PatternsLayerGroup: repeat sound object at pattern positions
-- [ ] T104 [US4] Wire Score's layer group iteration to include pattern layers
+- [x] T103 [US4] Update `BlueData.toCSD()` to handle PatternsLayerGroup: repeat sound object at pattern positions
+- [x] T104 [US4] Wire Score's layer group iteration to include pattern layers
 
 **Checkpoint**: User Story 4 complete — pattern layers load, save, and generate correct CSD.
 

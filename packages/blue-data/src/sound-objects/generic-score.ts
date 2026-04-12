@@ -10,11 +10,44 @@
 import { AbstractSoundObject } from './abstract-sound-object';
 import { SoundObjectException } from './sound-object-exception';
 import { NoteList } from './note-list';
+import { Note } from './note';
 import { TimeContext } from '../time/time-context';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 import { SoundObject, SoundObjectStatic } from './sound-object';
+import { TimeBehavior } from './time-behavior';
+import { TimeDuration } from '../time/time-duration';
+
+/**
+ * Parse Csound score text into a NoteList.
+ */
+function parseScoreText(scoreText: string): NoteList {
+  const notes = new NoteList();
+  const lines = scoreText.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith(';') || trimmed.startsWith('#')) continue;
+
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 3) continue;
+
+    const note = new Note();
+    note.setPField(parts[0], 1); // instrument
+    note.setStartTime(parseFloat(parts[1])); // start time
+    note.setSubjectiveDuration(parseFloat(parts[2])); // duration
+
+    // p4+
+    for (let i = 3; i < parts.length; i++) {
+      note.setPField(parts[i], i + 1);
+    }
+
+    notes.push(note);
+  }
+
+  return notes;
+}
 
 export class GenericScore extends AbstractSoundObject implements SoundObject {
   private _scoreText = '';
@@ -42,11 +75,7 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
     _startTime: number,
     _endTime: number,
   ): NoteList {
-    // GenericScore generates notes by parsing its score text.
-    // For Phase 3, we return an empty NoteList — the actual score text
-    // goes directly into the CSD <CsScore> section, not through NoteList.
-    // This will be handled by Score.toCSD().
-    return new NoteList();
+    return parseScoreText(this._scoreText);
   }
 
   // ─── XML Serialization ───
@@ -108,6 +137,3 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
     return copy;
   }
 }
-
-import { TimeDuration } from '../time/time-duration';
-import { TimeBehavior } from './time-behavior';

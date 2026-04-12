@@ -134,7 +134,13 @@ export class Score extends Array<LayerGroup<Layer>> {
           }
           break;
         case 'patternsLayerGroup':
-          // Pattern layer groups — handled in Phase 6
+          try {
+            const { PatternsLayerGroup } = require('./patterns/patterns-layer-group') as { PatternsLayerGroup: typeof import('./patterns/patterns-layer-group').PatternsLayerGroup };
+            const patternGroup = PatternsLayerGroup.loadFromXML(node);
+            score.push(patternGroup);
+          } catch {
+            console.warn('Failed to load patternsLayerGroup');
+          }
           break;
         case 'scoreObjectLayerGroup':
           // Generic layer group — may contain PolyObject-based layers

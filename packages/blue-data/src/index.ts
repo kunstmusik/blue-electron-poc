@@ -63,6 +63,12 @@ export { FadeType, fadeTypeFromString, fadeTypeToString, fadeTypeToCsound } from
 export { PLAYBACK_INSTRUMENT_ORC } from './score/audio/playback-instrument-orc';
 export { BLUE_FADE_UDO } from './score/audio/blue-fade-udo';
 
+// ─── Pattern Score Layers ───
+export { PatternData } from './score/patterns/pattern-data';
+export { PatternLayer } from './score/patterns/pattern-layer';
+export { PatternsLayerGroup } from './score/patterns/patterns-layer-group';
+export { PatternsLayerGroupProvider } from './score/patterns/patterns-layer-group-provider';
+
 // ─── Sound Objects ───
 export type { SoundObject, SoundObjectStatic } from './sound-objects/sound-object';
 export { AbstractSoundObject } from './sound-objects/abstract-sound-object';

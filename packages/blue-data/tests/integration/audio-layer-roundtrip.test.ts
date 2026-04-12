@@ -182,7 +182,7 @@ describe('AudioLayer', () => {
     const notes = layer.generateForCSD(context, compileData, 0, -1);
 
     expect(notes.length).toBe(1);
-    const note = notes[0];
+    const note = notes.getNote(0);
     expect(note.getPField(4)).toBe('"/audio/test.wav"');
     expect(note.getPField(8)).toBe('0'); // fade-in type: linear = 0
     expect(note.getPField(12)).toBe('1'); // looping = true
@@ -324,7 +324,7 @@ describe('Audio clip CSD note generation', () => {
     const notes = layer.generateForCSD(context, compileData, 0, -1);
 
     expect(notes.length).toBe(1);
-    const note = notes[0];
+    const note = notes.getNote(0);
     expect(note.getStartTime()).toBe(0);
     expect(note.getSubjectiveDuration()).toBe(4);
     expect(note.getPField(4)).toBe('"/path/to/file.wav"');

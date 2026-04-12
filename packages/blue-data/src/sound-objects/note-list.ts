@@ -7,12 +7,28 @@
  */
 import { Note } from './note';
 
-export class NoteList extends Array<Note> {
+export class NoteList {
+  private _notes: Note[] = [];
+
   constructor(initial?: Note[]) {
-    super();
     if (initial) {
-      this.push(...initial);
+      this._notes = [...initial];
     }
+  }
+
+  /** Get the number of notes. */
+  get length(): number {
+    return this._notes.length;
+  }
+
+  /** Get a note by index. */
+  getNote(index: number): Note {
+    return this._notes[index];
+  }
+
+  /** Add a note. */
+  push(note: Note): void {
+    this._notes.push(note);
   }
 
   /**
@@ -20,13 +36,15 @@ export class NoteList extends Array<Note> {
    * Notes are added and the list is re-sorted by start time.
    */
   merge(other: NoteList): void {
-    this.push(...other);
+    for (let i = 0; i < other.length; i++) {
+      this._notes.push(other.getNote(i));
+    }
     this.sortByStartTime();
   }
 
   /** Sort notes by start time (ascending). */
   sortByStartTime(): void {
-    this.sort((a, b) => a.getStartTime() - b.getStartTime());
+    this._notes.sort((a, b) => a.getStartTime() - b.getStartTime());
   }
 
   /**
@@ -34,9 +52,21 @@ export class NoteList extends Array<Note> {
    */
   deepCopy(): NoteList {
     const copy = new NoteList();
-    for (const note of this) {
+    for (const note of this._notes) {
       copy.push(note.deepCopy());
     }
     return copy;
+  }
+
+  /** Iterate over notes (for...of). */
+  *[Symbol.iterator](): Iterator<Note> {
+    for (const note of this._notes) {
+      yield note;
+    }
+  }
+
+  /** Map over notes. */
+  map<T>(fn: (note: Note, index: number) => T): T[] {
+    return this._notes.map(fn);
   }
 }
