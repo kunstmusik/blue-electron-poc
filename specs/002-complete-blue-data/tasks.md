@@ -61,30 +61,30 @@
 
 ### App Shell (FR-207, FR-208, FR-212)
 
-- [ ] T237 [P] [US2] Implement Electron main process in `packages/blue-app/src/main/main.ts`
-- [ ] T238 [P] [US2] Implement preload script in `packages/blue-app/src/preload/preload.ts`
-- [ ] T239 [US2] Implement file open dialog (IPC: renderer → main → BlueData.loadFromString)
-- [ ] T240 [US2] Implement file save / save-as (IPC: BlueData.saveToString → write file)
-- [ ] T241 [US2] Implement recent files list
+- [x] T237 [P] [US2] Implement Electron main process in `packages/blue-app/src/main/main.ts`
+- [x] T238 [P] [US2] Implement preload script in `packages/blue-app/src/preload/preload.ts`
+- [x] T239 [US2] Implement file open dialog (IPC: renderer → main → BlueData.loadFromString)
+- [x] T240 [US2] Implement file save / save-as (IPC: BlueData.saveToString → write file)
+- [x] T241 [US2] Implement recent files list
 
 ### Project Display (FR-208)
 
-- [ ] T242 [US2] Implement renderer app.tsx with project metadata display
-- [ ] T243 [US2] Implement score layer visualization
-- [ ] T244 [US2] Implement instrument/mixer display
+- [x] T242 [US2] Implement renderer app.tsx with project metadata display
+- [x] T243 [US2] Implement score layer visualization
+- [x] T244 [US2] Implement instrument/mixer display
 
 ### Playback Controls (FR-209, FR-210, FR-211)
 
-- [ ] T245 [US2] Implement Play/Stop buttons with IPC to main process
-- [ ] T246 [US2] Implement engine bridge stub (spawn monitor, status reporting)
-- [ ] T247 [US2] Implement playback status indicator (playing, stopped, error)
-- [ ] T248 [US2] Implement engine crash handling (error display, restart option)
+- [x] T245 [US2] Implement Play/Stop buttons with IPC to main process
+- [x] T246 [US2] Implement engine bridge stub (spawn monitor, status reporting)
+- [x] T247 [US2] Implement playback status indicator (playing, stopped, error)
+- [x] T248 [US2] Implement engine crash handling (error display, restart option)
 
 ### Phase 12 Tests (SC-103, SC-104)
 
-- [ ] T249 [US2] Integration test: open `.blue` file → display structure → save
-- [ ] T250 [US2] Integration test: Play/Stop with engine stub
-- [ ] T251 [US2] Integration test: engine crash recovery
+- [x] T249 [US2] Integration test: open `.blue` file → display structure → save
+- [x] T250 [US2] Integration test: Play/Stop with engine stub
+- [x] T251 [US2] Integration test: engine crash recovery
 
 ---
 

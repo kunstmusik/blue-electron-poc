@@ -1,19 +1,21 @@
 {
   "name": "@blue/app",
   "version": "0.0.1",
-  "description": "Electron application for Blue — Phase 1: load .blue file and play via blue-engine",
+  "description": "Electron application for Blue — loads .blue files and plays via blue-engine",
   "main": "dist/main/main.js",
   "scripts": {
-    "build": "tsc",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:preload": "tsc -p tsconfig.preload.json",
+    "build": "pnpm build:main && pnpm build:preload",
     "start": "electron .",
     "test": "echo \"TODO: tests\" && exit 0"
   },
   "dependencies": {
-    "@blue/data": "workspace:*",
-    "@blue/engine-client": "workspace:*"
+    "@blue/data": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.8.0",
-    "electron": "^33.0.0"
+    "electron": "^35.0.0",
+    "@electron/remote": "^2.1.0",
+    "typescript": "^5.8.0"
   }
 }
