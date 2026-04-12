@@ -3,7 +3,7 @@
  * Mirrors the Java NoteProcessor class.
  */
 import { NoteList } from '../sound-objects/note-list';
-import { NoteProcessorException } from './note-processor-exception';
+import { Element } from '../serialization/xml-reader';
 
 export abstract class NoteProcessor {
   /**
@@ -22,16 +22,7 @@ export abstract class NoteProcessor {
   abstract deepCopy(): NoteProcessor;
 
   /**
-   * Process with exception handling.
+   * Save to XML. Subclasses must implement this.
    */
-  processSafe(notes: NoteList): NoteList {
-    try {
-      return this.process(notes);
-    } catch (e: unknown) {
-      throw new NoteProcessorException(
-        `Error in ${this.getDisplayName()}: ${e instanceof Error ? e.message : String(e)}`,
-        e as Error,
-      );
-    }
-  }
+  abstract saveAsXML(): Element;
 }

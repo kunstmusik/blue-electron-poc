@@ -9,51 +9,51 @@
 
 ### SoundObject Types (FR-201, FR-202)
 
-- [ ] T201 [P] [US1] Implement `AudioFile` in `packages/blue-data/src/sound-objects/audio-file.ts`
-- [ ] T202 [P] [US1] Implement `Sound` in `packages/blue-data/src/sound-objects/sound.ts`
-- [ ] T203 [P] [US1] Implement `External` in `packages/blue-data/src/sound-objects/external.ts`
-- [ ] T204 [P] [US1] Implement `LineObject` in `packages/blue-data/src/sound-objects/line-object.ts`
-- [ ] T205 [P] [US1] Implement `ZakLineObject` in `packages/blue-data/src/sound-objects/zak-line-object.ts`
-- [ ] T206 [P] [US1] Implement `PatternObject` in `packages/blue-data/src/sound-objects/pattern-object.ts`
-- [ ] T207 [P] [US1] Implement `PianoRoll` in `packages/blue-data/src/sound-objects/piano-roll.ts`
-- [ ] T208 [P] [US1] Implement `NotationObject` in `packages/blue-data/src/sound-objects/notation-object.ts`
-- [ ] T209 [P] [US1] Implement `JMask` in `packages/blue-data/src/sound-objects/j-mask.ts`
-- [ ] T210 [P] [US1] Implement `Instance` in `packages/blue-data/src/sound-objects/instance.ts`
-- [ ] T211 [P] [US1] Implement `TrackerObject` in `packages/blue-data/src/sound-objects/tracker-object.ts`
-- [ ] T212 [P] [US1] Implement `FrozenSoundObject` in `packages/blue-data/src/sound-objects/frozen-sound-object.ts`
+- [x] T201 [P] [US1] Implement `AudioFile` in `packages/blue-data/src/sound-objects/audio-file.ts`
+- [x] T202 [P] [US1] Implement `Sound` in `packages/blue-data/src/sound-objects/sound.ts`
+- [x] T203 [P] [US1] Implement `External` in `packages/blue-data/src/sound-objects/external.ts`
+- [x] T204 [P] [US1] Implement `LineObject` in `packages/blue-data/src/sound-objects/line-object.ts`
+- [x] T205 [P] [US1] Implement `ZakLineObject` in `packages/blue-data/src/sound-objects/zak-line-object.ts`
+- [x] T206 [P] [US1] Implement `PatternObject` in `packages/blue-data/src/sound-objects/pattern-object.ts`
+- [x] T207 [P] [US1] Implement `PianoRoll` in `packages/blue-data/src/sound-objects/piano-roll.ts`
+- [x] T208 [P] [US1] Implement `NotationObject` in `packages/blue-data/src/sound-objects/notation-object.ts`
+- [x] T209 [P] [US1] Implement `JMask` in `packages/blue-data/src/sound-objects/j-mask.ts`
+- [x] T210 [P] [US1] Implement `Instance` in `packages/blue-data/src/sound-objects/instance.ts`
+- [x] T211 [P] [US1] Implement `TrackerObject` in `packages/blue-data/src/sound-objects/tracker-object.ts`
+- [x] T212 [P] [US1] Implement `FrozenSoundObject` in `packages/blue-data/src/sound-objects/frozen-sound-object.ts`
 
 ### NoteProcessor Types (FR-203)
 
-- [ ] T213 [P] [US1] Implement `RandomAddProcessor` in `packages/blue-data/src/note-processors/`
-- [ ] T214 [P] [US1] Implement `RandomMultiplyProcessor`
-- [ ] T215 [P] [US1] Implement `LineAddProcessor`
-- [ ] T216 [P] [US1] Implement `LineMultiplyProcessor`
-- [ ] T217 [P] [US1] Implement `PchAddProcessor`
-- [ ] T218 [P] [US1] Implement `PchInversionProcessor`
-- [ ] T219 [P] [US1] Implement `InversionProcessor`
-- [ ] T220 [P] [US1] Implement `RetrogradeProcessor`
-- [ ] T221 [P] [US1] Implement `RotateProcessor`
-- [ ] T222 [P] [US1] Implement `TimeWarpProcessor`
-- [ ] T223 [P] [US1] Implement `TuningProcessor`
-- [ ] T224 [P] [US1] Implement `SwitchProcessor`
-- [ ] T225 [P] [US1] Implement `SubListProcessor`
-- [ ] T226 [P] [US1] Implement `EqualsProcessor`
-- [ ] T227 [P] [US1] Implement `ValueTimeMapper`
+- [x] T213 [P] [US1] Implement `RandomAddProcessor` in `packages/blue-data/src/note-processors/`
+- [x] T214 [P] [US1] Implement `RandomMultiplyProcessor`
+- [x] T215 [P] [US1] Implement `LineAddProcessor`
+- [x] T216 [P] [US1] Implement `LineMultiplyProcessor`
+- [x] T217 [P] [US1] Implement `PchAddProcessor`
+- [x] T218 [P] [US1] Implement `PchInversionProcessor`
+- [x] T219 [P] [US1] Implement `InversionProcessor`
+- [x] T220 [P] [US1] Implement `RetrogradeProcessor`
+- [x] T221 [P] [US1] Implement `RotateProcessor`
+- [x] T222 [P] [US1] Implement `TimeWarpProcessor`
+- [x] T223 [P] [US1] Implement `TuningProcessor`
+- [x] T224 [P] [US1] Implement `SwitchProcessor`
+- [x] T225 [P] [US1] Implement `SubListProcessor`
+- [x] T226 [P] [US1] Implement `EqualsProcessor`
+- [x] T227 [P] [US1] Implement `ValueTimeMapper`
 
 ### BlueSynthBuilder (FR-204, FR-205)
 
-- [ ] T228 [P] [US1] Implement `BSBObject` in `packages/blue-data/src/instruments/bsb/`
-- [ ] T229 [P] [US1] Implement `BSBComponent`
-- [ ] T230 [P] [US1] Implement `BSBParameter`
-- [ ] T231 [US1] Implement BSB CSD code generation (template + parameter substitution)
-- [ ] T232 [US1] Register new SoundObjects in SoundObjectRegistry
+- [x] T228 [P] [US1] Implement `BSBObject` in `packages/blue-data/src/instruments/bsb/`
+- [x] T229 [P] [US1] Implement `BSBComponent`
+- [x] T230 [P] [US1] Implement `BSBParameter`
+- [x] T231 [US1] Implement BSB CSD code generation (template + parameter substitution)
+- [x] T232 [US1] Register new SoundObjects in SoundObjectRegistry
 
 ### Phase 11 Tests (FR-206, SC-101, SC-102, SC-107)
 
-- [ ] T233 [P] [US1] Round-trip tests for 12 new SoundObject types
-- [ ] T234 [P] [US1] Round-trip tests for 15 new NoteProcessors
-- [ ] T235 [US1] BSB CSD generation test
-- [ ] T236 [US1] Load real `.blue` files from Java Blue library — no unknown type warnings
+- [x] T233 [P] [US1] Round-trip tests for 12 new SoundObject types
+- [x] T234 [P] [US1] Round-trip tests for 15 new NoteProcessors
+- [x] T235 [US1] BSB CSD generation test
+- [x] T236 [US1] Load real `.blue` files from Java Blue library — no unknown type warnings
 
 ---
 

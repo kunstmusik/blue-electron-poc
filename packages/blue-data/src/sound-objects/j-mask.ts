@@ -1,6 +1,9 @@
 /**
- * Comment — a non-generating SoundObject for score annotations.
- * Mirrors the Java Comment class.
+ * JMask — generates notes using a mask-based random pattern system.
+ * Mirrors the Java JMask class.
+ *
+ * Phase 11: Data preservation (load/save XML). Full JMask generation
+ * requires the Field sub-system.
  */
 import { AbstractSoundObject } from './abstract-sound-object';
 import { NoteList } from './note-list';
@@ -13,24 +16,25 @@ import { TimeBehavior } from './time-behavior';
 import { TimeDuration } from '../time/time-duration';
 import { TimePosition } from '../time/time-position';
 
-export class Comment extends AbstractSoundObject {
-  private _commentText = '';
+export class JMask extends AbstractSoundObject {
+  private _seedUsed = false;
+  private _seed = 0;
 
-  constructor(other?: Comment) {
+  constructor(other?: JMask) {
     super();
     if (other) {
       this.copyFrom(other);
-      this._commentText = other._commentText;
+      this._seedUsed = other._seedUsed;
+      this._seed = other._seed;
     }
   }
 
-  getText(): string { return this._commentText; }
-  setText(text: string): void { this._commentText = text; }
+  isSeedUsed(): boolean { return this._seedUsed; }
+  setSeedUsed(val: boolean): void { this._seedUsed = val; }
 
+  getSeed(): number { return this._seed; }
+  setSeed(val: number): void { this._seed = val; }
 
-  override getTimeBehavior(): TimeBehavior {
-    return TimeBehavior.NOT_SUPPORTED;
-  }
 
   override generateForCSD(
     _context: TimeContext,
@@ -38,24 +42,26 @@ export class Comment extends AbstractSoundObject {
     _startTime: number,
     _endTime: number,
   ): NoteList {
+    console.warn('JMask.generateForCSD skipped: requires Field sub-system');
     return new NoteList();
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = new Element('soundObject');
-    elem.setAttribute('type', 'Comment');
+    elem.setAttribute('type', 'JMask');
     elem.addElement('name').setText(this._name);
     elem.addElement('startTime').setText(this._startTime.getValue().toString());
     elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
     elem.addElement('timeBehavior').setText(this._timeBehavior);
     elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
-    elem.addElement('commentText').setText(this._commentText);
+    elem.addElement('seedUsed').setText(this._seedUsed.toString());
+    elem.addElement('seed').setText(this._seed.toString());
     return elem;
   }
 
-  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): Comment {
-    const obj = new Comment();
-    obj.setName(data.getTextString('name') ?? 'Comment');
+  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): JMask {
+    const obj = new JMask();
+    obj.setName(data.getTextString('name') ?? 'JMask');
 
     const startStr = data.getTextString('startTime');
     if (startStr) obj._startTime = TimePosition.beats(parseFloat(startStr));
@@ -71,13 +77,16 @@ export class Comment extends AbstractSoundObject {
     const color = data.getTextString('backgroundColor');
     if (color) obj._backgroundColor = parseInt(color, 10);
 
-    const text = data.getTextString('commentText');
-    if (text !== null) obj._commentText = text;
+    const seedUsed = data.getTextString('seedUsed');
+    if (seedUsed) obj._seedUsed = seedUsed.toLowerCase() === 'true';
+
+    const seed = data.getTextString('seed');
+    if (seed) obj._seed = parseInt(seed, 10);
 
     return obj;
   }
 
   override deepCopy(): SoundObject {
-    return new Comment(this);
+    return new JMask(this);
   }
 }

@@ -1,0 +1,128 @@
+/**
+ * Instance — references a SoundObject from the SoundObjectLibrary.
+ * Mirrors the Java Instance class.
+ *
+ * Delegates note generation to the referenced SoundObject, then applies
+ * its own note processor chain and time behavior.
+ */
+import { AbstractSoundObject } from './abstract-sound-object';
+import { NoteList } from './note-list';
+import { TimeContext } from '../time/time-context';
+import { CompileData } from '../compile-data';
+import { Element } from '../serialization/xml-reader';
+import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
+import { SoundObject } from './sound-object';
+import { TimeBehavior } from './time-behavior';
+import { TimeDuration } from '../time/time-duration';
+import { TimePosition } from '../time/time-position';
+import { setScoreStart } from '../utilities/score';
+
+export class Instance extends AbstractSoundObject {
+  private _soundObject: SoundObject | null = null;
+  private _libraryId = '';
+
+  constructor(other?: Instance) {
+    super();
+    if (other) {
+      this.copyFrom(other);
+      this._libraryId = other._libraryId;
+      // Note: _soundObject reference is shared (same as Java copy constructor)
+      this._soundObject = other._soundObject;
+    }
+  }
+
+  getSoundObject(): SoundObject | null { return this._soundObject; }
+  setSoundObject(sObj: SoundObject): void {
+    this._soundObject = sObj;
+    this.setName(sObj.getName());
+    this.setBackgroundColor(sObj.getBackgroundColor());
+  }
+
+  getLibraryId(): string { return this._libraryId; }
+  setLibraryId(id: string): void { this._libraryId = id; }
+
+
+  override generateForCSD(
+    context: TimeContext,
+    compileData: CompileData,
+    startTime: number,
+    endTime: number,
+  ): NoteList {
+    if (!this._soundObject) {
+      return new NoteList();
+    }
+
+    const nl = this._soundObject.generateForCSD(context, compileData, startTime, endTime);
+
+    // Apply note processor chain
+    const npc = this.getNoteProcessorChain();
+    npc.apply(nl);
+
+    // Apply time behavior
+    const duration = this._subjectiveDuration.toBeats(context);
+    const rpBeats = this._repeatPoint ? this._repeatPoint.toBeats(context) : -1;
+    // Note: full time behavior application needs ScoreUtilities — simplified for Phase 11
+    setScoreStart(nl, this._startTime.toBeats(context));
+
+    return nl;
+  }
+
+  override saveAsXML(objRefMap?: ObjRefSaveMap): Element {
+    const elem = new Element('soundObject');
+    elem.setAttribute('type', 'Instance');
+    elem.addElement('name').setText(this._name);
+    elem.addElement('startTime').setText(this._startTime.getValue().toString());
+    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
+    elem.addElement('timeBehavior').setText(this._timeBehavior);
+    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+
+    const refElem = elem.addElement('soundObjectReference');
+    if (this._soundObject && objRefMap) {
+      refElem.setAttribute('soundObjectLibraryID', objRefMap.getId(this._soundObject));
+    } else {
+      refElem.setAttribute('soundObjectLibraryID', this._libraryId || 'null');
+    }
+
+    return elem;
+  }
+
+  static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): Instance {
+    const obj = new Instance();
+    obj.setName(data.getTextString('name') ?? 'Instance');
+
+    const startStr = data.getTextString('startTime');
+    if (startStr) obj._startTime = TimePosition.beats(parseFloat(startStr));
+
+    const dur = data.getTextString('subjectiveDuration');
+    if (dur) obj._subjectiveDuration = TimeDuration.beats(parseFloat(dur));
+
+    const tb = data.getTextString('timeBehavior');
+    if (tb && Object.values(TimeBehavior).includes(tb as TimeBehavior)) {
+      obj._timeBehavior = tb as TimeBehavior;
+    }
+
+    const color = data.getTextString('backgroundColor');
+    if (color) obj._backgroundColor = parseInt(color, 10);
+
+    const refNode = data.getElement('soundObjectReference');
+    if (refNode) {
+      const id = refNode.getAttribute('soundObjectLibraryID') ?? 'null';
+      if (id === 'null') {
+        throw new Error('SoundObject Instance points to a library item that no longer exists');
+      }
+      if (objRefMap && objRefMap.has(id)) {
+        obj._soundObject = objRefMap.get(id) as SoundObject;
+      } else {
+        obj._libraryId = id;
+        // Will be resolved in second pass by caller
+      }
+    }
+
+    return obj;
+  }
+
+  override deepCopy(): SoundObject {
+    const copy = new Instance(this);
+    return copy;
+  }
+}

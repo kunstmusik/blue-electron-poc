@@ -3,9 +3,12 @@
  * Mirrors the Java NoteProcessorException class.
  */
 export class NoteProcessorException extends Error {
-  constructor(message: string, cause?: Error) {
+  public readonly pfield: number;
+
+  constructor(message: string, pfield: number, cause?: Error) {
     super(message);
     this.name = 'NoteProcessorException';
+    this.pfield = pfield;
     if (cause) this.cause = cause;
   }
 }

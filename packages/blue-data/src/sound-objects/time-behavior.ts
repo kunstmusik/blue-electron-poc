@@ -10,4 +10,6 @@ export enum TimeBehavior {
   REPEAT = 'REPEAT',
   /** Scale the notes proportionally to the container's duration. */
   SCALE = 'SCALE',
+  /** Time behavior is not supported for this SoundObject type. */
+  NOT_SUPPORTED = 'NOT_SUPPORTED',
 }

@@ -1,6 +1,8 @@
 /**
- * Comment — a non-generating SoundObject for score annotations.
- * Mirrors the Java Comment class.
+ * ZakLineObject — generates notes using Zak memory space.
+ * Mirrors the Java ZakLineObject class.
+ *
+ * Phase 11: Data preservation (load/save XML).
  */
 import { AbstractSoundObject } from './abstract-sound-object';
 import { NoteList } from './note-list';
@@ -13,24 +15,20 @@ import { TimeBehavior } from './time-behavior';
 import { TimeDuration } from '../time/time-duration';
 import { TimePosition } from '../time/time-position';
 
-export class Comment extends AbstractSoundObject {
-  private _commentText = '';
+export class ZakLineObject extends AbstractSoundObject {
+  private _zakSpace = 0;
 
-  constructor(other?: Comment) {
+  constructor(other?: ZakLineObject) {
     super();
     if (other) {
       this.copyFrom(other);
-      this._commentText = other._commentText;
+      this._zakSpace = other._zakSpace;
     }
   }
 
-  getText(): string { return this._commentText; }
-  setText(text: string): void { this._commentText = text; }
+  getZakSpace(): number { return this._zakSpace; }
+  setZakSpace(space: number): void { this._zakSpace = space; }
 
-
-  override getTimeBehavior(): TimeBehavior {
-    return TimeBehavior.NOT_SUPPORTED;
-  }
 
   override generateForCSD(
     _context: TimeContext,
@@ -38,24 +36,25 @@ export class Comment extends AbstractSoundObject {
     _startTime: number,
     _endTime: number,
   ): NoteList {
+    console.warn('ZakLineObject.generateForCSD skipped: requires Zak memory system');
     return new NoteList();
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = new Element('soundObject');
-    elem.setAttribute('type', 'Comment');
+    elem.setAttribute('type', 'ZakLineObject');
     elem.addElement('name').setText(this._name);
     elem.addElement('startTime').setText(this._startTime.getValue().toString());
     elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
     elem.addElement('timeBehavior').setText(this._timeBehavior);
     elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
-    elem.addElement('commentText').setText(this._commentText);
+    elem.addElement('zakSpace').setText(this._zakSpace.toString());
     return elem;
   }
 
-  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): Comment {
-    const obj = new Comment();
-    obj.setName(data.getTextString('name') ?? 'Comment');
+  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): ZakLineObject {
+    const obj = new ZakLineObject();
+    obj.setName(data.getTextString('name') ?? 'ZakLineObject');
 
     const startStr = data.getTextString('startTime');
     if (startStr) obj._startTime = TimePosition.beats(parseFloat(startStr));
@@ -71,13 +70,13 @@ export class Comment extends AbstractSoundObject {
     const color = data.getTextString('backgroundColor');
     if (color) obj._backgroundColor = parseInt(color, 10);
 
-    const text = data.getTextString('commentText');
-    if (text !== null) obj._commentText = text;
+    const zak = data.getTextString('zakSpace');
+    if (zak) obj._zakSpace = parseInt(zak, 10);
 
     return obj;
   }
 
   override deepCopy(): SoundObject {
-    return new Comment(this);
+    return new ZakLineObject(this);
   }
 }

@@ -71,6 +71,7 @@ export { PatternsLayerGroup } from './score/patterns/patterns-layer-group';
 export { PatternsLayerGroupProvider } from './score/patterns/patterns-layer-group-provider';
 
 // ─── Sound Objects ───
+// ─── Sound Objects ───
 export type { SoundObject, SoundObjectStatic } from './sound-objects/sound-object';
 export { AbstractSoundObject } from './sound-objects/abstract-sound-object';
 export { TimeBehavior } from './sound-objects/time-behavior';
@@ -86,6 +87,18 @@ export { PythonObject } from './sound-objects/python-object';
 export { JavaScriptObject } from './sound-objects/javascript-object';
 export { CSDSoundObject } from './sound-objects/csd-sound-object';
 export { Comment } from './sound-objects/comment';
+export { AudioFile } from './sound-objects/audio-file';
+export { Sound } from './sound-objects/sound';
+export { External } from './sound-objects/external';
+export { Instance } from './sound-objects/instance';
+export { LineObject } from './sound-objects/line-object';
+export { ZakLineObject } from './sound-objects/zak-line-object';
+export { PatternObject } from './sound-objects/pattern-object';
+export { PianoRoll } from './sound-objects/piano-roll';
+export { JMask } from './sound-objects/j-mask';
+export { TrackerObject } from './sound-objects/tracker-object';
+export { NotationObject } from './sound-objects/notation-object';
+export { FrozenSoundObject } from './sound-objects/frozen-sound-object';
 export { loadSoundObjectFromXML, registerSoundObjectType } from './sound-objects/sound-object-registry';
 
 // ─── Note Processors ───
@@ -96,6 +109,21 @@ export { NoteProcessorException } from './note-processors/note-processor-excepti
 export { AddProcessor } from './note-processors/add-processor';
 export { MultiplyProcessor } from './note-processors/multiply-processor';
 export { Code } from './note-processors/code';
+export { RandomAddProcessor } from './note-processors/random-add-processor';
+export { RandomMultiplyProcessor } from './note-processors/random-multiply-processor';
+export { LineAddProcessor } from './note-processors/line-add-processor';
+export { LineMultiplyProcessor } from './note-processors/line-multiply-processor';
+export { PchAddProcessor } from './note-processors/pch-add-processor';
+export { PchInversionProcessor } from './note-processors/pch-inversion-processor';
+export { InversionProcessor } from './note-processors/inversion-processor';
+export { RetrogradeProcessor } from './note-processors/retrograde-processor';
+export { RotateProcessor } from './note-processors/rotate-processor';
+export { TimeWarpProcessor } from './note-processors/time-warp-processor';
+export { TuningProcessor } from './note-processors/tuning-processor';
+export { SwitchProcessor } from './note-processors/switch-processor';
+export { SubListProcessor } from './note-processors/sublist-processor';
+export { EqualsProcessor } from './note-processors/equals-processor';
+export { ValueTimeMapper } from './note-processors/value-time-mapper';
 
 // ─── Mixer ───
 export { Mixer } from './mixer/mixer';
