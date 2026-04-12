@@ -23,6 +23,41 @@ import { LayerGroupDataEvent, LayerGroupDataEventType } from '../score/layers/la
 import { LayerGroupListener } from '../score/layers/layer-group-listener';
 import { ScoreObjectListener, ScoreObjectEvent, ScoreEventType } from '../score/score-object-event';
 import { Layer } from '../score/layers/layer';
+import { GenericScore } from './generic-score';
+
+/**
+ * Load a SoundObject from XML by dispatching based on type attribute.
+ * For Phase 8: supports GenericScore and PolyObject directly.
+ * Other types use the registry (async).
+ */
+function loadSoundObjectFromXMLSync(
+  data: Element,
+  objRefMap: ObjRefLoadMap | undefined,
+): SoundObject | null {
+  const type = data.getAttribute('type');
+
+  switch (type) {
+    case 'GenericScore':
+      return GenericScore.loadFromXML(data);
+    case 'PolyObject':
+      return PolyObject.loadFromXML(data, objRefMap);
+    case 'Comment':
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return (require('./comment') as { Comment: { loadFromXML: typeof GenericScore.loadFromXML } }).Comment.loadFromXML(data);
+    case 'CSDSoundObject':
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return (require('./csd-sound-object') as { CSDSoundObject: { loadFromXML: typeof GenericScore.loadFromXML } }).CSDSoundObject.loadFromXML(data);
+    case 'PythonObject':
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return (require('./python-object') as { PythonObject: { loadFromXML: typeof GenericScore.loadFromXML } }).PythonObject.loadFromXML(data);
+    case 'JavaScriptObject':
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      return (require('./javascript-object') as { JavaScriptObject: { loadFromXML: typeof GenericScore.loadFromXML } }).JavaScriptObject.loadFromXML(data);
+    default:
+      console.warn(`Unknown SoundObject type: ${type}`);
+      return null;
+  }
+}
 
 export class PolyObject extends Array<SoundLayer>
   implements SoundObject, ScoreObjectLayerGroup<SoundLayer>, AutomatableLayerGroup {
@@ -220,7 +255,7 @@ export class PolyObject extends Array<SoundLayer>
         while (sObjNodes.hasMoreElements()) {
           const sObjNode = sObjNodes.next();
           if (sObjNode.getName() === 'soundObject') {
-            const sObj = loadSoundObjectFromXML(sObjNode, _objRefMap);
+            const sObj = loadSoundObjectFromXMLSync(sObjNode, _objRefMap);
             if (sObj) layer.push(sObj);
           }
         }
@@ -248,29 +283,5 @@ export class PolyObject extends Array<SoundLayer>
 
   deepCopyLG(): PolyObject {
     return this.deepCopy() as PolyObject;
-  }
-}
-
-import { GenericScore } from './generic-score';
-
-/**
- * Load a SoundObject from XML by dispatching based on type attribute.
- */
-function loadSoundObjectFromXML(
-  data: Element,
-  _objRefMap: ObjRefLoadMap | undefined,
-): SoundObject | null {
-  const type = data.getAttribute('type');
-
-  switch (type) {
-    case 'GenericScore':
-      return GenericScore.loadFromXML(data);
-    case 'PolyObject':
-      return PolyObject.loadFromXML(data, _objRefMap);
-    // Add more types as they are implemented
-    default:
-      // Unknown type — return null (preserved as opaque XML in parent)
-      console.warn(`Unknown SoundObject type: ${type}`);
-      return null;
   }
 }

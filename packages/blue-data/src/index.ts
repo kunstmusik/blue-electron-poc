@@ -81,6 +81,11 @@ export { PolyObject } from './sound-objects/poly-object';
 export { SoundLayer } from './sound-objects/sound-layer';
 export { PolyObjectLayerGroupProvider } from './sound-objects/poly-object-layer-group-provider';
 export { SoundObjectLibrary } from './sound-objects/sound-object-library';
+export { PythonObject } from './sound-objects/python-object';
+export { JavaScriptObject } from './sound-objects/javascript-object';
+export { CSDSoundObject } from './sound-objects/csd-sound-object';
+export { Comment } from './sound-objects/comment';
+export { loadSoundObjectFromXML, loadSoundObjectFromXMLSync, registerSoundObjectType, initSoundObjectRegistry } from './sound-objects/sound-object-registry';
 
 // ─── Note Processors ───
 export { NoteProcessorChain } from './note-processors/note-processor-chain';

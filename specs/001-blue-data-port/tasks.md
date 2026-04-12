@@ -270,22 +270,22 @@
 
 ### Tests for User Story 6
 
-- [ ] T109 [P] [US6] Round-trip test: PythonObject preserved in `packages/blue-data/tests/integration/python-object-roundtrip.test.ts`
-- [ ] T110 [US6] Node.js CSD generation test: Java subprocess generates notes in `packages/blue-data/tests/integration/python-csd-gen.test.ts` (skip if Java not available)
+- [x] T109 [P] [US6] Round-trip test: PythonObject preserved in `packages/blue-data/tests/integration/python-object-roundtrip.test.ts`
+- [x] T110 [US6] Node.js CSD generation test: Java subprocess generates notes in `packages/blue-data/tests/integration/python-csd-gen.test.ts` (skip if Java not available)
 
 ### Implementation — JVM-Dependent SoundObjects
 
-- [ ] T111 [P] [US6] Implement `PythonObject` in `packages/blue-data/src/sound-objects/python-object.ts` (data: `pythonCode`, load/save XML; generation: skip in browser, Java subprocess in Node)
-- [ ] T112 [US6] Implement `JavaScriptObject` in `packages/blue-data/src/sound-objects/javascript-object.ts` (data: `javaScriptCode`; generation: `vm.runInNewContext()` in Node, `new Function()` in browser)
-- [ ] T113 [US6] Implement Java subprocess protocol for PythonObject/ClojureObject CSD generation (JSON in → note text out)
-- [ ] T114 [US6] Implement `ClojureProjectData` and `ClojureLibraryEntry` preservation types in `packages/blue-data/src/plugins/` (opaque XML preservation)
+- [x] T111 [P] [US6] Implement `PythonObject` in `packages/blue-data/src/sound-objects/python-object.ts` (data: `pythonCode`, load/save XML; generation: skip in browser, Java subprocess in Node)
+- [x] T112 [US6] Implement `JavaScriptObject` in `packages/blue-data/src/sound-objects/javascript-object.ts` (data: `javaScriptCode`; generation: `vm.runInNewContext()` in Node, `new Function()` in browser)
+- [x] T113 [US6] Implement Java subprocess protocol for PythonObject/ClojureObject CSD generation (JSON in → note text out)
+- [x] T114 [US6] Implement `ClojureProjectData` and `ClojureLibraryEntry` preservation types in `packages/blue-data/src/plugins/` (opaque XML preservation)
 
 ### Implementation — Remaining SoundObject Types
 
-- [ ] T115 [P] [US6] Implement remaining SoundObject types: `CSDSoundObject`, `AudioFile`, `Sound`, `Comment`, `External`, `LineObject`, `ZakLineObject`, `PatternObject`, `PianoRoll`, `NotationObject`, `JMask`, `Instance`, `TrackerObject`, `FrozenSoundObject` (each: load/save XML, `generateForCSD()`)
-- [ ] T116 [US6] Implement `ObjectBuilder` and `ObjectBuilderRegistry` in `packages/blue-data/src/sound-objects/`
-- [ ] T117 [US6] Implement `SoundObjectLibrary` in `packages/blue-data/src/sound-objects/sound-object-library.ts`
-- [ ] T118 [US6] Register all SoundObject types in a central registry for XML deserialization dispatch
+- [x] T115 [P] [US6] Implement remaining SoundObject types: `CSDSoundObject`, `AudioFile`, `Sound`, `Comment`, `External`, `LineObject`, `ZakLineObject`, `PatternObject`, `PianoRoll`, `NotationObject`, `JMask`, `Instance`, `TrackerObject`, `FrozenSoundObject` (each: load/save XML, `generateForCSD()`)
+- [x] T116 [US6] Implement `ObjectBuilder` and `ObjectBuilderRegistry` in `packages/blue-data/src/sound-objects/`
+- [x] T117 [US6] Implement `SoundObjectLibrary` in `packages/blue-data/src/sound-objects/sound-object-library.ts`
+- [x] T118 [US6] Register all SoundObject types in a central registry for XML deserialization dispatch
 
 **Checkpoint**: User Story 6 complete — all SoundObject types preserved on load/save, Python/Clojure generation works in Node.
 
