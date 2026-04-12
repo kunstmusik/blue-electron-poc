@@ -356,13 +356,13 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T151 [P] Comprehensive documentation: JSDoc comments on all public API types
-- [ ] T152 Full round-trip test suite: load all example `.blue` files from Java Blue, save, reload, verify
-- [ ] T153 [P] Performance benchmarks: measure load time for 5MB `.blue` file, CSD generation time
-- [ ] T154 Electron app: file save dialog, error handling, engine crash recovery
-- [ ] T155 [P] Quickstart guide in `packages/blue-data/README.md`
-- [ ] T156 Lint pass: enforce no Node.js built-ins in `blue-data`
-- [ ] T157 CI setup: build + test on push
+- [x] T151 [P] Comprehensive documentation: JSDoc comments on all public API types
+- [x] T152 Full round-trip test suite: load all example `.blue` files from Java Blue, save, reload, verify
+- [x] T153 [P] Performance benchmarks: measure load time for 5MB `.blue` file, CSD generation time
+- [x] T154 Electron app: file save dialog, error handling, engine crash recovery
+- [x] T155 [P] Quickstart guide in `packages/blue-data/README.md`
+- [x] T156 Lint pass: enforce no Node.js built-ins in `blue-data`
+- [x] T157 CI setup: build + test on push
 
 ---
 
