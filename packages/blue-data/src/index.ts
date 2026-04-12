@@ -53,6 +53,16 @@ export { LayerGroupDataEvent, LayerGroupDataEventType } from './score/layers/lay
 export type { LayerGroupListener } from './score/layers/layer-group-listener';
 export type { DeepCopyableLG } from './score/layers/deep-copyable-lg';
 
+// ─── Audio Score Layers ───
+export { AudioClip } from './score/audio/audio-clip';
+export { AudioLayer } from './score/audio/audio-layer';
+export { AudioLayerGroup } from './score/audio/audio-layer-group';
+export { AudioLayerGroupProvider } from './score/audio/audio-layer-group-provider';
+export type { AudioLayerListener } from './score/audio/audio-layer-listener';
+export { FadeType, fadeTypeFromString, fadeTypeToString, fadeTypeToCsound } from './score/audio/fade-type';
+export { PLAYBACK_INSTRUMENT_ORC } from './score/audio/playback-instrument-orc';
+export { BLUE_FADE_UDO } from './score/audio/blue-fade-udo';
+
 // ─── Sound Objects ───
 export type { SoundObject, SoundObjectStatic } from './sound-objects/sound-object';
 export { AbstractSoundObject } from './sound-objects/abstract-sound-object';

@@ -124,12 +124,17 @@ export class Score extends Array<LayerGroup<Layer>> {
           // For Phase 3: skip — upgrade system handles this
           break;
         case 'audioLayerGroup':
-          // Audio layer groups are registered by the audio module
-          // For Phase 3, skip — handled in Phase 5
+          // Audio layer groups — loaded by AudioLayerGroupProvider
+          try {
+            const { AudioLayerGroup } = require('./audio/audio-layer-group') as { AudioLayerGroup: typeof import('./audio/audio-layer-group').AudioLayerGroup };
+            const audioGroup = AudioLayerGroup.loadFromXML(node);
+            score.push(audioGroup);
+          } catch {
+            console.warn('Failed to load audioLayerGroup');
+          }
           break;
         case 'patternsLayerGroup':
-          // Pattern layer groups are registered by the patterns module
-          // For Phase 3, skip — handled in Phase 6
+          // Pattern layer groups — handled in Phase 6
           break;
         case 'scoreObjectLayerGroup':
           // Generic layer group — may contain PolyObject-based layers
