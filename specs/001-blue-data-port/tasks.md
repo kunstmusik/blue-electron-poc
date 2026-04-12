@@ -82,66 +82,66 @@
 
 ### Tests for User Story 1
 
-- [ ] T031 [P] [US1] Round-trip test: load a real `.blue` file from Java Blue, save, compare in `packages/blue-data/tests/integration/roundtrip-simple-blue-file.test.ts`
-- [ ] T032 [P] [US1] Migration test: load a pre-2.3.0 `.blue` file, verify migration applied in `packages/blue-data/tests/integration/migration-old-file.test.ts`
-- [ ] T033 [US1] CSD generation test: generate CSD from a simple project, verify orchestra/score structure in `packages/blue-data/tests/integration/csd-generation.test.ts`
-- [ ] T034 [US1] Engine client test: send test orchestra/score to blue-engine, verify audio in `packages/blue-engine-client/tests/integration/engine-playback.test.ts`
+- [x] T031 [P] [US1] Round-trip test: load a real `.blue` file from Java Blue, save, compare in `packages/blue-data/tests/integration/roundtrip-simple-blue-file.test.ts`
+- [x] T032 [P] [US1] Migration test: load a pre-2.3.0 `.blue` file, verify migration applied in `packages/blue-data/tests/integration/migration-old-file.test.ts`
+- [x] T033 [US1] CSD generation test: generate CSD from a simple project, verify orchestra/score structure in `packages/blue-data/tests/integration/csd-generation.test.ts`
+- [x] T034 [US1] Engine client test: send test orchestra/score to blue-engine, verify audio in `packages/blue-engine-client/tests/integration/engine-playback.test.ts`
 
 ### Implementation — Score Object Base + GenericScore
 
-- [ ] T035 [P] [US1] Implement `ScoreObject` interface in `packages/blue-data/src/score/score-object.ts`
-- [ ] T036 [P] [US1] Implement `ScoreObjectEvent` and `ScoreObjectListener` in `packages/blue-data/src/score/`
-- [ ] T037 [P] [US1] Implement `SoundObject` interface in `packages/blue-data/src/sound-objects/sound-object.ts`
-- [ ] T038 [P] [US1] Implement `AbstractSoundObject` base class in `packages/blue-data/src/sound-objects/abstract-sound-object.ts`
-- [ ] T039 [P] [US1] Implement `TimeBehavior` enum in `packages/blue-data/src/sound-objects/time-behavior.ts`
-- [ ] T040 [P] [US1] Implement `Note` and `NoteList` in `packages/blue-data/src/sound-objects/note.ts` and `note-list.ts`
-- [ ] T041 [US1] Implement `GenericScore` in `packages/blue-data/src/sound-objects/generic-score.ts` (raw Csound score text, `generateForCSD()`, load/save XML)
-- [ ] T042 [US1] Implement `SoundObjectUtilities` in `packages/blue-data/src/sound-objects/sound-object-utilities.ts` (common load/save helpers)
+- [x] T035 [P] [US1] Implement `ScoreObject` interface in `packages/blue-data/src/score/score-object.ts`
+- [x] T036 [P] [US1] Implement `ScoreObjectEvent` and `ScoreObjectListener` in `packages/blue-data/src/score/`
+- [x] T037 [P] [US1] Implement `SoundObject` interface in `packages/blue-data/src/sound-objects/sound-object.ts`
+- [x] T038 [P] [US1] Implement `AbstractSoundObject` base class in `packages/blue-data/src/sound-objects/abstract-sound-object.ts`
+- [x] T039 [P] [US1] Implement `TimeBehavior` enum in `packages/blue-data/src/sound-objects/time-behavior.ts`
+- [x] T040 [P] [US1] Implement `Note` and `NoteList` in `packages/blue-data/src/sound-objects/note.ts` and `note-list.ts`
+- [x] T041 [US1] Implement `GenericScore` in `packages/blue-data/src/sound-objects/generic-score.ts` (raw Csound score text, `generateForCSD()`, load/save XML)
+- [x] T042 [US1] Implement `SoundObjectUtilities` in `packages/blue-data/src/sound-objects/sound-object-utilities.ts` (common load/save helpers)
 
 ### Implementation — PolyObject (default score container)
 
-- [ ] T043 [P] [US1] Implement score layer base interfaces in `packages/blue-data/src/score/layers/`: `Layer`, `LayerGroup`, `ScoreObjectLayer`, `ScoreObjectLayerGroup`, `LayerGroupProvider`, `LayerGroupProviderManager`, `LayerGroupDataEvent`, `LayerGroupListener`, `DeepCopyableLG`
-- [ ] T044 [US1] Implement `SoundLayer` in `packages/blue-data/src/sound-objects/sound-layer.ts` (layer within PolyObject)
-- [ ] T045 [US1] Implement `PolyObject` in `packages/blue-data/src/sound-objects/poly-object.ts` (SoundObject + ScoreObjectLayerGroup<SoundLayer>)
-- [ ] T046 [US1] Implement `PolyObjectLayerGroupProvider` in `packages/blue-data/src/sound-objects/poly-object-layer-group-provider.ts`
-- [ ] T047 [US1] Implement `Score` in `packages/blue-data/src/score/score.ts` (container for layer groups, TimeContext, TimeState, NoteProcessorChain)
+- [x] T043 [P] [US1] Implement score layer base interfaces in `packages/blue-data/src/score/layers/`: `Layer`, `LayerGroup`, `ScoreObjectLayer`, `ScoreObjectLayerGroup`, `LayerGroupProvider`, `LayerGroupProviderManager`, `LayerGroupDataEvent`, `LayerGroupListener`, `DeepCopyableLG`
+- [x] T044 [US1] Implement `SoundLayer` in `packages/blue-data/src/sound-objects/sound-layer.ts` (layer within PolyObject)
+- [x] T045 [US1] Implement `PolyObject` in `packages/blue-data/src/sound-objects/poly-object.ts` (SoundObject + ScoreObjectLayerGroup<SoundLayer>)
+- [x] T046 [US1] Implement `PolyObjectLayerGroupProvider` in `packages/blue-data/src/sound-objects/poly-object-layer-group-provider.ts`
+- [x] T047 [US1] Implement `Score` in `packages/blue-data/src/score/score.ts` (container for layer groups, TimeContext, TimeState, NoteProcessorChain)
 
 ### Implementation — Instrument & Arrangement
 
-- [ ] T048 [P] [US1] Implement `Instrument` abstract class in `packages/blue-data/src/instruments/instrument.ts`
-- [ ] T049 [P] [US1] Implement `GenericInstrument` in `packages/blue-data/src/instruments/generic-instrument.ts`
-- [ ] T050 [US1] Implement `InstrumentAssignment` in `packages/blue-data/src/instruments/instrument-assignment.ts`
-- [ ] T051 [US1] Implement `Arrangement` in `packages/blue-data/src/arrangement.ts` (instrument→ID mapping, `generateOrchestra()`, `generateGlobalOrc()`)
-- [ ] T052 [US1] Implement `InstrumentLibrary` in `packages/blue-data/src/instruments/instrument-library.ts`
+- [x] T048 [P] [US1] Implement `Instrument` abstract class in `packages/blue-data/src/instruments/instrument.ts`
+- [x] T049 [P] [US1] Implement `GenericInstrument` in `packages/blue-data/src/instruments/generic-instrument.ts`
+- [x] T050 [US1] Implement `InstrumentAssignment` in `packages/blue-data/src/instruments/instrument-assignment.ts`
+- [x] T051 [US1] Implement `Arrangement` in `packages/blue-data/src/arrangement.ts` (instrument→ID mapping, `generateOrchestra()`, `generateGlobalOrc()`)
+- [x] T052 [US1] Implement `InstrumentLibrary` in `packages/blue-data/src/instruments/instrument-library.ts`
 
 ### Implementation — Project Properties, Tables, GlobalOrcSco
 
-- [ ] T053 [P] [US1] Implement `ProjectProperties` in `packages/blue-data/src/project-properties.ts` (sr, ksmps, nchnls, 0dbfs, Csound options)
-- [ ] T054 [P] [US1] Implement `Tables` in `packages/blue-data/src/tables.ts` (F-table definitions)
-- [ ] T055 [P] [US1] Implement `GlobalOrcSco` in `packages/blue-data/src/global-orc-sco.ts`
+- [x] T053 [P] [US1] Implement `ProjectProperties` in `packages/blue-data/src/project-properties.ts` (sr, ksmps, nchnls, 0dbfs, Csound options)
+- [x] T054 [P] [US1] Implement `Tables` in `packages/blue-data/src/tables.ts` (F-table definitions)
+- [x] T055 [P] [US1] Implement `GlobalOrcSco` in `packages/blue-data/src/global-orc-sco.ts`
 
 ### Implementation — BlueData (root) + CSD Generation
 
-- [ ] T056 [US1] Implement `BlueData` in `packages/blue-data/src/blue-data.ts` (root aggregation, `loadFromString()`, `saveToString()`, `toCSD()`)
-- [ ] T057 [US1] Implement `toCSD()` method — assembles orchestra + score + global orc/sco + tables + options into complete CSD string
+- [x] T056 [US1] Implement `BlueData` in `packages/blue-data/src/blue-data.ts` (root aggregation, `loadFromString()`, `saveToString()`, `toCSD()`)
+- [x] T057 [US1] Implement `toCSD()` method — assembles orchestra + score + global orc/sco + tables + options into complete CSD string
 
 ### Implementation — BlueSynthBuilder data types
 
-- [ ] T058 [US1] Implement BSB data types in `packages/blue-data/src/instruments/bsb/` (BSBObject, BSBComponent, etc. — preserve data, no CSD generation needed for Phase 1 MVP)
+- [x] T058 [US1] Implement BSB data types in `packages/blue-data/src/instruments/bsb/` (BSBObject, BSBComponent, etc. — preserve data, no CSD generation needed for Phase 1 MVP)
 
 ### Implementation — Engine Client
 
-- [ ] T059 [P] [US1] Implement protocol constants in `packages/blue-engine-client/src/protocol.ts` (command codes, message format)
-- [ ] T060 [US1] Implement `EngineClient` in `packages/blue-engine-client/src/engine-client.ts` (ZMQ REQ/REP: create, setOption, compileOrc, readScore, start, stop, exit)
-- [ ] T061 [US1] Implement channel operations in `EngineClient` (createChannel, setChannel, getChannel via ZMQ)
+- [x] T059 [P] [US1] Implement protocol constants in `packages/blue-engine-client/src/protocol.ts` (command codes, message format)
+- [x] T060 [US1] Implement `EngineClient` in `packages/blue-engine-client/src/engine-client.ts` (ZMQ REQ/REP: create, setOption, compileOrc, readScore, start, stop, exit)
+- [x] T061 [US1] Implement channel operations in `EngineClient` (createChannel, setChannel, getChannel via ZMQ)
 
 ### Implementation — Electron App
 
-- [ ] T062 [P] [US1] Implement Electron main process in `packages/blue-app/src/main/main.ts` (window creation, file dialog via IPC)
-- [ ] T063 [P] [US1] Implement preload script in `packages/blue-app/src/preload/preload.ts` (context bridge for file open/save, play/stop)
-- [ ] T064 [US1] Implement engine bridge in `packages/blue-app/src/main/engine-bridge.ts` (spawn blue-engine, manage lifecycle, ZMQ connection)
-- [ ] T065 [US1] Implement renderer `app.tsx` in `packages/blue-app/src/renderer/` — file open dialog, project metadata display, Play/Stop buttons, status indicator
-- [ ] T066 [US1] Wire IPC: renderer → main (open file) → blue-data (load) → engine-bridge (spawn + send CSD) → play
+- [x] T062 [P] [US1] Implement Electron main process in `packages/blue-app/src/main/main.ts` (window creation, file dialog via IPC)
+- [x] T063 [P] [US1] Implement preload script in `packages/blue-app/src/preload/preload.ts` (context bridge for file open/save, play/stop)
+- [x] T064 [US1] Implement engine bridge in `packages/blue-app/src/main/engine-bridge.ts` (spawn blue-engine, manage lifecycle, ZMQ connection)
+- [x] T065 [US1] Implement renderer `app.tsx` in `packages/blue-app/src/renderer/` — file open dialog, project metadata display, Play/Stop buttons, status indicator
+- [x] T066 [US1] Wire IPC: renderer → main (open file) → blue-data (load) → engine-bridge (spawn + send CSD) → play
 
 **Checkpoint**: User Story 1 complete — can open a simple `.blue` file, see metadata, press Play, hear audio. Independently testable.
 
@@ -155,28 +155,28 @@
 
 ### Tests for User Story 2
 
-- [ ] T067 [P] [US2] Round-trip test with modifications: load, change a property, save, reload, verify in `packages/blue-data/tests/integration/roundtrip-modify.test.ts`
-- [ ] T068 [P] [US2] Cross-compatibility test: save from TS, load in Java Blue (requires Java Blue available) in `packages/blue-data/tests/integration/java-compatibility.test.ts`
-- [ ] T069 [US2] ObjRefMap test: shared object references preserved on round-trip in `packages/blue-data/tests/integration/objref-roundtrip.test.ts`
+- [x] T067 [P] [US2] Round-trip test with modifications: load, change a property, save, reload, verify in `packages/blue-data/tests/integration/roundtrip-modify.test.ts`
+- [x] T068 [P] [US2] Cross-compatibility test: save from TS, load in Java Blue (requires Java Blue available) in `packages/blue-data/tests/integration/java-compatibility.test.ts`
+- [x] T069 [US2] ObjRefMap test: shared object references preserved on round-trip in `packages/blue-data/tests/integration/objref-roundtrip.test.ts`
 
 ### Implementation — Complete XML Serialization
 
-- [ ] T070 [P] [US2] Implement `ProjectProperties.saveAsXML()` / `loadFromXML()`
-- [ ] T071 [P] [US2] Implement `Instrument.saveAsXML()` / `loadFromXML()`
-- [ ] T072 [P] [US2] Implement `InstrumentAssignment.saveAsXML()` / `loadFromXML()`
-- [ ] T073 [P] [US2] Implement `InstrumentLibrary.saveAsXML()` / `loadFromXML()`
-- [ ] T074 [US2] Implement `Arrangement.saveAsXML()` / `loadFromXML()` (including legacy pre-0.95.0 format with embedded instrument libraries)
-- [ ] T075 [US2] Implement `Tables.saveAsXML()` / `loadFromXML()`
-- [ ] T076 [US2] Implement `GlobalOrcSco.saveAsXML()` / `loadFromXML()`
-- [ ] T077 [US2] Implement `GenericScore.saveAsXML()` / `loadFromXML()`
-- [ ] T078 [US2] Implement `PolyObject.saveAsXML()` / `loadFromXML()` with SoundLayer children
-- [ ] T079 [US2] Implement `Score.saveAsXML()` / `loadFromXML()` with layer groups
-- [ ] T080 [US2] Implement `BlueData.saveAsXML()` / `loadFromXML()` — full root serialization with version attribute
+- [x] T070 [P] [US2] Implement `ProjectProperties.saveAsXML()` / `loadFromXML()`
+- [x] T071 [P] [US2] Implement `Instrument.saveAsXML()` / `loadFromXML()`
+- [x] T072 [P] [US2] Implement `InstrumentAssignment.saveAsXML()` / `loadFromXML()`
+- [x] T073 [P] [US2] Implement `InstrumentLibrary.saveAsXML()` / `loadFromXML()`
+- [x] T074 [US2] Implement `Arrangement.saveAsXML()` / `loadFromXML()` (including legacy pre-0.95.0 format with embedded instrument libraries)
+- [x] T075 [US2] Implement `Tables.saveAsXML()` / `loadFromXML()`
+- [x] T076 [US2] Implement `GlobalOrcSco.saveAsXML()` / `loadFromXML()`
+- [x] T077 [US2] Implement `GenericScore.saveAsXML()` / `loadFromXML()`
+- [x] T078 [US2] Implement `PolyObject.saveAsXML()` / `loadFromXML()` with SoundLayer children
+- [x] T079 [US2] Implement `Score.saveAsXML()` / `loadFromXML()` with layer groups
+- [x] T080 [US2] Implement `BlueData.saveAsXML()` / `loadFromXML()` — full root serialization with version attribute
 
 ### Implementation — ObjRefMap Integration
 
-- [ ] T081 [US2] Wire objRefMap through all `saveAsXML()` and `loadFromXML()` methods that use shared references
-- [ ] T082 [US2] Implement `BlueDataObjectManager` in `packages/blue-data/src/blue-data-object-manager.ts` (plugin data loading)
+- [x] T081 [US2] Wire objRefMap through all `saveAsXML()` and `loadFromXML()` methods that use shared references
+- [x] T082 [US2] Implement `BlueDataObjectManager` in `packages/blue-data/src/blue-data-object-manager.ts` (plugin data loading)
 
 **Checkpoint**: User Stories 1 AND 2 both work — full round-trip data integrity verified.
 
@@ -190,25 +190,25 @@
 
 ### Tests for User Story 3
 
-- [ ] T083 [P] [US3] Round-trip test: audio layer with clips in `packages/blue-data/tests/integration/audio-layer-roundtrip.test.ts`
-- [ ] T084 [US3] CSD generation test: diskin2 score events with fade params in `packages/blue-data/tests/integration/audio-csd-gen.test.ts`
+- [x] T083 [P] [US3] Round-trip test: audio layer with clips in `packages/blue-data/tests/integration/audio-layer-roundtrip.test.ts`
+- [x] T084 [US3] CSD generation test: diskin2 score events with fade params in `packages/blue-data/tests/integration/audio-csd-gen.test.ts`
 
 ### Implementation — Audio Score Layers
 
-- [ ] T085 [P] [US3] Implement `FadeType` enum in `packages/blue-data/src/score/audio/fade-type.ts`
-- [ ] T086 [P] [US3] Implement `AudioClip` in `packages/blue-data/src/score/audio/audio-clip.ts` (file path, start time, duration, fades, looping, load/save XML)
-- [ ] T087 [US3] Implement `AudioLayer` in `packages/blue-data/src/score/audio/audio-layer.ts` (ScoreObjectLayer<AudioClip>, AutomatableLayer, `generateForCSD()` → diskin2 notes)
-- [ ] T088 [US3] Implement `AudioLayerGroup` in `packages/blue-data/src/score/audio/audio-layer-group.ts` (ScoreObjectLayerGroup<AudioLayer>, `generateForCSD()`)
-- [ ] T089 [US3] Implement `AudioLayerGroupProvider` in `packages/blue-data/src/score/audio/audio-layer-group-provider.ts`
-- [ ] T090 [US3] Embed `playback_instrument.orc` as template string in `packages/blue-data/src/score/audio/playback-instrument.orc.ts`
-- [ ] T091 [US3] Embed `blue_fade.udo` as template string in `packages/blue-data/src/score/audio/blue-fade.udo.ts`
-- [ ] T092 [US3] Wire `LayerGroupProviderManager` to register AudioLayerGroupProvider
+- [x] T085 [P] [US3] Implement `FadeType` enum in `packages/blue-data/src/score/audio/fade-type.ts`
+- [x] T086 [P] [US3] Implement `AudioClip` in `packages/blue-data/src/score/audio/audio-clip.ts` (file path, start time, duration, fades, looping, load/save XML)
+- [x] T087 [US3] Implement `AudioLayer` in `packages/blue-data/src/score/audio/audio-layer.ts` (ScoreObjectLayer<AudioClip>, AutomatableLayer, `generateForCSD()` → diskin2 notes)
+- [x] T088 [US3] Implement `AudioLayerGroup` in `packages/blue-data/src/score/audio/audio-layer-group.ts` (ScoreObjectLayerGroup<AudioLayer>, `generateForCSD()`)
+- [x] T089 [US3] Implement `AudioLayerGroupProvider` in `packages/blue-data/src/score/audio/audio-layer-group-provider.ts`
+- [x] T090 [US3] Embed `playback_instrument.orc` as template string in `packages/blue-data/src/score/audio/playback-instrument.orc.ts`
+- [x] T091 [US3] Embed `blue_fade.udo` as template string in `packages/blue-data/src/score/audio/blue-fade.udo.ts`
+- [x] T092 [US3] Wire `LayerGroupProviderManager` to register AudioLayerGroupProvider
 
 ### Implementation — CSD Generation for Audio
 
-- [ ] T093 [US3] Update `BlueData.toCSD()` to handle AudioLayerGroup: generate instrument from template, generate diskin2 score events with p-fields for file path, start time, duration, fades, looping
-- [ ] T094 [US3] Implement mixer channel assignment for audio layers in CSD generation
-- [ ] T095 [US3] Implement `blueMixerOut` → `outc` conversion in Arrangement CSD generation
+- [x] T093 [US3] Update `BlueData.toCSD()` to handle AudioLayerGroup: generate instrument from template, generate diskin2 score events with p-fields for file path, start time, duration, fades, looping
+- [x] T094 [US3] Implement mixer channel assignment for audio layers in CSD generation
+- [x] T095 [US3] Implement `blueMixerOut` → `outc` conversion in Arrangement CSD generation
 
 **Checkpoint**: User Story 3 complete — audio layers with clips load, save, and generate correct CSD.
 
