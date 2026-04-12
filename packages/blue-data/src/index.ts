@@ -31,6 +31,7 @@ export { TimeDuration } from './time/time-duration';
 export { TempoMap } from './time/tempo-map';
 export { TimeContext } from './time/time-context';
 export { TimeState } from './time/time-state';
+export { beatsToTimePosition, secondsToDuration } from './time/time-utilities';
 
 // ─── Score ───
 export { Score } from './score/score';
@@ -90,9 +91,47 @@ export { loadSoundObjectFromXML, registerSoundObjectType } from './sound-objects
 // ─── Note Processors ───
 export { NoteProcessorChain } from './note-processors/note-processor-chain';
 export { NoteProcessorChainMap } from './note-processors/note-processor-chain-map';
+export { NoteProcessor } from './note-processors/note-processor';
+export { NoteProcessorException } from './note-processors/note-processor-exception';
+export { AddProcessor } from './note-processors/add-processor';
+export { MultiplyProcessor } from './note-processors/multiply-processor';
+export { Code } from './note-processors/code';
+
+// ─── Mixer ───
+export { Mixer } from './mixer/mixer';
+export { Channel } from './mixer/channel';
+export { ChannelList } from './mixer/channel-list';
+export { Effect } from './mixer/effect';
+export { EffectManager } from './mixer/effect-manager';
+export { EffectsChain } from './mixer/effects-chain';
+export { Send } from './mixer/send';
+export { MixerNode } from './mixer/mixer-node';
+
+// ─── Automation ───
+export { Parameter } from './automation/parameter';
+export type { AutomationPoint, AutomationCurve } from './automation/parameter';
+export { ParameterList } from './automation/parameter-list';
+export { ParameterIdList } from './automation/parameter-id-list';
+export { ParameterNameManager } from './automation/parameter-name-manager';
+export { ParameterTimeManager } from './automation/parameter-time-manager';
+export type { Automatable } from './automation/automatable';
+export type { AutomatableCollectionListener } from './automation/automatable-collection-listener';
+export { LineColors } from './automation/line-colors';
+
+// ─── Live ───
+export { LiveObject } from './live/live-object';
+export { LiveObjectSet } from './live/live-object-set';
+export { LiveObjectBins } from './live/live-object-bins';
+export { LiveObjectSetList } from './live/live-object-set-list';
 
 // ─── MIDI ───
 export { MidiInputProcessor } from './midi/midi-input-processor';
+export { MidiKeyMapping } from './midi/midi-key-mapping';
+export { MidiVelocityMapping } from './midi/midi-velocity-mapping';
+
+// ─── Opcodes ───
+export { OpcodeDefinition } from './opcodes/opcode-definition';
+export { OpcodeList } from './opcodes/opcode-list';
 
 // ─── Serialization ───
 export { Element, Elements } from './serialization/xml-reader';
@@ -108,3 +147,4 @@ export { ProjectUpgrader_2_3_0 } from './migration/upgrades/upgrade-2.3.0';
 // ─── Utilities ───
 export { replaceAll, stripSingleLineComments, stripBlockComments } from './utilities/text';
 export { writeInt, readInt, writeDouble, readDouble, writeBoolean, readBoolean } from './utilities/xml';
+export { applyNoteProcessorChain, setScoreStart, getNotes } from './utilities/score';

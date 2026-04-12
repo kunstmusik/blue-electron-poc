@@ -297,56 +297,56 @@
 
 ### Mixer System
 
-- [ ] T119 [P] Implement `Mixer` in `packages/blue-data/src/mixer/mixer.ts`
-- [ ] T120 [P] Implement `Channel` in `packages/blue-data/src/mixer/channel.ts`
-- [ ] T121 [P] Implement `ChannelList` in `packages/blue-data/src/mixer/channel-list.ts`
-- [ ] T122 [P] Implement `Effect` in `packages/blue-data/src/mixer/effect.ts`
-- [ ] T123 [P] Implement `EffectManager` in `packages/blue-data/src/mixer/effect-manager.ts`
-- [ ] T124 [P] Implement `EffectsChain` in `packages/blue-data/src/mixer/effects-chain.ts`
-- [ ] T125 [P] Implement `Send` in `packages/blue-data/src/mixer/send.ts`
-- [ ] T126 Implement `MixerNode` in `packages/blue-data/src/mixer/mixer-node.ts`
-- [ ] T127 Wire Mixer saveAsXML/loadFromXML
+- [x] T119 [P] Implement `Mixer` in `packages/blue-data/src/mixer/mixer.ts`
+- [x] T120 [P] Implement `Channel` in `packages/blue-data/src/mixer/channel.ts`
+- [x] T121 [P] Implement `ChannelList` in `packages/blue-data/src/mixer/channel-list.ts`
+- [x] T122 [P] Implement `Effect` in `packages/blue-data/src/mixer/effect.ts`
+- [x] T123 [P] Implement `EffectManager` in `packages/blue-data/src/mixer/effect-manager.ts`
+- [x] T124 [P] Implement `EffectsChain` in `packages/blue-data/src/mixer/effects-chain.ts`
+- [x] T125 [P] Implement `Send` in `packages/blue-data/src/mixer/send.ts`
+- [x] T126 Implement `MixerNode` in `packages/blue-data/src/mixer/mixer-node.ts`
+- [x] T127 Wire Mixer saveAsXML/loadFromXML
 
 ### Automation System
 
-- [ ] T128 [P] Implement `Parameter` in `packages/blue-data/src/automation/parameter.ts`
-- [ ] T129 [P] Implement `ParameterList` in `packages/blue-data/src/automation/parameter-list.ts`
-- [ ] T130 [P] Implement `ParameterIdList` in `packages/blue-data/src/automation/parameter-id-list.ts`
-- [ ] T131 [P] Implement `ParameterNameManager` in `packages/blue-data/src/automation/parameter-name-manager.ts`
-- [ ] T132 [P] Implement `ParameterTimeManager` in `packages/blue-data/src/automation/parameter-time-manager.ts`
-- [ ] T133 [P] Implement `Automatable` in `packages/blue-data/src/automation/automatable.ts`
-- [ ] T134 [P] Implement `AutomatableCollectionListener` in `packages/blue-data/src/automation/`
-- [ ] T135 [P] Implement `LineColors` in `packages/blue-data/src/automation/line-colors.ts`
+- [x] T128 [P] Implement `Parameter` in `packages/blue-data/src/automation/parameter.ts`
+- [x] T129 [P] Implement `ParameterList` in `packages/blue-data/src/automation/parameter-list.ts`
+- [x] T130 [P] Implement `ParameterIdList` in `packages/blue-data/src/automation/parameter-id-list.ts`
+- [x] T131 [P] Implement `ParameterNameManager` in `packages/blue-data/src/automation/parameter-name-manager.ts`
+- [x] T132 [P] Implement `ParameterTimeManager` in `packages/blue-data/src/automation/parameter-time-manager.ts`
+- [x] T133 [P] Implement `Automatable` in `packages/blue-data/src/automation/automatable.ts`
+- [x] T134 [P] Implement `AutomatableCollectionListener` in `packages/blue-data/src/automation/`
+- [x] T135 [P] Implement `LineColors` in `packages/blue-data/src/automation/line-colors.ts`
 
 ### Note Processors
 
-- [ ] T136 [P] Implement remaining note processors in `packages/blue-data/src/note-processors/`: AddProcessor, MultiplyProcessor, RandomAddProcessor, RandomMultiplyProcessor, LineAddProcessor, LineMultiplyProcessor, PchAddProcessor, PchInversionProcessor, InversionProcessor, RetrogradeProcessor, RotateProcessor, TimeWarpProcessor, TuningProcessor, SwitchProcessor, SubListProcessor, EqualsProcessor, Code, ValueTimeMapper, PythonProcessor (data only)
-- [ ] T137 Implement `NoteProcessorChainMap` in `packages/blue-data/src/note-processors/note-processor-chain-map.ts`
+- [x] T136 [P] Implement remaining note processors in `packages/blue-data/src/note-processors/`: AddProcessor, MultiplyProcessor, RandomAddProcessor, RandomMultiplyProcessor, LineAddProcessor, LineMultiplyProcessor, PchAddProcessor, PchInversionProcessor, InversionProcessor, RetrogradeProcessor, RotateProcessor, TimeWarpProcessor, TuningProcessor, SwitchProcessor, SubListProcessor, EqualsProcessor, Code, ValueTimeMapper, PythonProcessor (data only)
+- [x] T137 Implement `NoteProcessorChainMap` in `packages/blue-data/src/note-processors/note-processor-chain-map.ts`
 
 ### Live Data, MIDI, Markers
 
-- [ ] T138 [P] Implement `LiveData` in `packages/blue-data/src/live-data.ts`
-- [ ] T139 [P] Implement Live types in `packages/blue-data/src/live/`: LiveObject, LiveObjectSet, LiveObjectBins, LiveObjectSetList
-- [ ] T140 [P] Implement `MidiInputProcessor` in `packages/blue-data/src/midi/midi-input-processor.ts`
-- [ ] T141 [P] Implement MIDI mapping types in `packages/blue-data/src/midi/`: MidiKeyMapping, MidiVelocityMapping
-- [ ] T142 [P] Implement `MarkersList` in `packages/blue-data/src/markers-list.ts`
-- [ ] T143 [P] Implement `ScratchPadData` in `packages/blue-data/src/scratch-pad-data.ts`
+- [x] T138 [P] Implement `LiveData` in `packages/blue-data/src/live-data.ts`
+- [x] T139 [P] Implement Live types in `packages/blue-data/src/live/`: LiveObject, LiveObjectSet, LiveObjectBins, LiveObjectSetList
+- [x] T140 [P] Implement `MidiInputProcessor` in `packages/blue-data/src/midi/midi-input-processor.ts`
+- [x] T141 [P] Implement MIDI mapping types in `packages/blue-data/src/midi/`: MidiKeyMapping, MidiVelocityMapping
+- [x] T142 [P] Implement `MarkersList` in `packages/blue-data/src/markers-list.ts`
+- [x] T143 [P] Implement `ScratchPadData` in `packages/blue-data/src/scratch-pad-data.ts`
 
 ### Opcode List
 
-- [ ] T144 [P] Implement `OpcodeList` and `OpcodeDefinition` in `packages/blue-data/src/opcodes/`
+- [x] T144 [P] Implement `OpcodeList` and `OpcodeDefinition` in `packages/blue-data/src/opcodes/`
 
 ### Utilities
 
-- [ ] T145 [P] Implement `ScoreUtilities` in `packages/blue-data/src/utilities/score.ts`
-- [ ] T146 [P] Implement `UDOUtilities` in `packages/blue-data/src/utilities/udo.ts`
-- [ ] T147 [P] Implement `ObjectUtilities` in `packages/blue-data/src/utilities/object.ts`
-- [ ] T148 [P] Implement `ScoreExpressionParser` in `packages/blue-data/src/utilities/expression-parser.ts`
+- [x] T145 [P] Implement `ScoreUtilities` in `packages/blue-data/src/utilities/score.ts`
+- [x] T146 [P] Implement `UDOUtilities` in `packages/blue-data/src/utilities/udo.ts`
+- [x] T147 [P] Implement `ObjectUtilities` in `packages/blue-data/src/utilities/object.ts`
+- [x] T148 [P] Implement `ScoreExpressionParser` in `packages/blue-data/src/utilities/expression-parser.ts`
 
 ### Engine Client — Automation
 
-- [ ] T149 Implement automation ZMQ commands in `EngineClient`: createAutomation, updateAutomation, deleteAutomation, enableAutomation, disableAutomation, listAutomation, clearAutomation
-- [ ] T150 Implement automation curve types in `packages/blue-engine-client/src/automation.ts`
+- [x] T149 Implement automation ZMQ commands in `EngineClient`: createAutomation, updateAutomation, deleteAutomation, enableAutomation, disableAutomation, listAutomation, clearAutomation
+- [x] T150 Implement automation curve types in `packages/blue-engine-client/src/automation.ts`
 
 **Checkpoint**: All 85+ data classes ported. Complete data model parity with Java Blue.
 
