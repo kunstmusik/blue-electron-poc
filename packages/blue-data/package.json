@@ -3,17 +3,27 @@
   "version": "0.0.1",
   "description": "Core data model for Blue — portable TypeScript data classes with XML serialization compatible with Java .blue files",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
@@ -21,5 +31,18 @@
   },
   "dependencies": {
     "@rgrove/parse-xml": "^4.2.0"
+  },
+  "keywords": [
+    "csound",
+    "music",
+    "composition",
+    "blue",
+    "audio"
+  ],
+  "author": "Steven Yi",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stevenyi/blue-electron"
   }
 }

@@ -250,13 +250,13 @@
 
 ### Tests for User Story 5
 
-- [ ] T105 [US5] Integration test: Node.js script loads `.blue` file, outputs JSON summary in `packages/blue-data/tests/integration/node-api-usage.test.ts`
+- [x] T105 [US5] Integration test: Node.js script loads `.blue` file, outputs JSON summary in `packages/blue-data/tests/integration/node-api-usage.test.ts`
 
 ### Implementation — Package Polish
 
-- [ ] T106 [US5] Ensure `@blue/data` package.json has correct `exports` field for both ESM and CommonJS
-- [ ] T107 [US5] Add `index.ts` re-exports for all public types in `packages/blue-data/src/index.ts`
-- [ ] T108 [US5] Verify no Node.js built-in imports in `blue-data` (lint rule or manual audit)
+- [x] T106 [US5] Ensure `@blue/data` package.json has correct `exports` field for both ESM and CommonJS
+- [x] T107 [US5] Add `index.ts` re-exports for all public types in `packages/blue-data/src/index.ts`
+- [x] T108 [US5] Verify no Node.js built-in imports in `blue-data` (lint rule or manual audit)
 
 **Checkpoint**: User Story 5 complete — `@blue/data` works as a standalone Node.js library.
 
