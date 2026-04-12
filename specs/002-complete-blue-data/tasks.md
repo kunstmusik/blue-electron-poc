@@ -92,30 +92,30 @@
 
 ### ZMQ Protocol Client (FR-213, FR-214, FR-218)
 
-- [ ] T252 [P] [US3] Implement protocol constants in `packages/blue-engine-client/src/protocol.ts`
-- [ ] T253 [US3] Implement `EngineClient` with ZMQ REQ/REP (create, setOption, compileOrc, readScore, start, stop, exit)
-- [ ] T254 [US3] Implement engine process management (spawn blue-engine executable, monitor, restart)
+- [x] T252 [P] [US3] Implement protocol constants in `packages/blue-engine-client/src/protocol.ts`
+- [x] T253 [US3] Implement `EngineClient` with ZMQ REQ/REP (create, setOption, compileOrc, readScore, start, stop, exit)
+- [x] T254 [US3] Implement engine process management (spawn blue-engine executable, monitor, restart)
 
 ### Channel Operations (FR-215)
 
-- [ ] T255 [US3] Implement channel operations (CREATE_CHANNEL, SET_CHANNEL, GET_CHANNEL)
-- [ ] T256 [US3] Implement shared memory access (POSIX on macOS, or proxy via ZMQ)
+- [x] T255 [US3] Implement channel operations (CREATE_CHANNEL, SET_CHANNEL, GET_CHANNEL)
+- [x] T256 [US3] Implement shared memory access (POSIX on macOS, or proxy via ZMQ)
 
 ### Automation Operations (FR-216)
 
-- [ ] T257 [US3] Implement automation operations (CREATE, UPDATE, DELETE, ENABLE, DISABLE, LIST, CLEAR)
+- [x] T257 [US3] Implement automation operations (CREATE, UPDATE, DELETE, ENABLE, DISABLE, LIST, CLEAR)
 
 ### Electron Integration (FR-217)
 
-- [ ] T258 [US3] Wire engine-client into Electron app's engine bridge
-- [ ] T259 [US3] Replace engine stub with real blue-engine communication
-- [ ] T260 [US3] Implement real-time channel value updates from UI
+- [x] T258 [US3] Wire engine-client into Electron app's engine bridge
+- [x] T259 [US3] Replace engine stub with real blue-engine communication
+- [x] T260 [US3] Implement real-time channel value updates from UI
 
 ### Phase 13 Tests (SC-105, SC-106)
 
-- [ ] T261 [US3] Integration test: send CSD to blue-engine → verify audio output
-- [ ] T262 [US3] Integration test: channel value update during playback
-- [ ] T263 [US3] Integration test: engine crash detection and recovery
+- [x] T261 [US3] Integration test: send CSD to blue-engine → verify audio output
+- [x] T262 [US3] Integration test: channel value update during playback
+- [x] T263 [US3] Integration test: engine crash detection and recovery
 
 ---
 

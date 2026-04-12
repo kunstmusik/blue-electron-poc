@@ -5,12 +5,12 @@ import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { BlueData } from '@blue/data';
+import { EngineBridge } from './engine-bridge';
 
 let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
 let currentFilePath: string | null = null;
-let engineProcess: import('child_process').ChildProcess | null = null;
-let isPlaying = false;
+let engineBridge: EngineBridge | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -24,6 +24,9 @@ function createWindow(): void {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  // Initialize engine bridge
+  engineBridge = new EngineBridge(mainWindow);
 
   // Build menu
   const menu = Menu.buildFromTemplate([
@@ -66,7 +69,6 @@ async function openFile(): Promise<void> {
     currentData = data;
     currentFilePath = filePath;
 
-    // Send project info to renderer
     mainWindow.webContents.send('project-loaded', {
       title: data.getProjectProperties().title || path.basename(filePath),
       author: data.getProjectProperties().author,
@@ -120,42 +122,37 @@ function doSave(filePath: string): void {
 }
 
 function togglePlay(): void {
-  if (isPlaying) {
+  if (!engineBridge || !currentData) return;
+
+  if (engineBridge.isCurrentlyPlaying()) {
     stopPlayback();
     return;
   }
+
   startPlayback();
 }
 
-function startPlayback(): void {
-  if (!currentData) return;
+async function startPlayback(): Promise<void> {
+  if (!engineBridge || !currentData || !mainWindow) return;
 
   try {
-    // Generate CSD
     const csd = currentData.toCSD();
+    const success = await engineBridge.playCSD(csd);
 
-    // For Phase 12: stub — just show status
-    isPlaying = true;
-    if (mainWindow) {
-      mainWindow.webContents.send('playback-status', { status: 'playing', message: 'Engine stub — CSD generated' });
+    if (!success) {
+      mainWindow.webContents.send('playback-status', {
+        status: 'error',
+        message: 'Failed to start playback',
+      });
     }
-
-    // Log CSD for debugging
-    console.log('=== Generated CSD ===');
-    console.log(csd.substring(0, 500) + '...');
-    console.log('=====================');
   } catch (err: unknown) {
-    if (mainWindow) {
-      mainWindow.webContents.send('playback-error', err instanceof Error ? err.message : String(err));
-    }
+    mainWindow.webContents.send('playback-error', err instanceof Error ? err.message : String(err));
   }
 }
 
-function stopPlayback(): void {
-  isPlaying = false;
-  if (mainWindow) {
-    mainWindow.webContents.send('playback-status', { status: 'stopped' });
-  }
+async function stopPlayback(): Promise<void> {
+  if (!engineBridge) return;
+  await engineBridge.stopPlayback();
 }
 
 // IPC handlers
@@ -176,11 +173,11 @@ ipcMain.handle('save-file-as', async () => {
 
 ipcMain.handle('toggle-play', () => {
   togglePlay();
-  return isPlaying;
+  return engineBridge?.isCurrentlyPlaying() ?? false;
 });
 
-ipcMain.handle('stop-playback', () => {
-  stopPlayback();
+ipcMain.handle('stop-playback', async () => {
+  await stopPlayback();
 });
 
 ipcMain.handle('get-project-info', () => {
@@ -195,10 +192,6 @@ ipcMain.handle('get-project-info', () => {
   };
 });
 
-ipcMain.on('playback-ready', () => {
-  // Renderer signals it's ready
-});
-
 app.whenReady().then(() => {
   createWindow();
 
@@ -210,7 +203,12 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  engineBridge?.dispose();
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  engineBridge?.dispose();
 });
