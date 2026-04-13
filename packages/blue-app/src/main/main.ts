@@ -20,9 +20,11 @@ function createWindow(): void {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true,
     },
   });
 
+  mainWindow.webContents.openDevTools();
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
   // Initialize engine bridge

@@ -4,16 +4,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 export default function WelcomeScreen(): JSX.Element {
   const recentFiles = useSettingsStore((s) => s.recentFiles);
   const removeRecentFile = useSettingsStore((s) => s.removeRecentFile);
-
-  const handleOpen = async () => {
-    await window.blueAPI.openFile();
-  };
-
-  const handleRecentClick = async (path: string) => {
-    // Try to open directly; if file doesn't exist, the main process will show an error
-    // and remove it from the list
-    await window.blueAPI.openFile();
-  };
+  const openFile = useSettingsStore((s) => s.openFile);
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8 p-8">
@@ -26,7 +17,7 @@ export default function WelcomeScreen(): JSX.Element {
       </div>
 
       {/* Open button */}
-      <button className="btn btn-primary text-base px-8 py-3" onClick={handleOpen}>
+      <button className="btn btn-primary text-base px-8 py-3" onClick={openFile}>
         <FolderOpen className="w-5 h-5" />
         Open a .blue Project
       </button>
@@ -42,7 +33,7 @@ export default function WelcomeScreen(): JSX.Element {
               <li
                 key={path}
                 className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-blue-surface cursor-pointer group"
-                onClick={() => handleRecentClick(path)}
+                onClick={() => openFile()}
               >
                 <span className="text-sm truncate flex-1" title={path}>
                   {path.split('/').pop()}

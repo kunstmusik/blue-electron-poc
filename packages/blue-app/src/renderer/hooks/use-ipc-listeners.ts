@@ -25,7 +25,7 @@ declare global {
 }
 
 export function useIPCListeners(): void {
-  const setProject = useProjectStore((s) => s.setProject);
+  const setProjectInfo = useProjectStore((s) => s.setProjectInfo);
   const setActivePanel = useUIStore((s) => s.setActivePanel);
   const addRecentFile = useSettingsStore((s) => s.addRecentFile);
   const setStatus = usePlaybackStore((s) => s.setStatus);
@@ -35,7 +35,7 @@ export function useIPCListeners(): void {
     if (!window.blueAPI) return;
 
     window.blueAPI.onProjectLoaded((info) => {
-      setProject(info);
+      setProjectInfo(info);
       setActivePanel('project');
       if (info.filePath) {
         addRecentFile(info.filePath);
@@ -49,7 +49,6 @@ export function useIPCListeners(): void {
 
     window.blueAPI.onPlaybackError((error) => {
       setError(error);
-      toast.error(error);
     });
 
     window.blueAPI.onSaveComplete(() => {
@@ -59,5 +58,5 @@ export function useIPCListeners(): void {
     window.blueAPI.onSaveError((error) => {
       toast.error(`Save error: ${error}`);
     });
-  }, [setProject, setActivePanel, addRecentFile, setStatus, setError]);
+  }, [setProjectInfo, setActivePanel, addRecentFile, setStatus, setError]);
 }

@@ -5,12 +5,14 @@ import { usePlaybackStore } from '../../stores/playback-store';
 export default function PlaybackControls(): JSX.Element {
   const hasProject = useProjectStore((s) => s.filePath !== null);
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
+  const togglePlay = usePlaybackStore((s) => s.togglePlay);
+  const stop = usePlaybackStore((s) => s.stop);
 
   const handleToggle = async () => {
     if (isPlaying) {
-      window.blueAPI.stopPlayback();
+      stop();
     } else {
-      await window.blueAPI.togglePlay();
+      await togglePlay();
     }
   };
 

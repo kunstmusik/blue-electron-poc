@@ -8,49 +8,49 @@
 ## Phase 14: Vite + React + Tailwind + Zustand Setup
 
 ### Dependencies and Config
-- [ ] T301 [P] Install Vite, React 19, @vitejs/plugin-react, @types/react
-- [ ] T302 [P] Install Tailwind CSS 4, postcss, autoprefixer
-- [ ] T303 [P] Install Zustand 5, zustand/middleware persist/immer/devtools
-- [ ] T304 [P] Install lucide-react, sonner, clsx, tailwind-merge, @tanstack/react-virtual
-- [ ] T305 Update `packages/blue-app/package.json` — replace electron-only deps with Vite + React deps
-- [ ] T306 Create `vite.config.ts` — React plugin, root config, build output to `dist/renderer`
-- [ ] T307 Create `tailwind.config.ts` — dark theme colors matching Blue aesthetic
-- [ ] T308 Create `packages/blue-app/src/renderer/index.html` — Vite entry HTML
-- [ ] T309 Create `packages/blue-app/src/renderer/main.tsx` — React root with StrictMode
-- [ ] T310 Create `packages/blue-app/src/renderer/styles/index.css` — Tailwind directives + custom theme
-- [ ] T311 Update build script in `package.json` — use `vite build` instead of manual copy
+- [x] T301 [P] Install Vite, React 19, @vitejs/plugin-react, @types/react
+- [x] T302 [P] Install Tailwind CSS 4, postcss, autoprefixer
+- [x] T303 [P] Install Zustand 5, zustand/middleware persist/immer/devtools
+- [x] T304 [P] Install lucide-react, sonner, clsx, tailwind-merge, @tanstack/react-virtual
+- [x] T305 Update `packages/blue-app/package.json` — replace electron-only deps with Vite + React deps
+- [x] T306 Create `vite.config.ts` — React plugin, root config, build output to `dist/renderer`
+- [x] T307 Create `tailwind.config.ts` — dark theme colors matching Blue aesthetic
+- [x] T308 Create `packages/blue-app/src/renderer/index.html` — Vite entry HTML
+- [x] T309 Create `packages/blue-app/src/renderer/main.tsx` — React root with StrictMode
+- [x] T310 Create `packages/blue-app/src/renderer/styles/index.css` — Tailwind directives + custom theme
+- [x] T311 Update build script in `package.json` — use `vite build` instead of manual copy
 
 ### App Shell
-- [ ] T312 Create `App.tsx` — root component with IPC listeners hook
-- [ ] T313 Create `hooks/use-ipc-listeners.ts` — wires IPC events to Zustand stores
-- [ ] T314 Create `hooks/use-keyboard-shortcuts.ts` — Space=play, Escape=stop, Cmd+O=open, Cmd+S=save
+- [x] T312 Create `App.tsx` — root component with IPC listeners hook
+- [x] T313 Create `hooks/use-ipc-listeners.ts` — wires IPC events to Zustand stores
+- [x] T314 Create `hooks/use-keyboard-shortcuts.ts` — Space=play, Escape=stop, Cmd+O=open, Cmd+S=save
 
 ---
 
 ## Phase 15: Zustand Stores + IPC Bridge
 
 ### Project Store
-- [ ] T315 [P] Create `stores/project-store.ts` — BlueData, filePath, isDirty, isLoading, actions
-- [ ] T316 Wire `loadProject()` action to `window.blueAPI.openFile()`
-- [ ] T317 Wire `saveProject()` action to `window.blueAPI.saveFile()`
-- [ ] T318 Wire `saveProjectAs()` action to `window.blueAPI.saveFileAs()`
+- [x] T315 [P] Create `stores/project-store.ts` — BlueData, filePath, isDirty, isLoading, actions
+- [x] T316 Wire `loadProject()` action to `window.blueAPI.openFile()`
+- [x] T317 Wire `saveProject()` action to `window.blueAPI.saveFile()`
+- [x] T318 Wire `saveProjectAs()` action to `window.blueAPI.saveFileAs()`
 
 ### Playback Store
-- [ ] T319 [P] Create `stores/playback-store.ts` — isPlaying, status, message, actions
-- [ ] T320 Wire `togglePlay()` action to `window.blueAPI.togglePlay()`
-- [ ] T321 Wire `stop()` action to `window.blueAPI.stopPlayback()`
+- [x] T319 [P] Create `stores/playback-store.ts` — isPlaying, status, message, actions
+- [x] T320 Wire `togglePlay()` action to `window.blueAPI.togglePlay()`
+- [x] T321 Wire `stop()` action to `window.blueAPI.stopPlayback()`
 
 ### UI Store
-- [ ] T322 [P] Create `stores/ui-store.ts` — activePanel, selectedLayer, zoom, actions
+- [x] T322 [P] Create `stores/ui-store.ts` — activePanel, selectedLayer, zoom, actions
 
 ### Settings Store (Persisted)
-- [ ] T323 Create `stores/settings-store.ts` — enginePath, recentFiles, windowBounds
-- [ ] T324 Add `persist` middleware for recent files and window state
-- [ ] T325 Wire `addRecentFile()` / `removeRecentFile()` actions
+- [x] T323 Create `stores/settings-store.ts` — enginePath, recentFiles, windowBounds
+- [x] T324 Add `persist` middleware for recent files and window state
+- [x] T325 Wire `addRecentFile()` / `removeRecentFile()` actions
 
 ### IPC Integration
-- [ ] T326 Update `use-ipc-listeners.ts` — connect all IPC events to store actions
-- [ ] T327 Update `use-keyboard-shortcuts.ts` — global keyboard handler
+- [x] T326 Update `use-ipc-listeners.ts` — connect all IPC events to store actions
+- [x] T327 Update `use-keyboard-shortcuts.ts` — global keyboard handler
 
 ---
 

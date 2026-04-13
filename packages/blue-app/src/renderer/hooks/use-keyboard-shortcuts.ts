@@ -3,10 +3,12 @@ import { useProjectStore } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 
 export function useKeyboardShortcuts(): void {
+  const loadProject = useProjectStore((s) => s.loadProject);
+  const saveProject = useProjectStore((s) => s.saveProject);
+  const saveProjectAs = useProjectStore((s) => s.saveProjectAs);
+  const togglePlay = usePlaybackStore((s) => s.togglePlay);
+  const stop = usePlaybackStore((s) => s.stop);
   const hasProject = useProjectStore((s) => s.filePath !== null);
-  const isPlaying = usePlaybackStore((s) => s.isPlaying);
-  const togglePlay = usePlaybackStore((s) => s.setStatus);
-  const resetPlayback = usePlaybackStore((s) => s.reset);
 
   useEffect(() => {
     const handler = async (e: KeyboardEvent) => {
@@ -15,42 +17,33 @@ export function useKeyboardShortcuts(): void {
       // Space = toggle play (only if project loaded)
       if (e.code === 'Space' && !meta && hasProject) {
         e.preventDefault();
-        if (isPlaying) {
-          window.blueAPI.stopPlayback();
-          resetPlayback();
-        } else {
-          await window.blueAPI.togglePlay();
-        }
+        await togglePlay();
       }
 
       // Escape = stop playback
       if (e.code === 'Escape' && !meta) {
         e.preventDefault();
-        if (isPlaying) {
-          window.blueAPI.stopPlayback();
-          resetPlayback();
-        }
+        stop();
       }
 
       // Cmd/Ctrl+O = open file
       if (e.code === 'KeyO' && meta) {
         e.preventDefault();
-        await window.blueAPI.openFile();
+        await loadProject();
       }
 
       // Cmd/Ctrl+S = save file
       if (e.code === 'KeyS' && meta && hasProject) {
         e.preventDefault();
-        // Shift+S = Save As
         if (e.shiftKey) {
-          await window.blueAPI.saveFileAs();
+          await saveProjectAs();
         } else {
-          await window.blueAPI.saveFile();
+          await saveProject();
         }
       }
     };
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [hasProject, isPlaying, resetPlayback]);
+  }, [hasProject, loadProject, saveProject, saveProjectAs, togglePlay, stop]);
 }
