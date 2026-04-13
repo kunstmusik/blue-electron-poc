@@ -1,6 +1,10 @@
 /**
  * EngineBridge — manages the blue-engine subprocess and ZMQ connection.
  * Bridges the Electron main process to the C++ blue-engine.
+ *
+ * Lifecycle: For each playback, a fresh engine is spawned.
+ * After stop (or natural completion), the engine is force-killed.
+ * A playback lock prevents concurrent operations.
  */
 import { ChildProcess, spawn } from 'child_process';
 import { EngineClient } from '@blue/engine-client';
@@ -16,6 +20,7 @@ export class EngineBridge {
   private enginePath: string;
   private port: number;
   private stderr = '';
+  private playbackLock = false;
 
   constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number) {
     this.mainWindow = mainWindow;
@@ -27,12 +32,10 @@ export class EngineBridge {
    * Find the blue-engine binary. Checks common locations.
    */
   private findEngine(): string | null {
-    // Check if the configured path exists
     if (fs.existsSync(this.enginePath)) {
       return this.enginePath;
     }
 
-    // Common locations on macOS
     const candidates = [
       '/usr/local/bin/blue-engine',
       '/opt/homebrew/bin/blue-engine',
@@ -49,43 +52,62 @@ export class EngineBridge {
   }
 
   /**
-   * Start the blue-engine process and connect via ZMQ.
+   * Force-kill the engine process and clean up all resources.
+   * Does NOT send ZMQ commands — just SIGKILL the process.
+   */
+  private killEngine(): void {
+    if (this.engineProcess && !this.engineProcess.killed) {
+      try {
+        this.engineProcess.kill('SIGKILL');
+      } catch {
+        // Process already dead
+      }
+    }
+    this.engineProcess = null;
+    this.client = null;
+    this.isPlaying = false;
+  }
+
+  /**
+   * Start a fresh blue-engine process and connect via ZMQ.
    */
   async startEngine(): Promise<boolean> {
-    try {
-      // Find the engine binary
-      const enginePath = this.findEngine();
-      if (!enginePath) {
-        await dialog.showErrorBox(
-          'blue-engine Not Found',
-          `Could not find the blue-engine binary.\n\n` +
-          `Searched: ${this.enginePath}, /usr/local/bin/blue-engine, /opt/homebrew/bin/blue-engine\n\n` +
-          `Please install blue-engine or set the engine path in preferences.`,
-        );
-        return false;
-      }
+    // Ensure no leftover process
+    this.killEngine();
 
-      this.stderr = '';
-      console.log(`[EngineBridge] Starting: ${enginePath} --port=${this.port}`);
+    const enginePath = this.findEngine();
+    if (!enginePath) {
+      await dialog.showErrorBox(
+        'blue-engine Not Found',
+        `Could not find the blue-engine binary.\n\n` +
+        `Searched: ${this.enginePath}, /usr/local/bin/blue-engine, /opt/homebrew/bin/blue-engine\n\n` +
+        `Please install blue-engine or set the engine path in preferences.`,
+      );
+      return false;
+    }
 
-      // Spawn blue-engine
-      this.engineProcess = spawn(enginePath, ['--port', `${this.port}`], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+    this.stderr = '';
+    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port}`);
 
-      // Capture stderr for error reporting
-      this.engineProcess.stderr?.on('data', (data: Buffer) => {
-        this.stderr += data.toString();
-        console.error(`[EngineBridge] stderr: ${data.toString().trim()}`);
-      });
+    // Spawn blue-engine
+    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
-      this.engineProcess.stdout?.on('data', (data: Buffer) => {
-        console.log(`[EngineBridge] stdout: ${data.toString().trim()}`);
-      });
+    // Capture stderr
+    this.engineProcess.stderr?.on('data', (data: Buffer) => {
+      this.stderr += data.toString();
+      console.error(`[EngineBridge] stderr: ${data.toString().trim()}`);
+    });
 
-      this.engineProcess.on('exit', (code, signal) => {
-        console.log(`[EngineBridge] Engine exited: code=${code}, signal=${signal}`);
-        console.log(`[EngineBridge] Captured stderr: ${this.stderr}`);
+    this.engineProcess.stdout?.on('data', (data: Buffer) => {
+      console.log(`[EngineBridge] stdout: ${data.toString().trim()}`);
+    });
+
+    this.engineProcess.on('exit', (code, signal) => {
+      console.log(`[EngineBridge] Engine exited: code=${code}, signal=${signal}`);
+      if (this.isPlaying) {
+        // Engine exited unexpectedly during playback
         this.isPlaying = false;
         this.mainWindow.webContents.send('playback-status', {
           status: 'stopped',
@@ -93,113 +115,110 @@ export class EngineBridge {
             ? `Engine error: ${this.stderr.trim().split('\n').pop()}`
             : `Engine exited (code: ${code}, signal: ${signal})`,
         });
-      });
-
-      this.engineProcess.on('error', (err) => {
-        console.error(`[EngineBridge] Spawn error: ${err.message}`);
-        this.isPlaying = false;
-        this.mainWindow.webContents.send('playback-error', `Engine error: ${err.message}`);
-      });
-
-      // Give the engine a moment to start
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Check if process is still running
-      if (!this.engineProcess || this.engineProcess.killed) {
-        await dialog.showErrorBox(
-          'blue-engine Failed',
-          `The blue-engine process exited immediately.\n\n` +
-          `Error output:\n${this.stderr || '(no output)'}`,
-        );
-        return false;
       }
+    });
 
-      // Connect ZMQ client
+    this.engineProcess.on('error', (err) => {
+      console.error(`[EngineBridge] Spawn error: ${err.message}`);
+      this.isPlaying = false;
+      this.mainWindow.webContents.send('playback-error', `Engine error: ${err.message}`);
+    });
+
+    // Wait for engine to start
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    if (!this.engineProcess || this.engineProcess.killed) {
+      await dialog.showErrorBox(
+        'blue-engine Failed',
+        `The blue-engine process exited immediately.\n\n` +
+        `Error output:\n${this.stderr || '(no output)'}`,
+      );
+      return false;
+    }
+
+    // Connect ZMQ client
+    try {
       this.client = new EngineClient({
         endpoint: `tcp://localhost:${this.port}`,
         timeout: 10000,
       });
       await this.client.connect();
+    } catch (err: unknown) {
+      console.error(`[EngineBridge] ZMQ connect failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.killEngine();
+      return false;
+    }
 
-      // Initialize engine
+    // Initialize engine
+    try {
       const createResp = await this.client.createEngine();
       if (!createResp.ok) {
         console.error(`[EngineBridge] createEngine failed: ${createResp.message}`);
+        this.killEngine();
         return false;
       }
 
-      const optResp = await this.client.setOption('-d'); // Disable display
+      const optResp = await this.client.setOption('-d');
       if (!optResp.ok) {
         console.warn(`[EngineBridge] setOption(-d) warning: ${optResp.message}`);
       }
-
-      console.log('[EngineBridge] Engine started successfully');
-      return true;
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[EngineBridge] Start failed: ${msg}`);
-      console.error(`[EngineBridge] Captured stderr: ${this.stderr}`);
-
-      await dialog.showErrorBox(
-        'Engine Start Failed',
-        `Could not start blue-engine:\n\n${msg}\n\n` +
-        `Engine output:\n${this.stderr || '(no output)'}`,
-      );
+      console.error(`[EngineBridge] Engine init failed: ${err instanceof Error ? err.message : String(err)}`);
+      this.killEngine();
       return false;
     }
+
+    console.log('[EngineBridge] Engine started successfully');
+    return true;
   }
 
   /**
-   * Stop the engine and clean up.
+   * Stop playback, kill the engine, and reset state.
    */
   async stopEngine(): Promise<void> {
-    this.isPlaying = false;
-
-    if (this.client) {
+    // Send stop command if client is available and playing
+    if (this.client && this.isPlaying) {
       try {
-        await this.client.stop();
-        await this.client.disconnect();
+        const resp = await this.client.stop();
+        console.log(`[EngineBridge] stop: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
       } catch (err) {
-        // Ignore disconnect errors
-        console.warn(`[EngineBridge] disconnect error: ${err instanceof Error ? err.message : String(err)}`);
+        console.warn(`[EngineBridge] stop command error: ${err instanceof Error ? err.message : String(err)}`);
       }
-      this.client = null;
     }
 
-    if (this.engineProcess) {
-      this.engineProcess.kill();
-      this.engineProcess = null;
-    }
-
+    // Force-kill the process regardless
+    this.killEngine();
     this.mainWindow.webContents.send('playback-status', { status: 'stopped' });
   }
 
   /**
    * Play a CSD string — compile and start performance.
-   * Destroys and recreates the engine for each playback to ensure
-   * a clean state (matching the test_client.js pattern).
+   * Destroys any existing engine and starts fresh.
+   * Uses a lock to prevent concurrent playback attempts.
    */
   async playCSD(csd: string): Promise<boolean> {
-    // Always destroy existing engine and start fresh
-    await this.stopEngine();
-
-    // Start fresh engine
-    const started = await this.startEngine();
-    if (!started) return false;
-
-    if (!this.client) return false;
+    // Prevent concurrent playback
+    if (this.playbackLock) {
+      console.warn('[EngineBridge] Playback already in progress, ignoring');
+      return false;
+    }
+    this.playbackLock = true;
 
     try {
-      // Parse CSD to extract orchestra and score sections
+      // Destroy existing engine and start fresh
+      await this.stopEngine();
+
+      const started = await this.startEngine();
+      if (!started) return false;
+      if (!this.client) return false;
+
       const { orchestra, score, options } = parseCSD(csd);
 
-      // Log what we're sending for debugging
       console.log(`[EngineBridge] CSD: ${csd.length} bytes`);
       console.log(`[EngineBridge] Options: ${JSON.stringify(options)}`);
       console.log(`[EngineBridge] Orchestra: ${orchestra?.length || 0} chars`);
       if (orchestra) console.log(`[EngineBridge] Orchestra preview:\n${orchestra.substring(0, 200)}`);
       console.log(`[EngineBridge] Score: ${score?.length || 0} chars`);
-      if (score) console.log(`[EngineBridge] Score:\n${score}`);
 
       // Check if we have anything to play
       if (!orchestra && !score) {
@@ -211,13 +230,13 @@ export class EngineBridge {
         return false;
       }
 
-      // Set options
+      // Set options (skip ones that cause errors)
       for (const opt of options) {
         console.log(`[EngineBridge] setOption: ${opt}`);
         try {
           const resp = await this.client.setOption(opt);
           if (!resp.ok) {
-            console.error(`[EngineBridge] setOption failed: ${opt} — ${resp.message}`);
+            console.warn(`[EngineBridge] setOption skipped: ${opt} — ${resp.message}`);
           }
         } catch (err: unknown) {
           console.error(`[EngineBridge] setOption error: ${opt} — ${err instanceof Error ? err.message : String(err)}`);
@@ -263,34 +282,30 @@ export class EngineBridge {
         });
         return false;
       }
-      this.isPlaying = true;
 
+      this.isPlaying = true;
       this.mainWindow.webContents.send('playback-status', {
         status: 'playing',
         message: 'Playing via blue-engine',
       });
 
       return true;
-    } catch (err: unknown) {
-      this.mainWindow.webContents.send('playback-error', `Play failed: ${err instanceof Error ? err.message : String(err)}`);
-      return false;
+    } finally {
+      this.playbackLock = false;
     }
   }
 
   /**
-   * Stop playback.
+   * Stop playback. Kills the engine and resets state.
    */
   async stopPlayback(): Promise<void> {
-    if (this.client && this.isPlaying) {
-      try {
-        const resp = await this.client.stop();
-        console.log(`[EngineBridge] stop: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
-      } catch {
-        // Ignore stop errors
-      }
+    if (!this.isPlaying && !this.client) {
+      // Nothing to stop
+      this.mainWindow.webContents.send('playback-status', { status: 'stopped' });
+      return;
     }
-    this.isPlaying = false;
-    this.mainWindow.webContents.send('playback-status', { status: 'stopped' });
+
+    await this.stopEngine();
   }
 
   /**
@@ -324,7 +339,8 @@ export class EngineBridge {
    * Clean up all resources.
    */
   dispose(): void {
-    this.stopEngine();
+    this.playbackLock = false;
+    this.killEngine();
   }
 }
 
@@ -340,7 +356,6 @@ function parseCSD(csd: string): { orchestra: string; score: string; options: str
   const optsMatch = csd.match(/<CsOptions>([\s\S]*?)<\/CsOptions>/);
   if (optsMatch) {
     const optsText = optsMatch[1].trim();
-    // Parse each option
     for (const line of optsText.split('\n')) {
       const trimmed = line.trim();
       if (trimmed && !trimmed.startsWith(';')) {
