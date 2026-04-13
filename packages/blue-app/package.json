@@ -6,7 +6,8 @@
   "scripts": {
     "build:main": "tsc -p tsconfig.main.json",
     "build:preload": "tsc -p tsconfig.preload.json",
-    "build": "pnpm build:main && pnpm build:preload",
+    "build:renderer": "mkdir -p dist/renderer && cp src/renderer/index.html src/renderer/app.js src/renderer/styles.css dist/renderer/",
+    "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
     "start": "electron .",
     "test": "echo \"TODO: tests\" && exit 0"
   },
