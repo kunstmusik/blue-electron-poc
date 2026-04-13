@@ -84,6 +84,23 @@ export class PianoRoll extends AbstractSoundObject {
     _startTime: number,
     _endTime: number,
   ): NoteList {
+    // Generate a default oscillator instrument if this instrumentId isn't already defined
+    const instrNum = this._instrumentId;
+    const instrMarker = `__instr_${instrNum}__`;
+    if (compileData.getCompilationVariable(instrMarker) === undefined) {
+      compileData.setCompilationVariable(instrMarker, true);
+
+      // Generate a simple oscillator instrument for the given instrument number
+      const orc = `instr ${instrNum}
+  ifreq = p4
+  iamp = p5
+  aenv madsr 0.01, 0.1, 0.8, 0.1
+  aout poscil aenv * iamp, ifreq
+  outs aout, aout
+endin
+`;
+      compileData.appendGlobalOrc(orc);
+    }
     const nl = new NoteList();
     let instrId = this._instrumentId.trim();
 
