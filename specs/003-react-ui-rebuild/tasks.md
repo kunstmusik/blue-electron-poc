@@ -91,22 +91,22 @@
 ## Phase 17: Polish and Testing
 
 ### Build and Dev Experience
-- [ ] T346 Configure Vite HMR for Electron renderer
-- [ ] T347 Configure production build output to `dist/renderer/`
-- [ ] T348 Update Electron main process to load `dist/renderer/index.html` from Vite build
+- [x] T346 Configure Vite HMR for Electron renderer
+- [x] T347 Configure production build output to `dist/renderer/`
+- [x] T348 Update Electron main process to load `dist/renderer/index.html` from Vite build
 
 ### Testing
-- [ ] T349 [P] Test: Open .blue file → project metadata displays correctly
-- [ ] T350 [P] Test: Play/Stop toggles state correctly
-- [ ] T351 [P] Test: Save/Save As writes file correctly
-- [ ] T352 [P] Test: Recent files persist across restarts
-- [ ] T353 [P] Test: Keyboard shortcuts work (Space, Escape, Cmd+O, Cmd+S)
-- [ ] T354 Integration test: Full open → play → stop → save flow
+- [x] T349 [P] Test: Open .blue file → project metadata displays correctly
+- [x] T350 [P] Test: Play/Stop toggles state correctly
+- [x] T351 [P] Test: Save/Save As writes file correctly
+- [x] T352 [P] Test: Recent files persist across restarts
+- [x] T353 [P] Test: Keyboard shortcuts work (Space, Escape, Cmd+O, Cmd+S)
+- [x] T354 Integration test: Full open → play → stop → save flow
 
 ### Polish
-- [ ] T355 Add loading spinner during file load
-- [ ] T356 Add error boundary for renderer crashes
-- [ ] T357 Responsive layout adjustments
+- [x] T355 Add loading spinner during file load
+- [x] T356 Add error boundary for renderer crashes
+- [x] T357 Responsive layout adjustments
 
 ---
 

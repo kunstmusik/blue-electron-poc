@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { toast } from 'sonner';
 
 interface SettingsState {
@@ -16,6 +16,24 @@ interface SettingsActions {
   removeRecentFile: (path: string) => void;
   setWindowBounds: (bounds: SettingsState['windowBounds']) => void;
 }
+
+// Dynamic storage: localStorage in browser, in-memory in tests
+const getStorage = (): StateStorage => {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      return window.localStorage;
+    }
+  } catch {
+    // localStorage not available
+  }
+  // Fallback: in-memory storage for tests
+  const store = new Map<string, string>();
+  return {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => store.set(key, value),
+    removeItem: (key) => store.delete(key),
+  };
+};
 
 export const useSettingsStore = create<SettingsState & SettingsActions>()(
   persist(
@@ -59,6 +77,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
     }),
     {
       name: 'blue-settings',
+      storage: createJSONStorage(() => getStorage()),
       partialize: (state) => ({
         recentFiles: state.recentFiles,
         windowBounds: state.windowBounds,

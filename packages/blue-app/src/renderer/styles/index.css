@@ -44,4 +44,11 @@
   .status-error {
     @apply text-red-400;
   }
+
+  /* Responsive utilities */
+  @media (max-width: 768px) {
+    .project-details-grid {
+      grid-template-columns: 1fr !important;
+    }
+  }
 }
