@@ -28,6 +28,29 @@ import { Comment } from './comment';
 import { CSDSoundObject } from './csd-sound-object';
 import { PythonObject } from './python-object';
 import { JavaScriptObject } from './javascript-object';
+import { PianoRoll } from './piano-roll';
+import { PatternObject } from './pattern-object';
+import { AudioFile } from './audio-file';
+import { Sound } from './sound';
+import { External } from './external';
+import { Instance } from './instance';
+import { LineObject } from './line-object';
+import { ZakLineObject } from './zak-line-object';
+import { JMask } from './j-mask';
+import { TrackerObject } from './tracker-object';
+import { NotationObject } from './notation-object';
+import { FrozenSoundObject } from './frozen-sound-object';
+
+/**
+ * Normalize a Java class name type to a short name.
+ * E.g., "blue.soundObject.PianoRoll" → "PianoRoll"
+ */
+function normalizeType(type: string | null): string {
+  if (!type) return '';
+  // Strip package prefix
+  const shortName = type.split('.').pop() || type;
+  return shortName;
+}
 
 /**
  * Load a nested SoundObject from XML by dispatching based on type attribute.
@@ -37,7 +60,8 @@ function loadNestedSoundObject(
   data: Element,
   objRefMap: ObjRefLoadMap | undefined,
 ): SoundObject | null {
-  const type = data.getAttribute('type');
+  const rawType = data.getAttribute('type');
+  const type = normalizeType(rawType);
 
   switch (type) {
     case 'GenericScore':
@@ -52,8 +76,32 @@ function loadNestedSoundObject(
       return PythonObject.loadFromXML(data);
     case 'JavaScriptObject':
       return JavaScriptObject.loadFromXML(data);
+    case 'PianoRoll':
+      return PianoRoll.loadFromXML(data);
+    case 'PatternObject':
+      return PatternObject.loadFromXML(data);
+    case 'AudioFile':
+      return AudioFile.loadFromXML(data);
+    case 'Sound':
+      return Sound.loadFromXML(data);
+    case 'External':
+      return External.loadFromXML(data);
+    case 'Instance':
+      return Instance.loadFromXML(data);
+    case 'LineObject':
+      return LineObject.loadFromXML(data);
+    case 'ZakLineObject':
+      return ZakLineObject.loadFromXML(data);
+    case 'JMask':
+      return JMask.loadFromXML(data);
+    case 'TrackerObject':
+      return TrackerObject.loadFromXML(data);
+    case 'NotationObject':
+      return NotationObject.loadFromXML(data);
+    case 'FrozenSoundObject':
+      return FrozenSoundObject.loadFromXML(data);
     default:
-      console.warn(`Unknown SoundObject type in PolyObject: ${type}`);
+      console.warn(`Unknown SoundObject type in PolyObject: ${rawType || '(no type)'}`);
       return null;
   }
 }

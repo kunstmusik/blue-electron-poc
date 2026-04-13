@@ -129,6 +129,7 @@ export class BlueData implements BlueDataObject {
     while (nodes.hasMoreElements()) {
       const node = nodes.next();
       const nodeName = node.getName();
+      console.log(`[BlueData.loadFromString] Found element: ${nodeName}`);
 
       switch (nodeName) {
         case 'projectProperties':

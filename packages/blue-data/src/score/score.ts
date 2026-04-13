@@ -64,22 +64,31 @@ export class Score extends Array<LayerGroup<Layer>> {
    * Iterates all LayerGroups and collects their NoteLists.
    */
   generateForCSD(compileData: CompileData, startTime: number, endTime: number): NoteList {
+    console.log(`[Score.generateForCSD] layerGroups: ${this.length}, start: ${startTime}, end: ${endTime}`);
+
     const noteList = new NoteList();
     const context = this.timeContext;
     const hasSolo = this.some((lg) => lg.hasSoloLayers());
+    console.log(`[Score.generateForCSD] hasSolo: ${hasSolo}`);
 
-    for (const layerGroup of this) {
+    for (let i = 0; i < this.length; i++) {
+      const layerGroup = this[i];
+      console.log(`[Score.generateForCSD] LayerGroup ${i}: ${layerGroup.getName()}, type: ${layerGroup.constructor.name}`);
+
       if (!hasSolo) {
         // No solo layers — generate all non-muted layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, false);
+        console.log(`[Score.generateForCSD] LayerGroup ${i} generated ${nl.length} notes`);
         noteList.merge(nl);
       } else {
         // Solo mode — generate only solo layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, true);
+        console.log(`[Score.generateForCSD] LayerGroup ${i} (solo) generated ${nl.length} notes`);
         noteList.merge(nl);
       }
     }
 
+    console.log(`[Score.generateForCSD] Total notes: ${noteList.length}`);
     return noteList;
   }
 
@@ -108,6 +117,7 @@ export class Score extends Array<LayerGroup<Layer>> {
     while (nodes.hasMoreElements()) {
       const node = nodes.next();
       const nodeName = node.getName();
+      console.log(`[Score.loadFromXML] Found element: ${nodeName}`);
 
       switch (nodeName) {
         case 'timeContext':
@@ -119,22 +129,42 @@ export class Score extends Array<LayerGroup<Layer>> {
         case 'noteProcessorChain':
           score.npc = NoteProcessorChain.loadFromXML(node);
           break;
+        case 'soundObject': {
+          // Check if this is a PolyObject (contains soundLayer elements)
+          const type = node.getAttribute('type');
+          if (type === 'PolyObject' || node.hasElement('soundLayer')) {
+            console.log(`[Score.loadFromXML] soundObject is PolyObject → pushing`);
+            score.push(PolyObject.loadFromXML(node));
+            console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
+          } else {
+            console.log(`[Score.loadFromXML] soundObject type=${type || '(no type)'}`);
+          }
+          break;
+        }
         case 'polyObject':
-          // Root PolyObject — legacy format from before 2.3.0
-          // For Phase 3: skip — upgrade system handles this
+          console.log(`[Score.loadFromXML] polyObject → pushing`);
+          score.push(PolyObject.loadFromXML(node));
+          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
           break;
         case 'audioLayerGroup':
+          console.log(`[Score.loadFromXML] audioLayerGroup → pushing`);
           score.push(AudioLayerGroup.loadFromXML(node));
+          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
           break;
         case 'patternsLayerGroup':
+          console.log(`[Score.loadFromXML] patternsLayerGroup → pushing`);
           score.push(PatternsLayerGroup.loadFromXML(node));
+          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
           break;
         case 'scoreObjectLayerGroup':
-          // Generic layer group — may contain PolyObject-based layers
+          console.log(`[Score.loadFromXML] scoreObjectLayerGroup (generic)`);
           break;
+        default:
+          console.log(`[Score.loadFromXML] Unknown: ${nodeName}`);
       }
     }
 
+    console.log(`[Score.loadFromXML] Final count: ${score.length} layer groups`);
     return score;
   }
 }
