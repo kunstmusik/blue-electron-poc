@@ -1,0 +1,33 @@
+/**
+ * BSBGraphicInterface — root container for the BSB widget tree.
+ * Mirrors the Java BSBGraphicInterface class.
+ *
+ * Holds the root BSBGroup and delegates replacement collection to it.
+ */
+import { Element } from '../../serialization/xml-reader';
+import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { BSBGroup } from './bsb-group';
+
+export class BSBGraphicInterface {
+  rootGroup = new BSBGroup();
+  gridSettings = '';
+
+  /**
+   * Walk the entire widget tree and collect all replacement values.
+   */
+  collectReplacements(unit: BSBCompilationUnit): void {
+    this.rootGroup.collectReplacements(unit);
+  }
+
+  loadFromXML(data: Element): void {
+    const gridSettings = data.getTextString('gridSettings');
+    if (gridSettings) this.gridSettings = gridSettings;
+
+    // The root group is stored as a nested <bsbObject type="BSBGroup">
+    const bsbObjects = data.getElements('bsbObject');
+    while (bsbObjects.hasMoreElements()) {
+      const objElem = bsbObjects.next();
+      this.rootGroup.loadFromXML(objElem);
+    }
+  }
+}

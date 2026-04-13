@@ -8,64 +8,64 @@
 ## Phase 18: BSB Data Model
 
 ### BSBCompilationUnit
-- [ ] T401 [P] Create `instruments/blue-synth-builder/bsb-compilation-unit.ts` — replacement value map + text replacer
-- [ ] T402 [P] Implement `addReplacementValue(key, value)` and `replaceBSBValues(instrumentText)`
+- [x] T401 [P] Create `instruments/blue-synth-builder/bsb-compilation-unit.ts` — replacement value map + text replacer
+- [x] T402 [P] Implement `addReplacementValue(key, value)` and `replaceBSBValues(instrumentText)`
 
 ### BSBWidget Base
-- [ ] T403 Create `instruments/blue-synth-builder/bsb-widget.ts` — base interface with objectName, value, min, max, parameterName
-- [ ] T404 [P] Implement `collectReplacements(unit)` for base widget
+- [x] T403 Create `instruments/blue-synth-builder/bsb-widget.ts` — base interface with objectName, value, min, max, parameterName
+- [x] T404 [P] Implement `collectReplacements(unit)` for base widget
 
 ### BSBGroup
-- [ ] T405 Create `instruments/blue-synth-builder/bsb-group.ts` — container for nested bsbObject children
-- [ ] T406 [P] Implement recursive `collectReplacements()` that walks all child widgets
+- [x] T405 Create `instruments/blue-synth-builder/bsb-group.ts` — container for nested bsbObject children
+- [x] T406 [P] Implement recursive `collectReplacements()` that walks all child widgets
 
 ### BSBKnob
-- [ ] T407 Create `instruments/blue-synth-builder/bsb-knob.ts` — knobWidth property
-- [ ] T408 [P] Implement XML load with objectName, x, y, value, min, max, knobWidth
+- [x] T407 Create `instruments/blue-synth-builder/bsb-knob.ts` — knobWidth property
+- [x] T408 [P] Implement XML load with objectName, x, y, value, min, max, knobWidth
 
 ### BSBCheckBox
-- [ ] T409 Create `instruments/blue-synth-builder/bsb-check-box.ts` — checkedVal, uncheckedVal properties
-- [ ] T410 [P] Implement XML load with objectName, value, checkedVal, uncheckedVal
+- [x] T409 Create `instruments/blue-synth-builder/bsb-check-box.ts` — checkedVal, uncheckedVal properties
+- [x] T410 [P] Implement XML load with objectName, value, checkedVal, uncheckedVal
 
 ### BSBHSlider / BSBVSlider
-- [ ] T411 Create `instruments/blue-synth-builder/bsb-hslider.ts` — sliderWidth property
-- [ ] T412 [P] Create `instruments/blue-synth-builder/bsb-vslider.ts` — sliderHeight property
-- [ ] T413 [P] Implement XML load for both types
+- [x] T411 Create `instruments/blue-synth-builder/bsb-hslider.ts` — sliderWidth property
+- [x] T412 [P] Create `instruments/blue-synth-builder/bsb-vslider.ts` — sliderHeight property
+- [x] T413 [P] Implement XML load for both types
 
 ### BSBHSliderBank / BSBVSliderBank
-- [ ] T414 Create `instruments/blue-synth-builder/bsb-hslider-bank.ts` — bank of sliders
-- [ ] T415 [P] Create `instruments/blue-synth-builder/bsb-vslider-bank.ts` — bank of sliders
-- [ ] T416 Implement XML load for bank types (multiple values per widget)
+- [x] T414 Create `instruments/blue-synth-builder/bsb-hslider-bank.ts` — bank of sliders
+- [x] T415 [P] Create `instruments/blue-synth-builder/bsb-vslider-bank.ts` — bank of sliders
+- [x] T416 Implement XML load for bank types (multiple values per widget)
 
 ### BSBValue / BSBDropdown / BSBXYController
-- [ ] T417 Create `instruments/blue-synth-builder/bsb-value.ts` — numeric display
-- [ ] T418 Create `instruments/blue-synth-builder/bsb-dropdown.ts` — dropdown with BSBDropdownItemList
-- [ ] T419 Create `instruments/blue-synth-builder/bsb-dropdown-item.ts` — dropdown item
-- [ ] T420 Create `instruments/blue-synth-builder/bsb-xy-controller.ts` — 2D XY pad
-- [ ] T421 [P] Implement XML load for all three types
+- [x] T417 Create `instruments/blue-synth-builder/bsb-value.ts` — numeric display
+- [x] T418 Create `instruments/blue-synth-builder/bsb-dropdown.ts` — dropdown with BSBDropdownItemList
+- [x] T419 Create `instruments/blue-synth-builder/bsb-dropdown-item.ts` — dropdown item
+- [x] T420 Create `instruments/blue-synth-builder/bsb-xy-controller.ts` — 2D XY pad
+- [x] T421 [P] Implement XML load for all three types
 
 ### BSBSubChannelDropdown / BSBFileSelector / BSBTextField
-- [ ] T422 Create `instruments/blue-synth-builder/bsb-subchannel-dropdown.ts`
-- [ ] T423 Create `instruments/blue-synth-builder/bsb-file-selector.ts` — string channel provider
-- [ ] T424 [P] Create `instruments/blue-synth-builder/bsb-text-field.ts`
-- [ ] T425 Implement XML load for all three types
+- [x] T422 Create `instruments/blue-synth-builder/bsb-subchannel-dropdown.ts`
+- [x] T423 Create `instruments/blue-synth-builder/bsb-file-selector.ts` — string channel provider
+- [x] T424 [P] Create `instruments/blue-synth-builder/bsb-text-field.ts`
+- [x] T425 Implement XML load for all three types
 
 ### BSBLabel / BSBLineObject (no values)
-- [ ] T426 Create `instruments/blue-synth-builder/bsb-label.ts` — static label
-- [ ] T427 [P] Create `instruments/blue-synth-builder/bsb-line-object.ts` — line/drawing
-- [ ] T428 Implement XML load (data-only, no replacement contribution)
+- [x] T426 Create `instruments/blue-synth-builder/bsb-label.ts` — static label
+- [x] T427 [P] Create `instruments/blue-synth-builder/bsb-line-object.ts` — line/drawing
+- [x] T428 Implement XML load (data-only, no replacement contribution)
 
 ### BSBGraphicInterface
-- [ ] T429 Create `instruments/blue-synth-builder/bsb-graphic-interface.ts` — root group, gridSettings
-- [ ] T430 [P] Implement `collectReplacements()` that delegates to root group
-- [ ] T431 Implement XML load with recursive bsbObject parsing (type dispatch for all 16 widget types)
+- [x] T429 Create `instruments/blue-synth-builder/bsb-graphic-interface.ts` — root group, gridSettings
+- [x] T430 [P] Implement `collectReplacements()` that delegates to root group
+- [x] T431 Implement XML load with recursive bsbObject parsing (type dispatch for all 16 widget types)
 
 ### BlueSynthBuilder Instrument
-- [ ] T432 Create `instruments/blue-synth-builder.ts` — Instrument implementation
-- [ ] T433 [P] Parse: name, instrumentText, alwaysOnInstrumentText, globalOrc, globalSco, graphicInterface
-- [ ] T434 [P] Implement `generateInstrument()` — compilation unit + replaceBSBValues
-- [ ] T435 Implement `generateGlobalOrc()` and `generateGlobalSco()`
-- [ ] T436 [P] Implement XML load/save
+- [x] T432 Create `instruments/blue-synth-builder.ts` — Instrument implementation
+- [x] T433 [P] Parse: name, instrumentText, alwaysOnInstrumentText, globalOrc, globalSco, graphicInterface
+- [x] T434 [P] Implement `generateInstrument()` — compilation unit + replaceBSBValues
+- [x] T435 Implement `generateGlobalOrc()` and `generateGlobalSco()`
+- [x] T436 [P] Implement XML load/save
 
 ---
 

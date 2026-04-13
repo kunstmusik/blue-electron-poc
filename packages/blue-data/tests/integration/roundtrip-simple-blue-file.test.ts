@@ -271,8 +271,10 @@ describe('Round-trip: individual types', () => {
     expect(csd).toContain('<CsOptions>');
     expect(csd).toContain('-r 44100');
     expect(csd).toContain('-k 64');
-    expect(csd).toContain('-nchnls 2');
-    expect(csd).toContain('-0dbfs=32768');
+    // nchnls is in orchestra header, not CsOptions (Csound 7 rejects -n as "no sound")
+    expect(csd).toContain('nchnls = 2');
+    // 0dbfs is in orchestra header, not CsOptions (Csound 7 rejects -0 as unknown flag)
+    expect(csd).toContain('0dbfs = 1');
     expect(csd).toContain('<CsInstruments>');
     expect(csd).toContain('instr 1');
     expect(csd).toContain('endin');
