@@ -67,15 +67,17 @@ export class Arrangement {
 
   /**
    * Generate the orchestra section from all enabled instruments.
+   * Skips assignments where the instrument reference is not resolved
+   * (this happens when loading from XML without a library second-pass).
    */
   generateOrchestra(compileData: CompileData): string {
     const buffer: string[] = [];
 
     for (const ia of this.arrangement) {
       if (!ia.enabled) continue;
+      if (!ia.instr) continue; // Skip unresolved instrument references
 
-      const instr = ia.instr;
-      const instrumentText = instr.generateInstrument();
+      const instrumentText = ia.instr.generateInstrument();
       if (!instrumentText) continue;
 
       // Transform instrument text with arrangement ID substitution
@@ -84,7 +86,7 @@ export class Arrangement {
       // Handle blueMixerOut → outc conversion
       transformed = this.convertBlueMixerOut(compileData, ia.arrangementId, transformed);
 
-      buffer.push(`\tinstr ${ia.arrangementId}\t;${instr.getName()}\n`);
+      buffer.push(`\tinstr ${ia.arrangementId}\t;${ia.instr.getName()}\n`);
       buffer.push(transformed);
       buffer.push('\tendin\n\n');
     }
@@ -100,6 +102,7 @@ export class Arrangement {
 
     for (const ia of this.arrangement) {
       if (!ia.enabled) continue;
+      if (!ia.instr) continue; // Skip unresolved instrument references
       const globalOrc = ia.instr.generateGlobalOrc();
       if (globalOrc) {
         buffer.push(this.replaceInstrumentId(ia.arrangementId, globalOrc));
