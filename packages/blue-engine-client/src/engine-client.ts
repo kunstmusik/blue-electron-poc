@@ -65,17 +65,24 @@ export class EngineClient {
   /**
    * Send a raw command and parse the response.
    * Response format: [status: uint8][msg_len: uint32 LE][message: bytes]
+   * All requests must use the 5-byte header format, even with no payload.
    */
   private async sendRaw(cmd: number, payload?: Buffer): Promise<{ ok: boolean; message: string }> {
     if (!this.socket) {
       throw new Error('EngineClient not connected. Call connect() first.');
     }
 
+    let data: Buffer;
     if (payload) {
-      await this.socket.send(payload);
+      data = payload;
     } else {
-      await this.socket.send(Buffer.from([cmd]));
+      // Always use 5-byte header format, even for no-payload commands
+      data = Buffer.alloc(5);
+      data.writeUInt8(cmd, 0);
+      data.writeUInt32LE(0, 1);
     }
+
+    await this.socket.send(data);
 
     const [response] = await this.socket.receive();
     const respBuf = response as Buffer;
@@ -99,10 +106,17 @@ export class EngineClient {
     // If engine already exists, destroy it first
     let resp = await this.sendRaw(CMD_CREATE_ENGINE);
     if (!resp.ok && resp.message.includes('Engine already created')) {
-      await this.sendRaw(CMD_EXIT); // DESTROY_ENGINE
+      await this.sendRaw(CMD_EXIT); // DESTROY_ENGINE = 0x07
       resp = await this.sendRaw(CMD_CREATE_ENGINE);
     }
     return resp;
+  }
+
+  /**
+   * Destroy the engine instance.
+   */
+  async destroyEngine(): Promise<{ ok: boolean; message: string }> {
+    return this.sendRaw(CMD_EXIT);
   }
 
   /**
