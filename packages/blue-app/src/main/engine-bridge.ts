@@ -176,13 +176,16 @@ export class EngineBridge {
 
   /**
    * Play a CSD string — compile and start performance.
+   * Destroys and recreates the engine for each playback to ensure
+   * a clean state (matching the test_client.js pattern).
    */
   async playCSD(csd: string): Promise<boolean> {
-    if (!this.client) {
-      // First time — start engine
-      const started = await this.startEngine();
-      if (!started) return false;
-    }
+    // Always destroy existing engine and start fresh
+    await this.stopEngine();
+
+    // Start fresh engine
+    const started = await this.startEngine();
+    if (!started) return false;
 
     if (!this.client) return false;
 
