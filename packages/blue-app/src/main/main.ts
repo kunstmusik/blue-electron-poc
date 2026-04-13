@@ -11,6 +11,8 @@ let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
 let currentFilePath: string | null = null;
 let engineBridge: EngineBridge | null = null;
+let isQuitting = false;
+let pendingQuit = false;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -44,7 +46,11 @@ function createWindow(): void {
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => saveFile() },
         { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => saveFileAs() },
         { type: 'separator' },
-        { role: 'quit' },
+        {
+          label: 'Quit',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : undefined,
+          click: () => requestQuit(),
+        },
       ],
     },
     {
@@ -57,6 +63,83 @@ function createWindow(): void {
   ]);
   Menu.setApplicationMenu(menu);
 }
+
+/**
+ * Request app exit — shows save prompt if project is dirty.
+ */
+async function requestQuit(): Promise<void> {
+  isQuitting = true;
+
+  // Stop engine first
+  if (engineBridge && engineBridge.isCurrentlyPlaying()) {
+    await engineBridge.stopPlayback();
+  }
+
+  if (currentData && currentFilePath) {
+    // Ask user to save before quitting
+    const result = await dialog.showMessageBox(mainWindow!, {
+      type: 'question',
+      title: 'Save Before Quit?',
+      message: 'Would you like to save the project before exiting?',
+      detail: currentFilePath
+        ? `File: ${path.basename(currentFilePath)}`
+        : 'This project has not been saved yet.',
+      buttons: ['Save', "Don't Save", 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+    });
+
+    if (result.response === 0) {
+      // Save → Quit
+      if (currentFilePath) {
+        doSave(currentFilePath);
+      } else {
+        await saveFileAs();
+        // If user cancels the save dialog, abort quit
+        if (!currentFilePath) {
+          isQuitting = false;
+          return;
+        }
+      }
+      // Save complete → proceed with quit
+      pendingQuit = true;
+    } else if (result.response === 1) {
+      // Don't Save → Quit immediately
+      doQuit();
+    } else {
+      // Cancel → Abort quit
+      isQuitting = false;
+    }
+  } else {
+    // No project loaded → quit immediately
+    doQuit();
+  }
+}
+
+/**
+ * Actually quit the app — clean up engine and exit.
+ */
+async function doQuit(): Promise<void> {
+  isQuitting = true;
+
+  // Gracefully stop engine
+  if (engineBridge) {
+    try {
+      await engineBridge.stopPlayback();
+    } catch {
+      // Ignore cleanup errors
+    }
+    engineBridge.dispose();
+    engineBridge = null;
+  }
+
+  currentData = null;
+  currentFilePath = null;
+
+  app.quit();
+}
+
+// ─── File Operations ───
 
 async function openFile(): Promise<void> {
   if (!mainWindow) return;
@@ -121,12 +204,24 @@ function doSave(filePath: string): void {
     if (mainWindow) {
       mainWindow.webContents.send('save-complete', { filePath });
     }
+    // If we were waiting to quit after save, do it now
+    if (pendingQuit) {
+      pendingQuit = false;
+      doQuit();
+    }
   } catch (err: unknown) {
     if (mainWindow) {
       mainWindow.webContents.send('save-error', err instanceof Error ? err.message : String(err));
     }
+    // If save failed during quit, still quit
+    if (pendingQuit) {
+      pendingQuit = false;
+      doQuit();
+    }
   }
 }
+
+// ─── Playback ───
 
 function togglePlay(): void {
   if (!engineBridge || !currentData) return;
@@ -162,7 +257,8 @@ async function stopPlayback(): Promise<void> {
   await engineBridge.stopPlayback();
 }
 
-// IPC handlers
+// ─── IPC Handlers ───
+
 ipcMain.handle('open-file', async () => {
   await openFile();
   return currentFilePath;
@@ -199,6 +295,8 @@ ipcMain.handle('get-project-info', () => {
   };
 });
 
+// ─── App Lifecycle ───
+
 app.whenReady().then(() => {
   createWindow();
 
@@ -209,13 +307,18 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  engineBridge?.dispose();
-  if (process.platform !== 'darwin') {
-    app.quit();
+// Intercept Cmd+Q and window close buttons
+app.on('before-quit', (event: Electron.Event) => {
+  if (!isQuitting) {
+    event.preventDefault();
+    requestQuit();
   }
 });
 
-app.on('before-quit', () => {
-  engineBridge?.dispose();
+app.on('window-all-closed', () => {
+  if (!isQuitting) {
+    requestQuit();
+  } else {
+    doQuit();
+  }
 });
