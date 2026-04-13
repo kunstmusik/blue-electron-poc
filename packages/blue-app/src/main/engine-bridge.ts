@@ -86,11 +86,14 @@ export class EngineBridge {
       return false;
     }
 
-    this.stderr = '';
-    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port}`);
+    // Use unique port and shm name per instance to avoid stale shm collisions
+    const shmName = `blue-engine-${Date.now()}`;
 
-    // Spawn blue-engine
-    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`], {
+    this.stderr = '';
+    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port} --shm ${shmName}`);
+
+    // Spawn blue-engine with unique shm name
+    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`, '--shm', shmName], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -127,7 +130,8 @@ export class EngineBridge {
     // Wait for engine to start
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    if (!this.engineProcess || this.engineProcess.killed) {
+    // Check if process exited (killed by us OR exited on its own)
+    if (!this.engineProcess || this.engineProcess.killed || this.engineProcess.exitCode !== null) {
       await dialog.showErrorBox(
         'blue-engine Failed',
         `The blue-engine process exited immediately.\n\n` +
@@ -305,6 +309,7 @@ export class EngineBridge {
       return;
     }
 
+    this.playbackLock = false; // Release lock so next playCSD can proceed
     await this.stopEngine();
   }
 
