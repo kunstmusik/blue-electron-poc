@@ -4,7 +4,9 @@
  */
 import { ChildProcess, spawn } from 'child_process';
 import { EngineClient } from '@blue/engine-client';
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class EngineBridge {
   private engineProcess: ChildProcess | null = null;
@@ -13,6 +15,7 @@ export class EngineBridge {
   private isPlaying = false;
   private enginePath: string;
   private port: number;
+  private stderr = '';
 
   constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number) {
     this.mainWindow = mainWindow;
@@ -21,27 +24,95 @@ export class EngineBridge {
   }
 
   /**
+   * Find the blue-engine binary. Checks common locations.
+   */
+  private findEngine(): string | null {
+    // Check if the configured path exists
+    if (fs.existsSync(this.enginePath)) {
+      return this.enginePath;
+    }
+
+    // Common locations on macOS
+    const candidates = [
+      '/usr/local/bin/blue-engine',
+      '/opt/homebrew/bin/blue-engine',
+      path.join(process.env.HOME || '', '.local', 'bin', 'blue-engine'),
+    ];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Start the blue-engine process and connect via ZMQ.
    */
   async startEngine(): Promise<boolean> {
     try {
+      // Find the engine binary
+      const enginePath = this.findEngine();
+      if (!enginePath) {
+        await dialog.showErrorBox(
+          'blue-engine Not Found',
+          `Could not find the blue-engine binary.\n\n` +
+          `Searched: ${this.enginePath}, /usr/local/bin/blue-engine, /opt/homebrew/bin/blue-engine\n\n` +
+          `Please install blue-engine or set the engine path in preferences.`,
+        );
+        return false;
+      }
+
+      this.stderr = '';
+      console.log(`[EngineBridge] Starting: ${enginePath} --port=${this.port}`);
+
       // Spawn blue-engine
-      this.engineProcess = spawn(this.enginePath, [`--port=${this.port}`], {
+      this.engineProcess = spawn(enginePath, ['--port', `${this.port}`], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
+      // Capture stderr for error reporting
+      this.engineProcess.stderr?.on('data', (data: Buffer) => {
+        this.stderr += data.toString();
+        console.error(`[EngineBridge] stderr: ${data.toString().trim()}`);
+      });
+
+      this.engineProcess.stdout?.on('data', (data: Buffer) => {
+        console.log(`[EngineBridge] stdout: ${data.toString().trim()}`);
+      });
+
       this.engineProcess.on('exit', (code, signal) => {
+        console.log(`[EngineBridge] Engine exited: code=${code}, signal=${signal}`);
+        console.log(`[EngineBridge] Captured stderr: ${this.stderr}`);
         this.isPlaying = false;
         this.mainWindow.webContents.send('playback-status', {
           status: 'stopped',
-          message: `Engine exited (code: ${code}, signal: ${signal})`,
+          message: this.stderr
+            ? `Engine error: ${this.stderr.trim().split('\n').pop()}`
+            : `Engine exited (code: ${code}, signal: ${signal})`,
         });
       });
 
       this.engineProcess.on('error', (err) => {
+        console.error(`[EngineBridge] Spawn error: ${err.message}`);
         this.isPlaying = false;
-        this.mainWindow.webContents.send('playback-error', `Engine spawn error: ${err.message}`);
+        this.mainWindow.webContents.send('playback-error', `Engine error: ${err.message}`);
       });
+
+      // Give the engine a moment to start
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Check if process is still running
+      if (!this.engineProcess || this.engineProcess.killed) {
+        await dialog.showErrorBox(
+          'blue-engine Failed',
+          `The blue-engine process exited immediately.\n\n` +
+          `Error output:\n${this.stderr || '(no output)'}`,
+        );
+        return false;
+      }
 
       // Connect ZMQ client
       this.client = new EngineClient({
@@ -54,9 +125,18 @@ export class EngineBridge {
       await this.client.createEngine();
       await this.client.setOption('-d'); // Disable display
 
+      console.log('[EngineBridge] Engine started successfully');
       return true;
     } catch (err: unknown) {
-      this.mainWindow.webContents.send('playback-error', `Engine start failed: ${err instanceof Error ? err.message : String(err)}`);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[EngineBridge] Start failed: ${msg}`);
+      console.error(`[EngineBridge] Captured stderr: ${this.stderr}`);
+
+      await dialog.showErrorBox(
+        'Engine Start Failed',
+        `Could not start blue-engine:\n\n${msg}\n\n` +
+        `Engine output:\n${this.stderr || '(no output)'}`,
+      );
       return false;
     }
   }
