@@ -122,8 +122,16 @@ export class EngineBridge {
       await this.client.connect();
 
       // Initialize engine
-      await this.client.createEngine();
-      await this.client.setOption('-d'); // Disable display
+      const createResp = await this.client.createEngine();
+      if (!createResp.ok) {
+        console.error(`[EngineBridge] createEngine failed: ${createResp.message}`);
+        return false;
+      }
+
+      const optResp = await this.client.setOption('-d'); // Disable display
+      if (!optResp.ok) {
+        console.warn(`[EngineBridge] setOption(-d) warning: ${optResp.message}`);
+      }
 
       console.log('[EngineBridge] Engine started successfully');
       return true;
@@ -151,8 +159,9 @@ export class EngineBridge {
       try {
         await this.client.stop();
         await this.client.disconnect();
-      } catch {
+      } catch (err) {
         // Ignore disconnect errors
+        console.warn(`[EngineBridge] disconnect error: ${err instanceof Error ? err.message : String(err)}`);
       }
       this.client = null;
     }
@@ -203,27 +212,54 @@ export class EngineBridge {
       for (const opt of options) {
         console.log(`[EngineBridge] setOption: ${opt}`);
         try {
-          await this.client.setOption(opt);
+          const resp = await this.client.setOption(opt);
+          if (!resp.ok) {
+            console.error(`[EngineBridge] setOption failed: ${opt} — ${resp.message}`);
+          }
         } catch (err: unknown) {
-          console.error(`[EngineBridge] setOption failed: ${opt} — ${err instanceof Error ? err.message : String(err)}`);
+          console.error(`[EngineBridge] setOption error: ${opt} — ${err instanceof Error ? err.message : String(err)}`);
         }
       }
 
       // Compile orchestra
       if (orchestra) {
         console.log(`[EngineBridge] compileOrc (${orchestra.length} chars)`);
-        await this.client.compileOrc(orchestra);
+        const resp = await this.client.compileOrc(orchestra);
+        console.log(`[EngineBridge] compileOrc: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
+        if (!resp.ok) {
+          this.mainWindow.webContents.send('playback-status', {
+            status: 'error',
+            message: `Orchestra compile failed: ${resp.message}`,
+          });
+          return false;
+        }
       }
 
       // Read score
       if (score) {
         console.log(`[EngineBridge] readScore (${score.length} chars)`);
-        await this.client.readScore(score);
+        const resp = await this.client.readScore(score);
+        console.log(`[EngineBridge] readScore: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
+        if (!resp.ok) {
+          this.mainWindow.webContents.send('playback-status', {
+            status: 'error',
+            message: `Score read failed: ${resp.message}`,
+          });
+          return false;
+        }
       }
 
       // Start performance
       console.log(`[EngineBridge] start()`);
-      await this.client.start();
+      const startResp = await this.client.start();
+      console.log(`[EngineBridge] start: ${startResp.ok ? 'OK' : 'FAILED'} ${startResp.message}`);
+      if (!startResp.ok) {
+        this.mainWindow.webContents.send('playback-status', {
+          status: 'error',
+          message: `Engine start failed: ${startResp.message}`,
+        });
+        return false;
+      }
       this.isPlaying = true;
 
       this.mainWindow.webContents.send('playback-status', {
@@ -244,7 +280,8 @@ export class EngineBridge {
   async stopPlayback(): Promise<void> {
     if (this.client && this.isPlaying) {
       try {
-        await this.client.stop();
+        const resp = await this.client.stop();
+        console.log(`[EngineBridge] stop: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
       } catch {
         // Ignore stop errors
       }
@@ -258,7 +295,10 @@ export class EngineBridge {
    */
   async setChannel(name: string, value: number): Promise<void> {
     if (this.client) {
-      await this.client.setChannel(name, value);
+      const resp = await this.client.setChannel(name, value);
+      if (!resp.ok) {
+        console.warn(`[EngineBridge] setChannel(${name}) failed: ${resp.message}`);
+      }
     }
   }
 
@@ -267,7 +307,8 @@ export class EngineBridge {
    */
   async getChannel(name: string): Promise<number> {
     if (this.client) {
-      return this.client.getChannel(name);
+      const resp = await this.client.getChannel(name);
+      if (resp.ok) return resp.value;
     }
     return 0;
   }

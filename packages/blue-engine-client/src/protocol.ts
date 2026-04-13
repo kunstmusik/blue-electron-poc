@@ -59,28 +59,34 @@ export function decodeResponse(buf: Buffer): string {
 
 /**
  * Encode a channel set command.
- * Format: [CMD_SET_CHANNEL][name_length: uint8][name][value: float64 LE]
+ * Format: [CMD_SET_CHANNEL][payload: name\0 + value_f64]
+ * Note: name must be null-terminated (matching engine protocol)
  */
 export function encodeSetChannel(name: string, value: number): Buffer {
-  const nameBuf = Buffer.from(name, 'utf-8');
-  const buf = Buffer.alloc(1 + 1 + nameBuf.length + 8);
+  const nameBuf = Buffer.from(name + '\0', 'utf-8');
+  const valueBuf = Buffer.alloc(8);
+  valueBuf.writeDoubleLE(value, 0);
+  const payload = Buffer.concat([nameBuf, valueBuf]);
+
+  const buf = Buffer.alloc(5 + payload.length);
   buf.writeUInt8(CMD_SET_CHANNEL, 0);
-  buf.writeUInt8(nameBuf.length, 1);
-  nameBuf.copy(buf, 2);
-  buf.writeDoubleLE(value, 2 + nameBuf.length);
+  buf.writeUInt32LE(payload.length, 1);
+  payload.copy(buf, 5);
   return buf;
 }
 
 /**
  * Encode a channel get command.
- * Format: [CMD_GET_CHANNEL][name_length: uint8][name]
+ * Format: [CMD_GET_CHANNEL][payload: name\0]
+ * Note: name must be null-terminated (matching engine protocol)
  */
 export function encodeGetChannel(name: string): Buffer {
-  const nameBuf = Buffer.from(name, 'utf-8');
-  const buf = Buffer.alloc(1 + 1 + nameBuf.length);
+  const nameBuf = Buffer.from(name + '\0', 'utf-8');
+
+  const buf = Buffer.alloc(5 + nameBuf.length);
   buf.writeUInt8(CMD_GET_CHANNEL, 0);
-  buf.writeUInt8(nameBuf.length, 1);
-  nameBuf.copy(buf, 2);
+  buf.writeUInt32LE(nameBuf.length, 1);
+  nameBuf.copy(buf, 5);
   return buf;
 }
 
