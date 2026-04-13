@@ -5,68 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
   <title>Blue</title>
-  <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div id="app">
-    <!-- Menu Bar -->
-    <header id="menubar">
-      <div id="app-title">Blue</div>
-      <div id="project-info" class="hidden">
-        <span id="project-title"></span>
-        <span id="project-meta"></span>
-      </div>
-      <div id="playback-controls">
-        <button id="btn-open" title="Open .blue file">📂 Open</button>
-        <button id="btn-save" title="Save" disabled>💾 Save</button>
-        <button id="btn-play" title="Play/Stop" disabled>▶ Play</button>
-        <span id="status-indicator" class="status-stopped">⏹ Stopped</span>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main id="main-content">
-      <!-- Welcome screen (shown when no project is loaded) -->
-      <div id="welcome-screen">
-        <h1>Welcome to Blue</h1>
-        <p>An object composition environment for Csound</p>
-        <button id="btn-open-welcome" class="btn-large">Open a .blue Project</button>
-      </div>
-
-      <!-- Project view (shown when a project is loaded) -->
-      <div id="project-view" class="hidden">
-        <section id="project-details">
-          <h2>Project Details</h2>
-          <dl>
-            <dt>Title</dt>
-            <dd id="detail-title"></dd>
-            <dt>Author</dt>
-            <dd id="detail-author"></dd>
-            <dt>Sample Rate</dt>
-            <dd id="detail-sr"></dd>
-            <dt>ksmps</dt>
-            <dd id="detail-ksmps"></dd>
-            <dt>Channels</dt>
-            <dd id="detail-nchnls"></dd>
-            <dt>Version</dt>
-            <dd id="detail-version"></dd>
-            <dt>File</dt>
-            <dd id="detail-file"></dd>
-          </dl>
-        </section>
-
-        <section id="score-summary">
-          <h2>Score Structure</h2>
-          <div id="score-layers"></div>
-        </section>
-
-        <section id="messages">
-          <div id="message-area"></div>
-        </section>
-      </div>
-    </main>
-  </div>
-
-  <script src="app.js"></script>
+<body class="bg-blue-bg text-gray-100">
+  <div id="root"></div>
+  <script type="module" src="/main.tsx"></script>
 </body>
 </html>
