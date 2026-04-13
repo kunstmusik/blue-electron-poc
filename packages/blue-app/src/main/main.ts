@@ -24,8 +24,13 @@ function createWindow(): void {
     },
   });
 
-  mainWindow.webContents.openDevTools();
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  // During development, load from Vite dev server for HMR
+  if (process.env.VITE_DEV_SERVER_URL) {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    mainWindow.webContents.openDevTools();
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  }
 
   // Initialize engine bridge
   engineBridge = new EngineBridge(mainWindow);

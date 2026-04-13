@@ -8,7 +8,7 @@
     "build:preload": "tsc -p tsconfig.preload.json",
     "build:renderer": "vite build",
     "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
-    "dev:renderer": "vite",
+    "dev": "APP_ENV=dev vite",
     "start": "electron .",
     "test": "vitest run --config vitest.config.ts"
   },
@@ -37,6 +37,8 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.8.0",
     "vite": "^7.3.2",
+    "vite-plugin-electron": "^0.29.1",
+    "vite-plugin-electron-renderer": "^0.14.6",
     "vitest": "^4.1.4"
   }
 }
