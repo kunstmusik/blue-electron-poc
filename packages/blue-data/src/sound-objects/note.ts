@@ -84,4 +84,22 @@ export class Note {
     }
     return note;
   }
+
+  /**
+   * Parse a Csound score text string into a Note.
+   * E.g., "i1 0 2 440 0.5"
+   */
+  static createNoteFromText(text: string): Note | null {
+    const parts = text.trim().split(/\s+/).filter(Boolean);
+    if (parts.length < 3) return null;
+
+    const note = new Note();
+    note._pFields.set(1, parts[0]);
+    note._startTime = parseFloat(parts[1]);
+    note._subjectiveDuration = parseFloat(parts[2]);
+    for (let i = 3; i < parts.length; i++) {
+      note._pFields.set(i + 1, parts[i]);
+    }
+    return note;
+  }
 }
