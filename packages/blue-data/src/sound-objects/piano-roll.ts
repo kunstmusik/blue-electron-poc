@@ -90,13 +90,24 @@ export class PianoRoll extends AbstractSoundObject {
     if (compileData.getCompilationVariable(instrMarker) === undefined) {
       compileData.setCompilationVariable(instrMarker, true);
 
+      // Generate orchestra header once (first instrument only)
+      if (compileData.getCompilationVariable('__orch_header__') === undefined) {
+        compileData.setCompilationVariable('__orch_header__', true);
+        compileData.appendGlobalOrc(`sr=44100
+ksmps=64
+nchnls=2
+0dbfs=1
+
+`);
+      }
+
       // Generate a simple oscillator instrument for the given instrument number
       const orc = `instr ${instrNum}
   ifreq = p4
   iamp = p5
   aenv madsr 0.01, 0.1, 0.8, 0.1
   aout poscil aenv * iamp, ifreq
-  outs aout, aout
+  outch 1, aout, 2, aout
 endin
 `;
       compileData.appendGlobalOrc(orc);

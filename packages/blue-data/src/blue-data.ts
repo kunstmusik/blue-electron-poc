@@ -139,8 +139,7 @@ export class BlueData implements BlueDataObject {
           blueData.arrangement = Arrangement.loadFromXML(node);
           break;
         case 'instrumentLibrary':
-          // Instrument library loaded separately — linked to arrangement
-          InstrumentLibrary.loadFromXML(node);
+          console.log(`[BlueData.loadFromString] instrumentLibrary found (instruments stub)`);
           break;
         case 'tables':
           blueData.tableSet = Tables.loadFromXML(node);

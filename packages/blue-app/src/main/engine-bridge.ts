@@ -201,20 +201,28 @@ export class EngineBridge {
 
       // Set options
       for (const opt of options) {
-        await this.client.setOption(opt);
+        console.log(`[EngineBridge] setOption: ${opt}`);
+        try {
+          await this.client.setOption(opt);
+        } catch (err: unknown) {
+          console.error(`[EngineBridge] setOption failed: ${opt} — ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
 
       // Compile orchestra
       if (orchestra) {
+        console.log(`[EngineBridge] compileOrc (${orchestra.length} chars)`);
         await this.client.compileOrc(orchestra);
       }
 
       // Read score
       if (score) {
+        console.log(`[EngineBridge] readScore (${score.length} chars)`);
         await this.client.readScore(score);
       }
 
       // Start performance
+      console.log(`[EngineBridge] start()`);
       await this.client.start();
       this.isPlaying = true;
 

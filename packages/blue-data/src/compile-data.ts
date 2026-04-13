@@ -145,6 +145,8 @@ export class CompileData {
 
   /**
    * Assemble all parts into a complete CSD string.
+   * Adds an `f 0 <duration>` sustain event at the end of the score
+   * so Csound renders audio for the full duration.
    */
   toCSD(options?: {
     commandLine?: string;
@@ -156,6 +158,26 @@ export class CompileData {
     const instrFooter = '\n</CsInstruments>\n<CsScore>\n';
     const scoreFooter = '\n</CsScore>\n</CsoundSynthesizer>\n';
 
+    // Calculate score duration for sustain event
+    let maxTime = 1;
+    if (this.scoreBuffer.trim()) {
+      const lines = this.scoreBuffer.trim().split('\n');
+      for (const line of lines) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 3) {
+          const start = parseFloat(parts[1]);
+          const dur = parseFloat(parts[2]);
+          if (!isNaN(start) && !isNaN(dur)) {
+            const end = start + dur;
+            if (end > maxTime) maxTime = end;
+          }
+        }
+      }
+    }
+
+    // Add sustain event so Csound knows how long to run
+    const sustainEvent = `f 0 ${maxTime + 1}`;
+
     return (
       header +
       commandLine +
@@ -166,6 +188,7 @@ export class CompileData {
       instrFooter +
       this.globalScoBuffer +
       this.scoreBuffer +
+      sustainEvent +
       scoreFooter
     );
   }
