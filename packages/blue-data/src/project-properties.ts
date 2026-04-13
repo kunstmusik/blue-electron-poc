@@ -64,8 +64,9 @@ export class ProjectProperties {
 
     if (this.sampleRate) options.push(`-r ${this.sampleRate}`);
     if (this.ksmps) options.push(`-k ${this.ksmps}`);
-    if (this.nchnls) options.push(`-nchnls ${this.nchnls}`);
-    // 0dbfs goes in orchestra header, not CsOptions (Csound 7 rejects -0dbfs=1)
+    // nchnls goes in orchestra header, not CsOptions
+    // (CsOptions parses -n as "no sound onto disk")
+    if (this.useZeroDbFS) options.push(`-0dbfs=${this.zeroDbFS}`);
 
     if (this.commandLine && this.completeOverride) {
       return this.commandLine;
