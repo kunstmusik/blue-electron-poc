@@ -192,7 +192,15 @@ interface BSBWidget {
 
 ## Assumptions
 
-- BSB widget types to implement: BSBGroup, BSBKnob, BSBHSlider, BSBVSlider, BSBCheckBox (stub others: BSBNumericDisplay, BSBLabel, BSBSpectrumAnalyzer, etc. — data-only load, no UI rendering)
+- BSB widget types to implement (complete inventory from Java source):
+  - **Automatable** (can link to automation, contribute replacement values):
+    BSBKnob, BSBCheckBox, BSBHSlider, BSBVSlider, BSBHSliderBank, BSBVSliderBank, BSBValue, BSBDropdown, BSBXYController
+  - **Non-automatable** (still contribute replacement values):
+    BSBSubChannelDropdown, BSBFileSelector, BSBTextField
+  - **No values** (visual only, no replacement contribution):
+    BSBLabel, BSBLineObject, BSBGroup (container only)
+  - **Support types**: BSBDropdownItem, BSBDropdownItemList
+  - All extend BSBObject (abstract base, implements DeepCopyable)
 - The `blue_shm_get:k()` opcode system is handled by the engine — BSB just generates the CSD text with the right opcodes
 - String globals for sample paths reference files on the user's filesystem — paths must be preserved as-is
 - Automation variable names (`gk_blue_autoN`) come from the automation system — for Phase 1, use raw widget values

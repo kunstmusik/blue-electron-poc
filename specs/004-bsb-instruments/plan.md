@@ -13,12 +13,25 @@ Load BlueSynthBuilder instruments from `.blue` file arrangement XML, parse their
 
 **Compilation flow**: `instrumentText` contains `<objectName>` tokens → `BSBCompilationUnit` collects `objectName` → `value` pairs from all widgets → `replaceBSBValues()` does text replacement → wrapped with `instr <id> ... endin`.
 
-**BSBWidget types** (priority order):
-1. **BSBGroup** — container for nested widgets (recursive tree)
-2. **BSBKnob** — rotary control with `knobWidth`
-3. **BSBCheckBox** — binary on/off with `checkedVal`/`uncheckedVal`
-4. **BSBHSlider** / **BSBVSlider** — horizontal/vertical sliders
-5. **Stub types** — BSBLabel, BSBNumericDisplay, BSBSpectrumAnalyzer, etc. (load data only, no replacement impact)
+**BSBWidget types** (complete inventory, 18 types):
+1. **BSBGroup** — container for nested widgets (recursive tree, implements `Iterable<BSBObject>`)
+2. **BSBKnob** — rotary control, automatable
+3. **BSBCheckBox** — binary on/off, automatable
+4. **BSBHSlider** — horizontal slider, automatable
+5. **BSBVSlider** — vertical slider, automatable
+6. **BSBHSliderBank** — bank of multiple H-sliders, automatable
+7. **BSBVSliderBank** — bank of multiple V-sliders, automatable
+8. **BSBValue** — numeric display with editable value, automatable
+9. **BSBDropdown** — dropdown selection list, automatable
+10. **BSBDropdownItem** / **BSBDropdownItemList** — items within a dropdown
+11. **BSBSubChannelDropdown** — subchannel selection dropdown (non-automatable)
+12. **BSBFileSelector** — file path selector (implements `StringChannelProvider`)
+13. **BSBTextField** — text input field (non-automatable)
+14. **BSBLabel** — static text label (no value)
+15. **BSBLineObject** — line/drawing element (no value)
+16. **BSBXYController** — 2D XY pad controller, automatable
+17. **AutomatableBSBObject** — abstract base for automation-linked widgets
+18. **BSBObject** — abstract base for all widgets (implements `DeepCopyable`)
 
 **No `blue_shm` opcodes in BSB**: The generated CSD uses direct text replacement. `blue_shm_get:k()` is only used when instruments read from shared memory channels — which happens at runtime in the engine.
 
