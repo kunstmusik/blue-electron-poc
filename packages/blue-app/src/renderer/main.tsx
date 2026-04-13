@@ -10,6 +10,16 @@ if (!root) throw new Error('Root element not found');
 createRoot(root).render(
   <StrictMode>
     <App />
-    <Toaster position="top-right" theme="dark" />
+    <Toaster
+      position="bottom-right"
+      theme="dark"
+      toastOptions={{
+        style: {
+          background: '#16213e',
+          border: '1px solid #0f3460',
+          color: '#e0e0e0',
+        },
+      }}
+    />
   </StrictMode>,
 );

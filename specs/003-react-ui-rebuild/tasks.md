@@ -57,34 +57,34 @@
 ## Phase 16: UI Components
 
 ### Menu Bar
-- [ ] T328 [P] Create `components/menu-bar/MenuBar.tsx` — File + Playback menus
-- [ ] T329 Create `components/menu-bar/MenuItem.tsx` — reusable menu item component
+- [x] T328 [P] Create `components/menu-bar/MenuBar.tsx` — File + Playback menus
+- [x] T329 Create `components/menu-bar/MenuItem.tsx` — reusable menu item component
 
 ### Welcome Screen
-- [ ] T330 [P] Create `components/welcome/WelcomeScreen.tsx` — title, tagline, Open button
-- [ ] T331 Create `components/welcome/RecentFilesList.tsx` — clickable recent files
+- [x] T330 [P] Create `components/welcome/WelcomeScreen.tsx` — title, tagline, Open button
+- [x] T331 Create `components/welcome/RecentFilesList.tsx` — clickable recent files
 
 ### Project View
-- [ ] T332 Create `components/project/ProjectView.tsx` — main project layout
-- [ ] T333 Create `components/project/ProjectMetadata.tsx` — title, author, sr, ksmps, nchnls
-- [ ] T334 Create `components/project/ScoreTimeline.tsx` — audio clips as colored blocks
-- [ ] T335 Implement clip virtualization for large projects (@tanstack/react-virtual)
+- [x] T332 Create `components/project/ProjectView.tsx` — main project layout
+- [x] T333 Create `components/project/ProjectMetadata.tsx` — title, author, sr, ksmps, nchnls
+- [x] T334 Create `components/project/ScoreTimeline.tsx` — audio clips as colored blocks
+- [x] T335 Implement clip virtualization for large projects (@tanstack/react-virtual)
 
 ### Playback Controls
-- [ ] T336 [P] Create `components/playback/PlaybackControls.tsx` — Play/Stop buttons
-- [ ] T337 Create `components/playback/StatusIndicator.tsx` — playing/stopped/error indicator
+- [x] T336 [P] Create `components/playback/PlaybackControls.tsx` — Play/Stop buttons
+- [x] T337 Create `components/playback/StatusIndicator.tsx` — playing/stopped/error indicator
 
 ### Notifications
-- [ ] T338 [P] Create `components/notifications/ToastProvider.tsx` — Sonner integration
-- [ ] T339 Wire toast notifications to IPC error/success events
+- [x] T338 [P] Create `components/notifications/ToastProvider.tsx` — Sonner integration
+- [x] T339 Wire toast notifications to IPC error/success events
 
 ### Integration
-- [ ] T340 Connect MenuBar actions to Zustand stores
-- [ ] T341 Connect WelcomeScreen to project store (shows when no project loaded)
-- [ ] T342 Connect ProjectView to project store (shows when project loaded)
-- [ ] T343 Connect PlaybackControls to playback store
-- [ ] T344 Connect StatusIndicator to playback store
-- [ ] T345 Connect RecentFilesList to settings store
+- [x] T340 Connect MenuBar actions to Zustand stores
+- [x] T341 Connect WelcomeScreen to project store (shows when no project loaded)
+- [x] T342 Connect ProjectView to project store (shows when project loaded)
+- [x] T343 Connect PlaybackControls to playback store
+- [x] T344 Connect StatusIndicator to playback store
+- [x] T345 Connect RecentFilesList to settings store
 
 ---
 
