@@ -57,10 +57,14 @@ export class ProjectProperties {
   toCsoundOptions(): string {
     const options: string[] = [];
 
+    // Real-time audio output (default to -odac for live playback)
+    options.push('-odac');
+    // Disable text output
+    options.push('-d');
+
     if (this.sampleRate) options.push(`-r ${this.sampleRate}`);
     if (this.ksmps) options.push(`-k ${this.ksmps}`);
     if (this.nchnls) options.push(`-nchnls ${this.nchnls}`);
-    if (this.oFormat) options.push(`-o ${this.audioOutput || 'output.wav'}`);
     if (this.useZeroDbFS) options.push(`-0dbfs=${this.zeroDbFS}`);
 
     if (this.commandLine && this.completeOverride) {

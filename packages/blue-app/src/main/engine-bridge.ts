@@ -181,6 +181,24 @@ export class EngineBridge {
       // Parse CSD to extract orchestra and score sections
       const { orchestra, score, options } = parseCSD(csd);
 
+      // Log what we're sending for debugging
+      console.log(`[EngineBridge] CSD: ${csd.length} bytes`);
+      console.log(`[EngineBridge] Options: ${JSON.stringify(options)}`);
+      console.log(`[EngineBridge] Orchestra: ${orchestra?.length || 0} chars`);
+      if (orchestra) console.log(`[EngineBridge] Orchestra preview:\n${orchestra.substring(0, 200)}`);
+      console.log(`[EngineBridge] Score: ${score?.length || 0} chars`);
+      if (score) console.log(`[EngineBridge] Score:\n${score}`);
+
+      // Check if we have anything to play
+      if (!orchestra && !score) {
+        console.warn('[EngineBridge] Empty CSD — no orchestra or score to play');
+        this.mainWindow.webContents.send('playback-status', {
+          status: 'error',
+          message: 'No instruments or score events to play',
+        });
+        return false;
+      }
+
       // Set options
       for (const opt of options) {
         await this.client.setOption(opt);
