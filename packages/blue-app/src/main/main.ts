@@ -159,6 +159,22 @@ async function openFile(): Promise<void> {
     currentData = data;
     currentFilePath = filePath;
 
+    // Debug: log arrangement IDs and UDOs
+    const arr = data.getArrangement();
+    console.log(`[App] Loaded project with ${arr.size()} instrument assignments:`);
+    for (let i = 0; i < arr.size(); i++) {
+      const ia = arr.getArrangement()[i];
+      console.log(`[App]   Instrument ${ia.arrangementId}: enabled=${ia.enabled}, instr=${ia.instr?.constructor.name ?? 'null'}`);
+      if (ia.instr && typeof (ia.instr as any).getOpcodeList === 'function') {
+        const udoCount = (ia.instr as any).getOpcodeList().getOpcodes().length;
+        console.log(`[App]     UDOs in instrument: ${udoCount}`);
+        if (udoCount > 0) {
+          const firstUdo = (ia.instr as any).getOpcodeList().getOpcodes()[0];
+          console.log(`[App]     First UDO: ${firstUdo.getName()} (${firstUdo.getCode()?.length || 0} chars)`);
+        }
+      }
+    }
+
     mainWindow.webContents.send('project-loaded', {
       title: data.getProjectProperties().title || path.basename(filePath),
       author: data.getProjectProperties().author,

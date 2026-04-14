@@ -12,6 +12,7 @@ import { BSBCompilationUnit } from './blue-synth-builder/bsb-compilation-unit';
 import { BSBGraphicInterface } from './blue-synth-builder/bsb-graphic-interface';
 import { Parameter, AutomationCurve } from '../automation/parameter';
 import { StringChannel, BSBFileSelector } from './blue-synth-builder/bsb-file-selector';
+import { OpcodeList } from '../opcodes/opcode-list';
 
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = '';
@@ -20,6 +21,7 @@ export class BlueSynthBuilder extends Instrument {
   private _globalSco = '';
   private _graphicInterface = new BSBGraphicInterface();
   private _parameters: Parameter[] = [];
+  private _opcodeList = new OpcodeList();
 
   constructor(other?: BlueSynthBuilder) {
     super();
@@ -60,12 +62,16 @@ export class BlueSynthBuilder extends Instrument {
    * This is the core compilation step:
    * 1. Collect all widget values into a BSBCompilationUnit
    * 2. Replace all <objectName> tokens with their values
+   *
+   * @param parameters - Optional parameter list for automation variable lookup.
+   *   If provided, widgets with matching parameterName use the parameter's
+   *   compilationVarName instead of their raw value.
    */
-  generateInstrument(): string {
+  generateInstrument(parameters?: Parameter[]): string {
     if (!this._instrumentText) return '';
 
     const unit = new BSBCompilationUnit();
-    this._graphicInterface.collectReplacements(unit);
+    this._graphicInterface.collectReplacements(unit, parameters);
     return unit.replaceBSBValues(this._instrumentText);
   }
 
@@ -91,6 +97,13 @@ export class BlueSynthBuilder extends Instrument {
    */
   getStringChannels(): StringChannel[] {
     return this._collectStringChannels(this._graphicInterface.getRootGroup());
+  }
+
+  /**
+   * Get the opcode list (UDOs) for this instrument.
+   */
+  getOpcodeList(): OpcodeList {
+    return this._opcodeList;
   }
 
   /**
@@ -163,6 +176,14 @@ export class BlueSynthBuilder extends Instrument {
     const paramListElem = data.getElement('parameterList');
     if (paramListElem) {
       bsb._parameters = BlueSynthBuilder._loadParameters(paramListElem);
+    }
+
+    // Load opcode list (UDOs)
+    const opcodeListElem = data.getElement('opcodeList');
+    console.log(`[BSB] ${bsb._name || 'unknown'}: opcodeList element found: ${!!opcodeListElem}`);
+    if (opcodeListElem) {
+      bsb._opcodeList = OpcodeList.loadFromXML(opcodeListElem);
+      console.log(`[BSB]   Loaded ${bsb._opcodeList.getOpcodes().length} UDOs`);
     }
 
     return bsb;

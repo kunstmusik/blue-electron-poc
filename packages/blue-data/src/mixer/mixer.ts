@@ -107,17 +107,28 @@ export class Mixer implements BlueDataObject {
     const mixer = new Mixer();
     mixer._enabled = data.getAttribute('enabled') !== 'false';
 
-    // Java Blue uses <channelList listName='...' list='channels'>
-    // but we also support direct <channels> element
-    const chNode = data.getElement('channels') || data.getElement('channelList');
-    if (chNode) {
-      // channelList contains <channel> elements directly
-      mixer._channels = ChannelList.loadFromXML(chNode);
+    // Java Blue uses <channelList listName='...' list='channels'> for both
+    // source channels and sub-channels. The `list` attribute distinguishes them.
+    const channelLists = data.getElements('channelList');
+    while (channelLists.hasMoreElements()) {
+      const clNode = channelLists.next();
+      const listAttr = clNode.getAttribute('list') ?? clNode.getAttribute('listName') ?? '';
+      const loaded = ChannelList.loadFromXML(clNode);
+      if (listAttr === 'subChannels' || listAttr === 'SubChannels') {
+        mixer._subChannels = loaded;
+      } else {
+        mixer._channels = loaded;
+      }
     }
 
-    const subChNode = data.getElement('subChannels') || data.getElement('subChannelList');
-    if (subChNode) {
-      mixer._subChannels = ChannelList.loadFromXML(subChNode);
+    // Also support direct <channels> / <subChannels> elements (fallback)
+    if (mixer._channels.length === 0) {
+      const chNode = data.getElement('channels');
+      if (chNode) mixer._channels = ChannelList.loadFromXML(chNode);
+    }
+    if (mixer._subChannels.length === 0) {
+      const subChNode = data.getElement('subChannels');
+      if (subChNode) mixer._subChannels = ChannelList.loadFromXML(subChNode);
     }
 
     const extraTime = data.getTextString('extraRenderTime');

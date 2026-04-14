@@ -26,7 +26,8 @@ export class OpcodeList {
 
   static loadFromXML(data: Element): OpcodeList {
     const list = new OpcodeList();
-    const opcodes = data.getElements('opcode');
+    // BSB format uses <udo>, project-level uses <opcode>
+    const opcodes = data.getElements('udo');
     while (opcodes.hasMoreElements()) {
       list._opcodes.push(OpcodeDefinition.loadFromXML(opcodes.next()));
     }

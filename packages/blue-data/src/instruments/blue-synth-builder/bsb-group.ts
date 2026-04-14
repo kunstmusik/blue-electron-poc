@@ -8,6 +8,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 
 /** Map from XML type attribute to widget constructor */
 type BSBWidgetCtor = new () => BSBWidget;
@@ -62,9 +63,9 @@ export class BSBGroup extends BSBWidget {
     this._children.push(widget);
   }
 
-  override collectReplacements(unit: BSBCompilationUnit): void {
+  override collectReplacements(unit: BSBCompilationUnit, parameters?: Parameter[]): void {
     for (const child of this._children) {
-      child.collectReplacements(unit);
+      child.collectReplacements(unit, parameters);
     }
   }
 

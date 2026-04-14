@@ -24,6 +24,7 @@ import { NoteProcessorChainMap } from './note-processors/note-processor-chain-ma
 import { MarkersList } from './markers-list';
 import { MidiInputProcessor } from './midi/midi-input-processor';
 import { InstrumentLibrary } from './instruments/instrument-library';
+import { Instrument } from './instruments/instrument';
 import { CompileData } from './compile-data';
 import { BlueDataObject } from './blue-data-object';
 import { NoteList } from './sound-objects/note-list';
@@ -31,6 +32,7 @@ import { Mixer } from './mixer/mixer';
 import { OpcodeList } from './opcodes/opcode-list';
 import { getAllParameters, assignParameterNames } from './automation/parameter-helper';
 import { Parameter } from './automation/parameter';
+import { BSBCompilationUnit } from './instruments/blue-synth-builder/bsb-compilation-unit';
 
 export class BlueData implements BlueDataObject {
   // Version
@@ -303,8 +305,28 @@ export class BlueData implements BlueDataObject {
       }
     }
 
-    // UDO list from OpcodeList
-    const udoText = this.opcodeList.toString();
+    // UDO list from OpcodeList — collect and deduplicate by name
+    const udoSet = new Map<string, string>(); // name → full UDO text
+    for (const udo of this.opcodeList.getOpcodes()) {
+      const text = udo.toCSD();
+      if (text && udo.getName()) udoSet.set(udo.getName(), text);
+    }
+
+    // Also collect UDOs from BSB instruments (deduplicated)
+    for (const ia of this.arrangement.getArrangement()) {
+      if (!ia.enabled || !ia.instr) continue;
+      const instr = ia.instr as any;
+      if (typeof instr.getOpcodeList === 'function') {
+        for (const udo of instr.getOpcodeList().getOpcodes()) {
+          const text = udo.toCSD();
+          if (text && udo.getName() && !udoSet.has(udo.getName())) {
+            udoSet.set(udo.getName(), text);
+          }
+        }
+      }
+    }
+
+    let udoText = Array.from(udoSet.values()).join('\n\n');
     if (udoText) {
       globalOrc = globalOrc ? globalOrc + '\n\n' + udoText : udoText;
     }
@@ -327,36 +349,63 @@ export class BlueData implements BlueDataObject {
     // F-tables
     const ftables = this.tableSet.getAllTables();
 
+    // Build per-instrument parameter map for BSB compilation
+    const parameterMap = this.buildParameterMap();
+
     // Arrangement → orchestra
-    const orc = this.arrangement.generateOrchestra(compileData);
+    const orc = this.arrangement.generateOrchestra(compileData, parameterMap);
+
+    // Mixer → effect UDOs + always-on instruments + BlueMixer
+    let mixerOrc = '';
+    if (this.mixer.isEnabled()) {
+      const channelIdAssignments = this.assignChannelIds();
+      const nchnls = this.getNchnls();
+      const mixerOutput = this.generateMixerOrchestra(
+        channelIdAssignments, nchnls, parameterMap, parameters
+      );
+      mixerOrc = mixerOutput;
+    }
 
     // Score → score events
     const startTime = this.renderStartTime;
     const endTime = this.renderEndTime;
     const noteList = this.score.generateForCSD(compileData, startTime, endTime);
 
-    // Build score text
-    const scoreText = this.buildScoreText(ftables, globalSco, noteList);
+    // Tempo statement from TempoMap
+    const tempoMap = this.score.getTimeContext().getTempoMap();
+    const tempoStatement = tempoMap.getTempo() !== 60
+      ? `t 0 ${tempoMap.getTempo()}`
+      : '';
 
-    // Build CsOptions (only -odac and -d for real-time playback)
-    const csOptions = '-odac\n-d';
+    // Compute totalDur for always-on scheduling
+    let totalDur = 0;
+    if (noteList && noteList.length > 0) {
+      for (let i = 0; i < noteList.length; i++) {
+        const note = noteList.getNote(i);
+        const end = note.getStartTime() + note.getSubjectiveDuration();
+        if (end > totalDur) totalDur = end;
+      }
+    }
+
+    // Build score text with tempo, always-on events
+    const scoreText = this.buildScoreText(
+      ftables, globalSco, noteList, tempoStatement, totalDur
+    );
 
     // Build project info comments
     const projectInfo = this.buildProjectInfo();
 
-    // Assemble CSD
+    // Assemble CSD (no CsOptions for realtime output)
     return (
       projectInfo +
-      '<CsoundSynthesizer>\n' +
-      '<CsOptions>\n' +
-      csOptions +
-      '\n</CsOptions>\n' +
+      '<CsoundSynthesizer>\n\n' +
       '<CsInstruments>\n' +
       orchestraHeader +
       '\n' +
       globalOrc +
       '\n\n' +
       orc +
+      mixerOrc +
       '\n</CsInstruments>\n' +
       '<CsScore>\n' +
       scoreText +
@@ -415,10 +464,21 @@ export class BlueData implements BlueDataObject {
   }
 
   /**
-   * Build the score section with F-tables, globalSco, and generated notes.
+   * Build the score section with F-tables, tempo, globalSco, notes, and always-on events.
    */
-  private buildScoreText(ftables: string, globalSco: string, noteList: import('./sound-objects/note-list').NoteList): string {
+  private buildScoreText(
+    ftables: string,
+    globalSco: string,
+    noteList: import('./sound-objects/note-list').NoteList,
+    tempoStatement: string,
+    totalDur: number
+  ): string {
     const lines: string[] = [];
+
+    // Tempo statement
+    if (tempoStatement) lines.push(tempoStatement);
+
+    lines.push('');
 
     // F-tables
     if (ftables) lines.push(ftables);
@@ -435,6 +495,24 @@ export class BlueData implements BlueDataObject {
       for (let i = 0; i < noteList.length; i++) {
         lines.push(noteList.getNote(i).toScoreText());
       }
+    }
+
+    // Always-on instrument events
+    if (totalDur > 0 && this.mixer.isEnabled()) {
+      const arrangementItems = this.arrangement.getArrangement().filter(ia => ia.enabled && ia.instr);
+      const nextInstrId = arrangementItems.length + 1;
+
+      // Schedule always-on instruments for instruments with alwaysOnInstrumentText
+      for (let i = 0; i < arrangementItems.length; i++) {
+        const instr = arrangementItems[i].instr as any;
+        if (typeof instr.getAlwaysOnInstrumentText === 'function' && instr.getAlwaysOnInstrumentText()) {
+          lines.push(`i${nextInstrId + i}\t0\t${totalDur}`);
+        }
+      }
+
+      // Schedule BlueMixer
+      const mixerDur = totalDur + this.mixer.getExtraRenderTime();
+      lines.push(`i"BlueMixer"\t0\t${mixerDur}`);
     }
 
     // End statement (required by Csound)
@@ -487,7 +565,7 @@ export class BlueData implements BlueDataObject {
       lines.push(`${varName}\tinit\t${initialVal}`);
 
       // chnexport for real-time API
-      lines.push(`${varName}\tchnexport\t"${varName}",\t3`);
+      lines.push(`${varName}\tchnexport "${varName}", 3`);
     }
 
     return lines.join('\n');
@@ -520,6 +598,28 @@ export class BlueData implements BlueDataObject {
   }
 
   /**
+   * Build a per-instrument parameter map for BSB compilation.
+   * Each instrument gets its own Parameter[] with compilationVarName set.
+   * This is used by generateInstrument() to replace widget values with gk_blue_autoN.
+   */
+  private buildParameterMap(): Map<Instrument, Parameter[]> {
+    const map = new Map<Instrument, Parameter[]>();
+
+    for (const ia of this.arrangement.getArrangement()) {
+      if (!ia.enabled || !ia.instr) continue;
+      const instr = ia.instr as any;
+      if (typeof instr.getParameters === 'function') {
+        const instrParams = instr.getParameters();
+        if (instrParams && Array.isArray(instrParams) && instrParams.length > 0) {
+          map.set(ia.instr, instrParams);
+        }
+      }
+    }
+
+    return map;
+  }
+
+  /**
    * Build string channel init statements for globalOrc.
    * Mirrors Java's handleParameters() string channel handling.
    *
@@ -537,6 +637,278 @@ export class BlueData implements BlueDataObject {
     }
 
     return lines.join('\n');
+  }
+
+  /**
+   * Generate the mixer's orchestra code: effect UDOs, always-on instruments,
+   * and the BlueMixer instrument.
+   *
+   * Output structure:
+   *   opcode blueEffect0,aa,aa ; EffectName
+   *   ...
+   *   endop
+   *
+   *   instr 4  ; always-on for instrument 1
+   *   ...
+   *   endin
+   *   instr 5  ; always-on for instrument 2
+   *   ...
+   *   endin
+   *
+   *   instr BlueMixer
+   *   ...
+   *   endin
+   */
+  private generateMixerOrchestra(
+    channelIdAssignments: Map<import('./mixer/channel').Channel, number>,
+    nchnls: number,
+    parameterMap: Map<Instrument, Parameter[]>,
+    allParameters: Parameter[]
+  ): string {
+    const buffer: string[] = [];
+    const sourceChannels = this.mixer.getAllSourceChannels();
+    const subChannels = Array.from(this.mixer.getSubChannels());
+
+    let effectId = 0;
+    const effectUDOs: string[] = [];
+    const channelEffectMap = new Map<string, number>();
+
+    // Process source channels: generate UDOs from pre-effects
+    for (let i = 0; i < sourceChannels.length; i++) {
+      const channel = sourceChannels[i];
+      const channelId = channelIdAssignments.get(channel);
+      if (channelId === undefined) continue;
+
+      const preEffects = channel.getPreEffects();
+      const enabledEffects = Array.from(preEffects).filter(e => e.isEnabled());
+
+      if (enabledEffects.length === 0) continue;
+
+      // Get instrument parameters for BSB compilation
+      const instrParams = this.getInstrumentParametersForChannel(i, parameterMap);
+
+      // Generate UDO for the LAST enabled effect (called by BlueMixer)
+      const lastEffect = enabledEffects[enabledEffects.length - 1];
+      const udo = lastEffect.generateUDO(effectId, [...(instrParams || []), ...allParameters]);
+      if (udo) {
+        effectUDOs.push(udo);
+        channelEffectMap.set(`source_${channelId}`, effectId);
+        effectId++;
+      }
+    }
+
+    // Process sub-channels: generate UDOs from pre-effects
+    for (const subChannel of subChannels) {
+      const subName = subChannel.getName();
+      const preEffects = subChannel.getPreEffects();
+      const enabledEffects = Array.from(preEffects).filter(e => e.isEnabled());
+
+      for (const effect of enabledEffects) {
+        const udo = effect.generateUDO(effectId, allParameters);
+        if (udo) {
+          effectUDOs.push(udo);
+          channelEffectMap.set(`sub_${subName}`, effectId);
+          effectId++;
+        }
+      }
+    }
+
+    // Output effect UDOs
+    for (const udo of effectUDOs) {
+      buffer.push(udo);
+      buffer.push('');
+    }
+
+    // Generate always-on instruments from BSB instruments' alwaysOnInstrumentText
+    const arrangementItems = this.arrangement.getArrangement().filter(ia => ia.enabled && ia.instr);
+    const nextInstrId = arrangementItems.length + 1;
+
+    for (let i = 0; i < arrangementItems.length; i++) {
+      const ia = arrangementItems[i];
+      const instr = ia.instr as any;
+      if (typeof instr.getAlwaysOnInstrumentText !== 'function') continue;
+      const alwaysOnText = instr.getAlwaysOnInstrumentText();
+      if (!alwaysOnText) continue;
+
+      // Compile the always-on instrument text with BSB widget replacement
+      const instrParams = parameterMap.get(ia.instr!);
+      const unit = new BSBCompilationUnit();
+      if (typeof instr.getGraphicInterface === 'function') {
+        instr.getGraphicInterface().collectReplacements(unit, instrParams);
+      }
+      let compiled = unit.replaceBSBValues(alwaysOnText);
+
+      // Replace blueMixerIn/blueMixerOut with mixer channel routing
+      const channelId = channelIdAssignments.get(sourceChannels[i]);
+      if (channelId !== undefined) {
+        // "aLeft, aRight\tblueMixerIn" → "aLeft = ga_bluemix_{id}_0\n aRight = ga_bluemix_{id}_1"
+        compiled = compiled.replace(
+          /(\w+),\s*(\w+)\s+blueMixerIn/g,
+          `$1 = ga_bluemix_${channelId}_0\n $2 = ga_bluemix_${channelId}_1`
+        );
+        // "blueMixerOut aLeft, aRight" → "ga_bluemix_{id}_0 =  aLeft\nga_bluemix_{id}_1 =  aRight"
+        compiled = compiled.replace(
+          /blueMixerOut\s+(\w+),\s*(\w+)/g,
+          `ga_bluemix_${channelId}_0 =  $1\nga_bluemix_${channelId}_1 =  $2`
+        );
+      }
+
+      const alwaysOnId = nextInstrId + i;
+      buffer.push(`\tinstr ${alwaysOnId}\t;untitled`);
+      buffer.push(compiled);
+      buffer.push('\tendin');
+      buffer.push('');
+    }
+
+    // Generate BlueMixer instrument
+    const blueMixerCode = this.generateBlueMixer(
+      sourceChannels, subChannels, channelIdAssignments, nchnls,
+      channelEffectMap, allParameters
+    );
+    buffer.push(blueMixerCode);
+
+    return buffer.join('\n');
+  }
+
+  /**
+   * Get the instrument parameters for a source channel's effects.
+   */
+  private getInstrumentParametersForChannel(
+    channelIndex: number,
+    parameterMap: Map<Instrument, Parameter[]>
+  ): Parameter[] {
+    const assignments = this.arrangement.getArrangement().filter(ia => ia.enabled && ia.instr);
+    if (channelIndex < assignments.length) {
+      const instrParams = parameterMap.get(assignments[channelIndex].instr!);
+      if (instrParams) return instrParams;
+    }
+    return [];
+  }
+
+  /**
+   * Generate the BlueMixer instrument.
+   * Routes audio through volumes, sends, effect UDOs, and outputs via outc.
+   */
+  private generateBlueMixer(
+    sourceChannels: import('./mixer/channel').Channel[],
+    subChannels: import('./mixer/channel').Channel[],
+    channelIdAssignments: Map<import('./mixer/channel').Channel, number>,
+    nchnls: number,
+    channelEffectMap: Map<string, number>,
+    allParameters: Parameter[]
+  ): string {
+    const lines: string[] = [];
+
+    lines.push('\tinstr BlueMixer\t;Blue Mixer Instrument');
+
+    // Process each source channel
+    for (const channel of sourceChannels) {
+      const channelId = channelIdAssignments.get(channel);
+      if (channelId === undefined) continue;
+
+      // Apply effect UDO if available
+      const effectId = channelEffectMap.get(`source_${channelId}`);
+      if (effectId !== undefined) {
+        lines.push(`ga_bluemix_${channelId}_0, ga_bluemix_${channelId}_1\tblueEffect${effectId}\tga_bluemix_${channelId}_0, ga_bluemix_${channelId}_1`);
+      }
+
+      // Apply volume
+      const volParam = this.findMixerParam(allParameters, 'Volume');
+      if (volParam) {
+        lines.push(`ktempdb = ampdb(${volParam})`);
+      } else {
+        const level = channel.getLevel();
+        lines.push(`ktempdb = ampdbfs(${level})`);
+      }
+      lines.push(`ga_bluemix_${channelId}_0 *= ktempdb`);
+      lines.push(`ga_bluemix_${channelId}_1 *= ktempdb`);
+
+      // Route sends
+      for (const send of channel.getSends()) {
+        const targetName = send.getTargetChannelId();
+        const sendParam = send.getParameter();
+        if (sendParam && sendParam.getCompilationVarName()) {
+          lines.push(`ga_bluesub_${targetName}_0\t+=\t(ga_bluemix_${channelId}_0 * ${sendParam.getCompilationVarName()})`);
+          lines.push(`ga_bluesub_${targetName}_1\t+=\t(ga_bluemix_${channelId}_1 * ${sendParam.getCompilationVarName()})`);
+        } else {
+          lines.push(`ga_bluesub_${targetName}_0\t+=\tga_bluemix_${channelId}_0`);
+          lines.push(`ga_bluesub_${targetName}_1\t+=\tga_bluemix_${channelId}_1`);
+        }
+      }
+
+      // Route to Master
+      const outChannel = channel.getOutChannel() || 'Master';
+      if (outChannel === 'Master' || outChannel === channel.getName()) {
+        lines.push(`ga_bluesub_Master_0\t+=\tga_bluemix_${channelId}_0`);
+        lines.push(`ga_bluesub_Master_1\t+=\tga_bluemix_${channelId}_1`);
+      }
+    }
+
+    // Process sub-channels
+    for (const subChannel of subChannels) {
+      const subName = subChannel.getName();
+
+      // Apply effect UDO if available
+      const effectId = channelEffectMap.get(`sub_${subName}`);
+      if (effectId !== undefined) {
+        lines.push(`ga_bluesub_${subName}_0, ga_bluesub_${subName}_1\tblueEffect${effectId}\tga_bluesub_${subName}_0, ga_bluesub_${subName}_1`);
+      }
+
+      // Apply volume
+      const volParam = this.findMixerParam(allParameters, 'Volume');
+      if (volParam) {
+        lines.push(`ktempdb = ampdb(${volParam})`);
+      } else {
+        const level = subChannel.getLevel();
+        lines.push(`ktempdb = ampdbfs(${level})`);
+      }
+      lines.push(`ga_bluesub_${subName}_0 *= ktempdb`);
+      lines.push(`ga_bluesub_${subName}_1 *= ktempdb`);
+
+      // Route to outChannel
+      const outChannel = subChannel.getOutChannel();
+      if (outChannel && outChannel !== subName) {
+        lines.push(`ga_bluesub_${outChannel}_0\t+=\tga_bluesub_${subName}_0`);
+        lines.push(`ga_bluesub_${outChannel}_1\t+=\tga_bluesub_${subName}_1`);
+      }
+    }
+
+    // Master output
+    lines.push('outc ga_bluesub_Master_0, ga_bluesub_Master_1');
+
+    // Clear all audio variables
+    for (const channel of sourceChannels) {
+      const channelId = channelIdAssignments.get(channel);
+      if (channelId === undefined) continue;
+      lines.push(`ga_bluemix_${channelId}_0 = 0`);
+      lines.push(`ga_bluemix_${channelId}_1 = 0`);
+    }
+    for (const subChannel of subChannels) {
+      const subName = subChannel.getName();
+      lines.push(`ga_bluesub_${subName}_0 = 0`);
+      lines.push(`ga_bluesub_${subName}_1 = 0`);
+    }
+    lines.push('ga_bluesub_Master_0 = 0');
+    lines.push('ga_bluesub_Master_1 = 0');
+
+    lines.push('');
+    lines.push('\tendin');
+    lines.push('');
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Find a mixer parameter by parameter name.
+   */
+  private findMixerParam(parameters: Parameter[], paramName: string): string | null {
+    // Find the last matching parameter (volume params repeat per channel)
+    for (let i = parameters.length - 1; i >= 0; i--) {
+      if (parameters[i].getName() === paramName && parameters[i].getCompilationVarName()) {
+        return parameters[i].getCompilationVarName()!;
+      }
+    }
+    return null;
   }
 
   // ─── DeepCopy ───

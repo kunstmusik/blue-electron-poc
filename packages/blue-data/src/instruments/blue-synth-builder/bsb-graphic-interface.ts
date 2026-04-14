@@ -7,6 +7,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { BSBGroup } from './bsb-group';
+import { Parameter } from '../../automation/parameter';
 
 export class BSBGraphicInterface {
   rootGroup = new BSBGroup();
@@ -17,8 +18,8 @@ export class BSBGraphicInterface {
   /**
    * Walk the entire widget tree and collect all replacement values.
    */
-  collectReplacements(unit: BSBCompilationUnit): void {
-    this.rootGroup.collectReplacements(unit);
+  collectReplacements(unit: BSBCompilationUnit, parameters?: Parameter[]): void {
+    this.rootGroup.collectReplacements(unit, parameters);
   }
 
   async loadFromXML(data: Element): Promise<void> {

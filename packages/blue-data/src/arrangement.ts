@@ -10,6 +10,7 @@ import { InstrumentAssignment } from './instruments/instrument-assignment';
 import { Instrument } from './instruments/instrument';
 import { loadInstrumentFromXML } from './instruments/instrument-registry';
 import { CompileData } from './compile-data';
+import { Parameter } from './automation/parameter';
 import { replaceAll } from './utilities/text';
 import { Element } from './serialization/xml-reader';
 
@@ -70,15 +71,27 @@ export class Arrangement {
    * Generate the orchestra section from all enabled instruments.
    * Skips assignments where the instrument reference is not resolved
    * (this happens when loading from XML without a library second-pass).
+   *
+   * @param compileData - Shared compilation context
+   * @param parameterMap - Optional map from instrument to its Parameter[] for automation
    */
-  generateOrchestra(compileData: CompileData): string {
+  generateOrchestra(compileData: CompileData, parameterMap?: Map<Instrument, Parameter[]>): string {
     const buffer: string[] = [];
 
     for (const ia of this.arrangement) {
       if (!ia.enabled) continue;
       if (!ia.instr) continue; // Skip unresolved instrument references
 
-      const instrumentText = ia.instr.generateInstrument();
+      // Get parameters for this instrument if available
+      const instrParams = parameterMap?.get(ia.instr);
+
+      // Use parameter-aware generateInstrument if parameters are available
+      let instrumentText: string;
+      if (instrParams && typeof (ia.instr as any).generateInstrument === 'function') {
+        instrumentText = (ia.instr as any).generateInstrument(instrParams);
+      } else {
+        instrumentText = ia.instr.generateInstrument();
+      }
       if (!instrumentText) continue;
 
       // Transform instrument text with arrangement ID substitution
@@ -86,6 +99,13 @@ export class Arrangement {
 
       // Handle blueMixerOut → outc conversion
       transformed = this.convertBlueMixerOut(compileData, ia.arrangementId, transformed);
+
+      // Java CSDRender appends "\n" after transformed text:
+      // buffer.append(transformed).append("\n");
+      // This ensures endin is on its own line
+      if (!transformed.endsWith('\n')) {
+        transformed += '\n';
+      }
 
       buffer.push(`\tinstr ${ia.arrangementId}\t;${ia.instr.getName()}\n`);
       buffer.push(transformed);
@@ -160,7 +180,7 @@ export class Arrangement {
     while (items.hasMoreElements()) {
       const elem = items.next();
       const ia = new InstrumentAssignment();
-      ia.arrangementId = elem.getAttribute('id') ?? '0';
+      ia.arrangementId = elem.getAttribute('arrangementId') ?? elem.getAttribute('id') ?? '0';
       ia.enabled = elem.getAttribute('enabled') !== 'false';
 
       // Load embedded <instrument> element if present

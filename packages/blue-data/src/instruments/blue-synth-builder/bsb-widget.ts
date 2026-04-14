@@ -7,6 +7,7 @@
  */
 import { Element } from '../../serialization/xml-reader';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 
 export abstract class BSBWidget {
   objectName = '';
@@ -19,12 +20,25 @@ export abstract class BSBWidget {
 
   /**
    * Collect this widget's replacement value into the compilation unit.
-   * If parameterName is set, uses the automation variable name;
+   * Looks up the parameter by this widget's objectName in the parameters list.
+   * If found with a compilationVarName, uses that (e.g. "gk_blue_auto0");
    * otherwise uses the raw numeric value.
+   *
+   * This matches the Java BSBObject.setupForCompilation() logic:
+   *   Parameter param = parameters.getParameter(this.getObjectName());
+   *   if (param != null && param.getCompilationVarName() != null) {
+   *       compilationUnit.addReplacementValue(getObjectName(), param.getCompilationVarName());
+   *   }
    */
-  collectReplacements(unit: BSBCompilationUnit): void {
-    const replacementValue = this.parameterName ?? this.value.toString();
-    unit.addReplacementValue(this.objectName, replacementValue);
+  collectReplacements(unit: BSBCompilationUnit, parameters?: Parameter[]): void {
+    if (this.objectName && parameters) {
+      const param = parameters.find(p => p.getName() === this.objectName);
+      if (param && param.getCompilationVarName()) {
+        unit.addReplacementValue(this.objectName, param.getCompilationVarName()!);
+        return;
+      }
+    }
+    unit.addReplacementValue(this.objectName, this.value.toString());
   }
 
   /**

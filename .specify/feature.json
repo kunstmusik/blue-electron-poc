@@ -1,5 +1,3 @@
 {
-  "feature_name": "blue-data-port",
-  "feature_number": "001",
-  "feature_directory": "specs/001-blue-data-port"
+  "feature_directory": "specs/006-csd-render-parity-2"
 }

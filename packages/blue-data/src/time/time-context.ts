@@ -68,9 +68,29 @@ export class TimeContext {
   static loadFromXML(data: Element): TimeContext {
     const ctx = new TimeContext();
 
+    // Load simple <tempo> element
     const tempoElem = data.getElement('tempo');
     if (tempoElem) {
       ctx.tempoMap.setTempo(parseFloat(tempoElem.getTextString()));
+    }
+
+    // Load <tempoMap> with <tempoPoint> elements
+    // TempoMap may be directly inside timeContext or nested inside meterMap
+    let tempoMapElem = data.getElement('tempoMap');
+    if (!tempoMapElem) {
+      const meterMap = data.getElement('meterMap');
+      if (meterMap) tempoMapElem = meterMap.getElement('tempoMap');
+    }
+    if (tempoMapElem) {
+      const enabled = tempoMapElem.getTextString('enabled');
+      if (enabled !== 'false') {
+        const points = tempoMapElem.getElements('tempoPoint');
+        if (points.hasMoreElements()) {
+          const firstPoint = points.next();
+          const tempo = firstPoint.getAttribute('tempo');
+          if (tempo) ctx.tempoMap.setTempo(parseFloat(tempo));
+        }
+      }
     }
 
     const smpteElem = data.getElement('smpteFrameRate');
