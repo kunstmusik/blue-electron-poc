@@ -31,12 +31,12 @@
 
 ## Phase 24: Parameter and String Channel Handling
 
-- [ ] T515 Load automation parameters from arrangement
-- [ ] T516 Generate parameter init statements: `gk_blue_autoN init <value>`
-- [ ] T517 Generate `chnexport` for real-time parameters
-- [ ] T518 Load BSB StringChannels from instrument library
-- [ ] T519 Generate string channel inits: `gS_blue_strN = "value"`
-- [ ] T520 Generate `chnexport` for string channels
+- [x] T515 Load automation parameters from arrangement
+- [x] T516 Generate parameter init statements: `gk_blue_autoN init <value>`
+- [x] T517 Generate `chnexport` for real-time parameters
+- [x] T518 Load BSB StringChannels from instrument library
+- [x] T519 Generate string channel inits: `gS_blue_strN = "value"`
+- [x] T520 Generate `chnexport` for string channels
 
 ---
 

@@ -10,6 +10,7 @@ import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { Instrument } from './instrument';
 import { BSBCompilationUnit } from './blue-synth-builder/bsb-compilation-unit';
 import { BSBGraphicInterface } from './blue-synth-builder/bsb-graphic-interface';
+import { Parameter, AutomationCurve } from '../automation/parameter';
 
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = '';
@@ -17,6 +18,7 @@ export class BlueSynthBuilder extends Instrument {
   private _globalOrc = '';
   private _globalSco = '';
   private _graphicInterface = new BSBGraphicInterface();
+  private _parameters: Parameter[] = [];
 
   constructor(other?: BlueSynthBuilder) {
     super();
@@ -74,6 +76,14 @@ export class BlueSynthBuilder extends Instrument {
     return this._globalSco || null;
   }
 
+  /**
+   * Get all automation parameters for this instrument.
+   * Used by ParameterHelper to collect parameters from arrangement instruments.
+   */
+  getParameters(): Parameter[] {
+    return [...this._parameters];
+  }
+
   // ─── XML Serialization ───
 
   saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
@@ -118,7 +128,63 @@ export class BlueSynthBuilder extends Instrument {
       await bsb._graphicInterface.loadFromXML(giElem);
     }
 
+    // Load parameters
+    const paramListElem = data.getElement('parameterList');
+    if (paramListElem) {
+      bsb._parameters = BlueSynthBuilder._loadParameters(paramListElem);
+    }
+
     return bsb;
+  }
+
+  /**
+   * Load parameters from <parameterList> XML.
+   */
+  private static _loadParameters(data: Element): Parameter[] {
+    const parameters: Parameter[] = [];
+    const paramElems = data.getElements('parameter');
+
+    while (paramElems.hasMoreElements()) {
+      const elem = paramElems.next();
+      const param = new Parameter();
+
+      const name = elem.getAttribute('name');
+      if (name) param.setName(name);
+
+      const value = elem.getAttribute('value');
+      if (value) param.setFixedValue(parseFloat(value));
+
+      const min = elem.getAttribute('min');
+      const max = elem.getAttribute('max');
+      if (min) param.setMinimum(parseFloat(min));
+      if (max) param.setMaximum(parseFloat(max));
+
+      const autoEnabled = elem.getAttribute('automationEnabled');
+      if (autoEnabled !== null) param.setAutomationEnabled(autoEnabled === 'true');
+
+      // Load line/points if present
+      const lineElem = elem.getElement('line');
+      if (lineElem) {
+        const curve = lineElem.getAttribute('curveType');
+        if (curve) {
+          if (curve === 'CONSTANT') param.setCurve(AutomationCurve.STEP);
+          else if (curve === 'LINEAR') param.setCurve(AutomationCurve.LINEAR);
+          else if (curve === 'EXPONENTIAL') param.setCurve(AutomationCurve.EXPONENTIAL);
+        }
+
+        const points = lineElem.getElements('linePoint');
+        while (points.hasMoreElements()) {
+          const pt = points.next();
+          const x = parseFloat(pt.getAttribute('x') ?? '0');
+          const y = parseFloat(pt.getAttribute('y') ?? '0');
+          param.addPoint(x, y);
+        }
+      }
+
+      parameters.push(param);
+    }
+
+    return parameters;
   }
 
   override deepCopy(): BlueSynthBuilder {

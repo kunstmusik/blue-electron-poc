@@ -18,15 +18,25 @@ export enum AutomationCurve {
 
 export class Parameter implements BlueDataObject {
   private _name = '';
+  private _minimum = 0;
+  private _maximum = 1;
   private _curve: AutomationCurve = AutomationCurve.LINEAR;
   private _points: AutomationPoint[] = [];
   private _enabled = true;
   private _resolution = 0;
   private _resolutionScale = 1.0;
   private _highPrecision = false;
+  private _compilationVarName: string | null = null;
+  private _fixedValue = 0;
 
   getName(): string { return this._name; }
   setName(name: string): void { this._name = name; }
+
+  getMinimum(): number { return this._minimum; }
+  setMinimum(v: number): void { this._minimum = v; }
+
+  getMaximum(): number { return this._maximum; }
+  setMaximum(v: number): void { this._maximum = v; }
 
   getCurve(): AutomationCurve { return this._curve; }
   setCurve(c: AutomationCurve): void { this._curve = c; }
@@ -42,6 +52,11 @@ export class Parameter implements BlueDataObject {
   isEnabled(): boolean { return this._enabled; }
   setEnabled(e: boolean): void { this._enabled = e; }
 
+  /**
+   * Set automation enabled state.
+   */
+  setAutomationEnabled(e: boolean): void { this._enabled = e; }
+
   getResolution(): number { return this._resolution; }
   setResolution(r: number): void { this._resolution = r; }
 
@@ -50,6 +65,69 @@ export class Parameter implements BlueDataObject {
 
   isHighPrecision(): boolean { return this._highPrecision; }
   setHighPrecision(h: boolean): void { this._highPrecision = h; }
+
+  /**
+   * Compilation variable name (e.g., "gk_blue_auto0").
+   * Set during CSD generation by assignParameterNames().
+   */
+  getCompilationVarName(): string | null { return this._compilationVarName; }
+  setCompilationVarName(name: string): void { this._compilationVarName = name; }
+
+  /**
+   * Fixed value for non-automated parameters.
+   */
+  getFixedValue(): number { return this._fixedValue; }
+  setFixedValue(v: number): void { this._fixedValue = v; }
+
+  /**
+   * Check if this parameter has automation enabled (has points).
+   */
+  isAutomationEnabled(): boolean {
+    return this._enabled && this._points.length >= 2;
+  }
+
+  /**
+   * Get the parameter's value at a specific time.
+   * Returns the first point's value if no automation is enabled.
+   */
+  getValue(time: number): number {
+    if (!this.isAutomationEnabled()) {
+      return this._fixedValue;
+    }
+
+    // Find the value at the given time by interpolating between points
+    if (this._points.length === 0) return this._fixedValue;
+    if (this._points.length === 1) return this._points[0].value;
+
+    // Before first point
+    if (time <= this._points[0].time) return this._points[0].value;
+    // After last point
+    if (time >= this._points[this._points.length - 1].time) {
+      return this._points[this._points.length - 1].value;
+    }
+
+    // Find surrounding points
+    for (let i = 0; i < this._points.length - 1; i++) {
+      const p1 = this._points[i];
+      const p2 = this._points[i + 1];
+      if (time >= p1.time && time <= p2.time) {
+        const t = (time - p1.time) / (p2.time - p1.time);
+        switch (this._curve) {
+          case AutomationCurve.STEP:
+            return p1.value;
+          case AutomationCurve.LINEAR:
+            return p1.value + (p2.value - p1.value) * t;
+          case AutomationCurve.EXPONENTIAL:
+            // Exponential interpolation (avoid log(0))
+            const v1 = Math.max(p1.value, 0.0001);
+            const v2 = Math.max(p2.value, 0.0001);
+            return v1 * Math.pow(v2 / v1, t);
+        }
+      }
+    }
+
+    return this._fixedValue;
+  }
 
   saveAsXML(): Element {
     const elem = new Element('parameter');
@@ -106,12 +184,16 @@ export class Parameter implements BlueDataObject {
   deepCopy(): BlueDataObject {
     const copy = new Parameter();
     copy._name = this._name;
+    copy._minimum = this._minimum;
+    copy._maximum = this._maximum;
     copy._curve = this._curve;
     copy._points = [...this._points];
     copy._enabled = this._enabled;
     copy._resolution = this._resolution;
     copy._resolutionScale = this._resolutionScale;
     copy._highPrecision = this._highPrecision;
+    copy._compilationVarName = this._compilationVarName;
+    copy._fixedValue = this._fixedValue;
     return copy;
   }
 }

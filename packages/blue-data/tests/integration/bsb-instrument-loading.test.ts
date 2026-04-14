@@ -108,4 +108,15 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     const emptyInstrMatches = csd.match(/instr\s+\w+\s*;\s*\n\s*\n\s*endin/g);
     expect(emptyInstrMatches).toBeNull();
   });
+
+  it('T516: CSD contains parameter init statements', () => {
+    // BSB instruments have parameters that should generate gk_blue_autoN init statements
+    // demo2022.blue has many parameters per BSB instrument
+    expect(csd).toMatch(/gk_blue_auto\d+\s+init\s+\d/);
+  });
+
+  it('T517: CSD contains chnexport for parameters', () => {
+    // Real-time mode should have chnexport for each parameter
+    expect(csd).toMatch(/gk_blue_auto\d+\s+chnexport\s+"gk_blue_auto\d+"/);
+  });
 });
