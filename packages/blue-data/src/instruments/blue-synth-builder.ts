@@ -11,6 +11,7 @@ import { Instrument } from './instrument';
 import { BSBCompilationUnit } from './blue-synth-builder/bsb-compilation-unit';
 import { BSBGraphicInterface } from './blue-synth-builder/bsb-graphic-interface';
 import { Parameter, AutomationCurve } from '../automation/parameter';
+import { StringChannel, BSBFileSelector } from './blue-synth-builder/bsb-file-selector';
 
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = '';
@@ -82,6 +83,36 @@ export class BlueSynthBuilder extends Instrument {
    */
   getParameters(): Parameter[] {
     return [...this._parameters];
+  }
+
+  /**
+   * Get all string channels from BSBFileSelector widgets.
+   * Used by CSD generation to collect string channel init statements.
+   */
+  getStringChannels(): StringChannel[] {
+    return this._collectStringChannels(this._graphicInterface.getRootGroup());
+  }
+
+  /**
+   * Recursively collect StringChannels from BSBGroup and its children.
+   */
+  private _collectStringChannels(group: any): StringChannel[] {
+    const channels: StringChannel[] = [];
+    if (!group) return channels;
+
+    const getChildren = (group as any).getChildren;
+    if (typeof getChildren !== 'function') return channels;
+
+    for (const child of getChildren.call(group) || []) {
+      if (child instanceof BSBFileSelector) {
+        const sc = child.getStringChannel();
+        if (sc) channels.push(sc);
+      } else if (typeof (child as any).getChildren === 'function') {
+        channels.push(...this._collectStringChannels(child));
+      }
+    }
+
+    return channels;
   }
 
   // ─── XML Serialization ───

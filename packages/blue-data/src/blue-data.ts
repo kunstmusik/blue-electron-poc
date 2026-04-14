@@ -317,6 +317,13 @@ export class BlueData implements BlueDataObject {
       globalOrc = globalOrc ? globalOrc + '\n' + paramInits : paramInits;
     }
 
+    // String channel init statements from BSB instruments
+    const stringChannels = this.collectStringChannels();
+    const stringInits = this.buildStringChannelInits(stringChannels);
+    if (stringInits) {
+      globalOrc = globalOrc ? globalOrc + '\n' + stringInits : stringInits;
+    }
+
     // F-tables
     const ftables = this.tableSet.getAllTables();
 
@@ -481,6 +488,52 @@ export class BlueData implements BlueDataObject {
 
       // chnexport for real-time API
       lines.push(`${varName}\tchnexport\t"${varName}",\t3`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Collect all StringChannels from BSB instruments in the arrangement.
+   * Mirrors Java's getStringChannels() method.
+   */
+  private collectStringChannels(): Array<{ objectName: string; value: string; channelName: string }> {
+    const channels: Array<{ objectName: string; value: string; channelName: string }> = [];
+    let idx = 0;
+
+    for (const ia of this.arrangement.getArrangement()) {
+      if (!ia.enabled || !ia.instr) continue;
+      const instr = ia.instr as any;
+      if (typeof instr.getStringChannels === 'function') {
+        for (const sc of instr.getStringChannels()) {
+          const channelName = `gS_blue_str${idx++}`;
+          channels.push({
+            objectName: sc.objectName,
+            value: sc.value,
+            channelName,
+          });
+        }
+      }
+    }
+
+    return channels;
+  }
+
+  /**
+   * Build string channel init statements for globalOrc.
+   * Mirrors Java's handleParameters() string channel handling.
+   *
+   * Output:
+   *   gS_blue_str0 = "/path/to/file.wav"
+   *   gS_blue_str0 chnexport "gS_blue_str0", 3
+   *   ...
+   */
+  private buildStringChannelInits(channels: Array<{ objectName: string; value: string; channelName: string }>): string {
+    const lines: string[] = [];
+
+    for (const sc of channels) {
+      lines.push(`${sc.channelName}\t=\t"${sc.value}"`);
+      lines.push(`${sc.channelName}\tchnexport\t"${sc.channelName}",\t3`);
     }
 
     return lines.join('\n');

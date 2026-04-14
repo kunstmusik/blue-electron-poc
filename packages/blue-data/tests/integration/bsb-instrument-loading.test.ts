@@ -119,4 +119,14 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     // Real-time mode should have chnexport for each parameter
     expect(csd).toMatch(/gk_blue_auto\d+\s+chnexport\s+"gk_blue_auto\d+"/);
   });
+
+  it('T519: CSD contains string channel init statements', () => {
+    // BSBFileSelector widgets with stringChannelEnabled should generate gS_blue_strN = "path"
+    expect(csd).toMatch(/gS_blue_str\d+\s+=\s+"/);
+  });
+
+  it('T520: CSD contains chnexport for string channels', () => {
+    // String channels should have chnexport for real-time API
+    expect(csd).toMatch(/gS_blue_str\d+\s+chnexport\s+"gS_blue_str\d+"/);
+  });
 });

@@ -12,6 +12,8 @@ export class BSBGraphicInterface {
   rootGroup = new BSBGroup();
   gridSettings = '';
 
+  getRootGroup(): BSBGroup { return this.rootGroup; }
+
   /**
    * Walk the entire widget tree and collect all replacement values.
    */
