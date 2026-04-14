@@ -37,4 +37,11 @@ export class OpcodeDefinition implements BlueDataObject {
     copy._code = this._code;
     return copy;
   }
+
+  /**
+   * Get the opcode as CSD text.
+   */
+  toCSD(): string {
+    return this._code || '';
+  }
 }

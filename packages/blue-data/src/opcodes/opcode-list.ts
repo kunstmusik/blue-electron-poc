@@ -32,4 +32,12 @@ export class OpcodeList {
     }
     return list;
   }
+
+  /**
+   * Get all opcodes as a single CSD text block.
+   */
+  toString(): string {
+    if (this._opcodes.length === 0) return '';
+    return this._opcodes.map((op) => op.toCSD()).join('\n\n');
+  }
 }

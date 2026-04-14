@@ -260,7 +260,7 @@ describe('Node.js library API', () => {
 
     expect(csd).toContain('<CsoundSynthesizer>');
     expect(csd).toContain('<CsOptions>');
-    expect(csd).toContain('-r 44100');
+    expect(csd).toContain('sr=44100');
     expect(csd).toContain('<CsInstruments>');
     expect(csd).toContain('<CsScore>');
     expect(csd).toContain('i1 0 2');

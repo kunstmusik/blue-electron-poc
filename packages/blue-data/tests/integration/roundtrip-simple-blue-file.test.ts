@@ -269,8 +269,8 @@ describe('Round-trip: individual types', () => {
 
     expect(csd).toContain('<CsoundSynthesizer>');
     expect(csd).toContain('<CsOptions>');
-    expect(csd).toContain('-r 44100');
-    expect(csd).toContain('-k 64');
+    expect(csd).toContain('sr=44100');
+    expect(csd).toContain('ksmps=64');
     // nchnls is in orchestra header, not CsOptions (Csound 7 rejects -n as "no sound")
     expect(csd).toContain('nchnls = 2');
     // 0dbfs is in orchestra header, not CsOptions (Csound 7 rejects -0 as unknown flag)

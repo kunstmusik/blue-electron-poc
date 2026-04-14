@@ -26,10 +26,18 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
 
     // Count loaded instruments
     let loadedCount = 0;
+    let bsbCount = 0;
     for (const ia of arrangement.getArrangement()) {
-      if (ia.instr) loadedCount++;
+      if (ia.instr) {
+        loadedCount++;
+        if (ia.instr.constructor.name === 'BlueSynthBuilder') {
+          bsbCount++;
+        }
+      }
     }
-    expect(loadedCount).toBeGreaterThan(0);
+    // demo2022.blue has 3 BSB instruments: Alpha v3 (x2), SimpleSampler (x1)
+    expect(loadedCount).toBe(3);
+    expect(bsbCount).toBe(3);
   });
 
   it('T454: CSD has no unresolved <placeholder> tokens', () => {
@@ -48,10 +56,9 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     }
   });
 
-  it.skip('T455: CSD contains global orchestra code with mixer inits', () => {
-    // The demo2022.blue project has BSB instruments with globalOrc
-    // that contains mixer channel inits like ga_bluemix_0_0 init 0
-    // This test will pass once BSB instruments are properly loaded from the arrangement
+  it('T455: CSD contains global orchestra code with mixer inits', () => {
+    // The demo2022.blue project has a mixer with channels
+    // Mixer init statements should appear in the CSD as ga_bluemix_X_Y init 0
     expect(csd).toMatch(/ga_bluemix_\d+_\d+\s+init\s+0/);
   });
 
@@ -60,6 +67,26 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     const instrMatches = csd.match(/\binstr\s+\w+\s*;/g);
     expect(instrMatches).not.toBeNull();
     expect(instrMatches!.length).toBeGreaterThan(0);
+    // demo2022.blue has 3 BSB instruments: Alpha v3 (x2), SimpleSampler (x1)
+    expect(instrMatches!.length).toBe(3);
+  });
+
+  it('BSB instruments generate non-empty orchestra code', () => {
+    // Verify that each loaded BSB instrument generates actual orchestra code
+    const arrangement = (data as unknown as { arrangement: Arrangement }).arrangement;
+    let generatedCount = 0;
+    for (const ia of arrangement.getArrangement()) {
+      if (ia.instr) {
+        const generated = ia.instr.generateInstrument();
+        if (generated && generated.length > 0) {
+          generatedCount++;
+          // Verify no unresolved placeholders remain
+          const placeholders = generated.match(/<[a-zA-Z_][a-zA-Z0-9_]*>/g);
+          expect(placeholders).toBeNull();
+        }
+      }
+    }
+    expect(generatedCount).toBe(3);
   });
 
   it('T459: Missing widget values default to 0.0', () => {
