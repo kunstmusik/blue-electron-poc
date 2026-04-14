@@ -72,14 +72,14 @@
 ## Phase 19: Arrangement Instrument Loading
 
 ### InstrumentAssignment Updates
-- [ ] T437 Update `InstrumentAssignment` to hold an `Instrument` reference (not just metadata)
-- [ ] T438 [P] Update `Arrangement.loadFromXML()` to parse embedded `<instrument>` elements
-- [ ] T439 Implement type dispatch: `type="blue.orchestra.BlueSynthBuilder"` → `BlueSynthBuilder.loadFromXML()`
-- [ ] T440 [P] Add `arrangementId` and `isEnabled` attribute parsing from XML
+- [x] T437 Update `InstrumentAssignment` to hold an `Instrument` reference (not just metadata)
+- [x] T438 [P] Update `Arrangement.loadFromXML()` to parse embedded `<instrument>` elements
+- [x] T439 Implement type dispatch: `type="blue.orchestra.BlueSynthBuilder"` → `BlueSynthBuilder.loadFromXML()`
+- [x] T440 [P] Add `arrangementId` and `isEnabled` attribute parsing from XML
 
 ### Instrument Registry
-- [ ] T441 Create instrument type registry for XML dispatch (extensible for future instrument types)
-- [ ] T442 [P] Register BlueSynthBuilder in the registry
+- [x] T441 Create instrument type registry for XML dispatch (extensible for future instrument types)
+- [x] T442 [P] Register BlueSynthBuilder in the registry
 
 ---
 

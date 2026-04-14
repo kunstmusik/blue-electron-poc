@@ -7,29 +7,19 @@
  */
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
+import { Instrument } from './instrument';
 import { BSBCompilationUnit } from './blue-synth-builder/bsb-compilation-unit';
 import { BSBGraphicInterface } from './blue-synth-builder/bsb-graphic-interface';
 
-/**
- * Interface for BSB instruments (implements the Instrument contract).
- */
-export interface BSBInstrument {
-  generateInstrument(): string;
-  generateGlobalOrc(): string | null;
-  generateGlobalSco(): string | null;
-  getName(): string;
-}
-
-export class BlueSynthBuilder implements BSBInstrument {
-  private _name = '';
+export class BlueSynthBuilder extends Instrument {
   private _instrumentText = '';
   private _alwaysOnInstrumentText = '';
   private _globalOrc = '';
   private _globalSco = '';
   private _graphicInterface = new BSBGraphicInterface();
-  private _editEnabled = true;
 
   constructor(other?: BlueSynthBuilder) {
+    super();
     if (other) {
       this._name = other._name;
       this._instrumentText = other._instrumentText;
@@ -42,8 +32,7 @@ export class BlueSynthBuilder implements BSBInstrument {
     }
   }
 
-  getName(): string { return this._name; }
-  setName(name: string): void { this._name = name; }
+  private _editEnabled = true;
 
   getInstrumentText(): string { return this._instrumentText; }
   setInstrumentText(text: string): void { this._instrumentText = text; }
@@ -130,5 +119,9 @@ export class BlueSynthBuilder implements BSBInstrument {
     }
 
     return bsb;
+  }
+
+  override deepCopy(): BlueSynthBuilder {
+    return new BlueSynthBuilder(this);
   }
 }

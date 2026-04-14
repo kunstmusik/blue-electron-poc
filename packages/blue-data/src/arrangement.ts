@@ -8,6 +8,7 @@
  */
 import { InstrumentAssignment } from './instruments/instrument-assignment';
 import { Instrument } from './instruments/instrument';
+import { loadInstrumentFromXML } from './instruments/instrument-registry';
 import { CompileData } from './compile-data';
 import { replaceAll } from './utilities/text';
 import { Element } from './serialization/xml-reader';
@@ -161,6 +162,16 @@ export class Arrangement {
       const ia = new InstrumentAssignment();
       ia.arrangementId = elem.getAttribute('id') ?? '0';
       ia.enabled = elem.getAttribute('enabled') !== 'false';
+
+      // Load embedded <instrument> element if present
+      const instrElem = elem.getElement('instrument');
+      if (instrElem) {
+        const instr = loadInstrumentFromXML(instrElem);
+        if (instr) {
+          ia.instr = instr;
+        }
+      }
+
       arr.arrangement.push(ia);
     }
 
