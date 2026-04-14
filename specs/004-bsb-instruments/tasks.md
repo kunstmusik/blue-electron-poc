@@ -86,20 +86,20 @@
 ## Phase 20: BSB Compilation + CSD Generation
 
 ### Orchestra Generation
-- [ ] T443 Update `Arrangement.generateOrchestra()` to call `ia.instr.generateInstrument()` for loaded instruments
-- [ ] T444 [P] Wrap instrument text with `instr <arrangementId>\t;<name>\n...\n\tendin\n\n`
-- [ ] T445 Apply `<INSTR_ID>` and `<INSTR_NAME>` token replacement
-- [ ] T446 [P] Apply blueMixerOut → outc conversion
+- [x] T443 Update `Arrangement.generateOrchestra()` to call `ia.instr.generateInstrument()` for loaded instruments
+- [x] T444 [P] Wrap instrument text with `instr <arrangementId>\t;<name>\n...\n\tendin\n\n`
+- [x] T445 Apply `<INSTR_ID>` and `<INSTR_NAME>` token replacement
+- [x] T446 [P] Apply blueMixerOut → outc conversion
 
 ### Global Code Collection
-- [ ] T447 Update `CompileData` to collect globalOrc from all instruments
-- [ ] T448 [P] Update `CompileData` to collect globalSco from all instruments
-- [ ] T449 Update `BlueData.toCSD()` to emit globalOrc before instrument definitions
-- [ ] T450 [P] Update `BlueData.toCSD()` to emit globalSco before score events
+- [x] T447 Update `CompileData` to collect globalOrc from all instruments
+- [x] T448 [P] Update `CompileData` to collect globalSco from all instruments
+- [x] T449 Update `BlueData.toCSD()` to emit globalOrc before instrument definitions
+- [x] T450 [P] Update `BlueData.toCSD()` to emit globalSco before score events
 
 ### PianoRoll Integration
-- [ ] T451 Remove stub instrument generation from PianoRoll (BSB instruments now provide real orchestra)
-- [ ] T452 [P] Keep PianoRoll as fallback for projects without BSB instruments
+- [x] T451 Remove stub instrument generation from PianoRoll (BSB instruments now provide real orchestra)
+- [x] T452 [P] Keep PianoRoll as fallback for projects without BSB instruments
 
 ---
 
