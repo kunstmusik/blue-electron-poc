@@ -109,7 +109,7 @@ export class BlueData implements BlueDataObject {
    * Load BlueData from an XML string.
    * Automatically applies migrations if the file version is old.
    */
-  static loadFromString(xmlString: string): BlueData {
+  static async loadFromString(xmlString: string): Promise<BlueData> {
     const rootElement = Element.parse(xmlString);
 
     if (rootElement.getName() !== 'blueData') {
@@ -136,7 +136,7 @@ export class BlueData implements BlueDataObject {
           blueData.projectProperties = ProjectProperties.loadFromXML(node);
           break;
         case 'arrangement':
-          blueData.arrangement = Arrangement.loadFromXML(node);
+          blueData.arrangement = await Arrangement.loadFromXML(node);
           break;
         case 'instrumentLibrary':
           console.log(`[BlueData.loadFromString] instrumentLibrary found (instruments stub)`);

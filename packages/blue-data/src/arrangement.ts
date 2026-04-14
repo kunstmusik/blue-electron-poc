@@ -153,7 +153,7 @@ export class Arrangement {
     return elem;
   }
 
-  static loadFromXML(data: Element): Arrangement {
+  static async loadFromXML(data: Element): Promise<Arrangement> {
     const arr = new Arrangement();
     const items = data.getElements('instrumentAssignment');
 
@@ -166,7 +166,7 @@ export class Arrangement {
       // Load embedded <instrument> element if present
       const instrElem = elem.getElement('instrument');
       if (instrElem) {
-        const instr = loadInstrumentFromXML(instrElem);
+        const instr = await loadInstrumentFromXML(instrElem);
         if (instr) {
           ia.instr = instr;
         }
@@ -178,7 +178,7 @@ export class Arrangement {
     return arr;
   }
 
-  static loadFromXMLWithLibrary(data: Element, _iLibrary: unknown): Arrangement {
+  static async loadFromXMLWithLibrary(data: Element, _iLibrary: unknown): Promise<Arrangement> {
     // Legacy format with embedded instrument library
     return Arrangement.loadFromXML(data);
   }

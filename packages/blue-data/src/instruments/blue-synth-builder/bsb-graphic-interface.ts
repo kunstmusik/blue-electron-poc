@@ -19,7 +19,7 @@ export class BSBGraphicInterface {
     this.rootGroup.collectReplacements(unit);
   }
 
-  loadFromXML(data: Element): void {
+  async loadFromXML(data: Element): Promise<void> {
     const gridSettings = data.getTextString('gridSettings');
     if (gridSettings) this.gridSettings = gridSettings;
 
@@ -27,7 +27,7 @@ export class BSBGraphicInterface {
     const bsbObjects = data.getElements('bsbObject');
     while (bsbObjects.hasMoreElements()) {
       const objElem = bsbObjects.next();
-      this.rootGroup.loadFromXML(objElem);
+      await this.rootGroup.loadFromXML(objElem);
     }
   }
 }

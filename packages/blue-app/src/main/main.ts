@@ -155,7 +155,7 @@ async function openFile(): Promise<void> {
   const filePath = result.filePaths[0];
   try {
     const xml = fs.readFileSync(filePath, 'utf-8');
-    const data = BlueData.loadFromString(xml);
+    const data = await BlueData.loadFromString(xml);
     currentData = data;
     currentFilePath = filePath;
 

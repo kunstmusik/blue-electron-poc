@@ -91,7 +91,7 @@ export class BlueSynthBuilder extends Instrument {
     return elem;
   }
 
-  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): BlueSynthBuilder {
+  static async loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): Promise<BlueSynthBuilder> {
     const bsb = new BlueSynthBuilder();
 
     const editEnabled = data.getAttribute('editEnabled');
@@ -115,7 +115,7 @@ export class BlueSynthBuilder extends Instrument {
     // Load graphic interface
     const giElem = data.getElement('graphicInterface');
     if (giElem) {
-      bsb._graphicInterface.loadFromXML(giElem);
+      await bsb._graphicInterface.loadFromXML(giElem);
     }
 
     return bsb;

@@ -16,25 +16,25 @@ const BSB_WIDGET_REGISTRY: Record<string, BSBWidgetCtor> = {};
 
 // Lazy registration to avoid circular dependency
 let registryInitialized = false;
-function ensureRegistry(): void {
+async function ensureRegistry(): Promise<void> {
   if (registryInitialized) return;
   registryInitialized = true;
-  // Imports done lazily to avoid circular deps
-  const { BSBGroup: G } = require('./bsb-group');
-  const { BSBKnob } = require('./bsb-knob');
-  const { BSBCheckBox } = require('./bsb-check-box');
-  const { BSBHSlider } = require('./bsb-hslider');
-  const { BSBVSlider } = require('./bsb-vslider');
-  const { BSBHSliderBank } = require('./bsb-hslider-bank');
-  const { BSBVSliderBank } = require('./bsb-vslider-bank');
-  const { BSBValue } = require('./bsb-value');
-  const { BSBDropdown } = require('./bsb-dropdown');
-  const { BSBXYController } = require('./bsb-xy-controller');
-  const { BSBSubChannelDropdown } = require('./bsb-subchannel-dropdown');
-  const { BSBFileSelector } = require('./bsb-file-selector');
-  const { BSBTextField } = require('./bsb-text-field');
-  const { BSBLabel } = require('./bsb-label');
-  const { BSBLineObject } = require('./bsb-line-object');
+  // Dynamic imports to avoid circular deps
+  const { BSBGroup: G } = await import('./bsb-group');
+  const { BSBKnob } = await import('./bsb-knob');
+  const { BSBCheckBox } = await import('./bsb-check-box');
+  const { BSBHSlider } = await import('./bsb-hslider');
+  const { BSBVSlider } = await import('./bsb-vslider');
+  const { BSBHSliderBank } = await import('./bsb-hslider-bank');
+  const { BSBVSliderBank } = await import('./bsb-vslider-bank');
+  const { BSBValue } = await import('./bsb-value');
+  const { BSBDropdown } = await import('./bsb-dropdown');
+  const { BSBXYController } = await import('./bsb-xy-controller');
+  const { BSBSubChannelDropdown } = await import('./bsb-subchannel-dropdown');
+  const { BSBFileSelector } = await import('./bsb-file-selector');
+  const { BSBTextField } = await import('./bsb-text-field');
+  const { BSBLabel } = await import('./bsb-label');
+  const { BSBLineObject } = await import('./bsb-line-object');
 
   BSB_WIDGET_REGISTRY['blue.orchestra.blueSynthBuilder.BSBGroup'] = G;
   BSB_WIDGET_REGISTRY['blue.orchestra.blueSynthBuilder.BSBKnob'] = BSBKnob;
@@ -69,15 +69,15 @@ export class BSBGroup extends BSBWidget {
   }
 
   /** Full XML load entry point for groups */
-  loadFromXML(data: Element): void {
-    ensureRegistry();
+  async loadFromXML(data: Element): Promise<void> {
+    await ensureRegistry();
     this.loadFromXMLCommon(data);
-    this._loadChildren(data);
+    await this._loadChildren(data);
   }
 
   /** Load child bsbObject elements */
-  private _loadChildren(data: Element): void {
-    ensureRegistry();
+  private async _loadChildren(data: Element): Promise<void> {
+    await ensureRegistry();
 
     const children = data.getElements('bsbObject');
     while (children.hasMoreElements()) {
@@ -87,9 +87,9 @@ export class BSBGroup extends BSBWidget {
       if (Ctor) {
         const child = new Ctor();
         if (child instanceof BSBGroup) {
-          child.loadFromXML(childElem);
+          await child.loadFromXML(childElem);
         } else if ('loadFromXML' in child && typeof child.loadFromXML === 'function') {
-          (child.loadFromXML as (data: Element) => void).call(child, childElem);
+          (child.loadFromXML as (data: Element) => void | Promise<void>).call(child, childElem);
         } else {
           child.loadFromXMLCommon(childElem);
         }

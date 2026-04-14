@@ -11,7 +11,7 @@ import { TimeDuration } from '../../src/time/time-duration';
 import { Score } from '../../src/score/score';
 
 describe('Performance', () => {
-  it('loads a project with 100 audio clips in under 500ms', () => {
+  it('loads a project with 100 audio clips in under 500ms', async () => {
     // Build a large XML string
     const clips = [];
     for (let i = 0; i < 100; i++) {
@@ -54,7 +54,7 @@ describe('Performance', () => {
 </blueData>`;
 
     const start = performance.now();
-    const data = BlueData.loadFromString(xml);
+    const data = await BlueData.loadFromString(xml);
     const loadTime = performance.now() - start;
 
     expect(loadTime).toBeLessThan(500);

@@ -10,7 +10,7 @@ import { Instrument } from './instrument';
 import { BlueSynthBuilder } from './blue-synth-builder';
 
 /** Type for instrument loader functions */
-export type InstrumentLoader = (data: Element) => Instrument | null;
+export type InstrumentLoader = (data: Element) => Instrument | Promise<Instrument> | null;
 
 /** Registry map from XML type attribute to loader function */
 const registry = new Map<string, InstrumentLoader>();
@@ -26,7 +26,7 @@ export function registerInstrumentType(type: string, loader: InstrumentLoader): 
  * Load an instrument from XML by dispatching on the type attribute.
  * Returns null if the type is not recognized.
  */
-export function loadInstrumentFromXML(data: Element): Instrument | null {
+export async function loadInstrumentFromXML(data: Element): Promise<Instrument | null> {
   const type = data.getAttribute('type');
   if (!type) return null;
 

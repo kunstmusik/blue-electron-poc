@@ -37,7 +37,7 @@ describe('Migration: old file formats', () => {
 </blueData>`;
 
     // Should not throw
-    const data = BlueData.loadFromString(oldXml);
+    const data = await BlueData.loadFromString(oldXml);
     expect(data.getVersion()).toBe('2.2.5');
     expect(data.getProjectProperties().title).toBe('Old Tempo Project');
   });
@@ -59,7 +59,7 @@ nchnls = 2</globalOrc>
   </globalOrcSco>
 </blueData>`;
 
-    const data = BlueData.loadFromString(oldXml);
+    const data = await BlueData.loadFromString(oldXml);
     const props = data.getProjectProperties();
 
     // 2.1.10 upgrader should have extracted 0dbfs
@@ -79,7 +79,7 @@ nchnls = 2</globalOrc>
   </projectProperties>
 </blueData>`;
 
-    const data = BlueData.loadFromString(minimalXml);
+    const data = await BlueData.loadFromString(minimalXml);
     expect(data.getVersion()).toBe('2.9.0');
     expect(data.getProjectProperties().title).toBe('Minimal');
     // Default values should be set
@@ -87,7 +87,7 @@ nchnls = 2</globalOrc>
     expect(data.getProjectProperties().ksmps).toBe('64');
   });
 
-  it('round-trips after migration', async () => {
+  it('migration, async', async () => {
     const { BlueData } = await import('../../src/blue-data');
 
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -107,13 +107,13 @@ nchnls = 2</globalOrc>
 </blueData>`;
 
     // Load (applies migration)
-    const data = BlueData.loadFromString(oldXml);
+    const data = await BlueData.loadFromString(oldXml);
 
     // Save
     const savedXml = data.saveToString();
 
     // Reload
-    const reloaded = BlueData.loadFromString(savedXml);
+    const reloaded = await BlueData.loadFromString(savedXml);
 
     // Verify 0dbfs properties preserved
     const props = reloaded.getProjectProperties();

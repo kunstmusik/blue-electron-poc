@@ -101,12 +101,12 @@ function buildTestProject(): BlueData {
 }
 
 describe('Round-trip: simple project', () => {
-  it('load → save → reload preserves all data', () => {
+  it('load preserves all data', async () => {
     const original = buildTestProject();
     const xml1 = original.saveToString();
 
     // Parse and reload
-    const reloaded = BlueData.loadFromString(xml1);
+    const reloaded = await BlueData.loadFromString(xml1);
 
     // Save again
     const xml2 = reloaded.saveToString();
@@ -208,14 +208,14 @@ describe('Round-trip: individual types', () => {
     expect(reloaded.getText()).toBe(instr.getText());
   });
 
-  it('Arrangement round-trips', () => {
+  it('Arrangement round-trips', async () => {
     const arr = new Arrangement();
     const instr = new GenericInstrument();
     instr.setName('Test');
     arr.addInstrument(instr, '1');
 
     const xml = arr.saveAsXML();
-    const reloaded = Arrangement.loadFromXML(xml);
+    const reloaded = await Arrangement.loadFromXML(xml);
 
     expect(reloaded.size()).toBe(1);
     expect(reloaded.getInstrumentId(0)).toBe('1');
@@ -286,7 +286,7 @@ describe('Round-trip: individual types', () => {
 });
 
 describe('Migration', () => {
-  it('upgrades old version format', () => {
+  it('upgrades old version format', async () => {
     // Simulate an old .blue file (pre-2.3.0) with tempo node at root level
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.2.0">
@@ -304,12 +304,12 @@ describe('Migration', () => {
 </blueData>`;
 
     // Should not throw — migration handles the old format
-    const data = BlueData.loadFromString(oldXml);
+    const data = await BlueData.loadFromString(oldXml);
     expect(data.getVersion()).toBe('2.2.0');
     // After migration, tempo should be moved into score
   });
 
-  it('upgrades 0dbfs from global orc (2.1.10 upgrade)', () => {
+  it('upgrades 0dbfs from global orc (2.1.10 upgrade)', async () => {
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.1.9">
   <globalOrcSco>
@@ -323,7 +323,7 @@ nchnls = 2</globalOrc>
   </projectProperties>
 </blueData>`;
 
-    const data = BlueData.loadFromString(oldXml);
+    const data = await BlueData.loadFromString(oldXml);
     const props = data.getProjectProperties();
     expect(props.useZeroDbFS).toBe(true);
     expect(props.zeroDbFS).toBe('32768');

@@ -137,7 +137,7 @@ describe('Node.js library API', () => {
     expect(pg[0].getPatternData().isPatternSet(2)).toBe(true);
   });
 
-  it('loads from XML string and inspects data', () => {
+  it('loads from XML string and inspects data', async () => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.9.1">
   <projectProperties>
@@ -162,7 +162,7 @@ describe('Node.js library API', () => {
   </score>
 </blueData>`;
 
-    const data = BlueData.loadFromString(xml);
+    const data = await BlueData.loadFromString(xml);
 
     expect(data.getVersion()).toBe('2.9.1');
     expect(data.getProjectProperties().title).toBe('Loaded Project');
@@ -208,7 +208,7 @@ describe('Node.js library API', () => {
 
     // Save and reload
     const xml1 = data.saveToString();
-    const reloadedData = BlueData.loadFromString(xml1);
+    const reloadedData = await BlueData.loadFromString(xml1);
 
     // Verify the saved XML contains expected content
     expect(xml1).toContain('<audioLayerGroup');
@@ -267,7 +267,7 @@ describe('Node.js library API', () => {
     expect(csd).toContain('</CsoundSynthesizer>');
   });
 
-  it('provides migration system access', () => {
+  it('migration system access', () => {
     const um = UpgradeManager.getInstance();
     expect(um).toBeInstanceOf(UpgradeManager);
 

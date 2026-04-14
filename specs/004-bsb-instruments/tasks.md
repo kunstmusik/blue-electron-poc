@@ -106,17 +106,17 @@
 ## Phase 21: Integration + Testing
 
 ### End-to-End Testing
-- [ ] T453 [P] Test: Load `demo2022.blue`, verify BSB instruments are loaded (count > 0)
-- [ ] T454 [P] Test: Generate CSD, verify `<placeholder>` tokens are replaced with values
-- [ ] T455 [P] Test: Generate CSD, verify globalOrc contains mixer inits and string globals
-- [ ] T456 [P] Test: Generate CSD, verify instrument count matches Java Blue's output
-- [ ] T457 Integration: Play `demo2022.blue`, verify audio matches Java Blue output
-- [ ] T458 [P] Test: 115 existing tests still pass
+- [x] T453 [P] Test: Load `demo2022.blue`, verify BSB instruments are loaded (count > 0)
+- [x] T454 [P] Test: Generate CSD, verify `<placeholder>` tokens are replaced with values
+- [x] T455 [P] Test: Generate CSD, verify globalOrc contains mixer inits and string globals
+- [x] T456 [P] Test: Generate CSD, verify instrument count matches Java Blue's output
+- [x] T457 Integration: Play `demo2022.blue`, verify audio matches Java Blue output
+- [x] T458 [P] Test: 115 existing tests still pass
 
 ### Edge Cases
-- [ ] T459 Handle missing widget values (use default 0.0)
-- [ ] T460 [P] Handle unknown BSB widget types (skip with warning)
-- [ ] T461 Handle empty instrumentText (return empty string)
+- [x] T459 Handle missing widget values (use default 0.0)
+- [x] T460 [P] Handle unknown BSB widget types (skip with warning)
+- [x] T461 Handle empty instrumentText (return empty string)
 
 ---
 
