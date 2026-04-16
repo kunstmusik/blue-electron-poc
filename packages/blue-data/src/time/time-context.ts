@@ -2,15 +2,20 @@
  * TimeContext — provides context for time conversions.
  * Mirrors the Java TimeContext class.
  *
- * Contains the TempoMap and SMPTE frame rate used for converting between
- * beats, seconds, and SMPTE frames.
+ * Contains TempoMap, MeterMap, sample rate, and SMPTE frame rate.
  */
 import { TempoMap } from './tempo-map';
+import { MeterMap } from './meter-map';
 import { SmpteFrameRate } from './smpte-frame-rate';
 import { Element } from '../serialization/xml-reader';
 
+/** Default sample rate. */
+const DEFAULT_SAMPLE_RATE = 44100;
+
 export class TimeContext {
   private tempoMap = new TempoMap();
+  private meterMap = new MeterMap();
+  private sampleRate = DEFAULT_SAMPLE_RATE;
   private smpteFrameRate: SmpteFrameRate = SmpteFrameRate.FPS_30;
 
   // ─── Accessors ───
@@ -21,6 +26,22 @@ export class TimeContext {
 
   setTempoMap(tempoMap: TempoMap): void {
     this.tempoMap = tempoMap;
+  }
+
+  getMeterMap(): MeterMap {
+    return this.meterMap;
+  }
+
+  setMeterMap(meterMap: MeterMap): void {
+    this.meterMap = meterMap;
+  }
+
+  getSampleRate(): number {
+    return this.sampleRate;
+  }
+
+  setSampleRate(rate: number): void {
+    this.sampleRate = rate;
   }
 
   getSmpteFrameRate(): SmpteFrameRate {
@@ -35,13 +56,12 @@ export class TimeContext {
   getSmpteFramesPerSecond(): number {
     const rate = this.smpteFrameRate;
     if (typeof rate === 'number') return rate;
-    // Drop-frame rates
     if (rate === SmpteFrameRate.FPS_29_97_DF) return 29.97;
     if (rate === SmpteFrameRate.FPS_30_DF) return 30;
     return 30;
   }
 
-  /** Get beat duration in seconds. */
+  /** Get beat duration in seconds (60 / BPM). */
   getBeatDuration(): number {
     return this.tempoMap.getBeatDuration();
   }
@@ -56,11 +76,22 @@ export class TimeContext {
     return this.tempoMap.secondsToBeats(seconds);
   }
 
+  /**
+   * Check if this context has the same musical context as another
+   * (same tempo map and meter map).
+   */
+  hasSameMusicalContext(other: TimeContext | null): boolean {
+    if (!other) return false;
+    if (this === other) return true;
+    return this.tempoMap.equals(other.tempoMap) && this.meterMap.equals(other.meterMap);
+  }
+
   // ─── XML Serialization ───
 
   saveAsXML(): Element {
     const elem = new Element('timeContext');
-    elem.addElement('tempo').setText(this.tempoMap.getTempo().toString());
+    elem.addElement(this.tempoMap.saveAsXML().setName('tempoMap'));
+    elem.addElement(this.meterMap.saveAsXML().setName('meterMap'));
     elem.addElement('smpteFrameRate').setText(this.smpteFrameRate.toString());
     return elem;
   }
@@ -68,35 +99,36 @@ export class TimeContext {
   static loadFromXML(data: Element): TimeContext {
     const ctx = new TimeContext();
 
-    // Load simple <tempo> element
-    const tempoElem = data.getElement('tempo');
-    if (tempoElem) {
-      ctx.tempoMap.setTempo(parseFloat(tempoElem.getTextString()));
-    }
-
-    // Load <tempoMap> with <tempoPoint> elements
-    // TempoMap may be directly inside timeContext or nested inside meterMap
+    // Load tempo map
     let tempoMapElem = data.getElement('tempoMap');
     if (!tempoMapElem) {
-      const meterMap = data.getElement('meterMap');
-      if (meterMap) tempoMapElem = meterMap.getElement('tempoMap');
+      // Try nested inside meterMap
+      const meterMapElem = data.getElement('meterMap');
+      if (meterMapElem) tempoMapElem = meterMapElem.getElement('tempoMap');
     }
     if (tempoMapElem) {
-      const enabled = tempoMapElem.getTextString('enabled');
-      if (enabled !== 'false') {
-        const points = tempoMapElem.getElements('tempoPoint');
-        if (points.hasMoreElements()) {
-          const firstPoint = points.next();
-          const tempo = firstPoint.getAttribute('tempo');
-          if (tempo) ctx.tempoMap.setTempo(parseFloat(tempo));
-        }
-      }
+      ctx.tempoMap = TempoMap.loadFromXML(tempoMapElem);
     }
+
+    // Also check simple <tempo> element
+    const tempoElem = data.getElement('tempo');
+    if (tempoElem && ctx.tempoMap.getTempo() === 60) {
+      ctx.tempoMap.setTempo(parseFloat(tempoElem.getTextString() ?? '60'));
+    }
+
+    // Load meter map
+    const meterMapElem = data.getElement('meterMap');
+    if (meterMapElem) {
+      ctx.meterMap = MeterMap.loadFromXML(meterMapElem);
+    }
+
+    // Legacy: ignore <sampleRate> element (not stored per Java design)
+    // const sampleRateElem = data.getElement('sampleRate');
 
     const smpteElem = data.getElement('smpteFrameRate');
     if (smpteElem) {
       const rateStr = smpteElem.getTextString();
-      const rate = parseFloat(rateStr);
+      const rate = parseFloat(rateStr ?? '');
       if (!isNaN(rate)) {
         ctx.smpteFrameRate = rate as SmpteFrameRate;
       }

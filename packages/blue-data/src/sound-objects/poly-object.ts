@@ -18,6 +18,7 @@ import { TimeContext } from '../time/time-context';
 import { CompileData } from '../compile-data';
 import { NoteList } from './note-list';
 import { Element } from '../serialization/xml-reader';
+import { setScoreStart } from '../utilities/score';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { LayerGroupDataEvent, LayerGroupDataEventType } from '../score/layers/layer-group-data-event';
 import { LayerGroupListener } from '../score/layers/layer-group-listener';
@@ -182,11 +183,12 @@ export class PolyObject extends Array<SoundLayer>
     const noteList = new NoteList();
 
     for (const layer of this) {
-      for (const sObj of layer) {
-        const nl = sObj.generateForCSD(context, compileData, startTime, endTime);
-        noteList.merge(nl);
-      }
+      const nl = layer.generateForCSD(context, compileData, startTime, endTime);
+      noteList.merge(nl);
     }
+
+    // Offset all notes by this PolyObject's own start time
+    setScoreStart(noteList, this._startTime.toBeats(context));
 
     return noteList;
   }

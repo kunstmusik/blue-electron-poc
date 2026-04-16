@@ -31,7 +31,7 @@ export { TimeDuration } from './time/time-duration';
 export { TempoMap } from './time/tempo-map';
 export { TimeContext } from './time/time-context';
 export { TimeState } from './time/time-state';
-export { beatsToTimePosition, secondsToDuration } from './time/time-utilities';
+export { beatsToTimePosition, timePositionToBeats, convertTimePosition, secondsToTimePosition, timePositionToSeconds, framesToTimePosition, timePositionToFrames } from './time/time-utilities';
 
 // ─── Score ───
 export { Score } from './score/score';

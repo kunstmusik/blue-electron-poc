@@ -69,4 +69,17 @@ export class NoteList {
   map<T>(fn: (note: Note, index: number) => T): T[] {
     return this._notes.map(fn);
   }
+
+  /** Remove note at index. Used internally by applyTimeBehavior. */
+  _removeAt(index: number): void {
+    this._notes.splice(index, 1);
+  }
+
+  /** Replace all notes with contents of another NoteList. Used internally by applyTimeBehavior. */
+  _replaceContents(other: NoteList): void {
+    this._notes = [];
+    for (let i = 0; i < other.length; i++) {
+      this._notes.push(other.getNote(i));
+    }
+  }
 }

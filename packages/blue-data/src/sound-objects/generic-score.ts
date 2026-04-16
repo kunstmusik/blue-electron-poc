@@ -16,8 +16,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 import { SoundObject, SoundObjectStatic } from './sound-object';
-import { TimeBehavior } from './time-behavior';
-import { TimeDuration } from '../time/time-duration';
+import { initBasicFromXML } from './sound-object-utilities';
 
 /**
  * Parse Csound score text into a NoteList.
@@ -99,28 +98,7 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
 
   static loadFromXML(data: Element): GenericScore {
     const sObj = new GenericScore();
-
-    sObj.setName(data.getTextString('name') ?? '');
-
-    const startTimeStr = data.getTextString('startTime');
-    if (startTimeStr) {
-      sObj.setSubjectiveDuration(TimeDuration.beats(parseFloat(startTimeStr)));
-    }
-
-    const durationStr = data.getTextString('subjectiveDuration');
-    if (durationStr) {
-      sObj.setSubjectiveDuration(TimeDuration.beats(parseFloat(durationStr)));
-    }
-
-    const tbStr = data.getTextString('timeBehavior');
-    if (tbStr && Object.values(TimeBehavior).includes(tbStr as TimeBehavior)) {
-      sObj.setTimeBehavior(tbStr as TimeBehavior);
-    }
-
-    const colorStr = data.getTextString('backgroundColor');
-    if (colorStr) {
-      sObj.setBackgroundColor(parseInt(colorStr, 10));
-    }
+    initBasicFromXML(sObj, data);
 
     const scoreText = data.getTextString('scoreText');
     if (scoreText !== null) {

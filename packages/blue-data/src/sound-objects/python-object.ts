@@ -12,8 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { TimeDuration } from '../time/time-duration';
-import { TimeBehavior } from './time-behavior';
+import { initBasicFromXML } from './sound-object-utilities';
 
 export class PythonObject extends AbstractSoundObject {
   private _pythonCode = '';
@@ -61,18 +60,7 @@ export class PythonObject extends AbstractSoundObject {
 
   static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): PythonObject {
     const obj = new PythonObject();
-    obj.setName(data.getTextString('name') ?? 'PythonObject');
-
-    const dur = data.getTextString('subjectiveDuration');
-    if (dur) obj.setSubjectiveDuration(TimeDuration.beats(parseFloat(dur)));
-
-    const tb = data.getTextString('timeBehavior');
-    if (tb && Object.values(TimeBehavior).includes(tb as TimeBehavior)) {
-      obj.setTimeBehavior(tb as TimeBehavior);
-    }
-
-    const color = data.getTextString('backgroundColor');
-    if (color) obj.setBackgroundColor(parseInt(color, 10));
+    initBasicFromXML(obj, data);
 
     const code = data.getTextString('pythonCode');
     if (code !== null) obj.setPythonCode(code);

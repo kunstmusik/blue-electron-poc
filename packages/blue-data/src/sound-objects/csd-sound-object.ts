@@ -12,8 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { TimeBehavior } from './time-behavior';
-import { TimeDuration } from '../time/time-duration';
+import { initBasicFromXML } from './sound-object-utilities';
 
 export class CSDSoundObject extends AbstractSoundObject {
   private _csdText = '';
@@ -45,15 +44,11 @@ export class CSDSoundObject extends AbstractSoundObject {
 
   static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): CSDSoundObject {
     const obj = new CSDSoundObject();
-    obj.setName(data.getTextString('name') ?? 'CSDSoundObject');
-    const dur = data.getTextString('subjectiveDuration');
-    if (dur) obj.setSubjectiveDuration(TimeDuration.beats(parseFloat(dur)));
-    const tb = data.getTextString('timeBehavior');
-    if (tb) obj.setTimeBehavior(tb as TimeBehavior);
-    const color = data.getTextString('backgroundColor');
-    if (color) obj.setBackgroundColor(parseInt(color, 10));
+    initBasicFromXML(obj, data);
+
     const csd = data.getTextString('csdText');
     if (csd !== null) obj.setCsdText(csd);
+
     return obj;
   }
 

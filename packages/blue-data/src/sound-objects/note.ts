@@ -56,11 +56,11 @@ export class Note {
     return new Map(this._pFields);
   }
 
-  /** Convert this note to Csound score text. */
+  /** Convert this note to Csound score text. Outputs "i<p1> <p2> <p3> ..." format. */
   toScoreText(): string {
     const parts: string[] = [];
-    // p1 (instrument)
-    parts.push(this._pFields.get(1) ?? '0');
+    // p1 (instrument) — prefixed with 'i'
+    parts.push('i' + (this._pFields.get(1) ?? '0'));
     // p2 (start time)
     parts.push(this._startTime.toString());
     // p3 (duration)
@@ -71,7 +71,7 @@ export class Note {
       if (val === undefined) break;
       parts.push(val);
     }
-    return parts.join(' ');
+    return parts.join('\t');
   }
 
   /** Create a deep copy of this note. */
@@ -87,10 +87,18 @@ export class Note {
 
   /**
    * Parse a Csound score text string into a Note.
-   * E.g., "i1 0 2 440 0.5"
+   * Handles both "i1 0 2 440 0.5" and "i 1 0 2 440 0.5" formats.
+   * Mirrors Java Note.createNote which strips the leading 'i' before parsing.
    */
   static createNoteFromText(text: string): Note | null {
-    const parts = text.trim().split(/\s+/).filter(Boolean);
+    let cleanText = text.trim();
+
+    // Strip leading 'i' or 'I' (score statement type), mirroring Java
+    if (cleanText.startsWith('i') || cleanText.startsWith('I')) {
+      cleanText = cleanText.substring(1);
+    }
+
+    const parts = cleanText.split(/\s+/).filter(Boolean);
     if (parts.length < 3) return null;
 
     const note = new Note();

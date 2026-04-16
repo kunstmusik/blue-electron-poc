@@ -11,12 +11,12 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { TimeBehavior } from './time-behavior';
-import { TimeDuration } from '../time/time-duration';
-import { TimePosition } from '../time/time-position';
 import { replaceAll } from '../utilities/text';
 import { Scale } from './piano-roll/scale';
 import { PianoNote } from './piano-roll/piano-note';
 import { FieldDef } from './piano-roll/field-def';
+import { initBasicFromXML } from './sound-object-utilities';
+import { applyTimeBehavior, setScoreStart } from '../utilities/score';
 
 const GENERATE_FREQUENCY = 0;
 const GENERATE_PCH = 1;
@@ -184,36 +184,13 @@ endin
     const npc = this.getNoteProcessorChain();
     npc.apply(nl);
 
-    // Apply time behavior
+    // Apply time behavior and start time offset (mirrors Java PianoRoll.generateNotes)
     const duration = this._subjectiveDuration.toBeats(context);
-    const startTime = this._startTime.toBeats(context);
     const rpBeats = this._repeatPoint ? this._repeatPoint.toBeats(context) : -1;
+    applyTimeBehavior(nl, this._timeBehavior, duration, rpBeats);
 
-    // Apply REPEAT time behavior
-    if (this._timeBehavior === TimeBehavior.REPEAT && duration > 0) {
-      const newNotes = new NoteList();
-      let offset = 0;
-      while (offset < duration || offset === 0) {
-        for (let i = 0; i < nl.length; i++) {
-          const origNote = nl.getNote(i);
-          const newNote = origNote.deepCopy();
-          newNote.setStartTime(newNote.getStartTime() + offset);
-          newNotes.push(newNote);
-        }
-        offset += duration;
-        if (rpBeats > 0 && offset >= rpBeats) break;
-      }
-      // Replace nl with repeated notes
-      // Note: we can't replace NoteList contents, so just return the repeated ones
-      // Actually, let's keep it simple — for now just shift the original notes
-      // Full repeat behavior requires more complex logic
-    }
-
-    // Shift notes by start time
-    for (let i = 0; i < nl.length; i++) {
-      const n = nl.getNote(i);
-      n.setStartTime(n.getStartTime() + startTime);
-    }
+    const startTime = this._startTime.toBeats(context);
+    setScoreStart(nl, startTime);
 
     return nl;
   }
@@ -247,22 +224,7 @@ endin
     pr._fieldDefinitions = [];
     pr._notes = [];
 
-    const startStr = data.getTextString('startTime');
-    if (startStr) pr._startTime = TimePosition.beats(parseFloat(startStr));
-
-    const dur = data.getTextString('subjectiveDuration');
-    if (dur) pr._subjectiveDuration = TimeDuration.beats(parseFloat(dur));
-
-    const tb = data.getTextString('timeBehavior');
-    if (tb && Object.values(TimeBehavior).includes(tb as TimeBehavior)) {
-      pr._timeBehavior = tb as TimeBehavior;
-    }
-
-    const color = data.getTextString('backgroundColor');
-    if (color) pr._backgroundColor = parseInt(color, 10);
-
-    const name = data.getTextString('name');
-    if (name) pr._name = name;
+    initBasicFromXML(pr, data);
 
     const fieldTypes = new Map<string, FieldDef>();
 

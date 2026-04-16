@@ -39,7 +39,7 @@ export class PatternData {
     }
     if (index >= this._patterns.length) {
       if (selected) {
-        this._resizePatterns(index);
+        this.resizePatterns(index);
       } else {
         return;
       }
@@ -80,8 +80,8 @@ export class PatternData {
     return -1;
   }
 
-  /** Resize the pattern array to accommodate the given index. */
-  private _resizePatterns(index: number): void {
+  /** Resize the pattern array to accommodate the given index (or shrink). */
+  resizePatterns(index: number): void {
     const newSize = (Math.floor(index / BLOCK_SIZE) + 1) * BLOCK_SIZE;
 
     if (newSize === this._patterns.length) {
@@ -102,7 +102,7 @@ export class PatternData {
     const elem = new Element('patternData');
 
     // Resize to max selected for efficiency
-    this._resizePatterns(Math.max(this._calculateMaxSelected(), 0));
+    this.resizePatterns(Math.max(this._calculateMaxSelected(), 0));
 
     // Serialize as binary string: "101001..."
     const buffer: string[] = [];

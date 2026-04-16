@@ -12,9 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { TimeBehavior } from './time-behavior';
-import { TimeDuration } from '../time/time-duration';
-import { TimePosition } from '../time/time-position';
+import { initBasicFromXML } from './sound-object-utilities';
 import { setScoreStart } from '../utilities/score';
 
 export class Instance extends AbstractSoundObject {
@@ -88,21 +86,7 @@ export class Instance extends AbstractSoundObject {
 
   static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): Instance {
     const obj = new Instance();
-    obj.setName(data.getTextString('name') ?? 'Instance');
-
-    const startStr = data.getTextString('startTime');
-    if (startStr) obj._startTime = TimePosition.beats(parseFloat(startStr));
-
-    const dur = data.getTextString('subjectiveDuration');
-    if (dur) obj._subjectiveDuration = TimeDuration.beats(parseFloat(dur));
-
-    const tb = data.getTextString('timeBehavior');
-    if (tb && Object.values(TimeBehavior).includes(tb as TimeBehavior)) {
-      obj._timeBehavior = tb as TimeBehavior;
-    }
-
-    const color = data.getTextString('backgroundColor');
-    if (color) obj._backgroundColor = parseInt(color, 10);
+    initBasicFromXML(obj, data);
 
     const refNode = data.getElement('soundObjectReference');
     if (refNode) {
