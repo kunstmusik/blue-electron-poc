@@ -160,6 +160,7 @@ export { MidiVelocityMapping } from './midi/midi-velocity-mapping';
 // ─── Opcodes ───
 export { OpcodeDefinition } from './opcodes/opcode-definition';
 export { OpcodeList } from './opcodes/opcode-list';
+export { UDOStyle } from './opcodes/udo-style';
 
 // ─── Serialization ───
 export { Element, Elements } from './serialization/xml-reader';

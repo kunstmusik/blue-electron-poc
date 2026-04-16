@@ -11,13 +11,16 @@ import { BlueDataObject } from '../blue-data-object';
 import { Parameter, AutomationCurve } from '../automation/parameter';
 import { BSBGraphicInterface } from '../instruments/blue-synth-builder/bsb-graphic-interface';
 import { BSBCompilationUnit } from '../instruments/blue-synth-builder/bsb-compilation-unit';
+import { OpcodeDefinition } from '../opcodes/opcode-definition';
+import { UDOStyle } from '../opcodes/udo-style';
 
 export class Effect implements BlueDataObject {
-  private _name = '';
+  private _name = 'New Effect';
   private _enabled = true;
   private _numIns = 2;
   private _numOuts = 2;
   private _code = '';
+  private _style: UDOStyle = UDOStyle.MODERN;
   private _graphicInterface = new BSBGraphicInterface();
   private _parameters: Parameter[] = [];
 
@@ -36,18 +39,16 @@ export class Effect implements BlueDataObject {
   getCode(): string { return this._code; }
   setCode(code: string): void { this._code = code; }
 
+  getStyle(): UDOStyle { return this._style; }
+  setStyle(style: UDOStyle): void { this._style = style; }
+
   getGraphicInterface(): BSBGraphicInterface { return this._graphicInterface; }
 
   getParameters(): Parameter[] { return [...this._parameters]; }
 
   /**
    * Generate a UDO from this effect's code.
-   * The effect code is compiled (BSB widget replacement) then wrapped in:
-   *   opcode blueEffectN,aa,aa ; EffectName
-   *   ain1,ain2 xin
-   *   <compiled code>
-   *   xout aout1,aout2
-   *   endop
+   * Returns the UDO as a CSD string, using classic or modern style.
    */
   generateUDO(effectId: number, parameters?: Parameter[]): string {
     if (!this._code) return '';
@@ -62,27 +63,44 @@ export class Effect implements BlueDataObject {
       compiledCode = this.compileWithParameters(compiledCode, parameters);
     }
 
-    const inTypes = 'a'.repeat(this._numIns);
-    const outTypes = 'a'.repeat(this._numOuts);
+    const udo = new OpcodeDefinition();
+    udo.setName(`blueEffect${effectId}`);
+    udo.setCommentText(this._name);
+    udo.setStyle(this._style);
 
     const inArgs = [];
     for (let i = 0; i < this._numIns; i++) inArgs.push(`ain${i + 1}`);
     const outArgs = [];
     for (let i = 0; i < this._numOuts; i++) outArgs.push(`aout${i + 1}`);
 
-    const lines: string[] = [];
-    lines.push(`opcode blueEffect${effectId},${outTypes},${inTypes} ; ${this._name}`);
-    lines.push('');
-    lines.push(`${inArgs.join(',')}\txin`);
-    lines.push('');
-    lines.push(compiledCode);
-    lines.push('');
-    lines.push(`xout\t${outArgs.join(',')}`);
-    lines.push('');
-    lines.push('');
-    lines.push('\tendop');
+    if (this._style === UDOStyle.CLASSIC) {
+      const inTypes = this._getSigTypes(this._numIns);
+      const outTypes = this._getSigTypes(this._numOuts);
+      udo.setInTypes(inTypes);
+      udo.setOutTypes(outTypes);
+      udo.setInputArguments('');
+      udo.setCode(`${inArgs.join(',')}\txin\n\n${compiledCode}\n\nxout\t${outArgs.join(',')}\n\n`);
+    } else {
+      // Modern style
+      const outTypes = this._getCommaSeparatedSigTypes(this._numOuts);
+      udo.setInputArguments(inArgs.join(', '));
+      udo.setOutTypes(outTypes);
+      udo.setInTypes('');
+      udo.setCode(`${compiledCode}\nxout ${outArgs.join(', ')}`);
+    }
 
-    return lines.join('\n');
+    return udo.generateCode();
+  }
+
+  private _getSigTypes(num: number): string {
+    return 'a'.repeat(num);
+  }
+
+  private _getCommaSeparatedSigTypes(num: number): string {
+    if (num === 0) return '';
+    const parts: string[] = [];
+    for (let i = 0; i < num; i++) parts.push('a');
+    return parts.join(', ');
   }
 
   /**
@@ -119,6 +137,7 @@ export class Effect implements BlueDataObject {
 
   saveAsXML(): Element {
     const elem = new Element('effect');
+    elem.addElement('style').setText(this._style);
     elem.addElement('name').setText(this._name);
     elem.addElement('enabled').setText(this._enabled.toString());
     elem.addElement('numIns').setText(this._numIns.toString());
@@ -130,9 +149,20 @@ export class Effect implements BlueDataObject {
 
   static loadFromXML(data: Element): Effect {
     const effect = new Effect();
+    // Default to CLASSIC for legacy files without <style>
+    effect._style = UDOStyle.CLASSIC;
 
     const name = data.getTextString('name');
     if (name) effect._name = name;
+
+    const style = data.getTextString('style');
+    if (style) {
+      try {
+        effect._style = UDOStyle[style as keyof typeof UDOStyle];
+      } catch {
+        effect._style = UDOStyle.CLASSIC;
+      }
+    }
 
     const enabled = data.getTextString('enabled');
     if (enabled !== null) effect._enabled = enabled !== 'false';
@@ -153,14 +183,12 @@ export class Effect implements BlueDataObject {
     // Load graphic interface (BSB widgets for parameter knobs)
     const giElem = data.getElement('graphicInterface');
     if (giElem) {
-      // Load async but we need sync — BSBGraphicInterface.loadFromXML is async
-      // We'll call it and let it resolve (widgets may not fully load for effects,
-      // but we primarily need the widget objectNames for BSB compilation)
       effect._graphicInterface.loadFromXML(giElem).catch(() => {});
     }
 
     // Load parameter list
-    const paramListElem = data.getElement('parameterList');
+    const paramListElem = data.getElement('parameterList')
+      || data.getElement('bsbParameterList');
     if (paramListElem) {
       effect._parameters = Effect._loadParameters(paramListElem);
     }
@@ -222,6 +250,7 @@ export class Effect implements BlueDataObject {
     copy._numIns = this._numIns;
     copy._numOuts = this._numOuts;
     copy._code = this._code;
+    copy._style = this._style;
     return copy;
   }
 }
