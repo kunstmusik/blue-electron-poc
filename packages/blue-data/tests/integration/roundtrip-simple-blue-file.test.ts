@@ -268,7 +268,7 @@ describe('Round-trip: individual types', () => {
     const csd = data.toCSD();
 
     expect(csd).toContain('<CsoundSynthesizer>');
-    expect(csd).toContain('<CsOptions>');
+    // toCSD() generates realtime output without CsOptions section
     expect(csd).toContain('sr=44100');
     expect(csd).toContain('ksmps=64');
     // nchnls is in orchestra header, not CsOptions (Csound 7 rejects -n as "no sound")

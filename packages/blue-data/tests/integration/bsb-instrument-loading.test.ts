@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BlueData } from '../../src/blue-data';
 import { Arrangement } from '../../src/arrangement';
+import { ParameterHelper } from '../../src/automation/parameter-helper';
 
 // Path to test .blue file
 const DEMO2022_PATH = '/Users/stevenyi/work/blue/demo2024/demo2022.blue';
@@ -41,12 +42,16 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
   });
 
   it('T454: CSD has no unresolved <placeholder> tokens', () => {
-    // Check orchestra section for remaining placeholders
+    // Check orchestra section for remaining placeholders in active (non-commented) code
     const orcMatch = csd.match(/<CsInstruments>([\s\S]*?)<\/CsInstruments>/);
     if (orcMatch) {
       const orcContent = orcMatch[1];
-      // Should not have unresolved <token> patterns (except legitimate Csound syntax)
-      const unresolved = orcContent.match(/<[a-zA-Z_][a-zA-Z0-9_]*>/g);
+      // Strip comment lines (lines starting with ; or //) before checking
+      const activeCode = orcContent.split('\n')
+        .filter(line => !line.trimStart().startsWith(';') && !line.trimStart().startsWith('//'))
+        .join('\n');
+      // Should not have unresolved <token> patterns in active code
+      const unresolved = activeCode.match(/<[a-zA-Z_][a-zA-Z0-9_]*>/g);
       // Filter out known legitimate patterns like <INSTR_ID> which should be replaced
       const remaining = unresolved?.filter(t =>
         t !== '<INSTR_ID>' && t !== '<INSTR_NAME>' &&
@@ -67,8 +72,9 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     const instrMatches = csd.match(/\binstr\s+\w+\s*;/g);
     expect(instrMatches).not.toBeNull();
     expect(instrMatches!.length).toBeGreaterThan(0);
-    // demo2022.blue has 3 BSB instruments: Alpha v3 (x2), SimpleSampler (x1)
-    expect(instrMatches!.length).toBe(3);
+    // demo2022.blue: 3 BSB instruments (Alpha v3 x2, SimpleSampler x1)
+    // + 2 always-on instruments + 1 BlueMixer = 6 total
+    expect(instrMatches!.length).toBe(6);
   });
 
   it('BSB instruments generate non-empty orchestra code', () => {
@@ -116,7 +122,7 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
   });
 
   it('T517: CSD contains chnexport for parameters', () => {
-    // Real-time mode should have chnexport for each parameter
+    // Real-time mode exports numeric parameters as standard Csound channels
     expect(csd).toMatch(/gk_blue_auto\d+\s+chnexport\s+"gk_blue_auto\d+"/);
   });
 
@@ -128,5 +134,77 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
   it('T520: CSD contains chnexport for string channels', () => {
     // String channels should have chnexport for real-time API
     expect(csd).toMatch(/gS_blue_str\d+\s+chnexport\s+"gS_blue_str\d+"/);
+  });
+
+  it('T524: BSB file selectors compile to string channel symbols in instrument text', () => {
+    const simpleSamplerInstr = csd.match(/instr 3\s*;SimpleSampler([\s\S]*?)endin/);
+
+    expect(simpleSamplerInstr).not.toBeNull();
+    expect(simpleSamplerInstr![1]).toMatch(/SFiles\[\]\s+fillarray\s+gS_blue_str\d+/);
+    expect(simpleSamplerInstr![1]).not.toMatch(/SFiles\[\]\s+fillarray\s+0(?:\s*,\s*0)+/);
+  });
+
+  it('T525: arrangement instruments route blueMixerOut into ga_bluemix variables when mixer is enabled', () => {
+    const instr1 = csd.match(/instr 1\s*;Alpha v3([\s\S]*?)endin/);
+    const instr2 = csd.match(/instr 2\s*;Alpha v3([\s\S]*?)endin/);
+    const instr3 = csd.match(/instr 3\s*;SimpleSampler([\s\S]*?)endin/);
+
+    expect(instr1).not.toBeNull();
+    expect(instr2).not.toBeNull();
+    expect(instr3).not.toBeNull();
+
+    expect(instr1![1]).toMatch(/ga_bluemix_0_0 \+= aLeft/);
+    expect(instr1![1]).toMatch(/ga_bluemix_0_1 \+= aRight/);
+    expect(instr2![1]).toMatch(/ga_bluemix_1_0 \+= aLeft/);
+    expect(instr2![1]).toMatch(/ga_bluemix_1_1 \+= aRight/);
+    expect(instr3![1]).toMatch(/ga_bluemix_2_0 \+= a1/);
+    expect(instr3![1]).toMatch(/ga_bluemix_2_1 \+= a2/);
+
+    expect(instr1![1]).not.toMatch(/\boutc\b/);
+    expect(instr2![1]).not.toMatch(/\boutc\b/);
+    expect(instr3![1]).not.toMatch(/\boutc\b/);
+  });
+
+  it('T521: mixer channel volume automation loads from Java parameter XML', () => {
+    const mixer = data.getMixer();
+    const automatedMixerVolumes = [
+      ...mixer.getAllSourceChannels(),
+      ...mixer.getSubChannels(),
+      mixer.getMaster(),
+    ]
+      .map(channel => channel.getLevelParameter())
+      .filter(param => param.isAutomationEnabled());
+
+    expect(automatedMixerVolumes).toHaveLength(2);
+    expect(automatedMixerVolumes[0].getPoints().length).toBeGreaterThan(2);
+    expect(automatedMixerVolumes[1].getPoints().length).toBeGreaterThan(2);
+  });
+
+  it('T522: mixer send parameters are loaded from post-effects chains', () => {
+    const mixer = data.getMixer();
+    const sends = mixer.getAllSourceChannels().flatMap(channel => channel.getSends());
+
+    expect(sends).toHaveLength(3);
+    expect(sends.map(send => send.getLevelParameter().getName())).toEqual([
+      'Send Amount',
+      'Send Amount',
+      'Send Amount',
+    ]);
+    expect(sends.map(send => Number(send.getLevelParameter().getFixedValue().toFixed(3))).sort())
+      .toEqual([0.25, 0.28, 0.5]);
+  });
+
+  it('T523: ParameterHelper includes mixer send and volume parameters like Java blue', () => {
+    const parameters = ParameterHelper.getAllParameters(data.getArrangement(), data.getMixer());
+
+    const sendAmounts = parameters.filter(param => param.getName() === 'Send Amount');
+    const mixerVolumes = parameters.filter(
+      param => param.getName() === 'Volume'
+        && param.getMinimum() === -96
+        && param.getMaximum() === 12,
+    );
+
+    expect(sendAmounts).toHaveLength(3);
+    expect(mixerVolumes.length).toBeGreaterThanOrEqual(5);
   });
 });

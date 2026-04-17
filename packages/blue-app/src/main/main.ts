@@ -5,6 +5,8 @@ import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { BlueData } from '@blue/data';
+import { ParameterHelper } from '@blue/data';
+import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
 
 let mainWindow: BrowserWindow | null = null;
@@ -255,7 +257,27 @@ async function startPlayback(): Promise<void> {
 
   try {
     const csd = currentData.toCSD();
-    const success = await engineBridge.playCSD(csd);
+
+    // Collect automation parameters
+    const arrangement = currentData.getArrangement();
+    const mixer = currentData.getMixer();
+    let parameters: any[] | undefined;
+    let automationTiming:
+      | {
+          renderStartTime: number;
+          tempoMap: TempoMap;
+        }
+      | undefined;
+    if (arrangement && mixer) {
+      parameters = ParameterHelper.getAllParameters(arrangement, mixer);
+      ParameterHelper.assignParameterNames(parameters);
+      automationTiming = {
+        renderStartTime: currentData.getRenderStartTime(),
+        tempoMap: currentData.getScore().getTimeContext().getTempoMap(),
+      };
+    }
+
+    const success = await engineBridge.playCSD(csd, parameters, automationTiming);
 
     if (!success) {
       mainWindow.webContents.send('playback-status', {

@@ -7,14 +7,17 @@ import { Send } from './send';
 import { Element } from '../serialization/xml-reader';
 import { BlueDataObject } from '../blue-data-object';
 
-export class EffectsChain extends Array<Effect> implements BlueDataObject {
-  /** Sends nested within this effects chain (post chains can contain <send> elements). */
-  sends: Send[] = [];
+export type EffectsChainItem = Effect | Send;
+
+export class EffectsChain extends Array<EffectsChainItem> implements BlueDataObject {
+  getSends(): Send[] {
+    return this.filter((item): item is Send => item instanceof Send);
+  }
 
   saveAsXML(): Element {
     const elem = new Element('effectsChain');
-    for (const effect of this) {
-      elem.addElement(effect.saveAsXML());
+    for (const item of this) {
+      elem.addElement(item.saveAsXML());
     }
     return elem;
   }
@@ -22,16 +25,14 @@ export class EffectsChain extends Array<Effect> implements BlueDataObject {
   static loadFromXML(data: Element): EffectsChain {
     const chain = new EffectsChain();
 
-    // Load effects
-    const effects = data.getElements('effect');
-    while (effects.hasMoreElements()) {
-      chain.push(Effect.loadFromXML(effects.next()));
-    }
-
-    // Load sends (found in post effects chains)
-    const sendNodes = data.getElements('send');
-    while (sendNodes.hasMoreElements()) {
-      chain.sends.push(Send.loadFromXML(sendNodes.next()));
+    const nodes = data.getElements();
+    while (nodes.hasMoreElements()) {
+      const node = nodes.next();
+      if (node.getName() === 'effect') {
+        chain.push(Effect.loadFromXML(node));
+      } else if (node.getName() === 'send') {
+        chain.push(Send.loadFromXML(node));
+      }
     }
 
     return chain;
@@ -39,8 +40,12 @@ export class EffectsChain extends Array<Effect> implements BlueDataObject {
 
   deepCopy(): BlueDataObject {
     const copy = new EffectsChain();
-    for (const effect of this) {
-      copy.push(effect.deepCopy() as Effect);
+    for (const item of this) {
+      if (item instanceof Effect) {
+        copy.push(item.deepCopy() as Effect);
+      } else {
+        copy.push(item.deepCopy() as Send);
+      }
     }
     return copy;
   }

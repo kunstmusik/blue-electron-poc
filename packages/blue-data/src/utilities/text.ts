@@ -13,10 +13,20 @@ export function replaceAll(input: string, search: string, replacement: string): 
 
 /**
  * Strip a single-line comment from a string.
- * Removes everything from // to end of line.
+ * Removes everything from // or ; to end of line.
  */
 export function stripSingleLineComments(line: string): string {
-  const idx = line.indexOf('//');
+  const doubleSlashIdx = line.indexOf('//');
+  const semicolonIdx = line.indexOf(';');
+
+  let idx = -1;
+  if (doubleSlashIdx !== -1) {
+    idx = doubleSlashIdx;
+  }
+  if (semicolonIdx !== -1 && (idx === -1 || semicolonIdx < idx)) {
+    idx = semicolonIdx;
+  }
+
   if (idx === -1) return line;
   return line.substring(0, idx);
 }

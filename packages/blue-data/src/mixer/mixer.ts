@@ -2,38 +2,64 @@
  * Mixer — the complete mixer with channels, subchannels, effects, and routing.
  * Mirrors the Java Mixer class.
  */
-import { Channel } from './channel';
-import { ChannelList } from './channel-list';
-import { Element } from '../serialization/xml-reader';
-import { BlueDataObject } from '../blue-data-object';
+import { Channel } from "./channel";
+import { ChannelList } from "./channel-list";
+import { Element } from "../serialization/xml-reader";
+import { BlueDataObject } from "../blue-data-object";
 
 export class Mixer implements BlueDataObject {
+  static readonly MASTER_CHANNEL = "Master";
+
   private _enabled = true;
   private _channels = new ChannelList();
   private _subChannels = new ChannelList();
+  private _master = new Channel();
   private _extraRenderTime = 0;
 
-  isEnabled(): boolean { return this._enabled; }
-  setEnabled(e: boolean): void { this._enabled = e; }
+  constructor() {
+    this._master.setName(Mixer.MASTER_CHANNEL);
+  }
 
-  getExtraRenderTime(): number { return this._extraRenderTime; }
-  setExtraRenderTime(t: number): void { this._extraRenderTime = t; }
+  isEnabled(): boolean {
+    return this._enabled;
+  }
+  setEnabled(e: boolean): void {
+    this._enabled = e;
+  }
 
-  getChannels(): ChannelList { return this._channels; }
-  getSubChannels(): ChannelList { return this._subChannels; }
+  getExtraRenderTime(): number {
+    return this._extraRenderTime;
+  }
+  setExtraRenderTime(t: number): void {
+    this._extraRenderTime = t;
+  }
+
+  getChannels(): ChannelList {
+    return this._channels;
+  }
+  getSubChannels(): ChannelList {
+    return this._subChannels;
+  }
+  getMaster(): Channel {
+    return this._master;
+  }
+  setMaster(master: Channel): void {
+    this._master = master;
+  }
 
   /**
    * Get Csound variable name for a channel output.
    */
   static getChannelVar(channelId: number, outputIndex: number): string {
-    return `ch${channelId}_${outputIndex}`;
+    return `ga_bluemix_${channelId}_${outputIndex}`;
   }
 
   /**
    * Get Csound variable name for a subchannel output.
    */
   static getSubChannelVar(name: string, outputIndex: number): string {
-    return `sub_${name}_${outputIndex}`;
+    const safeName = name.replace(/\s+/g, "_");
+    return `ga_bluesub_${safeName}_${outputIndex}`;
   }
 
   addSubChannelDependency(_name: string): void {
@@ -56,7 +82,10 @@ export class Mixer implements BlueDataObject {
    *   ...
    *   ga_bluesub_Master_0 init 0
    */
-  getInitStatements(channelIdAssignments: Map<Channel, number>, nchnls: number): string {
+  getInitStatements(
+    channelIdAssignments: Map<Channel, number>,
+    nchnls: number,
+  ): string {
     const lines: string[] = [];
 
     // Source channels: ga_bluemix_{id}_{ch}
@@ -72,7 +101,7 @@ export class Mixer implements BlueDataObject {
     for (const subChannel of this._subChannels) {
       const id = channelIdAssignments.get(subChannel);
       if (id === undefined) continue;
-      const name = subChannel.getName().replace(/\s+/g, '_');
+      const name = subChannel.getName().replace(/\s+/g, "_");
       for (let ch = 0; ch < nchnls; ch++) {
         lines.push(`ga_bluesub_${name}_${ch}\tinit\t0`);
       }
@@ -85,7 +114,7 @@ export class Mixer implements BlueDataObject {
       lines.push(`ga_bluesub_Master_${ch}\tinit\t0`);
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   /**
@@ -96,42 +125,50 @@ export class Mixer implements BlueDataObject {
   }
 
   saveAsXML(): Element {
-    const elem = new Element('mixer');
-    elem.setAttribute('enabled', this._enabled.toString());
-    elem.addElement(this._channels.saveAsXML().setName('channels'));
-    elem.addElement(this._subChannels.saveAsXML().setName('subChannels'));
+    const elem = new Element("mixer");
+    elem.setAttribute("enabled", this._enabled.toString());
+    elem.addElement(this._channels.saveAsXML().setName("channels"));
+    elem.addElement(this._subChannels.saveAsXML().setName("subChannels"));
     return elem;
   }
 
   static loadFromXML(data: Element): Mixer {
     const mixer = new Mixer();
-    mixer._enabled = data.getAttribute('enabled') !== 'false';
+    mixer._enabled = data.getAttribute("enabled") !== "false";
 
-    // Java Blue uses <channelList listName='...' list='channels'> for both
-    // source channels and sub-channels. The `list` attribute distinguishes them.
-    const channelLists = data.getElements('channelList');
+    const channelLists = data.getElements("channelList");
     while (channelLists.hasMoreElements()) {
       const clNode = channelLists.next();
-      const listAttr = clNode.getAttribute('list') ?? clNode.getAttribute('listName') ?? '';
+      const listAttr =
+        clNode.getAttribute("list") ?? clNode.getAttribute("listName") ?? "";
       const loaded = ChannelList.loadFromXML(clNode);
-      if (listAttr === 'subChannels' || listAttr === 'SubChannels') {
+      if (listAttr === "subChannels" || listAttr === "SubChannels") {
         mixer._subChannels = loaded;
       } else {
         mixer._channels = loaded;
       }
     }
 
-    // Also support direct <channels> / <subChannels> elements (fallback)
     if (mixer._channels.length === 0) {
-      const chNode = data.getElement('channels');
+      const chNode = data.getElement("channels");
       if (chNode) mixer._channels = ChannelList.loadFromXML(chNode);
     }
     if (mixer._subChannels.length === 0) {
-      const subChNode = data.getElement('subChannels');
+      const subChNode = data.getElement("subChannels");
       if (subChNode) mixer._subChannels = ChannelList.loadFromXML(subChNode);
     }
 
-    const extraTime = data.getTextString('extraRenderTime');
+    const channelNodes = data.getElements("channel");
+    while (channelNodes.hasMoreElements()) {
+      const chNode = channelNodes.next();
+      const ch = Channel.loadFromXML(chNode);
+      const chName = ch.getName();
+      if (chName === Mixer.MASTER_CHANNEL || chName === "master") {
+        mixer._master = ch;
+      }
+    }
+
+    const extraTime = data.getTextString("extraRenderTime");
     if (extraTime) mixer._extraRenderTime = parseFloat(extraTime);
 
     return mixer;
@@ -142,6 +179,7 @@ export class Mixer implements BlueDataObject {
     copy._enabled = this._enabled;
     copy._channels = this._channels.deepCopy() as ChannelList;
     copy._subChannels = this._subChannels.deepCopy() as ChannelList;
+    copy._master = this._master.deepCopy() as Channel;
     copy._extraRenderTime = this._extraRenderTime;
     return copy;
   }

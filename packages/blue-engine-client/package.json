@@ -21,12 +21,13 @@
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build": "pnpm build:esm && pnpm build:cjs",
-    "test": "echo \"TODO: tests\" && exit 0"
+    "test": "vitest run"
   },
   "dependencies": {
     "zeromq": "^6.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.4"
   }
 }

@@ -137,11 +137,14 @@ export { MixerNode } from './mixer/mixer-node';
 
 // ─── Automation ───
 export { Parameter } from './automation/parameter';
-export type { AutomationPoint, AutomationCurve } from './automation/parameter';
+export type { AutomationPoint } from './automation/parameter';
+export { AutomationCurve } from './automation/parameter';
+export { automationPointToEngineSeconds, getEngineAutomationPoints } from './automation/parameter-runtime';
 export { ParameterList } from './automation/parameter-list';
 export { ParameterIdList } from './automation/parameter-id-list';
 export { ParameterNameManager } from './automation/parameter-name-manager';
 export { ParameterTimeManager } from './automation/parameter-time-manager';
+export { ParameterHelper } from './automation/parameter-helper';
 export type { Automatable } from './automation/automatable';
 export type { AutomatableCollectionListener } from './automation/automatable-collection-listener';
 export { LineColors } from './automation/line-colors';

@@ -6,9 +6,16 @@
  */
 import { Request } from 'zeromq';
 import {
-  encodeCommand,
   encodeSetChannel,
   encodeGetChannel,
+  encodeCreateAutomation,
+  encodeUpdateAutomation,
+  encodeNameCommand,
+  encodeNoPayloadCommand,
+  decodeAutomationList,
+  AutomationCurveCode,
+  AutomationPoint,
+  AutomationListEntry,
   CMD_CREATE_ENGINE,
   CMD_COMPILE_ORC,
   CMD_READ_SCORE,
@@ -17,6 +24,16 @@ import {
   CMD_STOP,
   CMD_EXIT,
   CMD_CREATE_CHANNEL,
+  CMD_SET_CHANNEL,
+  CMD_GET_CHANNEL,
+  CMD_GET_SHM_NAME,
+  CMD_CREATE_AUTOMATION,
+  CMD_UPDATE_AUTOMATION,
+  CMD_DELETE_AUTOMATION,
+  CMD_ENABLE_AUTOMATION,
+  CMD_DISABLE_AUTOMATION,
+  CMD_LIST_AUTOMATION,
+  CMD_CLEAR_AUTOMATION,
 } from './protocol';
 
 // Status codes (from engine protocol)
@@ -67,7 +84,7 @@ export class EngineClient {
    * Response format: [status: uint8][msg_len: uint32 LE][message: bytes]
    * All requests must use the 5-byte header format, even with no payload.
    */
-  private async sendRaw(cmd: number, payload?: Buffer): Promise<{ ok: boolean; message: string }> {
+  private async sendRaw(cmd: number, payload?: Buffer): Promise<{ ok: boolean; message: string; payload: Buffer }> {
     if (!this.socket) {
       throw new Error('EngineClient not connected. Call connect() first.');
     }
@@ -88,14 +105,15 @@ export class EngineClient {
     const respBuf = response as Buffer;
 
     if (respBuf.length < 5) {
-      return { ok: false, message: 'Invalid response (too short)' };
+      return { ok: false, message: 'Invalid response (too short)', payload: Buffer.alloc(0) };
     }
 
     const status = respBuf.readUInt8(0);
     const msgLen = respBuf.readUInt32LE(1);
     const message = respBuf.slice(5, 5 + msgLen).toString('utf-8');
+    const rawPayload = respBuf.slice(5, 5 + msgLen);
 
-    return { ok: status === STATUS_OK, message };
+    return { ok: status === STATUS_OK, message, payload: rawPayload };
   }
 
   /**
@@ -191,7 +209,7 @@ export class EngineClient {
       throw new Error('EngineClient not connected.');
     }
     const data = encodeSetChannel(name, value);
-    return this.sendRaw(0x10, data); // CMD_SET_CHANNEL
+    return this.sendRaw(CMD_SET_CHANNEL, data);
   }
 
   /**
@@ -202,10 +220,10 @@ export class EngineClient {
       throw new Error('EngineClient not connected.');
     }
     const data = encodeGetChannel(name);
-    const resp = await this.sendRaw(0x11, data); // CMD_GET_CHANNEL
-    if (resp.ok && resp.message.length >= 8) {
-      const buf = Buffer.from(resp.message, 'latin1');
-      return { ok: true, value: buf.readDoubleLE(0) };
+    const resp = await this.sendRaw(CMD_GET_CHANNEL, data);
+    // Use raw payload buffer (not UTF-8 message) to avoid binary corruption
+    if (resp.ok && resp.payload.length >= 8) {
+      return { ok: true, value: resp.payload.readDoubleLE(0) };
     }
     return { ok: false, value: 0 };
   }
@@ -214,6 +232,87 @@ export class EngineClient {
    * Get the shared memory region name.
    */
   async getShmName(): Promise<{ ok: boolean; message: string }> {
-    return this.sendRaw(0x13); // CMD_GET_SHM_NAME
+    return this.sendRaw(CMD_GET_SHM_NAME);
+  }
+
+  // ─── Automation Commands ───
+
+  /**
+   * Create an automation definition on the engine.
+   * The engine will interpolate values and write to the named channel per k-cycle.
+   */
+  async createAutomation(
+    name: string,
+    curve: AutomationCurveCode,
+    enabled: boolean,
+    resolution: number,
+    resolutionScale: number,
+    highPrecision: boolean,
+    points: AutomationPoint[],
+  ): Promise<{ ok: boolean; message: string }> {
+    const data = encodeCreateAutomation(name, curve, enabled, resolution, resolutionScale, highPrecision, points);
+    return this.sendRaw(CMD_CREATE_AUTOMATION, data);
+  }
+
+  /**
+   * Update an existing automation definition.
+   * Same payload format as createAutomation.
+   */
+  async updateAutomation(
+    name: string,
+    curve: AutomationCurveCode,
+    enabled: boolean,
+    resolution: number,
+    resolutionScale: number,
+    highPrecision: boolean,
+    points: AutomationPoint[],
+  ): Promise<{ ok: boolean; message: string }> {
+    const data = encodeUpdateAutomation(name, curve, enabled, resolution, resolutionScale, highPrecision, points);
+    return this.sendRaw(CMD_UPDATE_AUTOMATION, data);
+  }
+
+  /**
+   * Delete an automation definition by channel name.
+   */
+  async deleteAutomation(name: string): Promise<{ ok: boolean; message: string }> {
+    const data = encodeNameCommand(CMD_DELETE_AUTOMATION, name);
+    return this.sendRaw(CMD_DELETE_AUTOMATION, data);
+  }
+
+  /**
+   * Enable an automation definition.
+   */
+  async enableAutomation(name: string): Promise<{ ok: boolean; message: string }> {
+    const data = encodeNameCommand(CMD_ENABLE_AUTOMATION, name);
+    return this.sendRaw(CMD_ENABLE_AUTOMATION, data);
+  }
+
+  /**
+   * Disable an automation definition.
+   */
+  async disableAutomation(name: string): Promise<{ ok: boolean; message: string }> {
+    const data = encodeNameCommand(CMD_DISABLE_AUTOMATION, name);
+    return this.sendRaw(CMD_DISABLE_AUTOMATION, data);
+  }
+
+  /**
+   * List all current automation definitions.
+   */
+  async listAutomations(): Promise<{ ok: boolean; entries: AutomationListEntry[] }> {
+    const data = encodeNoPayloadCommand(CMD_LIST_AUTOMATION);
+    const resp = await this.sendRaw(CMD_LIST_AUTOMATION, data);
+    if (resp.ok) {
+      const entries = decodeAutomationList(resp.payload);
+      return { ok: true, entries };
+    }
+    return { ok: false, entries: [] };
+  }
+
+  /**
+   * Clear all automation definitions.
+   */
+  async clearAutomations(): Promise<{ ok: boolean; message: string }> {
+    const data = encodeNoPayloadCommand(CMD_CLEAR_AUTOMATION);
+    return this.sendRaw(CMD_CLEAR_AUTOMATION, data);
   }
 }

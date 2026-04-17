@@ -28,6 +28,23 @@ export const CMD_LIST_AUTOMATION = 0x25;
 export const CMD_CLEAR_AUTOMATION = 0x26;
 
 /**
+ * Automation curve types — must match C++ AutomationCurve enum values.
+ */
+export enum AutomationCurveCode {
+  STEP = 0x00,
+  LINEAR = 0x01,
+  EXPONENTIAL = 0x02,
+}
+
+/**
+ * An automation point (time/value pair).
+ */
+export interface AutomationPoint {
+  time: number;
+  value: number;
+}
+
+/**
  * Encode a command with optional string payload into a binary buffer.
  * Format: [command: uint8][payload_length: uint32 LE][payload: bytes]
  */
@@ -97,4 +114,165 @@ export function encodeGetChannel(name: string): Buffer {
 export function decodeChannelValue(buf: Buffer): number {
   if (buf.length < 9) return 0;
   return buf.readDoubleLE(1);
+}
+
+// ─── Automation Encoding ───
+
+/**
+ * Encode a CREATE_AUTOMATION or UPDATE_AUTOMATION command.
+ *
+ * Payload format (matching C++ ZmqHandler):
+ *   channel_name\0 + curve(u8) + enabled(u8) + resolution(f64)
+ *   + resolutionScale(i32) + highPrecision(u8) + n_points(u32)
+ *   + points[] (each: time(f64) + value(f64) = 16 bytes)
+ */
+export function encodeCreateAutomation(
+  name: string,
+  curve: AutomationCurveCode,
+  enabled: boolean,
+  resolution: number,
+  resolutionScale: number,
+  highPrecision: boolean,
+  points: AutomationPoint[],
+): Buffer {
+  const nameBuf = Buffer.from(name + '\0', 'utf-8');
+  const nPoints = points.length;
+  // header: name\0 + curve(1) + enabled(1) + resolution(8) + resolutionScale(4) + highPrecision(1) + n_points(4)
+  const headerSize = nameBuf.length + 1 + 1 + 8 + 4 + 1 + 4;
+  const pointsSize = nPoints * 16;
+  const payloadSize = headerSize + pointsSize;
+
+  const payload = Buffer.alloc(payloadSize);
+  let offset = 0;
+
+  // channel name (null-terminated)
+  nameBuf.copy(payload, offset);
+  offset += nameBuf.length;
+
+  // curve (u8)
+  payload.writeUInt8(curve, offset);
+  offset += 1;
+
+  // enabled (u8)
+  payload.writeUInt8(enabled ? 1 : 0, offset);
+  offset += 1;
+
+  // resolution (f64 LE)
+  payload.writeDoubleLE(resolution, offset);
+  offset += 8;
+
+  // resolutionScale (i32 LE)
+  payload.writeInt32LE(resolutionScale, offset);
+  offset += 4;
+
+  // highPrecision (u8)
+  payload.writeUInt8(highPrecision ? 1 : 0, offset);
+  offset += 1;
+
+  // n_points (u32 LE)
+  payload.writeUInt32LE(nPoints, offset);
+  offset += 4;
+
+  // points array
+  for (const pt of points) {
+    payload.writeDoubleLE(pt.time, offset);
+    offset += 8;
+    payload.writeDoubleLE(pt.value, offset);
+    offset += 8;
+  }
+
+  // Wrap in 5-byte command header
+  const cmd = Buffer.alloc(5 + payloadSize);
+  cmd.writeUInt8(CMD_CREATE_AUTOMATION, 0);
+  cmd.writeUInt32LE(payloadSize, 1);
+  payload.copy(cmd, 5);
+
+  return cmd;
+}
+
+/**
+ * Encode an UPDATE_AUTOMATION command (same payload as CREATE).
+ */
+export function encodeUpdateAutomation(
+  name: string,
+  curve: AutomationCurveCode,
+  enabled: boolean,
+  resolution: number,
+  resolutionScale: number,
+  highPrecision: boolean,
+  points: AutomationPoint[],
+): Buffer {
+  const buf = encodeCreateAutomation(name, curve, enabled, resolution, resolutionScale, highPrecision, points);
+  // Replace the command byte from CREATE (0x20) to UPDATE (0x21)
+  buf.writeUInt8(CMD_UPDATE_AUTOMATION, 0);
+  return buf;
+}
+
+/**
+ * Encode a name-only command (DELETE, ENABLE, DISABLE).
+ * Payload: channel_name\0
+ */
+export function encodeNameCommand(cmd: number, name: string): Buffer {
+  const nameBuf = Buffer.from(name + '\0', 'utf-8');
+
+  const buf = Buffer.alloc(5 + nameBuf.length);
+  buf.writeUInt8(cmd, 0);
+  buf.writeUInt32LE(nameBuf.length, 1);
+  nameBuf.copy(buf, 5);
+  return buf;
+}
+
+/**
+ * Encode a no-payload command (LIST, CLEAR).
+ */
+export function encodeNoPayloadCommand(cmd: number): Buffer {
+  const buf = Buffer.alloc(5);
+  buf.writeUInt8(cmd, 0);
+  buf.writeUInt32LE(0, 1);
+  return buf;
+}
+
+/**
+ * Automation entry returned by LIST_AUTOMATIONS.
+ */
+export interface AutomationListEntry {
+  id: number;
+  enabled: boolean;
+  channel: string;
+  nPoints: number;
+}
+
+/**
+ * Decode a LIST_AUTOMATIONS response payload.
+ * Response format: count(u32) + per-entry: id(u32) + enabled(u8) + channel(64B) + n_points(u32)
+ */
+export function decodeAutomationList(payload: Buffer): AutomationListEntry[] {
+  const entries: AutomationListEntry[] = [];
+  if (payload.length < 4) return entries;
+
+  const count = payload.readUInt32LE(0);
+  let offset = 4;
+
+  // Per entry: id(4) + enabled(1) + channel(64) + n_points(4) = 73 bytes
+  const entrySize = 4 + 1 + 64 + 4;
+
+  for (let i = 0; i < count && offset + entrySize <= payload.length; i++) {
+    const id = payload.readUInt32LE(offset);
+    offset += 4;
+
+    const enabled = payload.readUInt8(offset) !== 0;
+    offset += 1;
+
+    // Channel name is 64 bytes, null-terminated
+    const channelRaw = payload.toString('utf-8', offset, offset + 64);
+    const channel = channelRaw.split('\0')[0];
+    offset += 64;
+
+    const nPoints = payload.readUInt32LE(offset);
+    offset += 4;
+
+    entries.push({ id, enabled, channel, nPoints });
+  }
+
+  return entries;
 }

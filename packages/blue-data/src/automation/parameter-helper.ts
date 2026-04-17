@@ -8,29 +8,36 @@
  * - Mixer sub channels: effect parameters + channel volume
  * - Mixer master: channel volume
  */
-import { Parameter } from '../automation/parameter';
-import { Arrangement } from '../arrangement';
-import { Mixer } from '../mixer/mixer';
-import { Channel } from '../mixer/channel';
-import { Effect } from '../mixer/effect';
+import { Parameter } from "../automation/parameter";
+import { Arrangement } from "../arrangement";
+import { Mixer } from "../mixer/mixer";
+import { Channel } from "../mixer/channel";
+import { Effect } from "../mixer/effect";
+import { Send } from "../mixer/send";
+import { EffectsChain } from "../mixer/effects-chain";
 
 /**
  * Get all parameters from arrangement and mixer.
  */
-export function getAllParameters(arrangement: Arrangement, mixer: Mixer): Parameter[] {
+export function getAllParameters(
+  arrangement: Arrangement,
+  mixer: Mixer,
+): Parameter[] {
   const parameters: Parameter[] = [];
 
   // Parameters from instruments in arrangement
   for (const ia of arrangement.getArrangement()) {
     if (!ia.enabled || !ia.instr) continue;
     const instr = ia.instr as any;
-    if (typeof instr.getParameters === 'function') {
+    if (typeof instr.getParameters === "function") {
       const instrParams = instr.getParameters();
       if (instrParams && Array.isArray(instrParams)) {
         parameters.push(...instrParams);
       }
     }
   }
+
+  if (!mixer.isEnabled()) return parameters;
 
   // Parameters from mixer source channels
   for (const channel of mixer.getAllSourceChannels()) {
@@ -42,19 +49,8 @@ export function getAllParameters(arrangement: Arrangement, mixer: Mixer): Parame
     collectChannelParameters(subChannel, parameters);
   }
 
-  // Master channel volume
-  const masterChannel = (mixer as any)._channels?.find?.(
-    (ch: Channel) => ch.getName() === 'Master'
-  );
-  if (!masterChannel) {
-    // Check if Master is a separate element
-    const subChs = mixer.getSubChannels();
-    for (const sub of subChs) {
-      if (sub.getName() === 'Master') {
-        collectChannelParameters(sub, parameters);
-      }
-    }
-  }
+  // Master channel
+  collectChannelParameters(mixer.getMaster(), parameters);
 
   return parameters;
 }
@@ -62,38 +58,24 @@ export function getAllParameters(arrangement: Arrangement, mixer: Mixer): Parame
 /**
  * Collect parameters from a mixer channel: effects, volume, and sends.
  */
-function collectChannelParameters(channel: Channel, parameters: Parameter[]): void {
-  // Effect parameters from pre-effects
-  const preEffects = channel.getPreEffects();
-  for (const effect of preEffects) {
-    if (!effect.isEnabled()) continue;
-    const effectParams = effect.getParameters();
-    if (effectParams && Array.isArray(effectParams)) {
-      parameters.push(...effectParams);
-    }
-  }
+function collectChannelParameters(
+  channel: Channel,
+  parameters: Parameter[],
+): void {
+  collectChainParameters(channel.getPreEffects(), parameters);
+  collectChainParameters(channel.getPostEffects(), parameters);
 
-  // Effect parameters from post-effects
-  const postEffects = channel.getPostEffects();
-  for (const effect of postEffects) {
-    if (!effect.isEnabled()) continue;
-    const effectParams = effect.getParameters();
-    if (effectParams && Array.isArray(effectParams)) {
-      parameters.push(...effectParams);
-    }
-  }
+  // Channel level parameter
+  parameters.push(channel.getLevelParameter());
+}
 
-  // Channel volume parameter
-  const channelParam = channel.getChannelParameter();
-  if (channelParam) {
-    parameters.push(channelParam);
-  }
-
-  // Send parameters
-  for (const send of channel.getSends()) {
-    const sendParam = send.getParameter();
-    if (sendParam) {
-      parameters.push(sendParam);
+function collectChainParameters(
+  chain: EffectsChain,
+  parameters: Parameter[],
+): void {
+  for (const item of chain) {
+    if (item instanceof Effect || item instanceof Send) {
+      parameters.push(...item.getParameters());
     }
   }
 }
@@ -107,3 +89,12 @@ export function assignParameterNames(parameters: Parameter[]): void {
     parameters[i].setCompilationVarName(`gk_blue_auto${i}`);
   }
 }
+
+/**
+ * Namespace export for convenient importing.
+ * Usage: import { ParameterHelper } from '@blue/data';
+ */
+export const ParameterHelper = {
+  getAllParameters,
+  assignParameterNames,
+};

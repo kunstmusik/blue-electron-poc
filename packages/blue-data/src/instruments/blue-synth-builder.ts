@@ -5,20 +5,23 @@
  * Generates CSD orchestra code from an instrumentText template
  * with `<objectName>` placeholders replaced by BSB widget values.
  */
-import { Element } from '../serialization/xml-reader';
-import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
-import { Instrument } from './instrument';
-import { BSBCompilationUnit } from './blue-synth-builder/bsb-compilation-unit';
-import { BSBGraphicInterface } from './blue-synth-builder/bsb-graphic-interface';
-import { Parameter, AutomationCurve } from '../automation/parameter';
-import { StringChannel, BSBFileSelector } from './blue-synth-builder/bsb-file-selector';
-import { OpcodeList } from '../opcodes/opcode-list';
+import { Element } from "../serialization/xml-reader";
+import { ObjRefSaveMap, ObjRefLoadMap } from "../serialization/obj-ref-map";
+import { Instrument } from "./instrument";
+import { BSBCompilationUnit } from "./blue-synth-builder/bsb-compilation-unit";
+import { BSBGraphicInterface } from "./blue-synth-builder/bsb-graphic-interface";
+import { Parameter, AutomationCurve } from "../automation/parameter";
+import {
+  StringChannel,
+  BSBFileSelector,
+} from "./blue-synth-builder/bsb-file-selector";
+import { OpcodeList } from "../opcodes/opcode-list";
 
 export class BlueSynthBuilder extends Instrument {
-  private _instrumentText = '';
-  private _alwaysOnInstrumentText = '';
-  private _globalOrc = '';
-  private _globalSco = '';
+  private _instrumentText = "";
+  private _alwaysOnInstrumentText = "";
+  private _globalOrc = "";
+  private _globalSco = "";
   private _graphicInterface = new BSBGraphicInterface();
   private _parameters: Parameter[] = [];
   private _opcodeList = new OpcodeList();
@@ -39,23 +42,47 @@ export class BlueSynthBuilder extends Instrument {
 
   private _editEnabled = true;
 
-  getInstrumentText(): string { return this._instrumentText; }
-  setInstrumentText(text: string): void { this._instrumentText = text; }
+  getInstrumentText(): string {
+    return this._instrumentText;
+  }
+  setInstrumentText(text: string): void {
+    this._instrumentText = text;
+  }
 
-  getAlwaysOnInstrumentText(): string { return this._alwaysOnInstrumentText; }
-  setAlwaysOnInstrumentText(text: string): void { this._alwaysOnInstrumentText = text; }
+  getAlwaysOnInstrumentText(): string {
+    return this._alwaysOnInstrumentText;
+  }
+  setAlwaysOnInstrumentText(text: string): void {
+    this._alwaysOnInstrumentText = text;
+  }
 
-  getGlobalOrc(): string { return this._globalOrc; }
-  setGlobalOrc(orc: string): void { this._globalOrc = orc; }
+  getGlobalOrc(): string {
+    return this._globalOrc;
+  }
+  setGlobalOrc(orc: string): void {
+    this._globalOrc = orc;
+  }
 
-  getGlobalSco(): string { return this._globalSco; }
-  setGlobalSco(sco: string): void { this._globalSco = sco; }
+  getGlobalSco(): string {
+    return this._globalSco;
+  }
+  setGlobalSco(sco: string): void {
+    this._globalSco = sco;
+  }
 
-  getGraphicInterface(): BSBGraphicInterface { return this._graphicInterface; }
-  setGraphicInterface(gi: BSBGraphicInterface): void { this._graphicInterface = gi; }
+  getGraphicInterface(): BSBGraphicInterface {
+    return this._graphicInterface;
+  }
+  setGraphicInterface(gi: BSBGraphicInterface): void {
+    this._graphicInterface = gi;
+  }
 
-  isEditEnabled(): boolean { return this._editEnabled; }
-  setEditEnabled(enabled: boolean): void { this._editEnabled = enabled; }
+  isEditEnabled(): boolean {
+    return this._editEnabled;
+  }
+  setEditEnabled(enabled: boolean): void {
+    this._editEnabled = enabled;
+  }
 
   /**
    * Generate the instrument text with all BSB widget values substituted.
@@ -68,7 +95,7 @@ export class BlueSynthBuilder extends Instrument {
    *   compilationVarName instead of their raw value.
    */
   generateInstrument(parameters?: Parameter[]): string {
-    if (!this._instrumentText) return '';
+    if (!this._instrumentText) return "";
 
     const unit = new BSBCompilationUnit();
     this._graphicInterface.collectReplacements(unit, parameters);
@@ -114,13 +141,13 @@ export class BlueSynthBuilder extends Instrument {
     if (!group) return channels;
 
     const getChildren = (group as any).getChildren;
-    if (typeof getChildren !== 'function') return channels;
+    if (typeof getChildren !== "function") return channels;
 
     for (const child of getChildren.call(group) || []) {
       if (child instanceof BSBFileSelector) {
         const sc = child.getStringChannel();
         if (sc) channels.push(sc);
-      } else if (typeof (child as any).getChildren === 'function') {
+      } else if (typeof (child as any).getChildren === "function") {
         channels.push(...this._collectStringChannels(child));
       }
     }
@@ -131,56 +158,64 @@ export class BlueSynthBuilder extends Instrument {
   // ─── XML Serialization ───
 
   saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('instrument');
-    elem.setAttribute('type', 'blue.orchestra.BlueSynthBuilder');
-    elem.setAttribute('editEnabled', this._editEnabled.toString());
-    if (this._name) elem.addElement('name').setText(this._name);
-    if (this._instrumentText) elem.addElement('instrumentText').setText(this._instrumentText);
+    const elem = new Element("instrument");
+    elem.setAttribute("type", "blue.orchestra.BlueSynthBuilder");
+    elem.setAttribute("editEnabled", this._editEnabled.toString());
+    if (this._name) elem.addElement("name").setText(this._name);
+    if (this._instrumentText)
+      elem.addElement("instrumentText").setText(this._instrumentText);
     if (this._alwaysOnInstrumentText) {
-      elem.addElement('alwaysOnInstrumentText').setText(this._alwaysOnInstrumentText);
+      elem
+        .addElement("alwaysOnInstrumentText")
+        .setText(this._alwaysOnInstrumentText);
     }
-    if (this._globalOrc) elem.addElement('globalOrc').setText(this._globalOrc);
-    if (this._globalSco) elem.addElement('globalSco').setText(this._globalSco);
+    if (this._globalOrc) elem.addElement("globalOrc").setText(this._globalOrc);
+    if (this._globalSco) elem.addElement("globalSco").setText(this._globalSco);
     // graphicInterface would be saved here
     return elem;
   }
 
-  static async loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): Promise<BlueSynthBuilder> {
+  static loadFromXML(
+    data: Element,
+    _objRefMap?: ObjRefLoadMap,
+  ): BlueSynthBuilder {
     const bsb = new BlueSynthBuilder();
 
-    const editEnabled = data.getAttribute('editEnabled');
-    if (editEnabled !== null) bsb._editEnabled = editEnabled === 'true';
+    const editEnabled = data.getAttribute("editEnabled");
+    if (editEnabled !== null) bsb._editEnabled = editEnabled === "true";
 
-    const name = data.getTextString('name');
+    const name = data.getTextString("name");
     if (name) bsb._name = name;
 
-    const instrText = data.getTextString('instrumentText');
+    const instrText = data.getTextString("instrumentText");
     if (instrText) bsb._instrumentText = instrText;
 
-    const alwaysOnText = data.getTextString('alwaysOnInstrumentText');
+    const alwaysOnText = data.getTextString("alwaysOnInstrumentText");
     if (alwaysOnText) bsb._alwaysOnInstrumentText = alwaysOnText;
 
-    const globalOrc = data.getTextString('globalOrc');
+    const globalOrc = data.getTextString("globalOrc");
     if (globalOrc) bsb._globalOrc = globalOrc;
 
-    const globalSco = data.getTextString('globalSco');
+    const globalSco = data.getTextString("globalSco");
     if (globalSco) bsb._globalSco = globalSco;
 
     // Load graphic interface
-    const giElem = data.getElement('graphicInterface');
+    const giElem = data.getElement("graphicInterface");
     if (giElem) {
-      await bsb._graphicInterface.loadFromXML(giElem);
+      bsb._graphicInterface.loadFromXML(giElem);
     }
 
     // Load parameters
-    const paramListElem = data.getElement('parameterList');
+    const paramListElem = data.getElement("parameterList");
     if (paramListElem) {
       bsb._parameters = BlueSynthBuilder._loadParameters(paramListElem);
     }
 
     // Load opcode list (UDOs)
-    const opcodeListElem = data.getElement('opcodeList');
-    console.log(`[BSB] ${bsb._name || 'unknown'}: opcodeList element found: ${!!opcodeListElem}`);
+    const opcodeListElem = data.getElement("opcodeList");
+    console.log(
+      `[BSB] ${bsb._name || "unknown"}: opcodeList element found: ${!!opcodeListElem}`,
+    );
     if (opcodeListElem) {
       bsb._opcodeList = OpcodeList.loadFromXML(opcodeListElem);
       console.log(`[BSB]   Loaded ${bsb._opcodeList.getOpcodes().length} UDOs`);
@@ -194,41 +229,43 @@ export class BlueSynthBuilder extends Instrument {
    */
   private static _loadParameters(data: Element): Parameter[] {
     const parameters: Parameter[] = [];
-    const paramElems = data.getElements('parameter');
+    const paramElems = data.getElements("parameter");
 
     while (paramElems.hasMoreElements()) {
       const elem = paramElems.next();
       const param = new Parameter();
 
-      const name = elem.getAttribute('name');
+      const name = elem.getAttribute("name");
       if (name) param.setName(name);
 
-      const value = elem.getAttribute('value');
+      const value = elem.getAttribute("value");
       if (value) param.setFixedValue(parseFloat(value));
 
-      const min = elem.getAttribute('min');
-      const max = elem.getAttribute('max');
+      const min = elem.getAttribute("min");
+      const max = elem.getAttribute("max");
       if (min) param.setMinimum(parseFloat(min));
       if (max) param.setMaximum(parseFloat(max));
 
-      const autoEnabled = elem.getAttribute('automationEnabled');
-      if (autoEnabled !== null) param.setAutomationEnabled(autoEnabled === 'true');
+      const autoEnabled = elem.getAttribute("automationEnabled");
+      if (autoEnabled !== null)
+        param.setAutomationEnabled(autoEnabled === "true");
 
       // Load line/points if present
-      const lineElem = elem.getElement('line');
+      const lineElem = elem.getElement("line");
       if (lineElem) {
-        const curve = lineElem.getAttribute('curveType');
+        const curve = lineElem.getAttribute("curveType");
         if (curve) {
-          if (curve === 'CONSTANT') param.setCurve(AutomationCurve.STEP);
-          else if (curve === 'LINEAR') param.setCurve(AutomationCurve.LINEAR);
-          else if (curve === 'EXPONENTIAL') param.setCurve(AutomationCurve.EXPONENTIAL);
+          if (curve === "CONSTANT") param.setCurve(AutomationCurve.STEP);
+          else if (curve === "LINEAR") param.setCurve(AutomationCurve.LINEAR);
+          else if (curve === "EXPONENTIAL")
+            param.setCurve(AutomationCurve.EXPONENTIAL);
         }
 
-        const points = lineElem.getElements('linePoint');
+        const points = lineElem.getElements("linePoint");
         while (points.hasMoreElements()) {
           const pt = points.next();
-          const x = parseFloat(pt.getAttribute('x') ?? '0');
-          const y = parseFloat(pt.getAttribute('y') ?? '0');
+          const x = parseFloat(pt.getAttribute("x") ?? "0");
+          const y = parseFloat(pt.getAttribute("y") ?? "0");
           param.addPoint(x, y);
         }
       }

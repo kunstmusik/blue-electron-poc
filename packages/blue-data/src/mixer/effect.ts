@@ -6,61 +6,97 @@
  * a graphic interface with widgets, and a parameterList.
  * During CSD generation, effects produce UDOs (blueEffectN).
  */
-import { Element } from '../serialization/xml-reader';
-import { BlueDataObject } from '../blue-data-object';
-import { Parameter, AutomationCurve } from '../automation/parameter';
-import { BSBGraphicInterface } from '../instruments/blue-synth-builder/bsb-graphic-interface';
-import { BSBCompilationUnit } from '../instruments/blue-synth-builder/bsb-compilation-unit';
-import { OpcodeDefinition } from '../opcodes/opcode-definition';
-import { UDOStyle } from '../opcodes/udo-style';
+import { Element } from "../serialization/xml-reader";
+import { BlueDataObject } from "../blue-data-object";
+import { Parameter, AutomationCurve } from "../automation/parameter";
+import { BSBGraphicInterface } from "../instruments/blue-synth-builder/bsb-graphic-interface";
+import { BSBCompilationUnit } from "../instruments/blue-synth-builder/bsb-compilation-unit";
+import { OpcodeDefinition } from "../opcodes/opcode-definition";
+import { OpcodeList } from "../opcodes/opcode-list";
+import { UDOStyle } from "../opcodes/udo-style";
 
 export class Effect implements BlueDataObject {
-  private _name = 'New Effect';
+  private _name = "New Effect";
   private _enabled = true;
   private _numIns = 2;
   private _numOuts = 2;
-  private _code = '';
+  private _code = "";
   private _style: UDOStyle = UDOStyle.MODERN;
   private _graphicInterface = new BSBGraphicInterface();
   private _parameters: Parameter[] = [];
+  private _opcodeList = new OpcodeList();
 
-  getName(): string { return this._name; }
-  setName(name: string): void { this._name = name; }
+  getName(): string {
+    return this._name;
+  }
+  setName(name: string): void {
+    this._name = name;
+  }
 
-  isEnabled(): boolean { return this._enabled; }
-  setEnabled(enabled: boolean): void { this._enabled = enabled; }
+  isEnabled(): boolean {
+    return this._enabled;
+  }
+  setEnabled(enabled: boolean): void {
+    this._enabled = enabled;
+  }
 
-  getNumIns(): number { return this._numIns; }
-  setNumIns(n: number): void { this._numIns = n; }
+  getNumIns(): number {
+    return this._numIns;
+  }
+  setNumIns(n: number): void {
+    this._numIns = n;
+  }
 
-  getNumOuts(): number { return this._numOuts; }
-  setNumOuts(n: number): void { this._numOuts = n; }
+  getNumOuts(): number {
+    return this._numOuts;
+  }
+  setNumOuts(n: number): void {
+    this._numOuts = n;
+  }
 
-  getCode(): string { return this._code; }
-  setCode(code: string): void { this._code = code; }
+  getCode(): string {
+    return this._code;
+  }
+  setCode(code: string): void {
+    this._code = code;
+  }
 
-  getStyle(): UDOStyle { return this._style; }
-  setStyle(style: UDOStyle): void { this._style = style; }
+  getStyle(): UDOStyle {
+    return this._style;
+  }
+  setStyle(style: UDOStyle): void {
+    this._style = style;
+  }
 
-  getGraphicInterface(): BSBGraphicInterface { return this._graphicInterface; }
+  getGraphicInterface(): BSBGraphicInterface {
+    return this._graphicInterface;
+  }
 
-  getParameters(): Parameter[] { return [...this._parameters]; }
+  getParameters(): Parameter[] {
+    return [...this._parameters];
+  }
+
+  getOpcodeList(): OpcodeList {
+    return this._opcodeList;
+  }
 
   /**
    * Generate a UDO from this effect's code.
    * Returns the UDO as a CSD string, using classic or modern style.
    */
   generateUDO(effectId: number, parameters?: Parameter[]): string {
-    if (!this._code) return '';
+    if (!this._code) return "";
+
+    const replacementParameters = parameters ?? this._parameters;
 
     // Compile BSB widget replacements
     const unit = new BSBCompilationUnit();
-    this._graphicInterface.collectReplacements(unit, parameters);
+    this._graphicInterface.collectReplacements(unit, replacementParameters);
     let compiledCode = unit.replaceBSBValues(this._code);
 
     // If GI didn't load (async), fall back to parameter-based replacement
-    if (compiledCode.includes('<')) {
-      compiledCode = this.compileWithParameters(compiledCode, parameters);
+    if (compiledCode.includes("<")) {
+      compiledCode = this.compileWithParameters(compiledCode, replacementParameters);
     }
 
     const udo = new OpcodeDefinition();
@@ -78,36 +114,41 @@ export class Effect implements BlueDataObject {
       const outTypes = this._getSigTypes(this._numOuts);
       udo.setInTypes(inTypes);
       udo.setOutTypes(outTypes);
-      udo.setInputArguments('');
-      udo.setCode(`${inArgs.join(',')}\txin\n\n${compiledCode}\n\nxout\t${outArgs.join(',')}\n\n`);
+      udo.setInputArguments("");
+      udo.setCode(
+        `${inArgs.join(",")}\txin\n\n${compiledCode}\n\nxout\t${outArgs.join(",")}\n\n`,
+      );
     } else {
       // Modern style
       const outTypes = this._getCommaSeparatedSigTypes(this._numOuts);
-      udo.setInputArguments(inArgs.join(', '));
+      udo.setInputArguments(inArgs.join(", "));
       udo.setOutTypes(outTypes);
-      udo.setInTypes('');
-      udo.setCode(`${compiledCode}\nxout ${outArgs.join(', ')}`);
+      udo.setInTypes("");
+      udo.setCode(`${compiledCode}\nxout ${outArgs.join(", ")}`);
     }
 
     return udo.generateCode();
   }
 
   private _getSigTypes(num: number): string {
-    return 'a'.repeat(num);
+    return "a".repeat(num);
   }
 
   private _getCommaSeparatedSigTypes(num: number): string {
-    if (num === 0) return '';
+    if (num === 0) return "";
     const parts: string[] = [];
-    for (let i = 0; i < num; i++) parts.push('a');
-    return parts.join(', ');
+    for (let i = 0; i < num; i++) parts.push("a");
+    return parts.join(", ");
   }
 
   /**
    * Compile effect code using its own parameter list as fallback.
    * Replaces `<paramName>` tokens with parameter values or compilation variable names.
    */
-  private compileWithParameters(code: string, externalParams?: Parameter[]): string {
+  private compileWithParameters(
+    code: string,
+    externalParams?: Parameter[],
+  ): string {
     let result = code;
 
     // First try external parameters (for compilation variable names)
@@ -128,7 +169,10 @@ export class Effect implements BlueDataObject {
       if (name && varName) {
         result = result.replaceAll(`<${name}>`, varName);
       } else if (name) {
-        result = result.replaceAll(`<${name}>`, param.getFixedValue().toString());
+        result = result.replaceAll(
+          `<${name}>`,
+          param.getFixedValue().toString(),
+        );
       }
     }
 
@@ -136,13 +180,13 @@ export class Effect implements BlueDataObject {
   }
 
   saveAsXML(): Element {
-    const elem = new Element('effect');
-    elem.addElement('style').setText(this._style);
-    elem.addElement('name').setText(this._name);
-    elem.addElement('enabled').setText(this._enabled.toString());
-    elem.addElement('numIns').setText(this._numIns.toString());
-    elem.addElement('numOuts').setText(this._numOuts.toString());
-    if (this._code) elem.addElement('code').setText(this._code);
+    const elem = new Element("effect");
+    elem.addElement("style").setText(this._style);
+    elem.addElement("name").setText(this._name);
+    elem.addElement("enabled").setText(this._enabled.toString());
+    elem.addElement("numIns").setText(this._numIns.toString());
+    elem.addElement("numOuts").setText(this._numOuts.toString());
+    if (this._code) elem.addElement("code").setText(this._code);
     // graphicInterface would be saved here if needed
     return elem;
   }
@@ -152,10 +196,10 @@ export class Effect implements BlueDataObject {
     // Default to CLASSIC for legacy files without <style>
     effect._style = UDOStyle.CLASSIC;
 
-    const name = data.getTextString('name');
+    const name = data.getTextString("name");
     if (name) effect._name = name;
 
-    const style = data.getTextString('style');
+    const style = data.getTextString("style");
     if (style) {
       try {
         effect._style = UDOStyle[style as keyof typeof UDOStyle];
@@ -164,31 +208,36 @@ export class Effect implements BlueDataObject {
       }
     }
 
-    const enabled = data.getTextString('enabled');
-    if (enabled !== null) effect._enabled = enabled !== 'false';
+    const enabled = data.getTextString("enabled");
+    if (enabled !== null) effect._enabled = enabled !== "false";
 
     // Also check attribute format
-    const enabledAttr = data.getAttribute('enabled');
-    if (enabledAttr !== null) effect._enabled = enabledAttr !== 'false';
+    const enabledAttr = data.getAttribute("enabled");
+    if (enabledAttr !== null) effect._enabled = enabledAttr !== "false";
 
-    const numIns = data.getTextString('numIns');
+    const numIns = data.getTextString("numIns");
     if (numIns) effect._numIns = parseInt(numIns, 10);
 
-    const numOuts = data.getTextString('numOuts');
+    const numOuts = data.getTextString("numOuts");
     if (numOuts) effect._numOuts = parseInt(numOuts, 10);
 
-    const code = data.getTextString('code');
+    const code = data.getTextString("code");
     if (code) effect._code = code;
 
+    const opcodeListElem = data.getElement("opcodeList");
+    if (opcodeListElem) {
+      effect._opcodeList = OpcodeList.loadFromXML(opcodeListElem);
+    }
+
     // Load graphic interface (BSB widgets for parameter knobs)
-    const giElem = data.getElement('graphicInterface');
+    const giElem = data.getElement("graphicInterface");
     if (giElem) {
-      effect._graphicInterface.loadFromXML(giElem).catch(() => {});
+      effect._graphicInterface.loadFromXML(giElem);
     }
 
     // Load parameter list
-    const paramListElem = data.getElement('parameterList')
-      || data.getElement('bsbParameterList');
+    const paramListElem =
+      data.getElement("parameterList") || data.getElement("bsbParameterList");
     if (paramListElem) {
       effect._parameters = Effect._loadParameters(paramListElem);
     }
@@ -201,43 +250,10 @@ export class Effect implements BlueDataObject {
    */
   private static _loadParameters(data: Element): Parameter[] {
     const parameters: Parameter[] = [];
-    const paramElems = data.getElements('parameter');
+    const paramElems = data.getElements("parameter");
 
     while (paramElems.hasMoreElements()) {
-      const elem = paramElems.next();
-      const param = new Parameter();
-
-      const name = elem.getAttribute('name');
-      if (name) param.setName(name);
-
-      const value = elem.getAttribute('value');
-      if (value) param.setFixedValue(parseFloat(value));
-
-      const min = elem.getAttribute('min');
-      const max = elem.getAttribute('max');
-      if (min) param.setMinimum(parseFloat(min));
-      if (max) param.setMaximum(parseFloat(max));
-
-      const autoEnabled = elem.getAttribute('automationEnabled');
-      if (autoEnabled !== null) param.setAutomationEnabled(autoEnabled === 'true');
-
-      // Load line/points if present
-      const lineElem = elem.getElement('line');
-      if (lineElem) {
-        const curve = lineElem.getAttribute('curveType');
-        if (curve === 'CONSTANT') param.setCurve(AutomationCurve.STEP);
-        else if (curve === 'LINEAR') param.setCurve(AutomationCurve.LINEAR);
-
-        const points = lineElem.getElements('linePoint');
-        while (points.hasMoreElements()) {
-          const pt = points.next();
-          const x = parseFloat(pt.getAttribute('x') ?? '0');
-          const y = parseFloat(pt.getAttribute('y') ?? '0');
-          param.addPoint(x, y);
-        }
-      }
-
-      parameters.push(param);
+      parameters.push(Parameter.loadFromXML(paramElems.next()));
     }
 
     return parameters;
@@ -251,6 +267,9 @@ export class Effect implements BlueDataObject {
     copy._numOuts = this._numOuts;
     copy._code = this._code;
     copy._style = this._style;
+    copy._graphicInterface = this._graphicInterface;
+    copy._parameters = this._parameters.map(param => param.deepCopy() as Parameter);
+    copy._opcodeList = OpcodeList.loadFromXML(this._opcodeList.saveAsXML());
     return copy;
   }
 }

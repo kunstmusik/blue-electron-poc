@@ -1,0 +1,214 @@
+import { describe, it, expect } from 'vitest';
+import {
+  encodeCreateAutomation,
+  encodeUpdateAutomation,
+  encodeNameCommand,
+  encodeNoPayloadCommand,
+  decodeAutomationList,
+  AutomationCurveCode,
+  CMD_CREATE_AUTOMATION,
+  CMD_UPDATE_AUTOMATION,
+  CMD_DELETE_AUTOMATION,
+  CMD_ENABLE_AUTOMATION,
+  CMD_DISABLE_AUTOMATION,
+  CMD_LIST_AUTOMATION,
+  CMD_CLEAR_AUTOMATION,
+} from '../src/protocol';
+
+describe('Automation Protocol Encoding', () => {
+
+  it('encodes createAutomation with correct binary layout', () => {
+    const buf = encodeCreateAutomation(
+      'gk_blue_auto0',    // name
+      AutomationCurveCode.LINEAR, // curve
+      true,               // enabled
+      0.0,                // resolution
+      0,                  // resolutionScale
+      false,              // highPrecision
+      [                   // points
+        { time: 0.0, value: 0.5 },
+        { time: 4.0, value: 1.0 },
+      ],
+    );
+
+    // Command byte
+    expect(buf.readUInt8(0)).toBe(CMD_CREATE_AUTOMATION);
+
+    // Read payload length
+    const payloadLen = buf.readUInt32LE(1);
+    expect(payloadLen).toBeGreaterThan(0);
+
+    // Payload starts at offset 5
+    const payload = buf.subarray(5);
+
+    // Channel name: "gk_blue_auto0\0"
+    const nameEnd = payload.indexOf(0);
+    expect(nameEnd).toBe('gk_blue_auto0'.length);
+    expect(payload.toString('utf-8', 0, nameEnd)).toBe('gk_blue_auto0');
+
+    let offset = nameEnd + 1; // past null terminator
+
+    // curve (u8)
+    expect(payload.readUInt8(offset)).toBe(AutomationCurveCode.LINEAR);
+    offset += 1;
+
+    // enabled (u8)
+    expect(payload.readUInt8(offset)).toBe(1);
+    offset += 1;
+
+    // resolution (f64)
+    expect(payload.readDoubleLE(offset)).toBeCloseTo(0.0, 6);
+    offset += 8;
+
+    // resolutionScale (i32)
+    expect(payload.readInt32LE(offset)).toBe(0);
+    offset += 4;
+
+    // highPrecision (u8)
+    expect(payload.readUInt8(offset)).toBe(0);
+    offset += 1;
+
+    // n_points (u32)
+    expect(payload.readUInt32LE(offset)).toBe(2);
+    offset += 4;
+
+    // Point 0: time=0.0, value=0.5
+    expect(payload.readDoubleLE(offset)).toBeCloseTo(0.0, 6);
+    offset += 8;
+    expect(payload.readDoubleLE(offset)).toBeCloseTo(0.5, 6);
+    offset += 8;
+
+    // Point 1: time=4.0, value=1.0
+    expect(payload.readDoubleLE(offset)).toBeCloseTo(4.0, 6);
+    offset += 8;
+    expect(payload.readDoubleLE(offset)).toBeCloseTo(1.0, 6);
+  });
+
+  it('encodes updateAutomation with UPDATE command byte', () => {
+    const buf = encodeUpdateAutomation(
+      'test',
+      AutomationCurveCode.STEP,
+      true,
+      0.1,
+      1,
+      false,
+      [{ time: 0, value: 1 }],
+    );
+
+    expect(buf.readUInt8(0)).toBe(CMD_UPDATE_AUTOMATION);
+  });
+
+  it('encodes all curve types correctly', () => {
+    for (const [name, code] of [
+      ['STEP', AutomationCurveCode.STEP],
+      ['LINEAR', AutomationCurveCode.LINEAR],
+      ['EXPONENTIAL', AutomationCurveCode.EXPONENTIAL],
+    ] as const) {
+      const buf = encodeCreateAutomation('ch', code, true, 0, 0, false, []);
+      const payload = buf.subarray(5);
+      const nameEnd = payload.indexOf(0);
+      expect(payload.readUInt8(nameEnd + 1)).toBe(code);
+    }
+  });
+
+  it('encodes enabled=false as 0', () => {
+    const buf = encodeCreateAutomation('ch', AutomationCurveCode.LINEAR, false, 0, 0, false, []);
+    const payload = buf.subarray(5);
+    const nameEnd = payload.indexOf(0);
+    // enabled byte is right after curve byte
+    expect(payload.readUInt8(nameEnd + 1 + 1)).toBe(0);
+  });
+
+  it('encodes highPrecision=true as 1', () => {
+    const buf = encodeCreateAutomation('ch', AutomationCurveCode.LINEAR, true, 0, 0, true, []);
+    const payload = buf.subarray(5);
+    const nameEnd = payload.indexOf(0);
+    const hpOffset = nameEnd + 1 + 1 + 1 + 8 + 4;
+    expect(payload.readUInt8(hpOffset)).toBe(1);
+  });
+
+  it('encodes with no points', () => {
+    const buf = encodeCreateAutomation('ch', AutomationCurveCode.LINEAR, true, 0, 0, false, []);
+    const payload = buf.subarray(5);
+    const nameEnd = payload.indexOf(0);
+    const nPointsOffset = nameEnd + 1 + 1 + 1 + 8 + 4 + 1;
+    expect(payload.readUInt32LE(nPointsOffset)).toBe(0);
+  });
+
+  it('encodes name-only commands (delete, enable, disable)', () => {
+    const deleteBuf = encodeNameCommand(CMD_DELETE_AUTOMATION, 'gk_blue_auto0');
+    expect(deleteBuf.readUInt8(0)).toBe(CMD_DELETE_AUTOMATION);
+    expect(deleteBuf.toString('utf-8', 5, 5 + 'gk_blue_auto0'.length)).toBe('gk_blue_auto0');
+
+    const enableBuf = encodeNameCommand(CMD_ENABLE_AUTOMATION, 'test');
+    expect(enableBuf.readUInt8(0)).toBe(CMD_ENABLE_AUTOMATION);
+
+    const disableBuf = encodeNameCommand(CMD_DISABLE_AUTOMATION, 'test');
+    expect(disableBuf.readUInt8(0)).toBe(CMD_DISABLE_AUTOMATION);
+  });
+
+  it('encodes no-payload commands (list, clear)', () => {
+    const listBuf = encodeNoPayloadCommand(CMD_LIST_AUTOMATION);
+    expect(listBuf.readUInt8(0)).toBe(CMD_LIST_AUTOMATION);
+    expect(listBuf.readUInt32LE(1)).toBe(0); // zero payload length
+
+    const clearBuf = encodeNoPayloadCommand(CMD_CLEAR_AUTOMATION);
+    expect(clearBuf.readUInt8(0)).toBe(CMD_CLEAR_AUTOMATION);
+    expect(clearBuf.length).toBe(5);
+  });
+});
+
+describe('Automation List Decoding', () => {
+
+  it('decodes empty list', () => {
+    const payload = Buffer.alloc(4);
+    payload.writeUInt32LE(0, 0);
+    const entries = decodeAutomationList(payload);
+    expect(entries).toEqual([]);
+  });
+
+  it('decodes list with one entry', () => {
+    // count(4) + id(4) + enabled(1) + channel(64) + n_points(4) = 77
+    const payload = Buffer.alloc(4 + 73);
+    let offset = 0;
+    payload.writeUInt32LE(1, offset); offset += 4; // count = 1
+    payload.writeUInt32LE(42, offset); offset += 4; // id = 42
+    payload.writeUInt8(1, offset); offset += 1;      // enabled = true
+    // channel name (64 bytes, null-padded)
+    const name = 'gk_blue_auto0';
+    payload.write(name, offset, 'utf-8');
+    offset += 64;
+    payload.writeUInt32LE(3, offset); offset += 4;   // n_points = 3
+
+    const entries = decodeAutomationList(payload);
+    expect(entries.length).toBe(1);
+    expect(entries[0].id).toBe(42);
+    expect(entries[0].enabled).toBe(true);
+    expect(entries[0].channel).toBe('gk_blue_auto0');
+    expect(entries[0].nPoints).toBe(3);
+  });
+
+  it('decodes list with multiple entries', () => {
+    const entrySize = 4 + 1 + 64 + 4; // 73
+    const payload = Buffer.alloc(4 + entrySize * 2);
+    let offset = 0;
+    payload.writeUInt32LE(2, offset); offset += 4;
+    // Entry 0
+    payload.writeUInt32LE(0, offset); offset += 4;
+    payload.writeUInt8(1, offset); offset += 1;
+    Buffer.from('ch0\0').copy(payload, offset); offset += 64;
+    payload.writeUInt32LE(2, offset); offset += 4;
+    // Entry 1
+    payload.writeUInt32LE(1, offset); offset += 4;
+    payload.writeUInt8(0, offset); offset += 1;
+    Buffer.from('ch1\0').copy(payload, offset); offset += 64;
+    payload.writeUInt32LE(0, offset); offset += 4;
+
+    const entries = decodeAutomationList(payload);
+    expect(entries.length).toBe(2);
+    expect(entries[0].channel).toBe('ch0');
+    expect(entries[0].enabled).toBe(true);
+    expect(entries[1].channel).toBe('ch1');
+    expect(entries[1].enabled).toBe(false);
+  });
+});

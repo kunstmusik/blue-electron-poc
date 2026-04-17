@@ -2,17 +2,17 @@
  * Channel — a mixer channel with effects chain and sends.
  * Mirrors the Java Channel class.
  */
-import { EffectsChain } from './effects-chain';
-import { Send } from './send';
-import { Element } from '../serialization/xml-reader';
-import { BlueDataObject } from '../blue-data-object';
-import { Parameter } from '../automation/parameter';
+import { EffectsChain } from "./effects-chain";
+import { Send } from "./send";
+import { Element } from "../serialization/xml-reader";
+import { BlueDataObject } from "../blue-data-object";
+import { Parameter } from "../automation/parameter";
 
 export class Channel implements BlueDataObject {
-  static readonly MASTER = 'master';
+  static readonly MASTER = "master";
 
-  private _name = '';
-  private _outChannel = '';
+  private _name = "";
+  private _outChannel = "Master";
   private _muted = false;
   private _solo = false;
   private _level = 0; // in dB
@@ -21,58 +21,125 @@ export class Channel implements BlueDataObject {
   private _preEffects = new EffectsChain();
   private _postEffects = new EffectsChain();
   private _effectsChain = new EffectsChain();
-  private _sends: Send[] = [];
-  private _association = '';
-  private _parameter: any = null; // Channel-level parameter (volume/send automation)
+  private _association = "";
+  private _levelParameter: Parameter;
 
-  getName(): string { return this._name; }
-  setName(name: string): void { this._name = name; }
+  constructor() {
+    this._levelParameter = new Parameter();
+    this._levelParameter.setName("Volume");
+    this._levelParameter.setLabel("dB");
+    this._levelParameter.setMinimum(-96.0);
+    this._levelParameter.setMaximum(12.0);
+    this._levelParameter.setFixedValue(0.0);
+    this._levelParameter.setResolution(-1.0);
+  }
 
-  getOutChannel(): string { return this._outChannel; }
-  setOutChannel(ch: string): void { this._outChannel = ch; }
+  getName(): string {
+    return this._name;
+  }
+  setName(name: string): void {
+    this._name = name;
+  }
 
-  isMuted(): boolean { return this._muted; }
-  setMuted(m: boolean): void { this._muted = m; }
+  getOutChannel(): string {
+    return this._outChannel;
+  }
+  setOutChannel(ch: string): void {
+    this._outChannel = ch;
+  }
 
-  isSolo(): boolean { return this._solo; }
-  setSolo(s: boolean): void { this._solo = s; }
+  isMuted(): boolean {
+    return this._muted;
+  }
+  setMuted(m: boolean): void {
+    this._muted = m;
+  }
 
-  getLevel(): number { return this._level; }
-  setLevel(v: number): void { this._level = v; }
+  isSolo(): boolean {
+    return this._solo;
+  }
+  setSolo(s: boolean): void {
+    this._solo = s;
+  }
 
-  getVolume(): number { return this._volume; }
-  setVolume(v: number): void { this._volume = v; }
+  getLevel(): number {
+    return this._level;
+  }
+  setLevel(v: number): void {
+    this._level = v;
+  }
 
-  getPan(): number { return this._pan; }
-  setPan(p: number): void { this._pan = p; }
+  getVolume(): number {
+    return this._volume;
+  }
+  setVolume(v: number): void {
+    this._volume = v;
+  }
 
-  getPreEffects(): EffectsChain { return this._preEffects; }
-  getPostEffects(): EffectsChain { return this._postEffects; }
-  getEffectsChain(): EffectsChain { return this._effectsChain; }
+  getPan(): number {
+    return this._pan;
+  }
+  setPan(p: number): void {
+    this._pan = p;
+  }
 
-  getSends(): Send[] { return this._sends; }
+  getPreEffects(): EffectsChain {
+    return this._preEffects;
+  }
+  getPostEffects(): EffectsChain {
+    return this._postEffects;
+  }
+  getEffectsChain(): EffectsChain {
+    return this._effectsChain;
+  }
 
-  getAssociation(): string { return this._association; }
-  setAssociation(a: string): void { this._association = a; }
+  getSends(): Send[] {
+    return [
+      ...this._preEffects.getSends(),
+      ...this._postEffects.getSends(),
+      ...this._effectsChain.getSends(),
+    ];
+  }
 
-  getChannelParameter(): any { return this._parameter; }
+  getAssociation(): string {
+    return this._association;
+  }
+  setAssociation(a: string): void {
+    this._association = a;
+  }
+
+  getLevelParameter(): Parameter {
+    return this._levelParameter;
+  }
+  setLevelParameter(param: Parameter): void {
+    this._levelParameter = param;
+  }
+
+  getChannelParameter(): Parameter {
+    return this._levelParameter;
+  }
 
   saveAsXML(): Element {
-    const elem = new Element('channel');
-    elem.setAttribute('name', this._name);
-    elem.setAttribute('muted', this._muted.toString());
-    elem.setAttribute('solo', this._solo.toString());
-    elem.addElement('volume').setText(this._volume.toString());
-    elem.addElement('pan').setText(this._pan.toString());
-    elem.addElement(this._effectsChain.saveAsXML().setName('effectsChain'));
-
+    const elem = new Element("channel");
     if (this._association) {
-      elem.addElement('association').setText(this._association);
+      elem.setAttribute("association", this._association);
     }
 
-    for (const send of this._sends) {
-      elem.addElement(send.saveAsXML().setName('send'));
-    }
+    elem.addElement("name").setText(this._name);
+    elem.addElement("outChannel").setText(this._outChannel);
+    elem.addElement("level").setText(this._level.toString());
+    elem.addElement("muted").setText(this._muted.toString());
+    elem.addElement("solo").setText(this._solo.toString());
+
+    const preEffects = this._preEffects.saveAsXML();
+    preEffects.setAttribute("bin", "pre");
+    elem.addElement(preEffects);
+
+    const postEffects = this._postEffects.saveAsXML();
+    postEffects.setAttribute("bin", "post");
+    elem.addElement(postEffects);
+
+    elem.addElement(this._levelParameter.saveAsXML());
 
     return elem;
   }
@@ -81,69 +148,60 @@ export class Channel implements BlueDataObject {
     const channel = new Channel();
 
     // Name: can be attribute or child element
-    channel._name = data.getAttribute('name') ?? data.getTextString('name') ?? '';
-    channel._muted = (data.getAttribute('muted') ?? data.getTextString('muted')) === 'true';
-    channel._solo = (data.getAttribute('solo') ?? data.getTextString('solo')) === 'true';
+    channel._name =
+      data.getAttribute("name") ?? data.getTextString("name") ?? "";
+    channel._muted =
+      (data.getAttribute("muted") ?? data.getTextString("muted")) === "true";
+    channel._solo =
+      (data.getAttribute("solo") ?? data.getTextString("solo")) === "true";
 
     // Out channel routing
-    const outCh = data.getTextString('outChannel');
+    const outCh = data.getTextString("outChannel");
     if (outCh) channel._outChannel = outCh;
 
     // Level (in dB)
-    const level = data.getTextString('level');
+    const level = data.getTextString("level");
     if (level) channel._level = parseFloat(level);
 
-    const vol = data.getTextString('volume');
+    const vol = data.getTextString("volume");
     if (vol) channel._volume = parseFloat(vol);
 
-    const pan = data.getTextString('pan');
+    const pan = data.getTextString("pan");
     if (pan) channel._pan = parseFloat(pan);
 
-    const assoc = data.getTextString('association');
+    const assoc = data.getAttribute("association") ?? data.getTextString("association");
     if (assoc) channel._association = assoc;
 
     // Effects chains: <effectsChain bin='pre'> and <effectsChain bin='post'>
-    const ecNodes = data.getElements('effectsChain');
+    const ecNodes = data.getElements("effectsChain");
     while (ecNodes.hasMoreElements()) {
       const ecNode = ecNodes.next();
       const loaded = EffectsChain.loadFromXML(ecNode);
-      const bin = ecNode.getAttribute('bin') ?? '';
-      if (bin === 'pre') {
+      const bin = ecNode.getAttribute("bin") ?? "";
+      if (bin === "pre") {
         channel._preEffects = loaded;
-      } else if (bin === 'post') {
+      } else if (bin === "post") {
         channel._postEffects = loaded;
-        // Sends are often inside post effects chains
-        if (loaded.sends.length > 0) {
-          channel._sends.push(...loaded.sends);
-        }
       } else {
         channel._effectsChain = loaded;
+        channel._postEffects = loaded;
       }
     }
 
-    // Sends (inside post effects chains or at channel level)
-    const sendNodes = data.getElements('send');
+    // Legacy standalone sends are treated as post-fader sends.
+    const sendNodes = data.getElements("send");
     while (sendNodes.hasMoreElements()) {
-      channel._sends.push(Send.loadFromXML(sendNodes.next()));
+      channel._postEffects.push(Send.loadFromXML(sendNodes.next()));
     }
 
-    // Channel-level parameter (volume automation)
-    const paramNodes = data.getElements('parameter');
+    const paramNodes = data.getElements("parameter");
     while (paramNodes.hasMoreElements()) {
       const paramElem = paramNodes.next();
-      // Store the first channel parameter (typically volume)
-      if (!channel._parameter) {
-        const param = new Parameter();
-        const pName = paramElem.getAttribute('name');
-        if (pName) param.setName(pName);
-        const pVal = paramElem.getAttribute('value');
-        if (pVal) param.setFixedValue(parseFloat(pVal));
-        const pMin = paramElem.getAttribute('min');
-        if (pMin) param.setMinimum(parseFloat(pMin));
-        const pMax = paramElem.getAttribute('max');
-        if (pMax) param.setMaximum(parseFloat(pMax));
-        channel._parameter = param;
-      }
+      channel._levelParameter = Parameter.loadFromXML(paramElem);
+    }
+
+    if (!channel._levelParameter.isAutomationEnabled()) {
+      channel._levelParameter.setFixedValue(channel._level);
     }
 
     return channel;
@@ -157,8 +215,12 @@ export class Channel implements BlueDataObject {
     copy._volume = this._volume;
     copy._pan = this._pan;
     copy._association = this._association;
+    copy._level = this._level;
+    copy._outChannel = this._outChannel;
+    copy._preEffects = this._preEffects.deepCopy() as EffectsChain;
+    copy._postEffects = this._postEffects.deepCopy() as EffectsChain;
     copy._effectsChain = this._effectsChain.deepCopy() as EffectsChain;
-    copy._sends = this._sends.map((s) => s.deepCopy() as Send);
+    copy._levelParameter = this._levelParameter.deepCopy() as Parameter;
     return copy;
   }
 }

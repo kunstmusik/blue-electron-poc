@@ -18,11 +18,12 @@ export enum AutomationCurve {
 
 export class Parameter implements BlueDataObject {
   private _name = '';
+  private _label = '';
   private _minimum = 0;
   private _maximum = 1;
   private _curve: AutomationCurve = AutomationCurve.LINEAR;
   private _points: AutomationPoint[] = [];
-  private _enabled = true;
+  private _enabled = false;
   private _resolution = 0;
   private _resolutionScale = 1.0;
   private _highPrecision = false;
@@ -31,6 +32,9 @@ export class Parameter implements BlueDataObject {
 
   getName(): string { return this._name; }
   setName(name: string): void { this._name = name; }
+
+  getLabel(): string { return this._label; }
+  setLabel(label: string): void { this._label = label; }
 
   getMinimum(): number { return this._minimum; }
   setMinimum(v: number): void { this._minimum = v; }
@@ -83,7 +87,7 @@ export class Parameter implements BlueDataObject {
    * Check if this parameter has automation enabled (has points).
    */
   isAutomationEnabled(): boolean {
-    return this._enabled && this._points.length >= 2;
+    return this._enabled;
   }
 
   /**
@@ -151,11 +155,36 @@ export class Parameter implements BlueDataObject {
   static loadFromXML(data: Element): Parameter {
     const param = new Parameter();
     param._name = data.getAttribute('name') ?? '';
+    param._label = data.getAttribute('label') ?? '';
+
     const curve = data.getAttribute('curve');
     if (curve && Object.values(AutomationCurve).includes(curve as AutomationCurve)) {
       param._curve = curve as AutomationCurve;
     }
-    param._enabled = data.getAttribute('enabled') !== 'false';
+
+    const min = data.getAttribute('min');
+    if (min) param._minimum = parseFloat(min);
+
+    const max = data.getAttribute('max');
+    if (max) param._maximum = parseFloat(max);
+
+    const legacyRes = data.getAttribute('resolution');
+    if (legacyRes) param._resolution = parseFloat(legacyRes);
+
+    const bdResolution = data.getAttribute('bdresolution');
+    if (bdResolution) param._resolution = parseFloat(bdResolution);
+
+    const automationEnabled = data.getAttribute('automationEnabled');
+    if (automationEnabled !== null) {
+      param._enabled = automationEnabled === 'true';
+    } else {
+      param._enabled = data.getAttribute('enabled') === 'true';
+    }
+
+    const fixedValue = data.getAttribute('value');
+    if (fixedValue !== null) {
+      param._fixedValue = parseFloat(fixedValue);
+    }
 
     const res = data.getTextString('resolution');
     if (res) param._resolution = parseFloat(res);
@@ -165,6 +194,33 @@ export class Parameter implements BlueDataObject {
 
     const hp = data.getTextString('highPrecision');
     if (hp) param._highPrecision = hp.toLowerCase() === 'true';
+
+    const lineNode = data.getElement('line');
+    if (lineNode) {
+      const lineResolution = lineNode.getAttribute('bdresolution')
+        ?? lineNode.getAttribute('resolution');
+      if (lineResolution && param._resolution === 0) {
+        param._resolution = parseFloat(lineResolution);
+      }
+
+      const curveType = lineNode.getAttribute('curveType');
+      if (curveType === 'CONSTANT') {
+        param._curve = AutomationCurve.STEP;
+      } else if (curveType === 'LINEAR') {
+        param._curve = AutomationCurve.LINEAR;
+      } else if (curveType === 'EXPONENTIAL') {
+        param._curve = AutomationCurve.EXPONENTIAL;
+      }
+
+      const linePoints = lineNode.getElements('linePoint');
+      while (linePoints.hasMoreElements()) {
+        const pt = linePoints.next();
+        param._points.push({
+          time: parseFloat(pt.getAttribute('x') ?? '0'),
+          value: parseFloat(pt.getAttribute('y') ?? '0'),
+        });
+      }
+    }
 
     const pointsNode = data.getElement('points');
     if (pointsNode) {
@@ -178,12 +234,19 @@ export class Parameter implements BlueDataObject {
       }
     }
 
+    param._points.sort((a, b) => a.time - b.time);
+
+    if (fixedValue === null && param._points.length > 0) {
+      param._fixedValue = param._points[0].value;
+    }
+
     return param;
   }
 
   deepCopy(): BlueDataObject {
     const copy = new Parameter();
     copy._name = this._name;
+    copy._label = this._label;
     copy._minimum = this._minimum;
     copy._maximum = this._maximum;
     copy._curve = this._curve;

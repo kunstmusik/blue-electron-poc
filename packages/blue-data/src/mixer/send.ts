@@ -9,19 +9,42 @@ import { Parameter } from '../automation/parameter';
 export class Send implements BlueDataObject {
   private _targetChannelId = '';
   private _level = 1.0;
-  private _parameter: Parameter | null = null;
+  private _enabled = true;
+  private _parameter: Parameter;
+
+  constructor() {
+    this._parameter = new Parameter();
+    this._parameter.setName('Send Amount');
+    this._parameter.setMinimum(0.0);
+    this._parameter.setMaximum(1.0);
+    this._parameter.setFixedValue(1.0);
+    this._parameter.setResolution(-1.0);
+  }
 
   getTargetChannelId(): string { return this._targetChannelId; }
   setTargetChannelId(id: string): void { this._targetChannelId = id; }
 
   getLevel(): number { return this._level; }
-  setLevel(level: number): void { this._level = level; }
+  setLevel(level: number): void {
+    this._level = level;
+    if (!this._parameter.isAutomationEnabled()) {
+      this._parameter.setFixedValue(level);
+    }
+  }
 
-  getParameter(): Parameter | null { return this._parameter; }
+  isEnabled(): boolean { return this._enabled; }
+  setEnabled(enabled: boolean): void { this._enabled = enabled; }
+
+  getParameter(): Parameter { return this._parameter; }
+  getLevelParameter(): Parameter { return this._parameter; }
+  getParameters(): Parameter[] { return [this._parameter]; }
 
   saveAsXML(): Element {
     const elem = new Element('send');
     elem.addElement('sendChannel').setText(this._targetChannelId);
+    elem.addElement('level').setText(this._level.toString());
+    elem.addElement('enabled').setText(this._enabled.toString());
+    elem.addElement(this._parameter.saveAsXML());
     return elem;
   }
 
@@ -32,20 +55,17 @@ export class Send implements BlueDataObject {
     if (sendChannel) send._targetChannelId = sendChannel;
     const levelStr = data.getTextString('level');
     if (levelStr) send._level = parseFloat(levelStr);
+    const enabledStr = data.getTextString('enabled');
+    if (enabledStr) send._enabled = enabledStr === 'true';
 
     // Load send parameter (Send Amount)
     const paramElem = data.getElement('parameter');
     if (paramElem) {
-      const param = new Parameter();
-      const pName = paramElem.getAttribute('name');
-      if (pName) param.setName(pName);
-      const pVal = paramElem.getAttribute('value');
-      if (pVal) param.setFixedValue(parseFloat(pVal));
-      const pMin = paramElem.getAttribute('min');
-      if (pMin) param.setMinimum(parseFloat(pMin));
-      const pMax = paramElem.getAttribute('max');
-      if (pMax) param.setMaximum(parseFloat(pMax));
-      send._parameter = param;
+      send._parameter = Parameter.loadFromXML(paramElem);
+    }
+
+    if (!send._parameter.isAutomationEnabled()) {
+      send._parameter.setFixedValue(send._level);
     }
 
     return send;
@@ -55,6 +75,8 @@ export class Send implements BlueDataObject {
     const copy = new Send();
     copy._targetChannelId = this._targetChannelId;
     copy._level = this._level;
+    copy._enabled = this._enabled;
+    copy._parameter = this._parameter.deepCopy() as Parameter;
     return copy;
   }
 }

@@ -3,8 +3,6 @@
 > **Object composition environment for Csound** — ported from the NetBeans RCP Java application to a TypeScript monorepo.
 
 [![Status](https://img.shields.io/badge/status-alpha-orange)](https://github.com/stevenyi/blue-electron)
-[![Phase](https://img.shields.io/badge/phase-3%20of%2010-blue)](https://github.com/stevenyi/blue-electron/blob/main/specs/001-blue-data-port/tasks.md)
-[![Tests](https://img.shields.io/badge/tests-25%20passing-green)](https://github.com/stevenyi/blue-electron/actions)
 
 Blue is a visual composition environment for [Csound](https://csound.com/) that lets you create, edit, and render complex music projects. This project ports the **data model and business logic** from the original Java/NetBeans application to TypeScript, with plans for both an Electron desktop app and a future browser-based UI.
 
@@ -62,11 +60,11 @@ blue-electron/
 │   │   │   └── serialization/         # XML parser/writer
 │   │   └── package.json
 │   │
-│   ├── blue-engine-client/   # @blue/engine-client — Node.js ZMQ client
-│   │   └── src/                       # (Phase 4+)
+│   ├── blue-engine-client/   # @blue/engine-client — Node.js ZMQ client for blue-engine
+│   │   └── src/
 │   │
-│   └── blue-app/             # @blue/app — Electron application
-│       └── src/                       # (Phase 4+)
+│   └── blue-app/             # @blue/app — Electron application shell and playback bridge
+│       └── src/
 │
 ├── specs/                    # Spec-kit specifications
 │   └── 001-blue-data-port/
@@ -195,14 +193,6 @@ pnpm --filter @blue/data exec vitest run src/serialization/xml-reader.test.ts
 pnpm --filter @blue/data test -- --coverage
 ```
 
-### Current Test Status
-
-| Package | Tests | Status |
-|---------|-------|--------|
-| `@blue/data` | 25 | ✅ All passing |
-| `@blue/engine-client` | 0 | Not yet implemented |
-| `@blue/app` | 0 | Not yet implemented |
-
 ---
 
 ## Development
@@ -244,42 +234,14 @@ The `@blue/data` package must remain **environment-agnostic** (works in both bro
 
 ## Progress
 
-### Phase Completion
+### Current Status
 
-| Phase | Focus | Tasks | Progress |
-|-------|-------|-------|----------|
-| 1 | Setup & Tooling | 5 | ✅ 100% |
-| 2 | Foundational (XML, migration, time) | 25 | ✅ 100% |
-| 3 | US1: Open & Play (data model) | 36 | ✅ 100% |
-| 4 | US2: Round-Trip Save | 16 | ⏳ 0% |
-| 5 | US3: Audio Layers | 13 | ⏳ 0% |
-| 6 | US4: Pattern Layers | 9 | ⏳ 0% |
-| 7 | US5: Node.js Library | 4 | ⏳ 0% |
-| 8 | US6: JVM SoundObjects | 10 | ⏳ 0% |
-| 9 | Remaining Data Types | 32 | ⏳ 0% |
-| 10 | Polish & Cross-Cutting | 7 | ⏳ 0% |
-| **Total** | | **157** | **42%** |
+- `@blue/data` loads and saves `.blue` projects, applies Java-style migrations, and generates CSD with BSB instruments, mixer routing, effect UDOs, string channels, and automation exports.
+- `@blue/engine-client` implements playback control plus automation/channel operations for `blue-engine`.
+- `@blue/app` can open projects, generate CSD, and play through `blue-engine`.
+- The realtime automation path uses standard Csound `chnexport`; `blue-engine` owns native Csound channels and mirrors live scalar control values into shared memory for external readers.
 
-For the complete task breakdown with dependencies, see [`specs/001-blue-data-port/tasks.md`](specs/001-blue-data-port/tasks.md).
-
-### What Works Now
-
-- ✅ **XML serialization** — Parse and generate `.blue` XML files (25 tests)
-- ✅ **Version migration** — Auto-upgrade old `.blue` files (upgraders for 2.1.10, 2.3.0)
-- ✅ **Time system** — TimePosition, TimeDuration, TempoMap, TimeContext
-- ✅ **Sound objects** — GenericScore, PolyObject (nested layers)
-- ✅ **Score layers** — Full layer interface system (Layer, LayerGroup, providers)
-- ✅ **Instruments & arrangement** — Instrument library, CSD orchestra generation
-- ✅ **Project properties** — Sample rate, ksmps, nchnls, 0dbfs, Csound options
-- ✅ **BlueData root class** — `loadFromString()`, `saveToString()`, `toCSD()`
-- ✅ **TypeScript build** — Zero compile errors
-
-### What's Next
-
-- **Phase 4:** Complete XML round-trip serialization for all types, object reference maps
-- **Phase 5:** Audio score layers (AudioClip, AudioLayer, AudioLayerGroup with diskin2 CSD gen)
-- **Phase 6:** Pattern score layers (PatternData, PatternLayer)
-- **Phase 7-10:** Remaining types, engine client, Electron app
+For the current resume state, parity investigations, and next debugging targets, see [STATUS.md](STATUS.md).
 
 ---
 
@@ -346,22 +308,18 @@ This project uses [Spec Kit](https://github.com/github/spec-kit) for structured 
 
 ### How to Help
 
-1. Pick a task from [`specs/001-blue-data-port/tasks.md`](specs/001-blue-data-port/tasks.md)
-2. Check the research docs for the class mapping and Java source reference
-3. Implement the TypeScript class with XML serialization
-4. Write a round-trip test
-5. Submit a PR
+1. Check [STATUS.md](STATUS.md) for the current branch state and active parity findings.
+2. Pick the next relevant spec or follow-up from `specs/` and confirm the Java reference path.
+3. Implement the change in the appropriate package.
+4. Add or update tests around the affected render/runtime path.
+5. Submit a PR.
 
 ### Areas That Need Help
 
-- **Audio Layers** — AudioClip, AudioLayer, AudioLayerGroup with diskin2 CSD generation
-- **Pattern Layers** — PatternData, PatternLayer, PatternsLayerGroup
-- **SoundObject types** — 15+ concrete types remaining (LineObject, PianoRoll, etc.)
-- **Mixer system** — Channel, Effect, Send, mixer channel routing
-- **Automation system** — Parameter, automation curves
-- **Note processors** — 15+ processor types
-- **BlueSynthBuilder** — BSB data types and CSD code generation
-- **Electron app** — File open dialog, play/stop UI, engine bridge
+- **Playback parity** — remaining Java/TypeScript differences in complex projects
+- **Score/editor features** — additional SoundObject types, remaining data-model gaps, and editor/UI work
+- **Electron app UX** — project workflow, transport, diagnostics, and polish
+- **Cross-repo integration** — continued coordination with `blue-engine` for runtime behavior and tooling
 
 ---
 

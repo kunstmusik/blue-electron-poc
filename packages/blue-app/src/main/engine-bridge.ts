@@ -7,10 +7,17 @@
  * A playback lock prevents concurrent operations.
  */
 import { ChildProcess, spawn } from 'child_process';
-import { EngineClient } from '@blue/engine-client';
+import { EngineClient, AutomationCurveCode } from '@blue/engine-client';
 import { BrowserWindow, dialog } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import type { Parameter, TempoMap } from '@blue/data';
+import { AutomationCurve, getEngineAutomationPoints } from '@blue/data';
+
+interface AutomationTimingContext {
+  renderStartTime: number;
+  tempoMap?: TempoMap | null;
+}
 
 export class EngineBridge {
   private engineProcess: ChildProcess | null = null;
@@ -200,7 +207,11 @@ export class EngineBridge {
    * Destroys any existing engine and starts fresh.
    * Uses a lock to prevent concurrent playback attempts.
    */
-  async playCSD(csd: string): Promise<boolean> {
+  async playCSD(
+    csd: string,
+    parameters?: Parameter[],
+    automationTiming?: AutomationTimingContext,
+  ): Promise<boolean> {
     // Prevent concurrent playback
     if (this.playbackLock) {
       console.warn('[EngineBridge] Playback already in progress, ignoring');
@@ -257,7 +268,8 @@ export class EngineBridge {
         }
       }
 
-      // Compile orchestra
+      // Compile orchestra first so Csound exports control channels before
+      // fixed values and automation definitions are applied through the engine.
       if (orchestra) {
         console.log(`[EngineBridge] compileOrc (${orchestra.length} chars)`);
         const resp = await this.client.compileOrc(orchestra);
@@ -269,6 +281,11 @@ export class EngineBridge {
           });
           return false;
         }
+      }
+
+      // Send automation definitions after compileOrc so exported channels exist.
+      if (parameters && parameters.length > 0) {
+        await this.sendAutomationDefinitions(this.client, parameters, automationTiming);
       }
 
       // Read score
@@ -307,6 +324,75 @@ export class EngineBridge {
     } finally {
       this.playbackLock = false;
     }
+  }
+
+  /**
+   * Send automation definitions from all Parameters to the engine.
+   * Called after compileOrc so the engine can bind them to exported channels.
+   */
+  private async sendAutomationDefinitions(
+    client: EngineClient,
+    parameters: Parameter[],
+    automationTiming?: AutomationTimingContext,
+  ): Promise<void> {
+    // Clear any stale automation from previous playbacks
+    try {
+      await client.clearAutomations();
+    } catch (err) {
+      console.warn(`[EngineBridge] clearAutomations failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    for (const param of parameters) {
+      const varName = param.getCompilationVarName();
+      if (!varName) continue;
+
+      if (param.isAutomationEnabled() && param.getPoints().length >= 2) {
+        // Map AutomationCurve enum to protocol codes
+        const curveCode = mapAutomationCurve(param.getCurve());
+
+        // Java stores automation points in beat time. blue-engine currently
+        // evaluates automation in elapsed seconds, so convert the point times
+        // before sending them over the protocol.
+        const points = getEngineAutomationPoints(
+          param,
+          automationTiming?.renderStartTime ?? 0,
+          automationTiming?.tempoMap,
+        );
+
+        try {
+          const resp = await client.createAutomation(
+            varName,
+            curveCode,
+            true, // enabled
+            param.getResolution(),
+            param.getResolutionScale(),
+            param.isHighPrecision(),
+            points,
+          );
+          if (!resp.ok) {
+            console.warn(`[EngineBridge] createAutomation(${varName}) failed: ${resp.message}`);
+          }
+        } catch (err) {
+          console.warn(`[EngineBridge] createAutomation(${varName}) error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      } else {
+        // Non-automated parameter: create/update the channel value. The engine
+        // treats createChannel as a compatible "set or stage initial value"
+        // command and falls back to setChannel when the channel already exists.
+        try {
+          const fixedVal = param.getFixedValue();
+          const resp = await client.createChannel(varName, fixedVal);
+          if (!resp.ok) {
+            // Channel might already exist after orchestra export, try setChannel
+            await client.setChannel(varName, fixedVal);
+          }
+        } catch (err) {
+          console.warn(`[EngineBridge] createChannel(${varName}) error: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
+
+    console.log(`[EngineBridge] Sent ${parameters.length} parameter definitions`);
   }
 
   /**
@@ -392,4 +478,16 @@ function parseCSD(csd: string): { orchestra: string; score: string; options: str
   }
 
   return { orchestra, score, options };
+}
+
+/**
+ * Map blue-data AutomationCurve enum to blue-engine protocol AutomationCurveCode.
+ */
+function mapAutomationCurve(curve: AutomationCurve): AutomationCurveCode {
+  switch (curve) {
+    case AutomationCurve.STEP: return AutomationCurveCode.STEP;
+    case AutomationCurve.LINEAR: return AutomationCurveCode.LINEAR;
+    case AutomationCurve.EXPONENTIAL: return AutomationCurveCode.EXPONENTIAL;
+    default: return AutomationCurveCode.LINEAR;
+  }
 }
