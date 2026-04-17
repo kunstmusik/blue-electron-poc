@@ -17,6 +17,7 @@
     "@blue/engine-client": "workspace:*",
     "@tanstack/react-virtual": "^3.13.10",
     "clsx": "^2.1.1",
+    "dockview": "^5.2.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

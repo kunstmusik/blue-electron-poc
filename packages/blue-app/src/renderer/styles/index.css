@@ -52,3 +52,37 @@
     }
   }
 }
+
+/* Dockview theme overrides for Blue dark theme */
+:root {
+  --dv-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --dv-font-size: 13px;
+  --dv-paneview-active-border-color: #0f3460;
+  --dv-tabs-and-actions-container-font-size: 13px;
+  --dv-tabs-and-actions-container-height: 35px;
+  --dv-tab-close-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cline x1='18' y1='6' x2='6' y2='18'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/svg%3E");
+}
+
+.dv-dockview {
+  --dv-group-view-background-color: #1a1a2e;
+  --dv-tabs-and-actions-container-background-color: #16213e;
+  --dv-activegroup-visiblepanel-tab-background-color: #1a1a2e;
+  --dv-activegroup-hiddenpanel-tab-background-color: #0f3460;
+  --dv-inactivegroup-visiblepanel-tab-background-color: #16213e;
+  --dv-inactivegroup-hiddenpanel-tab-background-color: #0f3460;
+  --dv-tab-divider-color: #0f3460;
+  --dv-activegroup-visiblepanel-tab-color: #e94560;
+  --dv-activegroup-hiddenpanel-tab-color: #888;
+  --dv-inactivegroup-visiblepanel-tab-color: #ccc;
+  --dv-inactivegroup-hiddenpanel-tab-color: #666;
+  --dv-separator-border: #0f3460;
+  --dv-separator-handle-hover-color: #e9456080;
+  --dv-icon-hover-background-color: #e9456030;
+}
+
+.dv-resize-container .dv-resize-handle-top,
+.dv-resize-container .dv-resize-handle-bottom,
+.dv-resize-container .dv-resize-handle-left,
+.dv-resize-container .dv-resize-handle-right {
+  background-color: #0f3460;
+}

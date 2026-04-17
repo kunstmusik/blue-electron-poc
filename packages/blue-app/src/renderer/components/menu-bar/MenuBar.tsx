@@ -1,6 +1,8 @@
 import { FolderOpen, Save, SaveAll, Play, Square } from 'lucide-react';
 import { useProjectStore } from '../../stores/project-store';
 import { usePlaybackStore } from '../../stores/playback-store';
+import { useUIStore } from '../../stores/ui-store';
+import WindowMenu from '../workbench/WindowMenu';
 
 export default function MenuBar(): JSX.Element {
   const hasProject = useProjectStore((s) => s.filePath !== null);
@@ -10,8 +12,8 @@ export default function MenuBar(): JSX.Element {
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
   const status = usePlaybackStore((s) => s.status);
   const message = usePlaybackStore((s) => s.message);
+  const activePanel = useUIStore((s) => s.activePanel);
 
-  // Store actions
   const openFile = useProjectStore((s) => s.loadProject);
   const saveProject = useProjectStore((s) => s.saveProject);
   const saveProjectAs = useProjectStore((s) => s.saveProjectAs);
@@ -63,6 +65,7 @@ export default function MenuBar(): JSX.Element {
           <SaveAll className="w-4 h-4" />
           Save As
         </button>
+        {activePanel === 'project' && <WindowMenu />}
       </div>
 
       {/* Right: Playback controls */}
