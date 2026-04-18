@@ -13,6 +13,8 @@ export default function MenuBar(): JSX.Element {
   const status = usePlaybackStore((s) => s.status);
   const message = usePlaybackStore((s) => s.message);
   const isStarting = status === 'starting';
+  const isStopping = status === 'stopping';
+  const isBusy = isStarting || isStopping;
   const activePanel = useUIStore((s) => s.activePanel);
 
   const openFile = useProjectStore((s) => s.loadProject);
@@ -22,26 +24,34 @@ export default function MenuBar(): JSX.Element {
   const stopPlayback = usePlaybackStore((s) => s.stop);
 
   const handlePlay = async () => {
-    if (isStarting) {
+    if (isBusy) {
       return;
     }
 
     await togglePlay();
   };
 
-  const handleStop = () => {
-    stopPlayback();
+  const handleStop = async () => {
+    await stopPlayback();
   };
 
   const statusClass =
-    status === 'playing' || status === 'starting'
+    status === 'playing' || status === 'starting' || status === 'stopping'
       ? 'status-playing'
       : status === 'error'
         ? 'status-error'
         : 'status-stopped';
 
-  const icon = status === 'playing' ? '▶' : status === 'starting' ? '…' : status === 'error' ? '❌' : '⏹';
-  const statusText = message || (status === 'playing' ? 'Playing' : status === 'starting' ? 'Preparing playback...' : status === 'error' ? 'Error' : 'Stopped');
+  const icon = status === 'playing' ? '▶' : status === 'starting' || status === 'stopping' ? '…' : status === 'error' ? '❌' : '⏹';
+  const statusText = message || (status === 'playing'
+    ? 'Playing'
+    : status === 'starting'
+      ? 'Preparing playback...'
+      : status === 'stopping'
+        ? 'Stopping playback...'
+        : status === 'error'
+          ? 'Error'
+          : 'Stopped');
 
   return (
     <header className="flex items-center justify-between px-4 py-2 bg-blue-surface border-b border-blue-border h-12 shrink-0">
@@ -76,12 +86,12 @@ export default function MenuBar(): JSX.Element {
       {/* Right: Playback controls */}
       <div className="flex items-center gap-2">
         {isPlaying ? (
-          <button className="btn btn-primary" onClick={handleStop} disabled={!hasProject} title="Stop (Esc)">
+          <button className="btn btn-primary" onClick={handleStop} disabled={!hasProject || isStopping} title="Stop (Esc)">
             <Square className="w-4 h-4" />
-            Stop
+            {isStopping ? 'Stopping...' : 'Stop'}
           </button>
         ) : (
-          <button className="btn" onClick={handlePlay} disabled={!hasProject || isLoading || isStarting} title="Play (Space)">
+          <button className="btn" onClick={handlePlay} disabled={!hasProject || isLoading || isBusy} title="Play (Space)">
             <Play className="w-4 h-4" />
             {isStarting ? 'Starting...' : 'Play'}
           </button>

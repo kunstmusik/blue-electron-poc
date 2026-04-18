@@ -13,7 +13,7 @@ declare global {
       saveFile: () => Promise<string | null>;
       saveFileAs: () => Promise<string | null>;
       togglePlay: () => Promise<boolean>;
-      stopPlayback: () => void;
+      stopPlayback: () => Promise<void>;
       getProjectInfo: () => Promise<Record<string, string> | null>;
       onProjectLoaded: (cb: (info: Record<string, string>) => void) => void;
       onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;

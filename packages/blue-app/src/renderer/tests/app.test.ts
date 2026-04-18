@@ -92,12 +92,16 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().isPlaying).toBe(true);
   });
 
-  it('T350: stop calls window.blueAPI.stopPlayback', () => {
-    usePlaybackStore.getState().stop();
+  it('T350: stop calls window.blueAPI.stopPlayback and waits for engine status', async () => {
+    mockBlueAPI.stopPlayback.mockResolvedValue(undefined);
+    usePlaybackStore.getState().setStatus({ status: 'playing', message: 'Playing via blue-engine' });
+
+    await usePlaybackStore.getState().stop();
 
     expect(mockBlueAPI.stopPlayback).toHaveBeenCalledOnce();
-    expect(usePlaybackStore.getState().isPlaying).toBe(false);
-    expect(usePlaybackStore.getState().status).toBe('idle');
+    expect(usePlaybackStore.getState().isPlaying).toBe(true);
+    expect(usePlaybackStore.getState().status).toBe('stopping');
+    expect(usePlaybackStore.getState().message).toBe('Stopping playback...');
   });
 
   it('T350: togglePlay sets starting state while playback is preparing', async () => {
@@ -148,6 +152,22 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().status).toBe('playing');
     expect(usePlaybackStore.getState().isPlaying).toBe(true);
     expect(usePlaybackStore.getState().message).toBe('Playing');
+  });
+
+  it('T350: setStatus maps stopped to a non-playing UI state', () => {
+    usePlaybackStore.getState().setStatus({ status: 'stopped', message: 'Playback finished' });
+
+    expect(usePlaybackStore.getState().status).toBe('stopped');
+    expect(usePlaybackStore.getState().isPlaying).toBe(false);
+    expect(usePlaybackStore.getState().message).toBe('Playback finished');
+  });
+
+  it('T350: setStatus keeps playback active while stop confirmation is pending', () => {
+    usePlaybackStore.getState().setStatus({ status: 'stopping', message: 'Stopping playback...' });
+
+    expect(usePlaybackStore.getState().status).toBe('stopping');
+    expect(usePlaybackStore.getState().isPlaying).toBe(true);
+    expect(usePlaybackStore.getState().message).toBe('Stopping playback...');
   });
 });
 
@@ -230,9 +250,9 @@ describe('Integration: Open → Play → Stop → Save', () => {
     expect(usePlaybackStore.getState().isPlaying).toBe(true);
 
     // Stop
-    usePlaybackStore.getState().stop();
+    await usePlaybackStore.getState().stop();
     expect(mockBlueAPI.stopPlayback).toHaveBeenCalledOnce();
-    expect(usePlaybackStore.getState().isPlaying).toBe(false);
+    expect(usePlaybackStore.getState().status).toBe('stopping');
 
     // Save
     await useProjectStore.getState().saveProject();

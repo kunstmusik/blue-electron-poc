@@ -2,9 +2,9 @@
  * EngineClient — ZMQ REQ/REP client for the C++ blue-engine process.
  *
  * Manages connection to a running blue-engine executable and provides
- * methods for all protocol commands.
+ * methods for all protocol commands plus a pub/sub state stream.
  */
-import { Request } from 'zeromq';
+import { Request, Subscriber } from 'zeromq';
 import {
   encodeSetChannel,
   encodeGetChannel,
@@ -13,16 +13,20 @@ import {
   encodeNameCommand,
   encodeNoPayloadCommand,
   decodeAutomationList,
+  decodeEngineStatePayload,
   AutomationCurveCode,
   AutomationPoint,
   AutomationListEntry,
+  EngineStateSnapshot,
+  ENGINE_STATE_TOPIC,
   CMD_CREATE_ENGINE,
   CMD_COMPILE_ORC,
   CMD_READ_SCORE,
   CMD_SET_OPTION,
   CMD_START,
   CMD_STOP,
-  CMD_EXIT,
+  CMD_DESTROY_ENGINE,
+  CMD_GET_ENGINE_STATE,
   CMD_CREATE_CHANNEL,
   CMD_SET_CHANNEL,
   CMD_GET_CHANNEL,
@@ -43,17 +47,28 @@ const STATUS_ERROR = 0x01;
 export interface EngineClientOptions {
   /** ZMQ endpoint (default: tcp://localhost:5555) */
   endpoint?: string;
+  /** ZMQ pub/sub endpoint for engine state events (default: endpoint port + 1) */
+  pubEndpoint?: string;
   /** Connection timeout in ms (default: 5000) */
   timeout?: number;
 }
 
+export type EngineStateListener = (snapshot: EngineStateSnapshot) => void;
+
 export class EngineClient {
   private socket: Request | null = null;
+  private subscriber: Subscriber | null = null;
   private endpoint: string;
+  private pubEndpoint: string;
   private timeout: number;
+  private stateListeners = new Set<EngineStateListener>();
+  private subscriptionLoop: Promise<void> | null = null;
+  private subscriptionClosed = false;
+  private subscriptionError: Error | null = null;
 
   constructor(options: EngineClientOptions = {}) {
     this.endpoint = options.endpoint ?? 'tcp://localhost:5555';
+    this.pubEndpoint = options.pubEndpoint ?? derivePubEndpoint(this.endpoint);
     this.timeout = options.timeout ?? 5000;
   }
 
@@ -64,19 +79,58 @@ export class EngineClient {
     if (this.socket) {
       return; // Already connected
     }
+
     this.socket = new Request();
+    this.socket.sendTimeout = this.timeout;
+    this.socket.receiveTimeout = this.timeout;
+    this.socket.linger = 0;
     this.socket.connect(this.endpoint);
+
+    this.subscriber = new Subscriber();
+    this.subscriber.linger = 0;
+    this.subscriber.subscribe(ENGINE_STATE_TOPIC);
+    this.subscriber.connect(this.pubEndpoint);
+    this.subscriptionClosed = false;
+    this.subscriptionError = null;
+    this.subscriptionLoop = this.consumeStateEvents().catch((error: unknown) => {
+      const normalizedError = error instanceof Error ? error : new Error(String(error));
+      this.subscriptionError = normalizedError;
+
+      if (!this.subscriptionClosed) {
+        console.warn(`[EngineClient] engine.state subscriber failed: ${normalizedError.message}`);
+      }
+    });
   }
 
   /**
    * Disconnect from the engine.
    */
-  async disconnect(): Promise<void> {
+  async disconnect(destroyEngine = true): Promise<void> {
+    this.subscriptionClosed = true;
+
+    if (this.subscriber) {
+      this.subscriber.close();
+      this.subscriber = null;
+    }
+
     if (this.socket) {
-      await this.sendRaw(CMD_EXIT);
+      if (destroyEngine) {
+        try {
+          await this.sendRaw(CMD_DESTROY_ENGINE);
+        } catch {
+          // The engine process may already be gone.
+        }
+      }
       this.socket.close();
       this.socket = null;
     }
+
+    if (this.subscriptionLoop) {
+      await this.subscriptionLoop;
+      this.subscriptionLoop = null;
+    }
+
+    this.subscriptionError = null;
   }
 
   /**
@@ -124,7 +178,7 @@ export class EngineClient {
     // If engine already exists, destroy it first
     let resp = await this.sendRaw(CMD_CREATE_ENGINE);
     if (!resp.ok && resp.message.includes('Engine already created')) {
-      await this.sendRaw(CMD_EXIT); // DESTROY_ENGINE = 0x07
+      await this.sendRaw(CMD_DESTROY_ENGINE);
       resp = await this.sendRaw(CMD_CREATE_ENGINE);
     }
     return resp;
@@ -134,7 +188,7 @@ export class EngineClient {
    * Destroy the engine instance.
    */
   async destroyEngine(): Promise<{ ok: boolean; message: string }> {
-    return this.sendRaw(CMD_EXIT);
+    return this.sendRaw(CMD_DESTROY_ENGINE);
   }
 
   /**
@@ -170,6 +224,26 @@ export class EngineClient {
    */
   async stop(): Promise<{ ok: boolean; message: string }> {
     return this.sendRaw(CMD_STOP);
+  }
+
+  async getEngineState(): Promise<{ ok: boolean; state?: EngineStateSnapshot; message: string }> {
+    const resp = await this.sendRaw(CMD_GET_ENGINE_STATE);
+    if (!resp.ok) {
+      return { ok: false, message: resp.message };
+    }
+
+    return {
+      ok: true,
+      state: decodeEngineStatePayload(resp.payload),
+      message: resp.message,
+    };
+  }
+
+  onEngineState(listener: EngineStateListener): () => void {
+    this.stateListeners.add(listener);
+    return () => {
+      this.stateListeners.delete(listener);
+    };
   }
 
   /**
@@ -315,4 +389,57 @@ export class EngineClient {
     const data = encodeNoPayloadCommand(CMD_CLEAR_AUTOMATION);
     return this.sendRaw(CMD_CLEAR_AUTOMATION, data);
   }
+
+  private async consumeStateEvents(): Promise<void> {
+    if (!this.subscriber) {
+      return;
+    }
+
+    try {
+      for await (const message of this.subscriber) {
+        if (this.subscriptionClosed) {
+          return;
+        }
+
+        const [topicFrame, payloadFrame] = message as Buffer[];
+        if (!topicFrame || !payloadFrame) {
+          continue;
+        }
+
+        const topic = topicFrame.toString('utf-8');
+        if (topic !== ENGINE_STATE_TOPIC) {
+          continue;
+        }
+
+        const snapshot = decodeEngineStatePayload(payloadFrame);
+        for (const listener of this.stateListeners) {
+          try {
+            listener(snapshot);
+          } catch (error: unknown) {
+            console.warn(
+              `[EngineClient] engine.state listener failed: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      if (!this.subscriptionClosed) {
+        throw error;
+      }
+    }
+  }
+}
+
+function derivePubEndpoint(endpoint: string): string {
+  const match = endpoint.match(/^(tcp:\/\/[^:]+:)(\d+)$/);
+  if (!match) {
+    throw new Error(`Cannot derive pub endpoint from unsupported endpoint: ${endpoint}`);
+  }
+
+  const port = Number(match[2]);
+  if (!Number.isFinite(port)) {
+    throw new Error(`Cannot derive pub endpoint from endpoint: ${endpoint}`);
+  }
+
+  return `${match[1]}${port + 1}`;
 }

@@ -9,14 +9,16 @@ export default function PlaybackControls(): JSX.Element {
   const togglePlay = usePlaybackStore((s) => s.togglePlay);
   const stop = usePlaybackStore((s) => s.stop);
   const isStarting = status === 'starting';
+  const isStopping = status === 'stopping';
+  const isBusy = isStarting || isStopping;
 
   const handleToggle = async () => {
-    if (isStarting) {
+    if (isBusy) {
       return;
     }
 
     if (isPlaying) {
-      stop();
+      await stop();
     } else {
       await togglePlay();
     }
@@ -27,14 +29,14 @@ export default function PlaybackControls(): JSX.Element {
       <button
         className={`btn ${isPlaying ? 'btn-primary' : ''}`}
         onClick={handleToggle}
-        disabled={!hasProject || isStarting}
+        disabled={!hasProject || isBusy}
       >
         {isPlaying ? (
           <Square className="w-4 h-4" />
         ) : (
           <Play className="w-4 h-4" />
         )}
-        {isStarting ? 'Starting...' : isPlaying ? 'Stop' : 'Play'}
+        {isStarting ? 'Starting...' : isStopping ? 'Stopping...' : isPlaying ? 'Stop' : 'Play'}
       </button>
     </div>
   );

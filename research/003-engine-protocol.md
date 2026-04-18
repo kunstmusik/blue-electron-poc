@@ -4,9 +4,10 @@ This document describes the binary protocol used by the C++ blue-engine executab
 
 ## Connection
 
-- **Transport:** ZeroMQ REQ/REP
-- **Default Port:** Configurable (passed as command-line arg to engine)
-- **Pattern:** Synchronous request-response (host sends command, engine responds)
+- **Transport:** ZeroMQ REQ/REP for control and polling, plus ZeroMQ PUB/SUB for engine lifecycle events
+- **Default Control Port:** Configurable (passed as `--port` to the engine)
+- **Default Event Port:** `control port + 1`, override with `--pub-port`
+- **Pattern:** Synchronous request-response for commands, asynchronous event stream for playback state
 
 ## Message Format
 
@@ -32,7 +33,8 @@ For commands with payloads:
 | `0x01` | `CREATE_ENGINE` | None | None |
 | `0x05` | `START` | None | None |
 | `0x06` | `STOP` | None | None |
-| `0x07` | `EXIT` | None | None (engine exits) |
+| `0x07` | `DESTROY_ENGINE` | None | None |
+| `0x08` | `GET_ENGINE_STATE` | None | JSON engine state snapshot |
 
 ### Csound Control
 
@@ -62,6 +64,26 @@ For commands with payloads:
 | `0x24` | `DISABLE_AUTOMATION` | `[param_id: ...]` | None |
 | `0x25` | `LIST_AUTOMATION` | None | Serialized list |
 | `0x26` | `CLEAR_AUTOMATION` | None | None |
+
+## Engine State Snapshot
+
+`GET_ENGINE_STATE` returns a UTF-8 JSON payload with this shape:
+
+```json
+{
+   "state": "ready | running | stopped | empty",
+   "stopReason": "none | completed | stop-requested | destroyed | error",
+   "engineCreated": true,
+   "running": false,
+   "sampleFrames": 0,
+   "sampleRate": 44100,
+   "ksmps": 64,
+   "sequence": 1,
+   "lastError": ""
+}
+```
+
+The PUB/SUB socket publishes the same JSON payload on topic `engine.state` whenever the lifecycle changes.
 
 ## Automation Data Structures
 
@@ -132,9 +154,10 @@ struct ChannelEntry {
 
 ```
 1. Spawn blue-engine executable as child process
-   $ blue-engine --port 5555
+   $ blue-engine --port 5555 --pub-port 5556
 
 2. Connect ZMQ REQ socket to tcp://localhost:5555
+   Connect ZMQ SUB socket to tcp://localhost:5556 and subscribe to `engine.state`
 
 3. CREATE_ENGINE
    → csoundCreate()
@@ -165,14 +188,17 @@ struct ChannelEntry {
 10. STOP
     → stop perform thread
 
-11. EXIT (optional — or just kill process)
+11. Wait for `engine.state` terminal event (`completed`, `stop-requested`, or `error`)
+
+12. DESTROY_ENGINE (optional — or just kill process)
 ```
 
 ## TypeScript Client Implementation Notes
 
 ### ZMQ Library
 - Use `zeromq` npm package (native bindings to libzmq)
-- REQ socket: `socket.send()` returns promise, then `for await (const [data] of socket)` for response
+- REQ socket: `socket.send()` then `socket.receive()` for command/response traffic
+- SUB socket: subscribe to `engine.state`, then consume multipart `[topic, payload]` messages
 
 ### Shared Memory Access (macOS/Linux)
 - POSIX shared memory: `/var/folders/.../blue_engine_shm_XXXX`
@@ -186,7 +212,7 @@ struct ChannelEntry {
 - Requires native addon on Windows too
 
 ### Recommendation for Phase 1
-Use the ZMQ `SET_CHANNEL`/`GET_CHANNEL` commands for channel access. They proxy through to shared memory internally. This avoids native addon complexity for Phase 1. Add direct shared memory access later for lower latency if needed.
+Use the ZMQ `SET_CHANNEL`/`GET_CHANNEL` commands for channel access. They proxy through to shared memory internally. This avoids native addon complexity for Phase 1. Use pub/sub terminal events as the primary playback-exit signal, and reserve `GET_ENGINE_STATE` polling for reconciliation or recovery when an event is missed.
 
 ### Error Handling
 - All ZMQ responses should be checked for error status

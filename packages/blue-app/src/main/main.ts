@@ -291,19 +291,13 @@ async function startPlayback(): Promise<boolean> {
     const arrangement = currentData.getArrangement();
     const mixer = currentData.getMixer();
     let parameters: any[] | undefined;
-    let automationTiming:
-      | {
-          renderStartTime: number;
-          tempoMap: TempoMap;
-        }
-      | undefined;
+    const automationTiming = {
+      renderStartTime: currentData.getRenderStartTime(),
+      tempoMap: currentData.getScore().getTimeContext().getTempoMap(),
+    };
     if (arrangement && mixer) {
       parameters = ParameterHelper.getAllParameters(arrangement, mixer);
       ParameterHelper.assignParameterNames(parameters);
-      automationTiming = {
-        renderStartTime: currentData.getRenderStartTime(),
-        tempoMap: currentData.getScore().getTimeContext().getTempoMap(),
-      };
     }
 
     const success = await engineBridge.playCSD(csd, parameters, automationTiming);

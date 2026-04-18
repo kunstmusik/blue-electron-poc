@@ -10,7 +10,11 @@ export const CMD_READ_SCORE = 0x03;
 export const CMD_SET_OPTION = 0x04;
 export const CMD_START = 0x05;
 export const CMD_STOP = 0x06;
-export const CMD_EXIT = 0x07;
+export const CMD_DESTROY_ENGINE = 0x07;
+export const CMD_EXIT = CMD_DESTROY_ENGINE;
+export const CMD_GET_ENGINE_STATE = 0x08;
+
+export const ENGINE_STATE_TOPIC = 'engine.state';
 
 // Channel commands
 export const CMD_SET_CHANNEL = 0x10;
@@ -42,6 +46,22 @@ export enum AutomationCurveCode {
 export interface AutomationPoint {
   time: number;
   value: number;
+}
+
+export type EngineLifecycleState = 'empty' | 'ready' | 'running' | 'stopped';
+
+export type EngineStopReason = 'none' | 'completed' | 'stop-requested' | 'destroyed' | 'error';
+
+export interface EngineStateSnapshot {
+  state: EngineLifecycleState;
+  stopReason: EngineStopReason;
+  engineCreated: boolean;
+  running: boolean;
+  sampleFrames: number;
+  sampleRate: number;
+  ksmps: number;
+  sequence: number;
+  lastError: string;
 }
 
 /**
@@ -114,6 +134,23 @@ export function encodeGetChannel(name: string): Buffer {
 export function decodeChannelValue(buf: Buffer): number {
   if (buf.length < 9) return 0;
   return buf.readDoubleLE(1);
+}
+
+export function decodeEngineStatePayload(payload: Buffer | string): EngineStateSnapshot {
+  const raw = typeof payload === 'string' ? payload : payload.toString('utf-8');
+  const parsed = JSON.parse(raw) as Partial<EngineStateSnapshot>;
+
+  return {
+    state: (parsed.state ?? 'empty') as EngineLifecycleState,
+    stopReason: (parsed.stopReason ?? 'none') as EngineStopReason,
+    engineCreated: Boolean(parsed.engineCreated),
+    running: Boolean(parsed.running),
+    sampleFrames: Number(parsed.sampleFrames ?? 0),
+    sampleRate: Number(parsed.sampleRate ?? 0),
+    ksmps: Number(parsed.ksmps ?? 0),
+    sequence: Number(parsed.sequence ?? 0),
+    lastError: typeof parsed.lastError === 'string' ? parsed.lastError : '',
+  };
 }
 
 // ─── Automation Encoding ───

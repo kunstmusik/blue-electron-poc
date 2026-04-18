@@ -1,7 +1,39 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-18
-**Branch**: `012-demo2026-compile-investigation`
+**Branch**: `004-bsb-instruments`
+
+## Current Active Work — Engine State And Playback Lifecycle
+
+The current staged work in this repository moves playback completion and stop handling off the old duration-derived fallback and onto authoritative engine state.
+
+### Current Status
+
+- `@blue/engine-client` now exposes both `GET_ENGINE_STATE` polling and `engine.state` pub/sub subscriptions.
+- `blue-app` now treats pub/sub terminal state as the primary playback exit path and uses polling only as reconciliation if an event is missed.
+- the renderer playback model now includes an explicit `stopping` state, so stop is no longer optimistically rendered as complete before the engine reports its terminal state.
+- the `engine.state` subscriber no longer uses a receive timeout; quiet playback gaps are normal for a sparse state-change stream, and the background subscription loop now handles shutdown and listener errors without triggering unhandled promise rejections.
+- `research/003-engine-protocol.md` now documents the control socket, pub/sub socket, `GET_ENGINE_STATE`, and the JSON lifecycle snapshot schema.
+
+### Active Files
+
+| Area | Files | Purpose |
+|---|---|---|
+| Electron playback orchestration | `packages/blue-app/src/main/engine-bridge.ts`, `packages/blue-app/src/main/main.ts` | start blue-engine with control + pub ports, consume engine state events, and reconcile playback shutdown |
+| Renderer playback UX | `packages/blue-app/src/renderer/stores/playback-store.ts`, `packages/blue-app/src/renderer/components/menu-bar/MenuBar.tsx`, `packages/blue-app/src/renderer/components/playback/PlaybackControls.tsx`, `packages/blue-app/src/renderer/hooks/use-keyboard-shortcuts.ts`, `packages/blue-app/src/renderer/hooks/use-ipc-listeners.ts`, `packages/blue-app/src/renderer/types/global.d.ts` | reflect `starting`/`stopping`/`stopped` transitions accurately |
+| Engine protocol client | `packages/blue-engine-client/src/protocol.ts`, `packages/blue-engine-client/src/engine-client.ts`, `packages/blue-engine-client/src/index.ts` | add polling, pub/sub, state snapshot decoding, and safer subscription lifecycle handling |
+| Regression coverage | `packages/blue-engine-client/tests/engine-client.test.ts`, `packages/blue-engine-client/tests/protocol.test.ts`, `packages/blue-app/src/renderer/tests/app.test.ts` | cover state polling, pub/sub dispatch, listener isolation, and renderer stop-state behavior |
+| Protocol notes | `research/003-engine-protocol.md` | record the current cross-repo engine contract |
+
+### Verification
+
+- `cd packages/blue-engine-client && pnpm test && pnpm build`
+- `cd packages/blue-app && pnpm test && pnpm build`
+- live smoke test against a matching `blue-engine` binary verified pub/sub delivery of `ready -> running -> stopped(completed)` for a multi-second score with no polling assist
+
+### Coordination Note
+
+This repository work expects a matching `blue-engine` binary that supports both `GET_ENGINE_STATE` on the control socket and `engine.state` on the pub/sub socket. The Electron-side logic here is correct only when paired with that updated engine protocol.
 
 ## Spec 011 — Closed
 

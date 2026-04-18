@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type PlaybackStatus = 'idle' | 'starting' | 'playing' | 'error';
+export type PlaybackStatus = 'idle' | 'starting' | 'playing' | 'stopping' | 'stopped' | 'error';
 
 interface PlaybackState {
   isPlaying: boolean;
@@ -10,7 +10,7 @@ interface PlaybackState {
 
 interface PlaybackActions {
   togglePlay: () => Promise<void>;
-  stop: () => void;
+  stop: () => Promise<void>;
   setPlaying: (playing: boolean) => void;
   setStatus: (info: { status: string; message?: string }) => void;
   setError: (error: string) => void;
@@ -23,12 +23,12 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
   message: '',
 
   togglePlay: async () => {
-    if (get().status === 'starting') {
+    if (get().status === 'starting' || get().status === 'stopping') {
       return;
     }
 
     if (get().isPlaying) {
-      get().stop();
+      await get().stop();
       return;
     }
 
@@ -40,7 +40,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
       if (get().status === 'starting') {
         set({
           isPlaying: playing,
-          status: playing ? 'playing' : 'idle',
+          status: playing ? 'playing' : 'stopped',
           message: playing ? 'Playing via blue-engine' : '',
         });
       }
@@ -49,19 +49,35 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
     }
   },
 
-  stop: () => {
-    window.blueAPI.stopPlayback();
-    set({ isPlaying: false, status: 'idle', message: '' });
+  stop: async () => {
+    const state = get();
+    const shouldShowStopping = state.status === 'starting' || state.status === 'playing' || state.status === 'stopping';
+
+    if (shouldShowStopping) {
+      set({
+        isPlaying: state.isPlaying,
+        status: 'stopping',
+        message: 'Stopping playback...',
+      });
+    }
+
+    await window.blueAPI.stopPlayback();
   },
 
   setPlaying: (isPlaying) => set({ isPlaying }),
 
-  setStatus: ({ status, message }) =>
+  setStatus: ({ status, message }) => {
+    const normalizedStatus: PlaybackStatus =
+      status === 'starting' || status === 'playing' || status === 'stopping' || status === 'stopped' || status === 'error'
+        ? status
+        : 'idle';
+
     set({
-      status: status as PlaybackStatus,
-      isPlaying: status === 'playing',
+      status: normalizedStatus,
+      isPlaying: normalizedStatus === 'playing' || normalizedStatus === 'stopping',
       message: message || '',
-    }),
+    });
+  },
 
   setError: (error) =>
     set({

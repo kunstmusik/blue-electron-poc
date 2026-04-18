@@ -23,7 +23,7 @@ export function useKeyboardShortcuts(): void {
       // Escape = stop playback
       if (e.code === 'Escape' && !meta) {
         e.preventDefault();
-        stop();
+        await stop();
       }
 
       // Cmd/Ctrl+O = open file

@@ -7,7 +7,7 @@
  * A playback lock prevents concurrent operations.
  */
 import { ChildProcess, spawn } from 'child_process';
-import { EngineClient, AutomationCurveCode } from '@blue/engine-client';
+import { EngineClient, AutomationCurveCode, type EngineStateSnapshot } from '@blue/engine-client';
 import { BrowserWindow, dialog } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,6 +19,11 @@ interface AutomationTimingContext {
   tempoMap?: TempoMap | null;
 }
 
+interface PendingTerminalStateCandidate {
+  snapshot: EngineStateSnapshot;
+  firstSeenAt: number;
+}
+
 export class EngineBridge {
   private engineProcess: ChildProcess | null = null;
   private client: EngineClient | null = null;
@@ -26,13 +31,204 @@ export class EngineBridge {
   private isPlaying = false;
   private enginePath: string;
   private port: number;
+  private pubPort: number;
   private stderr = '';
   private playbackLock = false;
+  private playbackSessionId = 0;
+  private statePollingTimer: ReturnType<typeof setInterval> | null = null;
+  private engineStateUnsubscribe: (() => void) | null = null;
+  private awaitingPlaybackTerminalState = false;
+  private lastEngineStateSequence = 0;
+  private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
+  private terminalCleanupPromise: Promise<void> | null = null;
 
-  constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number) {
+  constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number, pubPort?: number) {
     this.mainWindow = mainWindow;
     this.enginePath = enginePath || 'blue-engine';
     this.port = port || 5555;
+    this.pubPort = pubPort || this.port + 1;
+  }
+
+  private sendPlaybackStatus(status: 'starting' | 'playing' | 'stopping' | 'stopped' | 'error', message?: string): void {
+    this.mainWindow.webContents.send('playback-status', message ? { status, message } : { status });
+  }
+
+  private clearStatePolling(): void {
+    if (this.statePollingTimer) {
+      clearInterval(this.statePollingTimer);
+      this.statePollingTimer = null;
+    }
+  }
+
+  private resetPlaybackTracking(): void {
+    this.clearStatePolling();
+    this.awaitingPlaybackTerminalState = false;
+    this.pendingPolledTerminalState = null;
+    this.lastEngineStateSequence = 0;
+  }
+
+  private detachEngineStateListener(): void {
+    if (this.engineStateUnsubscribe) {
+      this.engineStateUnsubscribe();
+      this.engineStateUnsubscribe = null;
+    }
+  }
+
+  private attachEngineStateListener(client: EngineClient): void {
+    this.detachEngineStateListener();
+    this.engineStateUnsubscribe = client.onEngineState((snapshot) => {
+      void this.handleEngineState(snapshot, 'pubsub');
+    });
+  }
+
+  private startStatePolling(sessionId: number): void {
+    this.clearStatePolling();
+    this.statePollingTimer = setInterval(() => {
+      void this.pollEngineState(sessionId);
+    }, 250);
+  }
+
+  private async pollEngineState(sessionId: number): Promise<void> {
+    if (sessionId !== this.playbackSessionId || !this.client || !this.awaitingPlaybackTerminalState) {
+      return;
+    }
+
+    try {
+      const resp = await this.client.getEngineState();
+      if (resp.ok && resp.state) {
+        await this.handleEngineState(resp.state, 'poll');
+      }
+    } catch (error: unknown) {
+      if (sessionId === this.playbackSessionId && this.awaitingPlaybackTerminalState) {
+        console.warn(`[EngineBridge] getEngineState poll failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  private async handleEngineState(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): Promise<void> {
+    if (!this.awaitingPlaybackTerminalState) {
+      return;
+    }
+
+    if (snapshot.sequence < this.lastEngineStateSequence) {
+      return;
+    }
+
+    if (snapshot.sequence > this.lastEngineStateSequence) {
+      this.lastEngineStateSequence = snapshot.sequence;
+      if (snapshot.state !== 'stopped') {
+        this.pendingPolledTerminalState = null;
+      }
+    }
+
+    if (snapshot.state !== 'stopped') {
+      return;
+    }
+
+    if (source === 'pubsub') {
+      this.pendingPolledTerminalState = null;
+      await this.finalizePlaybackFromEngine(snapshot, 'pubsub');
+      return;
+    }
+
+    const now = Date.now();
+    if (!this.pendingPolledTerminalState ||
+        this.pendingPolledTerminalState.snapshot.sequence !== snapshot.sequence) {
+      this.pendingPolledTerminalState = { snapshot, firstSeenAt: now };
+      return;
+    }
+
+    if (now - this.pendingPolledTerminalState.firstSeenAt >= 400) {
+      await this.finalizePlaybackFromEngine(snapshot, 'poll');
+    }
+  }
+
+  private describeTerminalState(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): {
+    status: 'stopped' | 'error';
+    message: string;
+  } {
+    const sourceSuffix = source === 'poll' ? ' (reconciled via poll)' : '';
+
+    switch (snapshot.stopReason) {
+      case 'completed':
+        return { status: 'stopped', message: `Playback finished${sourceSuffix}` };
+      case 'stop-requested':
+        return { status: 'stopped', message: `Playback stopped${sourceSuffix}` };
+      case 'destroyed':
+        return { status: 'stopped', message: `Playback stopped${sourceSuffix}` };
+      case 'error':
+        return {
+          status: 'error',
+          message: snapshot.lastError
+            ? `Engine error: ${snapshot.lastError}${sourceSuffix}`
+            : `Engine error${sourceSuffix}`,
+        };
+      case 'none':
+      default:
+        return { status: 'stopped', message: `Playback stopped${sourceSuffix}` };
+    }
+  }
+
+  private async teardownClient(): Promise<void> {
+    const client = this.client;
+    this.client = null;
+    this.detachEngineStateListener();
+
+    if (!client) {
+      return;
+    }
+
+    try {
+      await client.disconnect();
+    } catch (error: unknown) {
+      console.warn(`[EngineBridge] client disconnect failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private killEngineProcess(): void {
+    if (this.engineProcess && !this.engineProcess.killed) {
+      try {
+        this.engineProcess.kill('SIGKILL');
+      } catch {
+        // Process already dead
+      }
+    }
+
+    this.engineProcess = null;
+  }
+
+  private async resetEngineResources(): Promise<void> {
+    this.resetPlaybackTracking();
+    await this.teardownClient();
+    this.killEngineProcess();
+    this.isPlaying = false;
+    this.terminalCleanupPromise = null;
+  }
+
+  private async finalizePlaybackFromEngine(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): Promise<void> {
+    if (!this.awaitingPlaybackTerminalState) {
+      return;
+    }
+
+    if (this.terminalCleanupPromise) {
+      return this.terminalCleanupPromise;
+    }
+
+    this.awaitingPlaybackTerminalState = false;
+    this.clearStatePolling();
+    this.pendingPolledTerminalState = null;
+    const { status, message } = this.describeTerminalState(snapshot, source);
+
+    this.terminalCleanupPromise = (async () => {
+      this.isPlaying = false;
+      await this.teardownClient();
+      this.killEngineProcess();
+      this.sendPlaybackStatus(status, message);
+    })().finally(() => {
+      this.terminalCleanupPromise = null;
+    });
+
+    return this.terminalCleanupPromise;
   }
 
   /**
@@ -60,19 +256,10 @@ export class EngineBridge {
 
   /**
    * Force-kill the engine process and clean up all resources.
-   * Does NOT send ZMQ commands — just SIGKILL the process.
+   * Does NOT send playback status.
    */
-  private killEngine(): void {
-    if (this.engineProcess && !this.engineProcess.killed) {
-      try {
-        this.engineProcess.kill('SIGKILL');
-      } catch {
-        // Process already dead
-      }
-    }
-    this.engineProcess = null;
-    this.client = null;
-    this.isPlaying = false;
+  private async killEngine(): Promise<void> {
+    await this.resetEngineResources();
   }
 
   /**
@@ -80,7 +267,7 @@ export class EngineBridge {
    */
   async startEngine(): Promise<boolean> {
     // Ensure no leftover process
-    this.killEngine();
+    await this.killEngine();
 
     const enginePath = this.findEngine();
     if (!enginePath) {
@@ -97,10 +284,10 @@ export class EngineBridge {
     const shmName = `blue-engine-${Date.now()}`;
 
     this.stderr = '';
-    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port} --shm ${shmName}`);
+    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port} --pub-port ${this.pubPort} --shm ${shmName}`);
 
     // Spawn blue-engine with unique shm name
-    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`, '--shm', shmName], {
+    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -116,15 +303,25 @@ export class EngineBridge {
 
     this.engineProcess.on('exit', (code, signal) => {
       console.log(`[EngineBridge] Engine exited: code=${code}, signal=${signal}`);
-      if (this.isPlaying) {
-        // Engine exited unexpectedly during playback
-        this.isPlaying = false;
-        this.mainWindow.webContents.send('playback-status', {
-          status: 'stopped',
-          message: this.stderr
-            ? `Engine error: ${this.stderr.trim().split('\n').pop()}`
-            : `Engine exited (code: ${code}, signal: ${signal})`,
-        });
+      const awaitingTerminalState = this.awaitingPlaybackTerminalState;
+      const stderrMessage = this.stderr.trim();
+      const exitingClient = this.client;
+
+      this.resetPlaybackTracking();
+      this.detachEngineStateListener();
+      this.engineProcess = null;
+      this.client = null;
+      this.isPlaying = false;
+
+      if (exitingClient) {
+        void exitingClient.disconnect(false).catch(() => undefined);
+      }
+
+      if (awaitingTerminalState && !this.terminalCleanupPromise) {
+        const detail = stderrMessage
+          ? `Engine error: ${stderrMessage.split('\n').pop()}`
+          : `Engine exited before publishing terminal playback state (code: ${code}, signal: ${signal})`;
+        this.sendPlaybackStatus('error', detail);
       }
     });
 
@@ -151,12 +348,14 @@ export class EngineBridge {
     try {
       this.client = new EngineClient({
         endpoint: `tcp://localhost:${this.port}`,
+        pubEndpoint: `tcp://localhost:${this.pubPort}`,
         timeout: 10000,
       });
       await this.client.connect();
+      this.attachEngineStateListener(this.client);
     } catch (err: unknown) {
       console.error(`[EngineBridge] ZMQ connect failed: ${err instanceof Error ? err.message : String(err)}`);
-      this.killEngine();
+      await this.killEngine();
       return false;
     }
 
@@ -165,7 +364,7 @@ export class EngineBridge {
       const createResp = await this.client.createEngine();
       if (!createResp.ok) {
         console.error(`[EngineBridge] createEngine failed: ${createResp.message}`);
-        this.killEngine();
+        await this.killEngine();
         return false;
       }
 
@@ -175,7 +374,7 @@ export class EngineBridge {
       }
     } catch (err: unknown) {
       console.error(`[EngineBridge] Engine init failed: ${err instanceof Error ? err.message : String(err)}`);
-      this.killEngine();
+      await this.killEngine();
       return false;
     }
 
@@ -186,20 +385,37 @@ export class EngineBridge {
   /**
    * Stop playback, kill the engine, and reset state.
    */
-  async stopEngine(): Promise<void> {
+  async stopEngine(emitStatus = true, message?: string): Promise<void> {
     // Send stop command if client is available and playing
     if (this.client && this.isPlaying) {
+      if (emitStatus) {
+        this.sendPlaybackStatus('stopping', message ?? 'Stopping playback...');
+      }
+
       try {
         const resp = await this.client.stop();
         console.log(`[EngineBridge] stop: ${resp.ok ? 'OK' : 'FAILED'} ${resp.message}`);
+        if (!resp.ok) {
+          await this.killEngine();
+          if (emitStatus) {
+            this.sendPlaybackStatus('error', `Engine stop failed: ${resp.message}`);
+          }
+        }
       } catch (err) {
         console.warn(`[EngineBridge] stop command error: ${err instanceof Error ? err.message : String(err)}`);
+        await this.killEngine();
+        if (emitStatus) {
+          this.sendPlaybackStatus('error', err instanceof Error ? err.message : String(err));
+        }
       }
+
+      return;
     }
 
-    // Force-kill the process regardless
-    this.killEngine();
-    this.mainWindow.webContents.send('playback-status', { status: 'stopped' });
+    await this.killEngine();
+    if (emitStatus) {
+      this.sendPlaybackStatus('stopped', message);
+    }
   }
 
   /**
@@ -220,9 +436,6 @@ export class EngineBridge {
     this.playbackLock = true;
 
     try {
-      // Destroy existing engine and start fresh
-      await this.stopEngine();
-
       const started = await this.startEngine();
       if (!started) return false;
       if (!this.client) return false;
@@ -304,10 +517,12 @@ export class EngineBridge {
       }
 
       this.isPlaying = true;
-      this.mainWindow.webContents.send('playback-status', {
-        status: 'playing',
-        message: 'Playing via blue-engine',
-      });
+      this.playbackSessionId += 1;
+      this.awaitingPlaybackTerminalState = true;
+      this.pendingPolledTerminalState = null;
+      this.lastEngineStateSequence = 0;
+      this.startStatePolling(this.playbackSessionId);
+      this.sendPlaybackStatus('playing', 'Playing via blue-engine');
 
       return true;
     } finally {
@@ -390,7 +605,7 @@ export class EngineBridge {
   async stopPlayback(): Promise<void> {
     if (!this.isPlaying && !this.client) {
       // Nothing to stop
-      this.mainWindow.webContents.send('playback-status', { status: 'stopped' });
+      this.sendPlaybackStatus('stopped');
       return;
     }
 

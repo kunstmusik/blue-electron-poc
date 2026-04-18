@@ -5,6 +5,7 @@ import {
   encodeNameCommand,
   encodeNoPayloadCommand,
   decodeAutomationList,
+  decodeEngineStatePayload,
   AutomationCurveCode,
   CMD_CREATE_AUTOMATION,
   CMD_UPDATE_AUTOMATION,
@@ -13,6 +14,7 @@ import {
   CMD_DISABLE_AUTOMATION,
   CMD_LIST_AUTOMATION,
   CMD_CLEAR_AUTOMATION,
+  CMD_GET_ENGINE_STATE,
 } from '../src/protocol';
 
 describe('Automation Protocol Encoding', () => {
@@ -156,6 +158,14 @@ describe('Automation Protocol Encoding', () => {
     expect(clearBuf.readUInt8(0)).toBe(CMD_CLEAR_AUTOMATION);
     expect(clearBuf.length).toBe(5);
   });
+
+  it('encodes getEngineState as a no-payload command', () => {
+    const buf = encodeNoPayloadCommand(CMD_GET_ENGINE_STATE);
+
+    expect(buf.readUInt8(0)).toBe(CMD_GET_ENGINE_STATE);
+    expect(buf.readUInt32LE(1)).toBe(0);
+    expect(buf.length).toBe(5);
+  });
 });
 
 describe('Automation List Decoding', () => {
@@ -210,5 +220,31 @@ describe('Automation List Decoding', () => {
     expect(entries[0].enabled).toBe(true);
     expect(entries[1].channel).toBe('ch1');
     expect(entries[1].enabled).toBe(false);
+  });
+
+  it('decodes engine state snapshots from JSON payloads', () => {
+    const snapshot = decodeEngineStatePayload(Buffer.from(JSON.stringify({
+      state: 'stopped',
+      stopReason: 'completed',
+      engineCreated: true,
+      running: false,
+      sampleFrames: 88200,
+      sampleRate: 44100,
+      ksmps: 64,
+      sequence: 7,
+      lastError: '',
+    }), 'utf-8'));
+
+    expect(snapshot).toEqual({
+      state: 'stopped',
+      stopReason: 'completed',
+      engineCreated: true,
+      running: false,
+      sampleFrames: 88200,
+      sampleRate: 44100,
+      ksmps: 64,
+      sequence: 7,
+      lastError: '',
+    });
   });
 });
