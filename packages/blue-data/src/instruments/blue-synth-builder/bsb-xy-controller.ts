@@ -5,6 +5,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { formatBlueNumber } from '../../utilities/number-format';
 
 export class BSBXYController extends BSBWidget {
   xValue = 0.5;
@@ -18,8 +19,8 @@ export class BSBXYController extends BSBWidget {
   override collectReplacements(unit: BSBCompilationUnit): void {
     const xName = this.parameterName ? `${this.parameterName}_X` : `${this.objectName}_X`;
     const yName = this.parameterName ? `${this.parameterName}_Y` : `${this.objectName}_Y`;
-    unit.addReplacementValue(xName, this.xValue.toString());
-    unit.addReplacementValue(yName, this.yValue.toString());
+    unit.addReplacementValue(xName, formatBlueNumber(this.xValue));
+    unit.addReplacementValue(yName, formatBlueNumber(this.yValue));
   }
 
   loadFromXML(data: Element): void {

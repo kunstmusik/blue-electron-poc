@@ -8,6 +8,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { Parameter } from '../../automation/parameter';
+import { formatBlueNumber } from '../../utilities/number-format';
 
 export abstract class BSBWidget {
   objectName = '';
@@ -38,7 +39,7 @@ export abstract class BSBWidget {
         return;
       }
     }
-    unit.addReplacementValue(this.objectName, this.value.toString());
+    unit.addReplacementValue(this.objectName, formatBlueNumber(this.value));
   }
 
   /**

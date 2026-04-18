@@ -7,6 +7,7 @@ import { MeterMap } from '../../src/time/meter-map';
 import { Meter } from '../../src/time/meter';
 import { MeasureMeterPair } from '../../src/time/measure-meter-pair';
 import { makeDefaultContext } from './helpers';
+import { Element } from '../../src/serialization/xml-reader';
 
 describe('TimeDuration', () => {
   let context: TimeContext;
@@ -200,6 +201,36 @@ describe('TimeDuration', () => {
   it('testDurationFramesXMLRoundTrip', () => {
     const original = TimeDuration.frames(88200);
     expect(original.equals(TimeDuration.loadFromXML(original.saveAsXML()))).toBe(true);
+  });
+
+  it('testDurationXMLUsesJavaTagNames', () => {
+    const bbt = TimeDuration.bbt(2, 3, 120).saveAsXML();
+    expect(bbt.getElement('bars')?.getTextString()).toBe('2');
+    expect(bbt.getElement('beats')?.getTextString()).toBe('3');
+    expect(bbt.getElement('bar')).toBeNull();
+    expect(bbt.getElement('beat')).toBeNull();
+
+    const seconds = TimeDuration.seconds(12.5).saveAsXML();
+    expect(seconds.getElement('totalSeconds')?.getTextString()).toBe('12.5');
+    expect(seconds.getElement('seconds')).toBeNull();
+
+    const frames = TimeDuration.frames(88200).saveAsXML();
+    expect(frames.getElement('frameCount')?.getTextString()).toBe('88200');
+    expect(frames.getElement('frameNumber')).toBeNull();
+  });
+
+  it('testDurationXMLLoadsJavaAndLegacyTagNames', () => {
+    const javaBbt = Element.parse('<duration type="BBT"><bars>1</bars><beats>2</beats><ticks>120</ticks></duration>');
+    const legacyBbt = Element.parse('<duration type="BBT"><bar>1</bar><beat>2</beat><ticks>120</ticks></duration>');
+    expect(TimeDuration.loadFromXML(javaBbt).equals(TimeDuration.loadFromXML(legacyBbt))).toBe(true);
+
+    const javaSeconds = Element.parse('<duration type="SECONDS"><totalSeconds>2.5</totalSeconds></duration>');
+    const legacySeconds = Element.parse('<duration type="SECONDS"><seconds>2.5</seconds></duration>');
+    expect(TimeDuration.loadFromXML(javaSeconds).equals(TimeDuration.loadFromXML(legacySeconds))).toBe(true);
+
+    const javaFrame = Element.parse('<duration type="FRAME"><frameCount>44100</frameCount></duration>');
+    const legacyFrame = Element.parse('<duration type="FRAME"><frameNumber>44100</frameNumber></duration>');
+    expect(TimeDuration.loadFromXML(javaFrame).equals(TimeDuration.loadFromXML(legacyFrame))).toBe(true);
   });
 
   // ===== Position vs Duration BBT =====

@@ -375,12 +375,12 @@ export class TimePosition {
 
       case TimeBase.SECONDS:
         elem.setAttribute('type', 'SECONDS');
-        elem.addElement('seconds').setText(this._totalSeconds.toString());
+        elem.addElement('totalSeconds').setText(this._totalSeconds.toString());
         break;
 
       case TimeBase.FRAME:
         elem.setAttribute('type', 'FRAME');
-        elem.addElement('frameNumber').setText(this._frameNumber.toString());
+        elem.addElement('frameCount').setText(this._frameNumber.toString());
         break;
 
       default:
@@ -438,13 +438,13 @@ export class TimePosition {
 
       case 'SECONDS':
       case 'SecondsValue': {
-        const totalSeconds = parseFloat(data.getTextString('seconds') ?? data.getTextString() ?? '0');
+        const totalSeconds = parseFloat(data.getTextString('totalSeconds') ?? data.getTextString('seconds') ?? data.getTextString() ?? '0');
         return TimePosition.seconds(totalSeconds);
       }
 
       case 'FRAME':
       case 'FrameValue': {
-        const frameNumber = parseFloat(data.getTextString('frameNumber') ?? data.getTextString() ?? '0');
+        const frameNumber = parseFloat(data.getTextString('frameCount') ?? data.getTextString('frameNumber') ?? data.getTextString() ?? '0');
         return TimePosition.frames(frameNumber);
       }
 

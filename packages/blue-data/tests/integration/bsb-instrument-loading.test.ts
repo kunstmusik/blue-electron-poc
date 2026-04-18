@@ -153,12 +153,12 @@ describe.skipIf(!fs.existsSync(DEMO2022_PATH))('BSB Integration: demo2022.blue',
     expect(instr2).not.toBeNull();
     expect(instr3).not.toBeNull();
 
-    expect(instr1![1]).toMatch(/ga_bluemix_0_0 \+= aLeft/);
-    expect(instr1![1]).toMatch(/ga_bluemix_0_1 \+= aRight/);
-    expect(instr2![1]).toMatch(/ga_bluemix_1_0 \+= aLeft/);
-    expect(instr2![1]).toMatch(/ga_bluemix_1_1 \+= aRight/);
-    expect(instr3![1]).toMatch(/ga_bluemix_2_0 \+= a1/);
-    expect(instr3![1]).toMatch(/ga_bluemix_2_1 \+= a2/);
+    expect(instr1![1]).toMatch(/ga_bluemix_0_0 \+=  aLeft/);
+    expect(instr1![1]).toMatch(/ga_bluemix_0_1 \+=  aRight/);
+    expect(instr2![1]).toMatch(/ga_bluemix_1_0 \+=  aLeft/);
+    expect(instr2![1]).toMatch(/ga_bluemix_1_1 \+=  aRight/);
+    expect(instr3![1]).toMatch(/ga_bluemix_2_0 \+=  a1/);
+    expect(instr3![1]).toMatch(/ga_bluemix_2_1 \+=  a2/);
 
     expect(instr1![1]).not.toMatch(/\boutc\b/);
     expect(instr2![1]).not.toMatch(/\boutc\b/);

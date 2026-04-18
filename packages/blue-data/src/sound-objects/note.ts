@@ -8,6 +8,8 @@
  * Notes are built by SoundObjects during CSD generation and collected
  * into NoteLists for the final score output.
  */
+import { formatBlueNumber, formatJavaDouble } from '../utilities/number-format';
+
 export class Note {
   private _pFields = new Map<number, string>();
   private _startTime = 0;
@@ -62,9 +64,9 @@ export class Note {
     // p1 (instrument) — prefixed with 'i'
     parts.push('i' + (this._pFields.get(1) ?? '0'));
     // p2 (start time)
-    parts.push(this._startTime.toString());
+    parts.push(formatJavaDouble(this._startTime));
     // p3 (duration)
-    parts.push(this._subjectiveDuration.toString());
+    parts.push(formatBlueNumber(this._subjectiveDuration));
     // p4+ (parameters)
     for (let i = 4; ; i++) {
       const val = this._pFields.get(i);

@@ -1,13 +1,3 @@
-/**
- * JavaScriptObject — a SoundObject that generates notes via JavaScript code.
- * Mirrors the Java JavaScriptObject class (which used Nashorn/GraalJS).
- *
- * The user's JS code is executed in a sandboxed context. The code should
- * set a `score` variable containing Csound score text (e.g., "i1 0 2").
- *
- * In Node.js: uses vm.runInNewContext()
- * In browser: uses new Function()
- */
 import { AbstractSoundObject } from './abstract-sound-object';
 import { SoundObjectException } from './sound-object-exception';
 import { NoteList } from './note-list';
@@ -18,10 +8,8 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { initBasicFromXML } from './sound-object-utilities';
+import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
 
-/**
- * Parse Csound score text into notes (same as GenericScore).
- */
 function parseScoreText(scoreText: string): NoteList {
   const notes = new NoteList();
   const lines = scoreText.split('\n');
@@ -31,7 +19,11 @@ function parseScoreText(scoreText: string): NoteList {
     const parts = trimmed.split(/\s+/);
     if (parts.length < 3) continue;
     const note = new Note();
-    note.setPField(parts[0], 1);
+    let instr = parts[0];
+    if (instr.startsWith('i') || instr.startsWith('I')) {
+      instr = instr.substring(1);
+    }
+    note.setPField(instr, 1);
     note.setStartTime(parseFloat(parts[1]));
     note.setSubjectiveDuration(parseFloat(parts[2]));
     for (let i = 3; i < parts.length; i++) {
@@ -42,14 +34,55 @@ function parseScoreText(scoreText: string): NoteList {
   return notes;
 }
 
-/**
- * Execute JS code in a sandboxed context and return the `score` variable.
- * Uses new Function() — works in both Node.js and browser.
- */
-function executeJavaScriptCode(code: string, duration: number): string {
+let vmModule: typeof import('vm') | null = null;
+
+try {
+  vmModule = require('vm');
+} catch {
+  // vm not available (browser environment)
+}
+
+type VmContext = { context: Record<string, unknown>; isVm: boolean };
+
+const sharedContextCache = new WeakMap<object, VmContext>();
+
+function getSharedContext(compilerData: CompileData): VmContext {
+  const existing = sharedContextCache.get(compilerData);
+  if (existing) return existing;
+
+  let context: VmContext;
+  if (vmModule) {
+    const sandbox: Record<string, unknown> = {};
+    const vmContext = vmModule.createContext(sandbox);
+    context = { context: vmContext as Record<string, unknown>, isVm: true };
+  } else {
+    context = { context: {}, isVm: false };
+  }
+  sharedContextCache.set(compilerData, context);
+  return context;
+}
+
+function executeInContext(code: string, ctx: VmContext): void {
+  if (ctx.isVm && vmModule) {
+    vmModule.runInContext(code, ctx.context as import('vm').Context);
+  } else {
+    const fn = new Function(code);
+    fn.call(ctx.context);
+  }
+}
+
+function executeJavaScriptCode(
+  code: string,
+  duration: number,
+  compileData: CompileData,
+): string {
   try {
-    const fn = new Function('duration', code + '\nreturn score;');
-    return fn(duration);
+    const ctx = getSharedContext(compileData);
+
+    executeInContext(`var blueDuration = ${duration}; var score = '';`, ctx);
+    executeInContext(code, ctx);
+
+    return String(ctx.context.score ?? '');
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     throw new SoundObjectException(`JavaScript execution error: ${msg}`, e as Error);
@@ -73,13 +106,27 @@ export class JavaScriptObject extends AbstractSoundObject {
 
   override generateForCSD(
     context: TimeContext,
-    _compileData: CompileData,
+    compileData: CompileData,
     _startTime: number,
     _endTime: number,
   ): NoteList {
     const duration = this._subjectiveDuration.toBeats(context);
-    const scoreText = executeJavaScriptCode(this._javaScriptCode, duration);
-    return parseScoreText(scoreText);
+    const scoreText = executeJavaScriptCode(this._javaScriptCode, duration, compileData);
+    const noteList = parseScoreText(scoreText);
+    const processed = applyNoteProcessorChain(noteList, this.getNoteProcessorChain());
+    const startTime = this.getStartTime().toBeats(context);
+    const repeatPoint = this.getRepeatPoint();
+    const repeatPointBeats = repeatPoint ? repeatPoint.toBeats(context) : -1;
+
+    applyTimeBehavior(
+      processed,
+      this.getTimeBehavior(),
+      duration,
+      repeatPointBeats,
+    );
+    setScoreStart(processed, startTime);
+
+    return processed;
   }
 
   // ─── XML ───

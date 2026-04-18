@@ -40,6 +40,7 @@ import { Effect } from "./mixer/effect";
 import { EffectsChain } from "./mixer/effects-chain";
 import { Send } from "./mixer/send";
 import { UDOStyle } from "./opcodes/udo-style";
+import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
 
 export class BlueData implements BlueDataObject {
   // Version
@@ -384,6 +385,13 @@ export class BlueData implements BlueDataObject {
     let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
     let globalSco = this.globalOrcSco.getGlobalSco() || "";
 
+    const appendGlobalOrc = (section: string) => {
+      if (!section) {
+        return;
+      }
+      globalOrc += `\n${section}`;
+    };
+
     // Mixer init statements
     if (this.mixer.isEnabled()) {
       const mixerInits = this.mixer.getInitStatements(
@@ -391,7 +399,10 @@ export class BlueData implements BlueDataObject {
         nchnls,
       );
       if (mixerInits) {
-        globalOrc = globalOrc ? globalOrc + "\n" + mixerInits : mixerInits;
+        // Java appends an extra newline after mixer init statements before
+        // adding them to GlobalOrcSco, which preserves a two-blank-line gap
+        // before parameter init statements.
+        appendGlobalOrc(`${mixerInits}\n\n`);
       }
     }
 
@@ -416,24 +427,18 @@ export class BlueData implements BlueDataObject {
       }
     }
 
-    let udoText = Array.from(udoSet.values()).join("\n\n");
-    if (udoText) {
-      globalOrc = globalOrc ? globalOrc + "\n\n" + udoText : udoText;
-    }
-
-    // Parameter init statements
+    // Parameter and string-channel init statements are appended to the stored
+    // global orchestra text as one block, matching Java handleParameters().
     const parameters = getAllParameters(this.arrangement, this.mixer);
     assignParameterNames(parameters);
-    const paramInits = this.buildParameterInits(parameters);
-    if (paramInits) {
-      globalOrc = globalOrc ? globalOrc + "\n" + paramInits : paramInits;
-    }
-
-    // String channel init statements from BSB instruments
     const stringChannels = this.collectStringChannels();
     const stringInits = this.buildStringChannelInits(stringChannels);
-    if (stringInits) {
-      globalOrc = globalOrc ? globalOrc + "\n" + stringInits : stringInits;
+    const paramInits = this.buildParameterInits(parameters);
+    const runtimeInitStatements = [stringInits, paramInits]
+      .filter((section) => section.length > 0)
+      .join("\n");
+    if (runtimeInitStatements) {
+      appendGlobalOrc(`${runtimeInitStatements}\n`);
     }
 
     // F-tables
@@ -441,6 +446,24 @@ export class BlueData implements BlueDataObject {
 
     // Build per-instrument parameter map for BSB compilation
     const parameterMap = this.buildParameterMap();
+
+    // Mixer → effect UDOs + always-on instruments + BlueMixer
+    let mixerEffectUDOs: string[] = [];
+    let mixerInstruments = "";
+    if (this.mixer.isEnabled()) {
+      const mixerOutput = this.generateMixerOrchestra(
+        channelIdAssignments,
+        nchnls,
+        parameterMap,
+        parameters,
+      );
+      mixerEffectUDOs = mixerOutput.effectUDOs;
+      mixerInstruments = mixerOutput.instrumentsText;
+    }
+
+    const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
+    const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
+    const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
 
     // Arrangement → orchestra
     const orc = this.arrangement.generateOrchestra(
@@ -450,18 +473,6 @@ export class BlueData implements BlueDataObject {
       parameterMap,
     );
 
-    // Mixer → effect UDOs + always-on instruments + BlueMixer
-    let mixerOrc = "";
-    if (this.mixer.isEnabled()) {
-      const mixerOutput = this.generateMixerOrchestra(
-        channelIdAssignments,
-        nchnls,
-        parameterMap,
-        parameters,
-      );
-      mixerOrc = mixerOutput;
-    }
-
     // Score → score events
     const startTime = this.renderStartTime;
     const endTime = this.renderEndTime;
@@ -470,7 +481,7 @@ export class BlueData implements BlueDataObject {
     // Tempo statement from TempoMap
     const tempoMap = this.score.getTimeContext().getTempoMap();
     const tempoStatement =
-      tempoMap.getTempo() !== 60 ? `t 0 ${tempoMap.getTempo()}` : "";
+      tempoMap.getTempo() !== 60 ? `t 0 ${formatJavaDouble(tempoMap.getTempo())}` : "";
 
     // Compute totalDur for always-on scheduling
     let totalDur = 0;
@@ -500,16 +511,20 @@ export class BlueData implements BlueDataObject {
       "<CsoundSynthesizer>\n\n" +
       "<CsInstruments>\n" +
       orchestraHeader +
-      "\n" +
+      "\n\n" +
       globalOrc +
       "\n\n" +
+      arrangementGlobalOrc +
+      "\n\n" +
+      udoText +
+      "\n\n" +
       orc +
-      mixerOrc +
-      "\n</CsInstruments>\n" +
-      "<CsScore>\n" +
+      mixerInstruments +
+      "\n\n</CsInstruments>\n\n" +
+      "<CsScore>\n\n" +
       scoreText +
-      "\n</CsScore>\n" +
-      "</CsoundSynthesizer>\n"
+      "</CsScore>\n\n" +
+      "</CsoundSynthesizer>"
     );
   }
 
@@ -572,32 +587,18 @@ export class BlueData implements BlueDataObject {
     tempoStatement: string,
     totalDur: number,
   ): string {
-    const lines: string[] = [];
-
-    // Tempo statement
-    if (tempoStatement) lines.push(tempoStatement);
-
-    lines.push("");
-
-    // F-tables
-    if (ftables) lines.push(ftables);
-
-    lines.push("");
-
-    // Global score
-    if (globalSco) lines.push(globalSco);
-
-    lines.push("");
+    const noteLines: string[] = [];
 
     // Generated notes
     if (noteList && noteList.length > 0) {
       for (let i = 0; i < noteList.length; i++) {
-        lines.push(noteList.getNote(i).toScoreText());
+        noteLines.push(noteList.getNote(i).toScoreText());
       }
     }
 
     // Always-on instrument events
     if (totalDur > 0 && this.mixer.isEnabled()) {
+      const renderDur = totalDur + this.mixer.getExtraRenderTime();
       const arrangementItems = this.arrangement
         .getArrangement()
         .filter((ia) => ia.enabled && ia.instr);
@@ -610,19 +611,24 @@ export class BlueData implements BlueDataObject {
           typeof instr.getAlwaysOnInstrumentText === "function" &&
           instr.getAlwaysOnInstrumentText()
         ) {
-          lines.push(`i${nextInstrId + i}\t0\t${totalDur}`);
+          noteLines.push(`i${nextInstrId + i}\t0\t${renderDur}\t`);
         }
       }
 
       // Schedule BlueMixer
-      const mixerDur = totalDur + this.mixer.getExtraRenderTime();
-      lines.push(`i"BlueMixer"\t0\t${mixerDur}`);
+      noteLines.push(`i"BlueMixer"\t0\t${renderDur}\t`);
     }
 
-    // End statement (required by Csound)
-    lines.push("e");
+    let scoreGlobalText = globalSco;
+    if (tempoStatement) {
+      scoreGlobalText += `${scoreGlobalText ? "" : "\n"}${tempoStatement}\n`;
+    }
 
-    return lines.join("\n");
+    const scoreNotesText = noteLines.length > 0
+      ? `${noteLines.join("\n")}\n`
+      : `f0 ${totalDur}\n`;
+
+    return `${ftables}\n\n${scoreGlobalText}\n\n\n${scoreNotesText}e\n\n`;
   }
 
   /**
@@ -638,7 +644,7 @@ export class BlueData implements BlueDataObject {
       `; "${props.title || ""}"\n` +
       `; by ${props.author || ""}\n` +
       ";\n" +
-      (notes ? `; ${notes}\n;\n` : "") +
+      `; ${notes}\n;\n` +
       `; Generated by blue ${BLUE_VERSION} (http://blue.kunstmusik.com)\n` +
       ";\n\n"
     );
@@ -667,10 +673,10 @@ export class BlueData implements BlueDataObject {
         : param.getFixedValue();
 
       // Init statement
-      lines.push(`${varName}\tinit\t${initialVal}`);
+      lines.push(`${varName} init ${formatBlueNumber(initialVal)}`);
 
       // Standard Csound channel export for engine-side channel bridging
-      lines.push(`${varName}\tchnexport\t"${varName}",\t3`);
+      lines.push(`${varName} chnexport "${varName}", 3`);
     }
 
     return lines.join("\n");
@@ -752,8 +758,8 @@ export class BlueData implements BlueDataObject {
     const lines: string[] = [];
 
     for (const sc of channels) {
-      lines.push(`${sc.channelName}\t=\t"${sc.value}"`);
-      lines.push(`${sc.channelName}\tchnexport\t"${sc.channelName}",\t3`);
+      lines.push(`${sc.channelName} = "${sc.value}"`);
+      lines.push(`${sc.channelName} chnexport "${sc.channelName}", 3`);
     }
 
     return lines.join("\n");
@@ -784,8 +790,8 @@ export class BlueData implements BlueDataObject {
     nchnls: number,
     parameterMap: Map<Instrument, Parameter[]>,
     _allParameters: Parameter[],
-  ): string {
-    const buffer: string[] = [];
+  ): { effectUDOs: string[]; instrumentsText: string; effectIdMap: Map<Effect, number> } {
+    const instrBuffer: string[] = [];
     const sourceChannels = this.mixer.getAllSourceChannels();
     const subChannels = this.sortSubChannelsForRendering(
       Array.from(this.mixer.getSubChannels()),
@@ -834,12 +840,6 @@ export class BlueData implements BlueDataObject {
     registerEffects(this.mixer.getMaster().getPreEffects());
     registerEffects(this.mixer.getMaster().getPostEffects());
 
-    // Output effect UDOs
-    for (const udo of effectUDOs) {
-      buffer.push(udo);
-      buffer.push("");
-    }
-
     // Generate always-on instruments from BSB instruments' alwaysOnInstrumentText
     const arrangementItems = this.arrangement
       .getArrangement()
@@ -869,18 +869,19 @@ export class BlueData implements BlueDataObject {
           /(\w+),\s*(\w+)\s+blueMixerIn/g,
           `$1 = ga_bluemix_${channelId}_0\n $2 = ga_bluemix_${channelId}_1`,
         );
-        // "blueMixerOut aLeft, aRight" → "ga_bluemix_{id}_0 =  aLeft\nga_bluemix_{id}_1 =  aRight"
+        // "blueMixerOut aLeft, aRight" → "ga_bluemix_{id}_0 = aLeft\nga_bluemix_{id}_1 = aRight"
         compiled = compiled.replace(
-          /blueMixerOut\s+(\w+),\s*(\w+)/g,
-          `ga_bluemix_${channelId}_0 =  $1\nga_bluemix_${channelId}_1 =  $2`,
+          /blueMixerOut(\s+\w+),(\s*\w+)/g,
+          `ga_bluemix_${channelId}_0 = $1\nga_bluemix_${channelId}_1 = $2`,
         );
       }
 
       const alwaysOnId = nextInstrId + i;
-      buffer.push(`\tinstr ${alwaysOnId}\t;untitled`);
-      buffer.push(compiled);
-      buffer.push("\tendin");
-      buffer.push("");
+      instrBuffer.push(`\tinstr ${alwaysOnId}\t;untitled`);
+      instrBuffer.push(compiled);
+      instrBuffer.push("");
+      instrBuffer.push("\tendin");
+      instrBuffer.push("");
     }
 
     // Generate BlueMixer instrument
@@ -891,9 +892,13 @@ export class BlueData implements BlueDataObject {
       nchnls,
       effectIdMap,
     );
-    buffer.push(blueMixerCode);
+    instrBuffer.push(blueMixerCode);
 
-    return buffer.join("\n");
+    return {
+      effectUDOs,
+      instrumentsText: instrBuffer.join("\n"),
+      effectIdMap,
+    };
   }
 
   /**

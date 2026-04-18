@@ -15,6 +15,7 @@ describe('Effect UDO Generation', () => {
     const udo = effect.generateUDO(0);
     expect(udo).toContain('xin');
     expect(udo).toContain('xout');
+    expect(udo).toContain('xout\taout1,aout2');
     expect(udo).toContain('opcode blueEffect0,aa,aa');
     expect(udo).toContain('\tendop');
   });
@@ -29,6 +30,7 @@ describe('Effect UDO Generation', () => {
     const udo = effect.generateUDO(0);
     expect(udo).not.toContain('xin');
     expect(udo).toContain('xout');
+    expect(udo).toContain('    xout\taout1,aout2');
     expect(udo).toContain('opcode blueEffect0(ain1, ain2):(a,a)');
     expect(udo).toContain('endop');
   });

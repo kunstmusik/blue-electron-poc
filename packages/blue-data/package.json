@@ -32,7 +32,8 @@
     "vitest": "^4.1.4"
   },
   "dependencies": {
-    "@rgrove/parse-xml": "^4.2.0"
+    "@rgrove/parse-xml": "^4.2.0",
+    "quickjs-emscripten": "^0.32.0"
   },
   "keywords": [
     "csound",

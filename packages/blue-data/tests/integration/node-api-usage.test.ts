@@ -263,8 +263,10 @@ describe('Node.js library API', () => {
     expect(csd).toContain('sr=44100');
     expect(csd).toContain('<CsInstruments>');
     expect(csd).toContain('<CsScore>');
-    // PatternLayer generates notes with tab-separated fields (may have ii prefix for overlaps)
-    expect(csd).toMatch(/i+i1\t0\t2/);
+    // GenericScore now applies Blue time behavior, so the emitted note duration
+    // is clipped to the sound object's subjective duration.
+    expect(csd).toMatch(/i1\t0\.0\t1/);
+    expect(csd).toMatch(/i1\t8\.0\t1/);
     expect(csd).toContain('</CsoundSynthesizer>');
   });
 

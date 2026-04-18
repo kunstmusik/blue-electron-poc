@@ -33,13 +33,12 @@ export class NoteList {
 
   /**
    * Merge another NoteList into this one.
-   * Notes are added and the list is re-sorted by start time.
+   * Java NoteList.merge() preserves append order; callers sort explicitly when needed.
    */
   merge(other: NoteList): void {
     for (let i = 0; i < other.length; i++) {
       this._notes.push(other.getNote(i));
     }
-    this.sortByStartTime();
   }
 
   /** Sort notes by start time (ascending). */

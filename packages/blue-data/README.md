@@ -219,7 +219,7 @@ const xml = data.saveToString();
 <script type="module">
   import { BlueData } from '/path/to/@blue/data/dist/index.js';
 
-  const xml = '<blueData version="2.9.1"><projectProperties><title>Test</title></projectProperties></blueData>';
+  const xml = '<blueData version="2.10.0"><projectProperties><title>Test</title></projectProperties></blueData>';
   const data = BlueData.loadFromString(xml);
   console.log(data.getProjectProperties().title); // "Test"
 </script>

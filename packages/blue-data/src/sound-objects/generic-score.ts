@@ -17,6 +17,7 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 import { SoundObject, SoundObjectStatic } from './sound-object';
 import { initBasicFromXML } from './sound-object-utilities';
+import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
 
 /**
  * Parse Csound score text into a NoteList.
@@ -33,7 +34,11 @@ function parseScoreText(scoreText: string): NoteList {
     if (parts.length < 3) continue;
 
     const note = new Note();
-    note.setPField(parts[0], 1); // instrument
+    let instr = parts[0];
+    if (instr.startsWith('i') || instr.startsWith('I')) {
+      instr = instr.substring(1);
+    }
+    note.setPField(instr, 1);
     note.setStartTime(parseFloat(parts[1])); // start time
     note.setSubjectiveDuration(parseFloat(parts[2])); // duration
 
@@ -69,12 +74,28 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
   // ─── SoundObject implementation ───
 
   override generateForCSD(
-    _context: TimeContext,
+    context: TimeContext,
     _compileData: CompileData,
     _startTime: number,
     _endTime: number,
   ): NoteList {
-    return parseScoreText(this._scoreText);
+    const noteList = parseScoreText(this._scoreText);
+
+    const processed = applyNoteProcessorChain(noteList, this.getNoteProcessorChain());
+    const duration = this.getSubjectiveDuration().toBeats(context);
+    const startTime = this.getStartTime().toBeats(context);
+    const repeatPoint = this.getRepeatPoint();
+    const repeatPointBeats = repeatPoint ? repeatPoint.toBeats(context) : -1;
+
+    applyTimeBehavior(
+      processed,
+      this.getTimeBehavior(),
+      duration,
+      repeatPointBeats,
+    );
+    setScoreStart(processed, startTime);
+
+    return processed;
   }
 
   // ─── XML Serialization ───

@@ -3,6 +3,7 @@ import { TimePosition } from '../../src/time/time-position';
 import { TimeBase } from '../../src/time/time-base';
 import { TimeContext } from '../../src/time/time-context';
 import { makeDefaultContext } from './helpers';
+import { Element } from '../../src/serialization/xml-reader';
 
 describe('TimePosition', () => {
   let context: TimeContext;
@@ -196,5 +197,25 @@ describe('TimePosition', () => {
 
   it('testFrameValueInvalidSampleRate', () => {
     expect(() => TimePosition.frames(44100).toTotalSecondsForSampleRate(0)).toThrow();
+  });
+
+  it('testTimePositionXMLUsesJavaTagNames', () => {
+    const seconds = TimePosition.seconds(12.5).saveAsXML();
+    expect(seconds.getElement('totalSeconds')?.getTextString()).toBe('12.5');
+    expect(seconds.getElement('seconds')).toBeNull();
+
+    const frames = TimePosition.frames(44100).saveAsXML();
+    expect(frames.getElement('frameCount')?.getTextString()).toBe('44100');
+    expect(frames.getElement('frameNumber')).toBeNull();
+  });
+
+  it('testTimePositionXMLLoadsJavaAndLegacyTagNames', () => {
+    const javaSeconds = Element.parse('<position type="SECONDS"><totalSeconds>2.5</totalSeconds></position>');
+    const legacySeconds = Element.parse('<position type="SECONDS"><seconds>2.5</seconds></position>');
+    expect(TimePosition.loadFromXML(javaSeconds).equals(TimePosition.loadFromXML(legacySeconds))).toBe(true);
+
+    const javaFrame = Element.parse('<position type="FRAME"><frameCount>44100</frameCount></position>');
+    const legacyFrame = Element.parse('<position type="FRAME"><frameNumber>44100</frameNumber></position>');
+    expect(TimePosition.loadFromXML(javaFrame).equals(TimePosition.loadFromXML(legacyFrame))).toBe(true);
   });
 });

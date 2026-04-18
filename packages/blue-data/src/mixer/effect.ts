@@ -124,7 +124,7 @@ export class Effect implements BlueDataObject {
       udo.setInputArguments(inArgs.join(", "));
       udo.setOutTypes(outTypes);
       udo.setInTypes("");
-      udo.setCode(`${compiledCode}\nxout ${outArgs.join(", ")}`);
+      udo.setCode([compiledCode, "", "", `xout\t${outArgs.join(",")}`, ""].join("\n"));
     }
 
     return udo.generateCode();

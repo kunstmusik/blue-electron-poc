@@ -304,21 +304,21 @@ export class TimeDuration {
         break;
       case TimeBase.BBT:
         elem.setAttribute('type', 'BBT');
-        elem.addElement('bar').setText(this._bar.toString());
-        elem.addElement('beat').setText(this._beat.toString());
+        elem.addElement('bars').setText(this._bar.toString());
+        elem.addElement('beats').setText(this._beat.toString());
         elem.addElement('ticks').setText(this._ticks.toString());
         break;
       case TimeBase.BBST:
         elem.setAttribute('type', 'BBST');
-        elem.addElement('bar').setText(this._bar.toString());
-        elem.addElement('beat').setText(this._beat.toString());
+        elem.addElement('bars').setText(this._bar.toString());
+        elem.addElement('beats').setText(this._beat.toString());
         elem.addElement('sixteenth').setText(this._sixteenth.toString());
         elem.addElement('ticks').setText(this._ticks.toString());
         break;
       case TimeBase.BBF:
         elem.setAttribute('type', 'BBF');
-        elem.addElement('bar').setText(this._bar.toString());
-        elem.addElement('beat').setText(this._beat.toString());
+        elem.addElement('bars').setText(this._bar.toString());
+        elem.addElement('beats').setText(this._beat.toString());
         elem.addElement('fraction').setText(this._fraction.toString());
         break;
       case TimeBase.TIME:
@@ -330,11 +330,11 @@ export class TimeDuration {
         break;
       case TimeBase.SECONDS:
         elem.setAttribute('type', 'SECONDS');
-        elem.addElement('seconds').setText(this._totalSeconds.toString());
+        elem.addElement('totalSeconds').setText(this._totalSeconds.toString());
         break;
       case TimeBase.FRAME:
         elem.setAttribute('type', 'FRAME');
-        elem.addElement('frameNumber').setText(this._frameCount.toString());
+        elem.addElement('frameCount').setText(this._frameCount.toString());
         break;
       default:
         elem.setAttribute('type', 'BEATS');
@@ -357,16 +357,16 @@ export class TimeDuration {
 
       case 'BBT':
       case 'DurationBBT': {
-        const bar = parseInt(data.getTextString('bar') ?? '0', 10);
-        const beat = parseInt(data.getTextString('beat') ?? '0', 10);
+        const bar = parseInt(data.getTextString('bars') ?? data.getTextString('bar') ?? '0', 10);
+        const beat = parseInt(data.getTextString('beats') ?? data.getTextString('beat') ?? '0', 10);
         const ticks = parseInt(data.getTextString('ticks') ?? '0', 10);
         return TimeDuration.bbt(bar, beat, ticks);
       }
 
       case 'BBST':
       case 'DurationBBST': {
-        const bar = parseInt(data.getTextString('bar') ?? '0', 10);
-        const beat = parseInt(data.getTextString('beat') ?? '0', 10);
+        const bar = parseInt(data.getTextString('bars') ?? data.getTextString('bar') ?? '0', 10);
+        const beat = parseInt(data.getTextString('beats') ?? data.getTextString('beat') ?? '0', 10);
         const sixteenth = parseInt(data.getTextString('sixteenth') ?? '0', 10);
         const ticks = parseInt(data.getTextString('ticks') ?? '0', 10);
         return TimeDuration.bbst(bar, beat, sixteenth, ticks);
@@ -374,8 +374,8 @@ export class TimeDuration {
 
       case 'BBF':
       case 'DurationBBF': {
-        const bar = parseInt(data.getTextString('bar') ?? '0', 10);
-        const beat = parseInt(data.getTextString('beat') ?? '0', 10);
+        const bar = parseInt(data.getTextString('bars') ?? data.getTextString('bar') ?? '0', 10);
+        const beat = parseInt(data.getTextString('beats') ?? data.getTextString('beat') ?? '0', 10);
         const fraction = parseInt(data.getTextString('fraction') ?? '0', 10);
         return TimeDuration.bbf(bar, beat, fraction);
       }
@@ -391,13 +391,13 @@ export class TimeDuration {
 
       case 'SECONDS':
       case 'DurationSeconds': {
-        const totalSeconds = parseFloat(data.getTextString('seconds') ?? data.getTextString() ?? '0');
+        const totalSeconds = parseFloat(data.getTextString('totalSeconds') ?? data.getTextString('seconds') ?? data.getTextString() ?? '0');
         return TimeDuration.seconds(totalSeconds);
       }
 
       case 'FRAME':
       case 'DurationFrames': {
-        const frameCount = parseFloat(data.getTextString('frameNumber') ?? data.getTextString() ?? '0');
+        const frameCount = parseFloat(data.getTextString('frameCount') ?? data.getTextString('frameNumber') ?? data.getTextString() ?? '0');
         return TimeDuration.frames(frameCount);
       }
 

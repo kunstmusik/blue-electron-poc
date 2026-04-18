@@ -125,6 +125,9 @@ export class Arrangement {
       if (!transformed.endsWith("\n")) {
         transformed += "\n";
       }
+      if (!transformed.endsWith("\n\n")) {
+        transformed += "\n";
+      }
 
       buffer.push(`\tinstr ${ia.arrangementId}\t;${ia.instr.getName()}\n`);
       buffer.push(transformed);
@@ -240,8 +243,8 @@ export class Arrangement {
 
           mixer.addSubChannelDependency(subChannelName);
 
-          for (let i = 1; i < nchnls + 1 && i < args.length; i++) {
-            const arg = args[i].trim();
+                for (let i = 1; i < nchnls + 1 && i < args.length; i++) {
+                  const arg = args[i] ?? "";
             const variable = Mixer.getSubChannelVar(subChannelName, i - 1);
             const operator = blueMixerInFound ? "=" : "+=";
             buffer.push(`${variable} ${operator} ${arg}`);
@@ -257,7 +260,7 @@ export class Arrangement {
 
         const channel = this.getChannelForArrangementId(mixer, arrangementId);
         for (let i = 0; i < nchnls && i < args.length; i++) {
-          const arg = args[i].trim();
+          const arg = args[i] ?? "";
           const variable = this.getMixerVariable(
             compileData,
             mixer,

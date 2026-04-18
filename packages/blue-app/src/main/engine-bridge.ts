@@ -232,17 +232,6 @@ export class EngineBridge {
       console.log(`[EngineBridge] CSD: ${csd.length} bytes`);
       console.log(`[EngineBridge] Options: ${JSON.stringify(options)}`);
       console.log(`[EngineBridge] Orchestra: ${orchestra?.length || 0} chars`);
-      if (orchestra) {
-        const lines = orchestra.split('\n');
-        const errLine = 368; // 0-indexed (error says line 369)
-        const startLine = Math.max(0, errLine - 3);
-        const endLine = Math.min(lines.length, errLine + 4);
-        console.log(`[EngineBridge] Orchestra around error line 369:`);
-        for (let i = startLine; i < endLine; i++) {
-          const marker = i === errLine ? ' ← ERROR' : '';
-          console.log(`[EngineBridge]   L${i + 1}${marker}: ${JSON.stringify(lines[i])}`);
-        }
-      }
       console.log(`[EngineBridge] Score: ${score?.length || 0} chars`);
 
       // Check if we have anything to play
