@@ -6,6 +6,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { BlueData } from '@blue/data';
 import { ParameterHelper } from '@blue/data';
+import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
 
@@ -15,6 +16,19 @@ let currentFilePath: string | null = null;
 let engineBridge: EngineBridge | null = null;
 let isQuitting = false;
 let pendingQuit = false;
+let playbackStartPromise: Promise<boolean> | null = null;
+let javaScriptRuntimeReady: Promise<void> | null = null;
+
+function ensureJavaScriptRuntime(): Promise<void> {
+  if (!javaScriptRuntimeReady) {
+    javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((error) => {
+      javaScriptRuntimeReady = null;
+      throw error;
+    });
+  }
+
+  return javaScriptRuntimeReady;
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -58,8 +72,8 @@ function createWindow(): void {
     {
       label: 'Playback',
       submenu: [
-        { label: 'Play', accelerator: 'Space', click: () => togglePlay() },
-        { label: 'Stop', accelerator: 'Escape', click: () => stopPlayback() },
+        { label: 'Play', accelerator: 'Space', click: () => { void togglePlay(); } },
+        { label: 'Stop', accelerator: 'Escape', click: () => { void stopPlayback(); } },
       ],
     },
   ]);
@@ -241,21 +255,36 @@ function doSave(filePath: string): void {
 
 // ─── Playback ───
 
-function togglePlay(): void {
-  if (!engineBridge || !currentData) return;
+async function togglePlay(): Promise<boolean> {
+  if (!engineBridge || !currentData) return false;
 
-  if (engineBridge.isCurrentlyPlaying()) {
-    stopPlayback();
-    return;
+  if (playbackStartPromise) {
+    return playbackStartPromise;
   }
 
-  startPlayback();
+  if (engineBridge.isCurrentlyPlaying()) {
+    await stopPlayback();
+    return false;
+  }
+
+  playbackStartPromise = startPlayback().finally(() => {
+    playbackStartPromise = null;
+  });
+
+  return playbackStartPromise;
 }
 
-async function startPlayback(): Promise<void> {
-  if (!engineBridge || !currentData || !mainWindow) return;
+async function startPlayback(): Promise<boolean> {
+  if (!engineBridge || !currentData || !mainWindow) return false;
 
   try {
+    mainWindow.webContents.send('playback-status', {
+      status: 'starting',
+      message: 'Preparing playback...',
+    });
+
+    await ensureJavaScriptRuntime();
+
     const csd = currentData.toCSD();
 
     // Collect automation parameters
@@ -284,9 +313,13 @@ async function startPlayback(): Promise<void> {
         status: 'error',
         message: 'Failed to start playback',
       });
+      return false;
     }
+
+    return true;
   } catch (err: unknown) {
     mainWindow.webContents.send('playback-error', err instanceof Error ? err.message : String(err));
+    return false;
   }
 }
 
@@ -312,9 +345,8 @@ ipcMain.handle('save-file-as', async () => {
   return currentFilePath;
 });
 
-ipcMain.handle('toggle-play', () => {
-  togglePlay();
-  return engineBridge?.isCurrentlyPlaying() ?? false;
+ipcMain.handle('toggle-play', async () => {
+  return togglePlay();
 });
 
 ipcMain.handle('stop-playback', async () => {

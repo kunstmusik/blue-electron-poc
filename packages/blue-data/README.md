@@ -69,6 +69,11 @@ for (const layer of patternGroup) {
 ### Generating a CSD
 
 ```typescript
+import { initializeJavaScriptRuntime } from '@blue/data';
+
+// Required if the project contains JavaScriptObject sound objects.
+await initializeJavaScriptRuntime();
+
 const csd = data.toCSD();
 console.log(csd);
 // Outputs:
@@ -168,7 +173,7 @@ const xml = data.saveToString();
 | Type | Description |
 |------|-------------|
 | `GenericScore` | Raw Csound score text |
-| `JavaScriptObject` | JS code → score (runs in both Node and browser) |
+| `JavaScriptObject` | JS code → score (uses QuickJS after runtime initialization) |
 | `PythonObject` | Python code → score (data only, JVM needed for generation) |
 | `CSDSoundObject` | Embedded CSD |
 | `Comment` | Score annotation |
@@ -196,16 +201,52 @@ const xml = data.saveToString();
 
 `@blue/data` works in **both Node.js and browsers**:
 
-- ✅ No `require()` calls
-- ✅ No `import()` calls
-- ✅ No Node.js built-in imports (`fs`, `path`, `crypto`, etc.)
-- ✅ Pure ES modules with static imports only
+- ✅ No Node.js built-in dependency for `JavaScriptObject` execution
+- ✅ QuickJS-backed JavaScript evaluation works in both Node.js and browser bundles
+- ✅ Loading/saving `.blue` XML files remains synchronous
+- ⚠️ `JavaScriptObject` execution requires a one-time async runtime preload
+
+### Initializing the JavaScript runtime
+
+If you call `data.toCSD()` on a project that contains `JavaScriptObject` sound
+objects, or call `JavaScriptObject.generateForCSD()` directly, preload QuickJS
+once before generating score:
+
+```typescript
+import {
+  BlueData,
+  CompileData,
+  JavaScriptObject,
+  TimeContext,
+  disposeJavaScriptCompileState,
+  initializeJavaScriptRuntime,
+} from '@blue/data';
+
+await initializeJavaScriptRuntime();
+
+const data = BlueData.loadFromString(xml);
+const csd = data.toCSD();
+
+// Low-level direct JavaScriptObject use should dispose its compile state.
+const compileData = new CompileData();
+try {
+  const notes = new JavaScriptObject().generateForCSD(
+    new TimeContext(),
+    compileData,
+    0,
+    -1,
+  );
+  console.log(notes.length);
+} finally {
+  disposeJavaScriptCompileState(compileData);
+}
+```
 
 ### What works everywhere
 
 - Loading/saving `.blue` XML files
 - All data class manipulation
-- `JavaScriptObject` score generation (uses `new Function()`)
+- `JavaScriptObject` score generation after `await initializeJavaScriptRuntime()`
 - CSD generation
 
 ### What requires Node.js (or a Java subprocess)
@@ -217,7 +258,12 @@ const xml = data.saveToString();
 
 ```html
 <script type="module">
-  import { BlueData } from '/path/to/@blue/data/dist/index.js';
+  import {
+    BlueData,
+    initializeJavaScriptRuntime,
+  } from '/path/to/@blue/data/dist/index.js';
+
+  await initializeJavaScriptRuntime();
 
   const xml = '<blueData version="2.10.0"><projectProperties><title>Test</title></projectProperties></blueData>';
   const data = BlueData.loadFromString(xml);

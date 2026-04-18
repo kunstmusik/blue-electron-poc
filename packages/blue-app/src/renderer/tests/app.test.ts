@@ -100,6 +100,48 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().status).toBe('idle');
   });
 
+  it('T350: togglePlay sets starting state while playback is preparing', async () => {
+    let resolveToggle: ((value: boolean) => void) | undefined;
+    mockBlueAPI.togglePlay.mockImplementation(
+      () => new Promise<boolean>((resolve) => {
+        resolveToggle = resolve;
+      }),
+    );
+
+    const pending = usePlaybackStore.getState().togglePlay();
+
+    expect(usePlaybackStore.getState().status).toBe('starting');
+    expect(usePlaybackStore.getState().isPlaying).toBe(false);
+
+    resolveToggle?.(true);
+    await pending;
+
+    expect(usePlaybackStore.getState().status).toBe('playing');
+    expect(usePlaybackStore.getState().isPlaying).toBe(true);
+  });
+
+  it('T350: togglePlay ignores duplicate requests while startup is in progress', async () => {
+    let resolveToggle: ((value: boolean) => void) | undefined;
+    mockBlueAPI.togglePlay.mockImplementation(
+      () => new Promise<boolean>((resolve) => {
+        resolveToggle = resolve;
+      }),
+    );
+
+    const first = usePlaybackStore.getState().togglePlay();
+    const second = usePlaybackStore.getState().togglePlay();
+
+    expect(mockBlueAPI.togglePlay).toHaveBeenCalledOnce();
+    expect(usePlaybackStore.getState().status).toBe('starting');
+
+    resolveToggle?.(true);
+    await first;
+    await second;
+
+    expect(usePlaybackStore.getState().isPlaying).toBe(true);
+    expect(usePlaybackStore.getState().status).toBe('playing');
+  });
+
   it('T350: setStatus updates state correctly', () => {
     usePlaybackStore.getState().setStatus({ status: 'playing', message: 'Playing' });
 

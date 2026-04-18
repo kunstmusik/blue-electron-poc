@@ -7,7 +7,10 @@
 const path = require('path');
 const fs = require('fs');
 const { execSync, spawnSync } = require('child_process');
-const { BlueData } = require('./packages/blue-data/dist/cjs/index.js');
+const {
+  BlueData,
+  initializeJavaScriptRuntime,
+} = require('./packages/blue-data/dist/cjs/index.js');
 
 const BLUE_FILE = '/Users/stevenyi/work/blue/demo2024/demo2022.blue';
 const REF_CSD = '/Users/stevenyi/work/blue/demo2024/demo2022_rt.csd';
@@ -23,6 +26,8 @@ async function main() {
 
   const xml = fs.readFileSync(BLUE_FILE, 'utf-8');
   const data = await BlueData.loadFromString(xml);
+
+  await initializeJavaScriptRuntime();
 
   console.log('Project:', data.getProjectProperties().title || 'Untitled');
   console.log('Author:', data.getProjectProperties().author || 'Unknown');

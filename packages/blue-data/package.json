@@ -23,7 +23,7 @@
   "scripts": {
     "build:esm": "tsc -p tsconfig.esm.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
-    "build": "pnpm build:esm && pnpm build:cjs",
+    "build": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\" && pnpm build:esm && pnpm build:cjs",
     "test": "vitest run",
     "prepublishOnly": "pnpm build"
   },

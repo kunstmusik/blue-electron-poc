@@ -10,6 +10,10 @@ import { TimeDuration } from '../../src/time/time-duration';
 import { TimeBehavior } from '../../src/sound-objects/time-behavior';
 import { TimeContext } from '../../src/time/time-context';
 import { CompileData } from '../../src/compile-data';
+import {
+  disposeJavaScriptCompileState,
+  initializeJavaScriptRuntime,
+} from '../../src/javascript-runtime';
 
 const DEMO2026_BLUE_PATH = '/Users/stevenyi/work/blue/demo2026/01.blue';
 const DEMO2026_CSD_PATH = '/Users/stevenyi/work/blue/demo2026/01.csd';
@@ -47,6 +51,10 @@ function extractInstrumentSequence(scoreEvents: string[]): string[] {
 function normalizeWhitespace(line: string): string {
   return line.replace(/\s+/g, ' ').trim();
 }
+
+beforeAll(async () => {
+  await initializeJavaScriptRuntime();
+});
 
 describe('NoteList merge parity', () => {
   it('preserves append order instead of re-sorting by start time', () => {
@@ -114,9 +122,15 @@ describe('Score-based sound object parity', () => {
     object.setSubjectiveDuration(TimeDuration.beats(4));
     object.setTimeBehavior(TimeBehavior.NONE);
 
-    const notes = object.generateForCSD(new TimeContext(), new CompileData(), 0, -1);
+    const compileData = new CompileData();
 
-    expect(notes.getNote(0).getStartTime()).toBe(16);
+    try {
+      const notes = object.generateForCSD(new TimeContext(), compileData, 0, -1);
+
+      expect(notes.getNote(0).getStartTime()).toBe(16);
+    } finally {
+      disposeJavaScriptCompileState(compileData);
+    }
   });
 });
 

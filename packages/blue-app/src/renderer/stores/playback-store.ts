@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type PlaybackStatus = 'idle' | 'playing' | 'error';
+export type PlaybackStatus = 'idle' | 'starting' | 'playing' | 'error';
 
 interface PlaybackState {
   isPlaying: boolean;
@@ -23,17 +23,27 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
   message: '',
 
   togglePlay: async () => {
+    if (get().status === 'starting') {
+      return;
+    }
+
     if (get().isPlaying) {
       get().stop();
       return;
     }
+
     try {
+      set({ isPlaying: false, status: 'starting', message: 'Preparing playback...' });
+
       const playing = await window.blueAPI.togglePlay();
-      set({
-        isPlaying: playing,
-        status: playing ? 'playing' : 'idle',
-        message: playing ? 'Playing via blue-engine' : '',
-      });
+
+      if (get().status === 'starting') {
+        set({
+          isPlaying: playing,
+          status: playing ? 'playing' : 'idle',
+          message: playing ? 'Playing via blue-engine' : '',
+        });
+      }
     } catch (err: unknown) {
       get().setError(err instanceof Error ? err.message : String(err));
     }

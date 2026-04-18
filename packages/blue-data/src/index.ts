@@ -4,6 +4,11 @@ export type { BlueDataObject, BlueDataObjectStatic } from './blue-data-object';
 export type { DeepCopyable } from './deep-copyable';
 export { BLUE_VERSION } from './blue-constants';
 export { CompileData } from './compile-data';
+export {
+	disposeJavaScriptCompileState,
+	initializeJavaScriptRuntime,
+	isJavaScriptRuntimeInitialized,
+} from './javascript-runtime';
 export { setCopy as setCopyBuffer, getCopy as getCopyBuffer, hasContent as hasClipboardContent, clear as clearClipboard } from './copy-buffer';
 
 // ─── Arrangement ───

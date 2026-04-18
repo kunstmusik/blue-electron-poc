@@ -41,6 +41,7 @@ import { EffectsChain } from "./mixer/effects-chain";
 import { Send } from "./mixer/send";
 import { UDOStyle } from "./opcodes/udo-style";
 import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
+import { disposeJavaScriptCompileState } from './javascript-runtime';
 
 export class BlueData implements BlueDataObject {
   // Version
@@ -372,160 +373,176 @@ export class BlueData implements BlueDataObject {
    */
   toCSD(): string {
     const compileData = new CompileData();
-    const channelIdAssignments = this.assignChannelIds();
-    for (const [channel, id] of channelIdAssignments) {
-      compileData.getChannelIdAssignments().set(channel, id);
-    }
+    let generationError: unknown = null;
 
-    // Build CsInstruments header (sr/ksmps/nchnls/0dbfs go here, not in CsOptions)
-    const orchestraHeader = this.buildOrchestraHeader();
-    const nchnls = this.getNchnls();
-
-    // Global orchestra/sco from stored data
-    let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
-    let globalSco = this.globalOrcSco.getGlobalSco() || "";
-
-    const appendGlobalOrc = (section: string) => {
-      if (!section) {
-        return;
+    try {
+      const channelIdAssignments = this.assignChannelIds();
+      for (const [channel, id] of channelIdAssignments) {
+        compileData.getChannelIdAssignments().set(channel, id);
       }
-      globalOrc += `\n${section}`;
-    };
 
-    // Mixer init statements
-    if (this.mixer.isEnabled()) {
-      const mixerInits = this.mixer.getInitStatements(
-        channelIdAssignments,
-        nchnls,
-      );
-      if (mixerInits) {
-        // Java appends an extra newline after mixer init statements before
-        // adding them to GlobalOrcSco, which preserves a two-blank-line gap
-        // before parameter init statements.
-        appendGlobalOrc(`${mixerInits}\n\n`);
+      // Build CsInstruments header (sr/ksmps/nchnls/0dbfs go here, not in CsOptions)
+      const orchestraHeader = this.buildOrchestraHeader();
+      const nchnls = this.getNchnls();
+
+      // Global orchestra/sco from stored data
+      let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
+      let globalSco = this.globalOrcSco.getGlobalSco() || "";
+
+      const appendGlobalOrc = (section: string) => {
+        if (!section) {
+          return;
+        }
+        globalOrc += `\n${section}`;
+      };
+
+      // Mixer init statements
+      if (this.mixer.isEnabled()) {
+        const mixerInits = this.mixer.getInitStatements(
+          channelIdAssignments,
+          nchnls,
+        );
+        if (mixerInits) {
+          // Java appends an extra newline after mixer init statements before
+          // adding them to GlobalOrcSco, which preserves a two-blank-line gap
+          // before parameter init statements.
+          appendGlobalOrc(`${mixerInits}\n\n`);
+        }
       }
-    }
 
-    // UDO list from OpcodeList — collect and deduplicate by name
-    const udoSet = new Map<string, string>(); // name → full UDO text
-    for (const udo of this.opcodeList.getOpcodes()) {
-      const text = udo.toCSD();
-      if (text && udo.getName()) udoSet.set(udo.getName(), text);
-    }
+      // UDO list from OpcodeList — collect and deduplicate by name
+      const udoSet = new Map<string, string>(); // name → full UDO text
+      for (const udo of this.opcodeList.getOpcodes()) {
+        const text = udo.toCSD();
+        if (text && udo.getName()) udoSet.set(udo.getName(), text);
+      }
 
-    // Also collect UDOs from BSB instruments (deduplicated)
-    for (const ia of this.arrangement.getArrangement()) {
-      if (!ia.enabled || !ia.instr) continue;
-      const instr = ia.instr as any;
-      if (typeof instr.getOpcodeList === "function") {
-        for (const udo of instr.getOpcodeList().getOpcodes()) {
-          const text = udo.toCSD();
-          if (text && udo.getName() && !udoSet.has(udo.getName())) {
-            udoSet.set(udo.getName(), text);
+      // Also collect UDOs from BSB instruments (deduplicated)
+      for (const ia of this.arrangement.getArrangement()) {
+        if (!ia.enabled || !ia.instr) continue;
+        const instr = ia.instr as any;
+        if (typeof instr.getOpcodeList === "function") {
+          for (const udo of instr.getOpcodeList().getOpcodes()) {
+            const text = udo.toCSD();
+            if (text && udo.getName() && !udoSet.has(udo.getName())) {
+              udoSet.set(udo.getName(), text);
+            }
           }
         }
       }
-    }
 
-    // Parameter and string-channel init statements are appended to the stored
-    // global orchestra text as one block, matching Java handleParameters().
-    const parameters = getAllParameters(this.arrangement, this.mixer);
-    assignParameterNames(parameters);
-    const stringChannels = this.collectStringChannels();
-    const stringInits = this.buildStringChannelInits(stringChannels);
-    const paramInits = this.buildParameterInits(parameters);
-    const runtimeInitStatements = [stringInits, paramInits]
-      .filter((section) => section.length > 0)
-      .join("\n");
-    if (runtimeInitStatements) {
-      appendGlobalOrc(`${runtimeInitStatements}\n`);
-    }
+      // Parameter and string-channel init statements are appended to the stored
+      // global orchestra text as one block, matching Java handleParameters().
+      const parameters = getAllParameters(this.arrangement, this.mixer);
+      assignParameterNames(parameters);
+      const stringChannels = this.collectStringChannels();
+      const stringInits = this.buildStringChannelInits(stringChannels);
+      const paramInits = this.buildParameterInits(parameters);
+      const runtimeInitStatements = [stringInits, paramInits]
+        .filter((section) => section.length > 0)
+        .join("\n");
+      if (runtimeInitStatements) {
+        appendGlobalOrc(`${runtimeInitStatements}\n`);
+      }
 
-    // F-tables
-    const ftables = this.tableSet.getAllTables();
+      // F-tables
+      const ftables = this.tableSet.getAllTables();
 
-    // Build per-instrument parameter map for BSB compilation
-    const parameterMap = this.buildParameterMap();
+      // Build per-instrument parameter map for BSB compilation
+      const parameterMap = this.buildParameterMap();
 
-    // Mixer → effect UDOs + always-on instruments + BlueMixer
-    let mixerEffectUDOs: string[] = [];
-    let mixerInstruments = "";
-    if (this.mixer.isEnabled()) {
-      const mixerOutput = this.generateMixerOrchestra(
-        channelIdAssignments,
+      // Mixer → effect UDOs + always-on instruments + BlueMixer
+      let mixerEffectUDOs: string[] = [];
+      let mixerInstruments = "";
+      if (this.mixer.isEnabled()) {
+        const mixerOutput = this.generateMixerOrchestra(
+          channelIdAssignments,
+          nchnls,
+          parameterMap,
+          parameters,
+        );
+        mixerEffectUDOs = mixerOutput.effectUDOs;
+        mixerInstruments = mixerOutput.instrumentsText;
+      }
+
+      const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
+      const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
+      const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
+
+      // Arrangement → orchestra
+      const orc = this.arrangement.generateOrchestra(
+        compileData,
+        this.mixer,
         nchnls,
         parameterMap,
-        parameters,
       );
-      mixerEffectUDOs = mixerOutput.effectUDOs;
-      mixerInstruments = mixerOutput.instrumentsText;
-    }
 
-    const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
-    const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
-    const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
+      // Score → score events
+      const startTime = this.renderStartTime;
+      const endTime = this.renderEndTime;
+      const noteList = this.score.generateForCSD(compileData, startTime, endTime);
 
-    // Arrangement → orchestra
-    const orc = this.arrangement.generateOrchestra(
-      compileData,
-      this.mixer,
-      nchnls,
-      parameterMap,
-    );
+      // Tempo statement from TempoMap
+      const tempoMap = this.score.getTimeContext().getTempoMap();
+      const tempoStatement =
+        tempoMap.getTempo() !== 60 ? `t 0 ${formatJavaDouble(tempoMap.getTempo())}` : "";
 
-    // Score → score events
-    const startTime = this.renderStartTime;
-    const endTime = this.renderEndTime;
-    const noteList = this.score.generateForCSD(compileData, startTime, endTime);
+      // Compute totalDur for always-on scheduling
+      let totalDur = 0;
+      if (noteList && noteList.length > 0) {
+        for (let i = 0; i < noteList.length; i++) {
+          const note = noteList.getNote(i);
+          const end = note.getStartTime() + note.getSubjectiveDuration();
+          if (end > totalDur) totalDur = end;
+        }
+      }
 
-    // Tempo statement from TempoMap
-    const tempoMap = this.score.getTimeContext().getTempoMap();
-    const tempoStatement =
-      tempoMap.getTempo() !== 60 ? `t 0 ${formatJavaDouble(tempoMap.getTempo())}` : "";
+      // Build score text with tempo, always-on events
+      const scoreText = this.buildScoreText(
+        ftables,
+        globalSco,
+        noteList,
+        tempoStatement,
+        totalDur,
+      );
 
-    // Compute totalDur for always-on scheduling
-    let totalDur = 0;
-    if (noteList && noteList.length > 0) {
-      for (let i = 0; i < noteList.length; i++) {
-        const note = noteList.getNote(i);
-        const end = note.getStartTime() + note.getSubjectiveDuration();
-        if (end > totalDur) totalDur = end;
+      // Build project info comments
+      const projectInfo = this.buildProjectInfo();
+
+      // Assemble CSD (no CsOptions for realtime output)
+      return (
+        projectInfo +
+        "<CsoundSynthesizer>\n\n" +
+        "<CsInstruments>\n" +
+        orchestraHeader +
+        "\n\n" +
+        globalOrc +
+        "\n\n" +
+        arrangementGlobalOrc +
+        "\n\n" +
+        udoText +
+        "\n\n" +
+        orc +
+        mixerInstruments +
+        "\n\n</CsInstruments>\n\n" +
+        "<CsScore>\n\n" +
+        scoreText +
+        "</CsScore>\n\n" +
+        "</CsoundSynthesizer>"
+      );
+    } catch (error) {
+      generationError = error;
+      throw error;
+    } finally {
+      try {
+        disposeJavaScriptCompileState(compileData);
+      } catch (cleanupError) {
+        if (generationError === null) {
+          throw cleanupError;
+        }
+        console.warn('[BlueData.toCSD] Failed to dispose JavaScript runtime state:', cleanupError);
       }
     }
-
-    // Build score text with tempo, always-on events
-    const scoreText = this.buildScoreText(
-      ftables,
-      globalSco,
-      noteList,
-      tempoStatement,
-      totalDur,
-    );
-
-    // Build project info comments
-    const projectInfo = this.buildProjectInfo();
-
-    // Assemble CSD (no CsOptions for realtime output)
-    return (
-      projectInfo +
-      "<CsoundSynthesizer>\n\n" +
-      "<CsInstruments>\n" +
-      orchestraHeader +
-      "\n\n" +
-      globalOrc +
-      "\n\n" +
-      arrangementGlobalOrc +
-      "\n\n" +
-      udoText +
-      "\n\n" +
-      orc +
-      mixerInstruments +
-      "\n\n</CsInstruments>\n\n" +
-      "<CsScore>\n\n" +
-      scoreText +
-      "</CsScore>\n\n" +
-      "</CsoundSynthesizer>"
-    );
   }
 
   /**

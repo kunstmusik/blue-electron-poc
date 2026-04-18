@@ -128,6 +128,10 @@ export class CompileData {
     this.compilationVariables.set(name, value);
   }
 
+  clearCompilationVariable(name: string): void {
+    this.compilationVariables.delete(name);
+  }
+
   // ─── Reset ───
 
   reset(): void {

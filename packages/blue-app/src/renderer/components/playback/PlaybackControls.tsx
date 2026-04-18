@@ -5,10 +5,16 @@ import { usePlaybackStore } from '../../stores/playback-store';
 export default function PlaybackControls(): JSX.Element {
   const hasProject = useProjectStore((s) => s.filePath !== null);
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
+  const status = usePlaybackStore((s) => s.status);
   const togglePlay = usePlaybackStore((s) => s.togglePlay);
   const stop = usePlaybackStore((s) => s.stop);
+  const isStarting = status === 'starting';
 
   const handleToggle = async () => {
+    if (isStarting) {
+      return;
+    }
+
     if (isPlaying) {
       stop();
     } else {
@@ -21,14 +27,14 @@ export default function PlaybackControls(): JSX.Element {
       <button
         className={`btn ${isPlaying ? 'btn-primary' : ''}`}
         onClick={handleToggle}
-        disabled={!hasProject}
+        disabled={!hasProject || isStarting}
       >
         {isPlaying ? (
           <Square className="w-4 h-4" />
         ) : (
           <Play className="w-4 h-4" />
         )}
-        {isPlaying ? 'Stop' : 'Play'}
+        {isStarting ? 'Starting...' : isPlaying ? 'Stop' : 'Play'}
       </button>
     </div>
   );

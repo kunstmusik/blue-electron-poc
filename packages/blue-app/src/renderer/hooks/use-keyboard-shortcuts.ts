@@ -15,7 +15,7 @@ export function useKeyboardShortcuts(): void {
       const meta = e.metaKey || e.ctrlKey;
 
       // Space = toggle play (only if project loaded)
-      if (e.code === 'Space' && !meta && hasProject) {
+      if (e.code === 'Space' && !meta && !e.repeat && hasProject) {
         e.preventDefault();
         await togglePlay();
       }

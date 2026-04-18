@@ -9,6 +9,7 @@ import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { initBasicFromXML } from './sound-object-utilities';
 import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
+import { getJavaScriptCompileContext } from '../javascript-runtime';
 
 function parseScoreText(scoreText: string): NoteList {
   const notes = new NoteList();
@@ -34,40 +35,22 @@ function parseScoreText(scoreText: string): NoteList {
   return notes;
 }
 
-let vmModule: typeof import('vm') | null = null;
-
-try {
-  vmModule = require('vm');
-} catch {
-  // vm not available (browser environment)
+function executeInContext(code: string, compileData: CompileData): void {
+  const context = getJavaScriptCompileContext(compileData);
+  const result = context.unwrapResult(
+    context.evalCode(code, 'blue-javascript-object.js', { type: 'global' }),
+  );
+  result.dispose();
 }
 
-type VmContext = { context: Record<string, unknown>; isVm: boolean };
+function getScoreValue(compileData: CompileData): string {
+  const context = getJavaScriptCompileContext(compileData);
+  const scoreHandle = context.getProp(context.global, 'score');
 
-const sharedContextCache = new WeakMap<object, VmContext>();
-
-function getSharedContext(compilerData: CompileData): VmContext {
-  const existing = sharedContextCache.get(compilerData);
-  if (existing) return existing;
-
-  let context: VmContext;
-  if (vmModule) {
-    const sandbox: Record<string, unknown> = {};
-    const vmContext = vmModule.createContext(sandbox);
-    context = { context: vmContext as Record<string, unknown>, isVm: true };
-  } else {
-    context = { context: {}, isVm: false };
-  }
-  sharedContextCache.set(compilerData, context);
-  return context;
-}
-
-function executeInContext(code: string, ctx: VmContext): void {
-  if (ctx.isVm && vmModule) {
-    vmModule.runInContext(code, ctx.context as import('vm').Context);
-  } else {
-    const fn = new Function(code);
-    fn.call(ctx.context);
+  try {
+    return String(context.dump(scoreHandle) ?? '');
+  } finally {
+    scoreHandle.dispose();
   }
 }
 
@@ -77,12 +60,10 @@ function executeJavaScriptCode(
   compileData: CompileData,
 ): string {
   try {
-    const ctx = getSharedContext(compileData);
+    executeInContext(`var blueDuration = ${duration}; var score = '';`, compileData);
+    executeInContext(code, compileData);
 
-    executeInContext(`var blueDuration = ${duration}; var score = '';`, ctx);
-    executeInContext(code, ctx);
-
-    return String(ctx.context.score ?? '');
+    return getScoreValue(compileData);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     throw new SoundObjectException(`JavaScript execution error: ${msg}`, e as Error);

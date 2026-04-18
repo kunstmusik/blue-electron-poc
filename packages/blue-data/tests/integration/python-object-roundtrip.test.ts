@@ -1,15 +1,24 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import { PythonObject } from '../../src/sound-objects/python-object';
 import { JavaScriptObject } from '../../src/sound-objects/javascript-object';
 import { CSDSoundObject } from '../../src/sound-objects/csd-sound-object';
 import { Comment } from '../../src/sound-objects/comment';
 import { GenericScore } from '../../src/sound-objects/generic-score';
 import { PolyObject } from '../../src/sound-objects/poly-object';
+import { CompileData } from '../../src/compile-data';
+import {
+  disposeJavaScriptCompileState,
+  initializeJavaScriptRuntime,
+} from '../../src/javascript-runtime';
 import { TimePosition } from '../../src/time/time-position';
 import { TimeDuration } from '../../src/time/time-duration';
 import { TimeContext } from '../../src/time/time-context';
 import { loadSoundObjectFromXML } from '../../src/sound-objects/sound-object-registry';
 import { Element } from '../../src/serialization/xml-reader';
+
+beforeAll(async () => {
+  await initializeJavaScriptRuntime();
+});
 
 describe('PythonObject', () => {
   it('creates with defaults', () => {
@@ -88,13 +97,57 @@ describe('JavaScriptObject', () => {
     obj.setSubjectiveDuration(TimeDuration.beats(4));
 
     const context = new TimeContext();
-    const notes = obj.generateForCSD(context, {} as any, 0, -1);
+    const compileData = new CompileData();
 
-    expect(notes.length).toBe(2);
-    expect(notes.getNote(0).getStartTime()).toBe(0);
-    expect(notes.getNote(0).getSubjectiveDuration()).toBe(2);
-    expect(notes.getNote(1).getStartTime()).toBe(3);
-    expect(notes.getNote(1).getSubjectiveDuration()).toBe(1);
+    try {
+      const notes = obj.generateForCSD(context, compileData, 0, -1);
+
+      expect(notes.length).toBe(2);
+      expect(notes.getNote(0).getStartTime()).toBe(0);
+      expect(notes.getNote(0).getSubjectiveDuration()).toBe(2);
+      expect(notes.getNote(1).getStartTime()).toBe(3);
+      expect(notes.getNote(1).getSubjectiveDuration()).toBe(1);
+    } finally {
+      disposeJavaScriptCompileState(compileData);
+    }
+  });
+
+  it('shares globals across objects in one compile pass', () => {
+    const first = new JavaScriptObject();
+    first.setJavaScriptCode('globalThis.sharedSeed = 41; score = "";');
+
+    const second = new JavaScriptObject();
+    second.setJavaScriptCode(
+      'score = "i1 0 1 " + (globalThis.sharedSeed + 1);',
+    );
+
+    const context = new TimeContext();
+    const compileData = new CompileData();
+
+    try {
+      first.generateForCSD(context, compileData, 0, -1);
+      const notes = second.generateForCSD(context, compileData, 0, -1);
+
+      expect(notes.length).toBe(1);
+      expect(notes.getNote(0).getPField(4)).toBe('42');
+    } finally {
+      disposeJavaScriptCompileState(compileData);
+    }
+  });
+
+  it('wraps QuickJS errors in SoundObjectException', () => {
+    const obj = new JavaScriptObject();
+    obj.setJavaScriptCode('throw new Error("boom");');
+
+    const compileData = new CompileData();
+
+    try {
+      expect(() =>
+        obj.generateForCSD(new TimeContext(), compileData, 0, -1),
+      ).toThrow('JavaScript execution error: boom');
+    } finally {
+      disposeJavaScriptCompileState(compileData);
+    }
   });
 
   it('round-trips through XML', () => {
