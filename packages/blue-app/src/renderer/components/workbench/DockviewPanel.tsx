@@ -5,7 +5,7 @@ import PlaceholderPanel from './panels/PlaceholderPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
   function DockviewPanel(props, ref) {
-    const descriptor = PANEL_MAP.get(props.api.title ?? '');
+    const descriptor = PANEL_MAP.get(props.api.id);
 
     if (!descriptor) {
       return (

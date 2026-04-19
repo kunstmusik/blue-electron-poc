@@ -1,98 +1,107 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   DockviewReact,
   DockviewReadyEvent,
-  DockviewApi,
 } from 'dockview';
 import 'dockview/dist/styles/dockview.css';
+import AuxiliaryRail from './AuxiliaryRail';
 import DockviewPanel from './DockviewPanel';
 import { useWorkbenchStore } from '../../stores/workbench-store';
-import { getDefaultEditorPanels, getPanelsByMode } from './panel-registry';
 
 const LAYOUT_STORAGE_KEY = 'blue-workbench-layout';
 
-function buildDefaultLayout(api: DockviewApi) {
-  const editors = getDefaultEditorPanels();
-  const properties = getPanelsByMode('properties');
-  const output = getPanelsByMode('output');
-
-  for (const desc of editors) {
-    api.addPanel({
-      id: desc.id,
-      component: 'default',
-      title: desc.id,
-    });
-  }
-
-  const firstEditor = api.getPanel(editors[0].id);
-
-  const propsPanel = properties[0];
-  if (propsPanel && firstEditor) {
-    api.addPanel({
-      id: propsPanel.id,
-      component: 'default',
-      title: propsPanel.id,
-      position: { referencePanel: firstEditor, direction: 'right' },
-    });
-  }
-
-  const outputPanel = output[0];
-  if (outputPanel && firstEditor) {
-    api.addPanel({
-      id: outputPanel.id,
-      component: 'default',
-      title: outputPanel.id,
-      position: { referencePanel: firstEditor, direction: 'below' },
-    });
-  }
-}
-
 export default function WorkbenchShell() {
+  const auxiliary = useWorkbenchStore((s) => s.auxiliary);
+  const openPanel = useWorkbenchStore((s) => s.openPanel);
   const setApi = useWorkbenchStore((s) => s.setApi);
-  const loadLayout = useWorkbenchStore((s) => s.loadLayout);
+  const listenersRef = useRef<Array<{ dispose: () => void }>>([]);
+
+  const disposeListeners = useCallback(() => {
+    for (const disposable of listenersRef.current) {
+      disposable.dispose();
+    }
+    listenersRef.current = [];
+  }, []);
+
+  const persistLayout = useCallback(() => {
+    const layout = useWorkbenchStore.getState().saveLayout();
+    if (layout) {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
+    }
+  }, []);
 
   const onReady = useCallback(
     (event: DockviewReadyEvent) => {
+      disposeListeners();
       setApi(event.api);
+      useWorkbenchStore.getState().loadLayout(
+        localStorage.getItem(LAYOUT_STORAGE_KEY),
+      );
+      useWorkbenchStore.getState().syncAuxiliaryLayout();
 
-      const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
-      if (saved) {
-        try {
-          event.api.fromJSON(JSON.parse(saved));
-          return;
-        } catch {
-          // Fall through to default layout
-        }
-      }
+      listenersRef.current = [
+        event.api.onDidLayoutChange(() => {
+          persistLayout();
+        }),
+        event.api.onDidActivePanelChange(() => {
+          useWorkbenchStore.getState().syncAuxiliaryLayout();
+          persistLayout();
+        }),
+      ];
 
-      buildDefaultLayout(event.api);
+      persistLayout();
     },
-    [setApi],
+    [disposeListeners, persistLayout, setApi],
   );
 
   useEffect(() => {
     function handleBeforeUnload() {
-      const api = useWorkbenchStore.getState().api;
-      if (!api) return;
-      try {
-        const layout = JSON.stringify(api.toJSON());
-        localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
-      } catch {
-        // Persistence failed; non-critical
-      }
+      persistLayout();
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  }, [persistLayout]);
+
+  useEffect(() => {
+    return () => {
+      disposeListeners();
+      setApi(null);
+    };
+  }, [disposeListeners, setApi]);
 
   return (
-    <div className="h-full dv-dockview-theme-abyss" style={{ backgroundColor: 'var(--dv-paneview-active-border-color, #1a1a2e)' }}>
-      <DockviewReact
-        onReady={onReady}
-        components={{ default: DockviewPanel }}
-        hideBorders={false}
+    <div className="workbench-shell">
+      <div
+        className="workbench-shell__main dv-dockview-theme-abyss"
+        style={{
+          backgroundColor: 'var(--dv-paneview-active-border-color, #1a1a2e)',
+        }}
+      >
+        <div className="workbench-shell__dockview">
+          <DockviewReact
+            onReady={onReady}
+            components={{ default: DockviewPanel }}
+            hideBorders={false}
+          />
+        </div>
+      </div>
+
+      <AuxiliaryRail
+        edge="right"
+        panelIds={auxiliary.byEdge.right.panelIds}
+        activePanelId={auxiliary.byEdge.right.activePanelId}
+        onSelect={openPanel}
       />
+
+      <AuxiliaryRail
+        edge="bottom"
+        panelIds={auxiliary.byEdge.bottom.panelIds}
+        activePanelId={auxiliary.byEdge.bottom.activePanelId}
+        onSelect={openPanel}
+      />
+
+      <div className="workbench-shell__corner" aria-hidden="true" />
     </div>
   );
 }
