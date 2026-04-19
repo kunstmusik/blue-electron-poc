@@ -41,18 +41,18 @@
 
 ## Phase 3: User Story 1 - Minimize Groups To Edge Tabs (Priority: P1) 🎯 MVP
 
-**Goal**: Allow prototype auxiliary groups to minimize into visible edge tabs and reopen directly into floating, resizable tool windows.
+**Goal**: Allow prototype auxiliary groups to minimize into visible edge tabs and reopen directly into edge-attached, resizable slide-out tool windows.
 
-**Independent Test**: Minimize the right-edge and bottom-edge prototype groups, confirm ordered edge tabs remain visible, then activate a minimized tab and confirm the correct panel opens floating and resizable without duplication.
+**Independent Test**: Minimize the right-edge and bottom-edge prototype groups, confirm ordered edge tabs remain visible, then activate a minimized tab and confirm the correct panel opens as an edge-attached, resizable slide-out without duplication.
 
 - [X] T009 [US1] Implement docked-to-minimized transitions, remembered active-tab ordering, and minimized tab records in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
 - [X] T010 [US1] Implement minimize actions and minimized-tab activation flows in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
 - [X] T011 [P] [US1] Rework minimized edge-tab rendering and edge-specific interaction controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx`
-- [X] T012 [P] [US1] Add minimized edge-tab and floating-entry styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
-- [X] T013 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to remove docked groups on minimize and reopen minimized tabs as dockview floating groups
-- [X] T014 [US1] Add minimize-to-floating regression coverage for the prototype right and bottom groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T012 [P] [US1] Add minimized edge-tab and slide-out-entry styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T013 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to remove docked groups on minimize and reopen minimized tabs as shell-owned edge slide-outs
+- [X] T014 [US1] Add minimize-to-slideout regression coverage for the prototype right and bottom groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
-**Checkpoint**: User Story 1 is complete when minimized prototype groups remain visible as edge tabs and reopen correctly as floating, resizable tool windows.
+**Checkpoint**: User Story 1 is complete when minimized prototype groups remain visible as edge tabs and reopen correctly as edge-attached, resizable slide-out tool windows.
 
 ---
 
@@ -75,14 +75,14 @@
 
 ## Phase 5: User Story 3 - Persist And Reveal The Correct Presentation State (Priority: P2)
 
-**Goal**: Persist minimized, floating, and maximized state across reloads and route stable-ID reveal to the correct existing presentation.
+**Goal**: Persist minimized, slide-out, and maximized state across reloads and route stable-ID reveal to the correct existing presentation.
 
-**Independent Test**: Save a mixed minimized/floating/maximized layout, reload the workbench, and confirm `WindowMenu` reveal focuses or transitions the existing presentation instead of creating duplicates.
+**Independent Test**: Save a mixed minimized/slideout/maximized layout, reload the workbench, and confirm `WindowMenu` reveal focuses or transitions the existing presentation instead of creating duplicates.
 
-- [X] T021 [US3] Extend the persisted layout envelope with minimized metadata, floating bounds, and restore versioning in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [X] T022 [US3] Reconcile `fromJSON()` results, clamp restored floating bounds, and route stable-ID reveal to existing presentations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [X] T021 [US3] Extend the persisted layout envelope with minimized metadata, slide-out sizing, and restore versioning in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T022 [US3] Reconcile `fromJSON()` results, clamp restored slide-out sizing, and route stable-ID reveal to existing presentations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
 - [X] T023 [P] [US3] Update parity-aware reveal routing for prototype auxiliary panels in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
-- [X] T024 [US3] Rebuild minimized tabs, floating groups, and maximized state after layout restore in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
+- [X] T024 [US3] Rebuild minimized tabs, slide-outs, and maximized state after layout restore in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
 - [X] T025 [US3] Add persistence-and-reveal regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 3 is complete when saved layouts restore valid presentation state and stable-ID reveal always reuses the current logical group.
@@ -107,12 +107,12 @@
 - **Foundational (Phase 2)**: Depends on Setup completion; blocks all user stories
 - **User Story 1 (Phase 3)**: Depends on Foundational completion
 - **User Story 2 (Phase 4)**: Depends on Foundational completion
-- **User Story 3 (Phase 5)**: Depends on User Stories 1 and 2 because persistence and reveal must cover minimized, floating, and maximized states
+- **User Story 3 (Phase 5)**: Depends on User Stories 1 and 2 because persistence and reveal must cover minimized, slide-out, and maximized states
 - **Polish (Phase 6)**: Depends on all targeted user stories being complete
 
 ### User Story Dependencies
 
-- **User Story 1 (P1)**: Starts after Foundational; defines minimize-to-floating parity behavior
+- **User Story 1 (P1)**: Starts after Foundational; defines minimize-to-slideout parity behavior
 - **User Story 2 (P1)**: Starts after Foundational; defines maximize-and-restore parity behavior
 - **User Story 3 (P2)**: Starts after US1 and US2; depends on the full presentation-state model
 
@@ -131,7 +131,7 @@
 
 ```bash
 Task: "Rework minimized edge-tab rendering and edge-specific interaction controls in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx"
-Task: "Add minimized edge-tab and floating-entry styling in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css"
+Task: "Add minimized edge-tab and slide-out-entry styling in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css"
 ```
 
 ## Parallel Example: User Story 2
@@ -145,7 +145,7 @@ Task: "Add top-tab maximized auxiliary presentation styling in /Users/stevenyi/w
 
 ```bash
 Task: "Update parity-aware reveal routing for prototype auxiliary panels in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx"
-Task: "Rebuild minimized tabs, floating groups, and maximized state after layout restore in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx"
+Task: "Rebuild minimized tabs, slide-outs, and maximized state after layout restore in /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx"
 ```
 
 ---
@@ -157,12 +157,12 @@ Task: "Rebuild minimized tabs, floating groups, and maximized state after layout
 1. Complete Phase 1: Setup
 2. Complete Phase 2: Foundational parity state model
 3. Complete Phase 3: User Story 1
-4. Stop and validate the minimize-to-floating parity flow before layering maximize/restore and persistence
+4. Stop and validate the minimize-to-slideout parity flow before layering maximize/restore and persistence
 
 ### Incremental Delivery
 
 1. Finish Setup + Foundational to establish the parity-aware state model
-2. Add User Story 1 and validate minimized edge tabs plus floating reopen
+2. Add User Story 1 and validate minimized edge tabs plus slide-out reopen
 3. Add User Story 2 and validate maximized top-tab restore flows
 4. Add User Story 3 and validate persistence plus stable-ID reveal
 5. Finish Polish and final renderer verification
@@ -170,7 +170,7 @@ Task: "Rebuild minimized tabs, floating groups, and maximized state after layout
 ### Recommended Execution Order For This Feature
 
 1. Build the parity-aware group session model and shell wiring
-2. Deliver minimized edge tabs and floating reopen
+2. Deliver minimized edge tabs and slide-out reopen
 3. Deliver maximize and restore into top-tab presentation
 4. Deliver persistence and reveal correctness across all states
 5. Run parity verification and update the status handoff

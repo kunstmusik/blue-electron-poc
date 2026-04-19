@@ -1,22 +1,42 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type CSSProperties } from 'react';
 import {
   DockviewReact,
   DockviewReadyEvent,
 } from 'dockview';
 import 'dockview/dist/styles/dockview.css';
 import AuxiliaryRail from './AuxiliaryRail';
+import AuxiliaryHeaderActions from './AuxiliaryHeaderActions';
+import AuxiliarySlideout from './AuxiliarySlideout';
 import DockviewPanel from './DockviewPanel';
-import { getMinimizedTabsForEdge } from './auxiliary-layout';
+import {
+  getAuxiliarySlideoutForEdge,
+  getMinimizedTabsForEdge,
+} from './auxiliary-layout';
 import { useWorkbenchStore } from '../../stores/workbench-store';
 
 const LAYOUT_STORAGE_KEY = 'blue-workbench-layout';
 
 export default function WorkbenchShell() {
   const auxiliary = useWorkbenchStore((s) => s.auxiliary);
-  const openPanel = useWorkbenchStore((s) => s.openPanel);
+  const toggleAuxiliaryPanel = useWorkbenchStore((s) => s.toggleAuxiliaryPanel);
+  const dockAuxiliaryPanel = useWorkbenchStore((s) => s.dockAuxiliaryPanel);
+  const hideAllAuxiliarySlideouts = useWorkbenchStore(
+    (s) => s.hideAllAuxiliarySlideouts,
+  );
+  const hideAuxiliarySlideout = useWorkbenchStore(
+    (s) => s.hideAuxiliarySlideout,
+  );
+  const resizeAuxiliarySlideout = useWorkbenchStore(
+    (s) => s.resizeAuxiliarySlideout,
+  );
+  const restoreAuxiliaryGroup = useWorkbenchStore((s) => s.restoreAuxiliaryGroup);
   const setApi = useWorkbenchStore((s) => s.setApi);
+  const leftTabs = getMinimizedTabsForEdge(auxiliary, 'left');
   const rightTabs = getMinimizedTabsForEdge(auxiliary, 'right');
   const bottomTabs = getMinimizedTabsForEdge(auxiliary, 'bottom');
+  const leftSlideout = getAuxiliarySlideoutForEdge(auxiliary, 'left');
+  const rightSlideout = getAuxiliarySlideoutForEdge(auxiliary, 'right');
+  const bottomSlideout = getAuxiliarySlideoutForEdge(auxiliary, 'bottom');
   const listenersRef = useRef<Array<{ dispose: () => void }>>([]);
 
   const disposeListeners = useCallback(() => {
@@ -67,6 +87,38 @@ export default function WorkbenchShell() {
   }, [persistLayout]);
 
   useEffect(() => {
+    if (useWorkbenchStore.getState().api) {
+      persistLayout();
+    }
+  }, [auxiliary, persistLayout]);
+
+  useEffect(() => {
+    if (!leftSlideout && !rightSlideout && !bottomSlideout) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target?.closest('[data-auxiliary-slideout="true"]') ||
+        target?.closest('[data-auxiliary-rail="true"]')
+      ) {
+        return;
+      }
+
+      hideAllAuxiliarySlideouts();
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [
+    bottomSlideout,
+    hideAllAuxiliarySlideouts,
+    leftSlideout,
+    rightSlideout,
+  ]);
+
+  useEffect(() => {
     return () => {
       disposeListeners();
       setApi(null);
@@ -74,7 +126,17 @@ export default function WorkbenchShell() {
   }, [disposeListeners, setApi]);
 
   return (
-    <div className="workbench-shell">
+    <div
+      className="workbench-shell"
+      style={
+        {
+          '--workbench-left-rail-width': leftTabs.length > 0 ? '40px' : '0px',
+          '--workbench-right-rail-width': rightTabs.length > 0 ? '40px' : '0px',
+          '--workbench-bottom-rail-height':
+            bottomTabs.length > 0 ? '36px' : '0px',
+        } as CSSProperties
+      }
+    >
       <div
         className="workbench-shell__main dv-dockview-theme-abyss"
         style={{
@@ -85,24 +147,73 @@ export default function WorkbenchShell() {
           <DockviewReact
             onReady={onReady}
             components={{ default: DockviewPanel }}
+            rightHeaderActionsComponent={AuxiliaryHeaderActions}
             hideBorders={false}
           />
         </div>
       </div>
 
-      <AuxiliaryRail
-        edge="right"
-        tabs={rightTabs}
-        onSelect={openPanel}
-      />
+      {leftSlideout ? (
+        <AuxiliarySlideout
+          slideout={leftSlideout}
+          onClose={() => hideAuxiliarySlideout('left')}
+          onDock={() => dockAuxiliaryPanel(leftSlideout.panelId)}
+          onResize={(size) => resizeAuxiliarySlideout(leftSlideout.panelId, size)}
+        />
+      ) : null}
 
-      <AuxiliaryRail
-        edge="bottom"
-        tabs={bottomTabs}
-        onSelect={openPanel}
-      />
+      {rightSlideout ? (
+        <AuxiliarySlideout
+          slideout={rightSlideout}
+          onClose={() => hideAuxiliarySlideout('right')}
+          onDock={() => dockAuxiliaryPanel(rightSlideout.panelId)}
+          onResize={(size) =>
+            resizeAuxiliarySlideout(rightSlideout.panelId, size)
+          }
+        />
+      ) : null}
 
-      <div className="workbench-shell__corner" aria-hidden="true" />
+      {bottomSlideout ? (
+        <AuxiliarySlideout
+          slideout={bottomSlideout}
+          onClose={() => hideAuxiliarySlideout('bottom')}
+          onDock={() => dockAuxiliaryPanel(bottomSlideout.panelId)}
+          onResize={(size) =>
+            resizeAuxiliarySlideout(bottomSlideout.panelId, size)
+          }
+        />
+      ) : null}
+
+      {leftTabs.length > 0 ? (
+        <AuxiliaryRail
+          edge="left"
+          tabs={leftTabs}
+          onSelect={toggleAuxiliaryPanel}
+          onRestoreGroup={restoreAuxiliaryGroup}
+        />
+      ) : null}
+
+      {rightTabs.length > 0 ? (
+        <AuxiliaryRail
+          edge="right"
+          tabs={rightTabs}
+          onSelect={toggleAuxiliaryPanel}
+          onRestoreGroup={restoreAuxiliaryGroup}
+        />
+      ) : null}
+
+      {bottomTabs.length > 0 ? (
+        <AuxiliaryRail
+          edge="bottom"
+          tabs={bottomTabs}
+          onSelect={toggleAuxiliaryPanel}
+          onRestoreGroup={restoreAuxiliaryGroup}
+        />
+      ) : null}
+
+      {rightTabs.length > 0 && bottomTabs.length > 0 ? (
+        <div className="workbench-shell__corner" aria-hidden="true" />
+      ) : null}
     </div>
   );
 }

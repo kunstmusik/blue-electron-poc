@@ -10,29 +10,21 @@ import {
   type PanelMode,
 } from './panel-registry';
 
-export type AuxiliaryEdge = 'right' | 'bottom';
+export type AuxiliaryEdge = 'left' | 'right' | 'bottom';
 type AuxiliaryPanelMode = Extract<PanelMode, 'properties' | 'output'>;
 export type AuxiliaryGroupId = 'properties-main' | 'output-main';
-export type AuxiliaryPresentation = 'docked' | 'minimized' | 'floating' | 'maximized';
-type NonMinimizedPresentation = Exclude<AuxiliaryPresentation, 'minimized'>;
+export type AuxiliaryPanelPresentation = 'docked' | 'minimized' | 'slideout';
 
 interface AuxiliaryGroupDefinition {
   id: AuxiliaryGroupId;
   mode: AuxiliaryPanelMode;
   edge: AuxiliaryEdge;
-  dockDirection: 'right' | 'below';
+  dockDirection: 'left' | 'right' | 'below';
   dockviewGroupId: string;
   panelIds: string[];
   defaultActivePanelId: string;
   defaultDockedSize: number;
-  defaultFloatingBounds: AuxiliaryFloatingBounds;
-}
-
-export interface AuxiliaryFloatingBounds {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
+  defaultSlideoutSize: number;
 }
 
 export interface MinimizedTabState {
@@ -48,21 +40,33 @@ export interface AuxiliaryGroupSession {
   edge: AuxiliaryEdge;
   mode: AuxiliaryPanelMode;
   panelIds: string[];
+  dockedPanelIds: string[];
   activePanelId: string;
-  presentation: AuxiliaryPresentation;
-  lastNonMinimizedPresentation: NonMinimizedPresentation;
   dockedSize: number;
-  floatingBounds: AuxiliaryFloatingBounds;
-  dockviewGroupId?: string;
+  slideoutSize: number;
+  isMaximized: boolean;
+}
+
+export interface AuxiliaryEdgeSlideoutState {
+  edge: AuxiliaryEdge;
+  openPanelId?: string;
+}
+
+export interface AuxiliarySlideoutView {
+  edge: AuxiliaryEdge;
+  groupId: AuxiliaryGroupId;
+  panelId: string;
+  size: number;
 }
 
 export interface AuxiliaryLayoutState {
-  version: 3;
+  version: 4;
   groups: Record<AuxiliaryGroupId, AuxiliaryGroupSession>;
+  slideouts: Record<AuxiliaryEdge, AuxiliaryEdgeSlideoutState>;
 }
 
 export interface StoredWorkbenchLayout {
-  version: 3;
+  version: 4;
   dockview: SerializedDockview;
   auxiliary: AuxiliaryLayoutState;
 }
@@ -73,20 +77,46 @@ interface LegacyAuxiliaryEdgeState {
   size?: number;
 }
 
-interface LegacyAuxiliaryLayoutState {
-  byEdge?: Partial<Record<AuxiliaryEdge, LegacyAuxiliaryEdgeState>>;
+interface LegacyAuxiliaryLayoutStateV2 {
+  byEdge?: Partial<Record<'right' | 'bottom', LegacyAuxiliaryEdgeState>>;
 }
 
-interface LegacyStoredWorkbenchLayout {
+interface LegacyStoredWorkbenchLayoutV2 {
   version: 2;
   dockview: SerializedDockview;
-  auxiliary: LegacyAuxiliaryLayoutState;
+  auxiliary: LegacyAuxiliaryLayoutStateV2;
+}
+
+interface LegacyFloatingBounds {
+  width?: number;
+  height?: number;
+}
+
+interface LegacyAuxiliaryGroupSessionV3 {
+  panelIds?: string[];
+  activePanelId?: string;
+  presentation?: 'docked' | 'minimized' | 'floating' | 'maximized';
+  dockedSize?: number;
+  floatingBounds?: LegacyFloatingBounds;
+}
+
+interface LegacyAuxiliaryLayoutStateV3 {
+  version: 3;
+  groups: Partial<Record<AuxiliaryGroupId, LegacyAuxiliaryGroupSessionV3>>;
+}
+
+interface LegacyStoredWorkbenchLayoutV3 {
+  version: 3;
+  dockview: SerializedDockview;
+  auxiliary: LegacyAuxiliaryLayoutStateV3;
 }
 
 const AUXILIARY_GROUP_ORDER: AuxiliaryGroupId[] = [
   'properties-main',
   'output-main',
 ];
+
+const AUXILIARY_EDGE_ORDER: AuxiliaryEdge[] = ['left', 'right', 'bottom'];
 
 const AUXILIARY_GROUP_DEFINITIONS: Record<
   AuxiliaryGroupId,
@@ -104,12 +134,7 @@ const AUXILIARY_GROUP_DEFINITIONS: Record<
     ],
     defaultActivePanelId: 'SoundObjectPropertiesTopComponent',
     defaultDockedSize: 360,
-    defaultFloatingBounds: {
-      x: 120,
-      y: 96,
-      width: 420,
-      height: 620,
-    },
+    defaultSlideoutSize: 360,
   },
   'output-main': {
     id: 'output-main',
@@ -123,20 +148,8 @@ const AUXILIARY_GROUP_DEFINITIONS: Record<
     ],
     defaultActivePanelId: 'ScoreObjectEditorTopComponent',
     defaultDockedSize: 228,
-    defaultFloatingBounds: {
-      x: 96,
-      y: 220,
-      width: 760,
-      height: 320,
-    },
+    defaultSlideoutSize: 228,
   },
-};
-
-const FALLBACK_FLOATING_BOUNDS: AuxiliaryFloatingBounds = {
-  x: 64,
-  y: 64,
-  width: 420,
-  height: 320,
 };
 
 export function getAuxiliaryGroupDefinition(
@@ -166,15 +179,31 @@ export function getAuxiliaryGroupIdForPanel(
 export function getAuxiliaryEdgeForPanel(
   panelId: string,
 ): AuxiliaryEdge | undefined {
-  return getAuxiliaryGroupIdForPanel(panelId)
-    ? AUXILIARY_GROUP_DEFINITIONS[
-        getAuxiliaryGroupIdForPanel(panelId) as AuxiliaryGroupId
-      ].edge
-    : undefined;
+  const groupId = getAuxiliaryGroupIdForPanel(panelId);
+  return groupId ? AUXILIARY_GROUP_DEFINITIONS[groupId].edge : undefined;
 }
 
 export function isAuxiliaryPanelId(panelId: string): boolean {
   return getAuxiliaryGroupIdForPanel(panelId) !== undefined;
+}
+
+export function getAuxiliaryPanelPresentation(
+  state: AuxiliaryLayoutState,
+  panelId: string,
+): AuxiliaryPanelPresentation | undefined {
+  const groupId = getAuxiliaryGroupIdForPanel(panelId);
+  if (!groupId) {
+    return undefined;
+  }
+
+  const session = state.groups[groupId];
+  if (session.dockedPanelIds.includes(panelId)) {
+    return 'docked';
+  }
+
+  return state.slideouts[session.edge].openPanelId === panelId
+    ? 'slideout'
+    : 'minimized';
 }
 
 export function getMinimizedTabsForEdge(
@@ -182,20 +211,25 @@ export function getMinimizedTabsForEdge(
   edge: AuxiliaryEdge,
 ): MinimizedTabState[] {
   const tabs: MinimizedTabState[] = [];
+  const activePanelId = state.slideouts[edge].openPanelId;
 
   for (const groupId of AUXILIARY_GROUP_ORDER) {
     const session = state.groups[groupId];
-    if (session.edge !== edge || session.presentation !== 'minimized') {
+    if (session.edge !== edge) {
       continue;
     }
 
     session.panelIds.forEach((panelId, order) => {
+      if (session.dockedPanelIds.includes(panelId)) {
+        return;
+      }
+
       tabs.push({
         groupId,
         panelId,
         edge,
         order,
-        isActivePanel: panelId === session.activePanelId,
+        isActivePanel: activePanelId === panelId,
       });
     });
   }
@@ -203,12 +237,44 @@ export function getMinimizedTabsForEdge(
   return tabs;
 }
 
+export function getAuxiliarySlideoutForEdge(
+  state: AuxiliaryLayoutState,
+  edge: AuxiliaryEdge,
+): AuxiliarySlideoutView | undefined {
+  const openPanelId = state.slideouts[edge].openPanelId;
+  if (!openPanelId) {
+    return undefined;
+  }
+
+  const groupId = getAuxiliaryGroupIdForPanel(openPanelId);
+  if (!groupId) {
+    return undefined;
+  }
+
+  const session = state.groups[groupId];
+  if (session.edge !== edge || session.dockedPanelIds.includes(openPanelId)) {
+    return undefined;
+  }
+
+  return {
+    edge,
+    groupId,
+    panelId: openPanelId,
+    size: session.slideoutSize,
+  };
+}
+
 export function createDefaultAuxiliaryLayoutState(): AuxiliaryLayoutState {
   return {
-    version: 3,
+    version: 4,
     groups: {
       'properties-main': createDefaultGroupSession('properties-main'),
       'output-main': createDefaultGroupSession('output-main'),
+    },
+    slideouts: {
+      left: { edge: 'left' },
+      right: { edge: 'right' },
+      bottom: { edge: 'bottom' },
     },
   };
 }
@@ -217,10 +283,15 @@ export function cloneAuxiliaryLayoutState(
   state: AuxiliaryLayoutState,
 ): AuxiliaryLayoutState {
   return {
-    version: 3,
+    version: 4,
     groups: {
       'properties-main': cloneGroupSession(state.groups['properties-main']),
       'output-main': cloneGroupSession(state.groups['output-main']),
+    },
+    slideouts: {
+      left: { ...state.slideouts.left },
+      right: { ...state.slideouts.right },
+      bottom: { ...state.slideouts.bottom },
     },
   };
 }
@@ -230,7 +301,7 @@ export function createStoredWorkbenchLayout(
   auxiliary: AuxiliaryLayoutState,
 ): StoredWorkbenchLayout {
   return {
-    version: 3,
+    version: 4,
     dockview,
     auxiliary: cloneAuxiliaryLayoutState(auxiliary),
   };
@@ -256,10 +327,17 @@ export function parseStoredWorkbenchLayout(serialized: string | null): {
       };
     }
 
-    if (isLegacyStoredWorkbenchLayout(parsed)) {
+    if (isLegacyStoredWorkbenchLayoutV3(parsed)) {
       return {
         dockview: parsed.dockview,
-        auxiliary: upgradeLegacyAuxiliaryLayoutState(parsed.auxiliary),
+        auxiliary: upgradeLegacyAuxiliaryLayoutStateV3(parsed.auxiliary),
+      };
+    }
+
+    if (isLegacyStoredWorkbenchLayoutV2(parsed)) {
+      return {
+        dockview: parsed.dockview,
+        auxiliary: upgradeLegacyAuxiliaryLayoutStateV2(parsed.auxiliary),
       };
     }
 
@@ -297,28 +375,34 @@ export function applyAuxiliaryLayout(
   const next = normalizeAuxiliaryLayoutState(state);
   const maximizeQueue: AuxiliaryGroupId[] = [];
 
-  for (const groupId of AUXILIARY_GROUP_ORDER) {
-    if (next.groups[groupId].presentation === 'maximized') {
-      maximizeQueue.push(groupId);
-      applyAuxiliaryGroupPresentation(api, {
-        ...next.groups[groupId],
-        presentation: 'docked',
-      });
-      continue;
-    }
+  clearLiveAuxiliaryPanels(
+    api,
+    AUXILIARY_GROUP_ORDER.flatMap((groupId) => next.groups[groupId].panelIds),
+  );
 
-    applyAuxiliaryGroupPresentation(api, next.groups[groupId]);
+  for (const groupId of AUXILIARY_GROUP_ORDER) {
+    const session = next.groups[groupId];
+    createDockedPresentation(api, session);
+
+    if (session.isMaximized && session.dockedPanelIds.length > 0) {
+      maximizeQueue.push(groupId);
+    }
   }
 
   for (const groupId of maximizeQueue) {
-    focusDockviewPanel(api, next.groups[groupId].activePanelId);
-    api.getPanel(next.groups[groupId].activePanelId)?.api.maximize();
+    const activeDockedPanelId = getActiveDockedPanelId(next.groups[groupId]);
+    if (!activeDockedPanelId) {
+      continue;
+    }
+
+    focusDockviewPanel(api, activeDockedPanelId);
+    api.getPanel(activeDockedPanelId)?.api.maximize();
   }
 
   return syncAuxiliaryLayoutFromApi(api, next);
 }
 
-export function focusAuxiliaryPanel(
+export function revealAuxiliaryPanel(
   api: DockviewApi,
   state: AuxiliaryLayoutState,
   panelId: string,
@@ -332,22 +416,106 @@ export function focusAuxiliaryPanel(
   const session = next.groups[groupId];
   session.activePanelId = panelId;
 
-  if (session.presentation === 'minimized') {
-    session.presentation = 'floating';
-    session.lastNonMinimizedPresentation = 'floating';
-    const applied = applyAuxiliaryLayout(api, next);
+  if (session.dockedPanelIds.includes(panelId)) {
+    next.slideouts[session.edge].openPanelId = undefined;
+
+    if (!api.getPanel(panelId)) {
+      const applied = applyAuxiliaryLayout(api, next);
+      focusDockviewPanel(api, panelId);
+      return syncAuxiliaryLayoutFromApi(api, applied);
+    }
+
     focusDockviewPanel(api, panelId);
-    return syncAuxiliaryLayoutFromApi(api, applied);
+    return syncAuxiliaryLayoutFromApi(api, next);
   }
 
-  if (!api.getPanel(panelId)) {
-    const applied = applyAuxiliaryLayout(api, next);
-    focusDockviewPanel(api, panelId);
-    return syncAuxiliaryLayoutFromApi(api, applied);
+  next.slideouts[session.edge].openPanelId = panelId;
+  return normalizeAuxiliaryLayoutState(next);
+}
+
+export function toggleMinimizedAuxiliaryPanel(
+  state: AuxiliaryLayoutState,
+  panelId: string,
+): AuxiliaryLayoutState {
+  const groupId = getAuxiliaryGroupIdForPanel(panelId);
+  if (!groupId) {
+    return cloneAuxiliaryLayoutState(state);
   }
 
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+  const session = next.groups[groupId];
+  session.activePanelId = panelId;
+
+  if (session.dockedPanelIds.includes(panelId)) {
+    return normalizeAuxiliaryLayoutState(next);
+  }
+
+  next.slideouts[session.edge].openPanelId =
+    next.slideouts[session.edge].openPanelId === panelId ? undefined : panelId;
+
+  return normalizeAuxiliaryLayoutState(next);
+}
+
+export function hideAuxiliarySlideout(
+  state: AuxiliaryLayoutState,
+  edge: AuxiliaryEdge,
+): AuxiliaryLayoutState {
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+  next.slideouts[edge].openPanelId = undefined;
+  return normalizeAuxiliaryLayoutState(next);
+}
+
+export function hideAllAuxiliarySlideouts(
+  state: AuxiliaryLayoutState,
+): AuxiliaryLayoutState {
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+
+  for (const edge of AUXILIARY_EDGE_ORDER) {
+    next.slideouts[edge].openPanelId = undefined;
+  }
+
+  return normalizeAuxiliaryLayoutState(next);
+}
+
+export function dockAuxiliaryPanel(
+  api: DockviewApi,
+  state: AuxiliaryLayoutState,
+  panelId: string,
+): AuxiliaryLayoutState {
+  const groupId = getAuxiliaryGroupIdForPanel(panelId);
+  if (!groupId) {
+    return cloneAuxiliaryLayoutState(state);
+  }
+
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+  const session = next.groups[groupId];
+  session.activePanelId = panelId;
+  session.isMaximized = false;
+  session.dockedPanelIds = sortPanelIdsByDefinition(groupId, [
+    ...session.dockedPanelIds,
+    panelId,
+  ]);
+  next.slideouts[session.edge].openPanelId = undefined;
+
+  const applied = applyAuxiliaryLayout(api, next);
   focusDockviewPanel(api, panelId);
-  return syncAuxiliaryLayoutFromApi(api, next);
+  return syncAuxiliaryLayoutFromApi(api, applied);
+}
+
+export function resizeAuxiliarySlideout(
+  state: AuxiliaryLayoutState,
+  panelId: string,
+  size: number,
+): AuxiliaryLayoutState {
+  const groupId = getAuxiliaryGroupIdForPanel(panelId);
+  if (!groupId) {
+    return cloneAuxiliaryLayoutState(state);
+  }
+
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+  const session = next.groups[groupId];
+  session.slideoutSize = clampSlideoutSize(session.edge, size);
+  return normalizeAuxiliaryLayoutState(next);
 }
 
 export function minimizeAuxiliaryGroupLayout(
@@ -357,12 +525,16 @@ export function minimizeAuxiliaryGroupLayout(
 ): AuxiliaryLayoutState {
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const session = next.groups[groupId];
+  session.dockedPanelIds = [];
+  session.isMaximized = false;
 
-  if (session.presentation !== 'minimized') {
-    session.lastNonMinimizedPresentation = session.presentation;
+  if (
+    next.slideouts[session.edge].openPanelId &&
+    session.panelIds.includes(next.slideouts[session.edge].openPanelId as string)
+  ) {
+    next.slideouts[session.edge].openPanelId = undefined;
   }
 
-  session.presentation = 'minimized';
   return applyAuxiliaryLayout(api, next);
 }
 
@@ -373,10 +545,15 @@ export function maximizeAuxiliaryGroupLayout(
 ): AuxiliaryLayoutState {
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const session = next.groups[groupId];
-  session.presentation = 'maximized';
-  session.lastNonMinimizedPresentation = 'maximized';
+  session.dockedPanelIds = [...session.panelIds];
+  session.isMaximized = true;
+  next.slideouts[session.edge].openPanelId = undefined;
+
   const applied = applyAuxiliaryLayout(api, next);
-  focusDockviewPanel(api, applied.groups[groupId].activePanelId);
+  const activeDockedPanelId = getActiveDockedPanelId(applied.groups[groupId]);
+  if (activeDockedPanelId) {
+    focusDockviewPanel(api, activeDockedPanelId);
+  }
   return syncAuxiliaryLayoutFromApi(api, applied);
 }
 
@@ -387,10 +564,15 @@ export function restoreAuxiliaryGroupLayout(
 ): AuxiliaryLayoutState {
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const session = next.groups[groupId];
-  session.presentation = 'docked';
-  session.lastNonMinimizedPresentation = 'docked';
+  session.dockedPanelIds = [...session.panelIds];
+  session.isMaximized = false;
+  next.slideouts[session.edge].openPanelId = undefined;
+
   const applied = applyAuxiliaryLayout(api, next);
-  focusDockviewPanel(api, applied.groups[groupId].activePanelId);
+  const activeDockedPanelId = getActiveDockedPanelId(applied.groups[groupId]);
+  if (activeDockedPanelId) {
+    focusDockviewPanel(api, activeDockedPanelId);
+  }
   return syncAuxiliaryLayoutFromApi(api, applied);
 }
 
@@ -399,113 +581,57 @@ export function syncAuxiliaryLayoutFromApi(
   fallback: AuxiliaryLayoutState,
 ): AuxiliaryLayoutState {
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(fallback));
-  const serialized = api.toJSON();
 
   for (const groupId of AUXILIARY_GROUP_ORDER) {
     const session = next.groups[groupId];
     const liveGroup = getLiveAuxiliaryGroup(api, session.panelIds);
 
     if (!liveGroup) {
-      session.dockviewGroupId = undefined;
+      session.dockedPanelIds = [];
+      session.isMaximized = false;
       continue;
     }
 
-    const livePanelIds = liveGroup.panels
-      .map((panel) => panel.id)
-      .filter((panelId) =>
-        AUXILIARY_GROUP_DEFINITIONS[groupId].panelIds.includes(panelId),
-      );
-
-    if (livePanelIds.length > 0) {
-      session.panelIds = livePanelIds;
-    }
-
-    session.activePanelId =
-      liveGroup.activePanel?.id ?? livePanelIds[0] ?? session.activePanelId;
-    session.dockviewGroupId = liveGroup.id;
-
-    const activePanel =
-      api.getPanel(session.activePanelId) ?? liveGroup.panels[0];
-
-    if (activePanel?.api.isMaximized()) {
-      session.presentation = 'maximized';
-      session.lastNonMinimizedPresentation = 'maximized';
-    } else if (activePanel?.api.location.type === 'floating') {
-      session.presentation = 'floating';
-      session.lastNonMinimizedPresentation = 'floating';
-    } else {
-      session.presentation = 'docked';
-      session.lastNonMinimizedPresentation = 'docked';
-      if (Number.isFinite(liveGroup.size)) {
-        session.dockedSize = liveGroup.size;
-      }
-    }
-
-    const floatingBounds = getFloatingBoundsForPanelIds(
-      serialized,
-      session.panelIds,
+    const livePanelIds = sortPanelIdsByDefinition(
+      groupId,
+      liveGroup.panels
+        .map((panel) => panel.id)
+        .filter((panelId) => session.panelIds.includes(panelId)),
     );
-    if (floatingBounds) {
-      session.floatingBounds = floatingBounds;
+
+    session.dockedPanelIds = livePanelIds;
+
+    const slideoutPanelId = next.slideouts[session.edge].openPanelId;
+    if (
+      !slideoutPanelId ||
+      getAuxiliaryGroupIdForPanel(slideoutPanelId) !== groupId
+    ) {
+      session.activePanelId =
+        liveGroup.activePanel?.id ?? livePanelIds[0] ?? session.activePanelId;
     }
+
+    if (Number.isFinite(liveGroup.size)) {
+      session.dockedSize = liveGroup.size;
+    }
+
+    const activeDockedPanelId = getActiveDockedPanelId(session);
+    const activeDockedPanel = activeDockedPanelId
+      ? api.getPanel(activeDockedPanelId)
+      : undefined;
+    session.isMaximized = Boolean(activeDockedPanel?.api.isMaximized());
   }
 
   return normalizeAuxiliaryLayoutState(next);
-}
-
-export function clampFloatingBounds(
-  bounds: Partial<AuxiliaryFloatingBounds> | undefined,
-): AuxiliaryFloatingBounds {
-  const viewportWidth =
-    typeof window === 'undefined' ? 1440 : Math.max(window.innerWidth, 480);
-  const viewportHeight =
-    typeof window === 'undefined' ? 900 : Math.max(window.innerHeight, 320);
-
-  const width = clampNumber(bounds?.width ?? FALLBACK_FLOATING_BOUNDS.width, {
-    minimum: 280,
-    maximum: viewportWidth,
-  });
-  const height = clampNumber(bounds?.height ?? FALLBACK_FLOATING_BOUNDS.height, {
-    minimum: 180,
-    maximum: viewportHeight,
-  });
-  const x = clampNumber(bounds?.x ?? FALLBACK_FLOATING_BOUNDS.x, {
-    minimum: 0,
-    maximum: Math.max(0, viewportWidth - width),
-  });
-  const y = clampNumber(bounds?.y ?? FALLBACK_FLOATING_BOUNDS.y, {
-    minimum: 0,
-    maximum: Math.max(0, viewportHeight - height),
-  });
-
-  return { x, y, width, height };
-}
-
-function applyAuxiliaryGroupPresentation(
-  api: DockviewApi,
-  session: AuxiliaryGroupSession,
-) {
-  clearLiveAuxiliaryPanels(api, session.panelIds);
-
-  if (session.presentation === 'minimized') {
-    session.dockviewGroupId = undefined;
-    return;
-  }
-
-  if (session.presentation === 'floating') {
-    const group = createFloatingPresentation(api, session);
-    session.dockviewGroupId = group?.id;
-    return;
-  }
-
-  const group = createDockedPresentation(api, session);
-  session.dockviewGroupId = group?.id;
 }
 
 function createDockedPresentation(
   api: DockviewApi,
   session: AuxiliaryGroupSession,
 ): DockviewGroupPanel | undefined {
+  if (session.dockedPanelIds.length === 0) {
+    return undefined;
+  }
+
   const definition = AUXILIARY_GROUP_DEFINITIONS[session.id];
   const anchorPanel = getAnchorPanel(api);
 
@@ -518,65 +644,31 @@ function createDockedPresentation(
     referencePanel: anchorPanel,
     direction: definition.dockDirection,
     locked: true,
-    ...(definition.edge === 'right'
-      ? { initialWidth: session.dockedSize }
-      : { initialHeight: session.dockedSize }),
+    ...(definition.edge === 'bottom'
+      ? { initialHeight: session.dockedSize }
+      : { initialWidth: session.dockedSize }),
   }) as DockviewGroupPanel;
 
-  group.locked = true;
-  group.api.setHeaderPosition('top');
-  mountAuxiliaryPanelsIntoGroup(api, group, session);
-  focusDockviewPanel(api, session.activePanelId);
-  return group;
-}
-
-function createFloatingPresentation(
-  api: DockviewApi,
-  session: AuxiliaryGroupSession,
-): DockviewGroupPanel | undefined {
-  const [firstPanelId] = session.panelIds;
-  const descriptor = getPanel(firstPanelId);
-  if (!descriptor) {
-    return undefined;
-  }
-
-  const bounds = clampFloatingBounds(session.floatingBounds);
-  api.addPanel({
-    id: firstPanelId,
-    component: 'default',
-    title: descriptor.title,
-    floating: {
-      x: bounds.x,
-      y: bounds.y,
-      width: bounds.width,
-      height: bounds.height,
-    },
-    inactive: firstPanelId !== session.activePanelId,
-  });
-
-  const group = api.getPanel(firstPanelId)?.group as DockviewGroupPanel | undefined;
-  if (!group) {
-    return undefined;
-  }
+  const activeDockedPanelId = getActiveDockedPanelId(session);
 
   group.locked = true;
   group.api.setHeaderPosition('top');
-  mountAuxiliaryPanelsIntoGroup(api, group, session, firstPanelId);
-  focusDockviewPanel(api, session.activePanelId);
+  mountDockedPanelsIntoGroup(api, group, session, activeDockedPanelId);
+
+  if (activeDockedPanelId) {
+    focusDockviewPanel(api, activeDockedPanelId);
+  }
+
   return group;
 }
 
-function mountAuxiliaryPanelsIntoGroup(
+function mountDockedPanelsIntoGroup(
   api: DockviewApi,
   group: DockviewGroupPanel,
   session: AuxiliaryGroupSession,
-  skipFirstPanelId?: string,
+  activeDockedPanelId: string | undefined,
 ) {
-  session.panelIds.forEach((panelId, index) => {
-    if (panelId === skipFirstPanelId) {
-      return;
-    }
-
+  session.dockedPanelIds.forEach((panelId, index) => {
     const descriptor = getPanel(panelId);
     if (!descriptor) {
       return;
@@ -591,7 +683,8 @@ function mountAuxiliaryPanelsIntoGroup(
         direction: 'within',
         index,
       },
-      inactive: panelId !== session.activePanelId,
+      inactive:
+        activeDockedPanelId !== undefined && panelId !== activeDockedPanelId,
     });
   });
 }
@@ -651,43 +744,62 @@ function normalizeAuxiliaryLayoutState(
       continue;
     }
 
-    const panelIds = unique(
-      (candidate.panelIds ?? []).filter((panelId) =>
-        definition.panelIds.includes(panelId),
-      ),
+    const panelIds = sortPanelIdsByDefinition(
+      groupId,
+      asStringArray(candidate.panelIds),
     );
-
     if (panelIds.length > 0) {
       fallback.panelIds = panelIds;
     }
 
+    const dockedPanelIds = Array.isArray(candidate.dockedPanelIds)
+      ? sortPanelIdsByDefinition(groupId, asStringArray(candidate.dockedPanelIds))
+      : [...fallback.panelIds];
+
+    fallback.dockedPanelIds = dockedPanelIds.filter((panelId) =>
+      fallback.panelIds.includes(panelId),
+    );
+
     fallback.activePanelId = fallback.panelIds.includes(candidate.activePanelId)
       ? candidate.activePanelId
-      : fallback.panelIds[0];
-
-    fallback.presentation = isAuxiliaryPresentation(candidate.presentation)
-      ? candidate.presentation
-      : fallback.presentation;
-
-    fallback.lastNonMinimizedPresentation = isNonMinimizedPresentation(
-      candidate.lastNonMinimizedPresentation,
-    )
-      ? candidate.lastNonMinimizedPresentation
-      : fallback.lastNonMinimizedPresentation;
-
-    if (fallback.presentation !== 'minimized') {
-      fallback.lastNonMinimizedPresentation = fallback.presentation;
-    }
+      : fallback.dockedPanelIds[0] ?? fallback.panelIds[0];
 
     if (Number.isFinite(candidate.dockedSize)) {
       fallback.dockedSize = candidate.dockedSize;
     }
 
-    fallback.floatingBounds = clampFloatingBounds(candidate.floatingBounds);
-
-    if (typeof candidate.dockviewGroupId === 'string') {
-      fallback.dockviewGroupId = candidate.dockviewGroupId;
+    if (Number.isFinite(candidate.slideoutSize)) {
+      fallback.slideoutSize = clampSlideoutSize(
+        definition.edge,
+        candidate.slideoutSize,
+      );
     }
+
+    fallback.isMaximized = Boolean(candidate.isMaximized);
+  }
+
+  for (const edge of AUXILIARY_EDGE_ORDER) {
+    const openPanelId =
+      typeof state.slideouts?.[edge]?.openPanelId === 'string'
+        ? state.slideouts[edge].openPanelId
+        : undefined;
+
+    if (!openPanelId) {
+      continue;
+    }
+
+    const groupId = getAuxiliaryGroupIdForPanel(openPanelId);
+    if (!groupId) {
+      continue;
+    }
+
+    const session = next.groups[groupId];
+    if (session.edge !== edge || session.dockedPanelIds.includes(openPanelId)) {
+      continue;
+    }
+
+    next.slideouts[edge].openPanelId = openPanelId;
+    session.activePanelId = openPanelId;
   }
 
   return next;
@@ -702,11 +814,11 @@ function createDefaultGroupSession(
     edge: definition.edge,
     mode: definition.mode,
     panelIds: [...definition.panelIds],
+    dockedPanelIds: [...definition.panelIds],
     activePanelId: definition.defaultActivePanelId,
-    presentation: 'docked',
-    lastNonMinimizedPresentation: 'docked',
     dockedSize: definition.defaultDockedSize,
-    floatingBounds: clampFloatingBounds(definition.defaultFloatingBounds),
+    slideoutSize: definition.defaultSlideoutSize,
+    isMaximized: false,
   };
 }
 
@@ -714,99 +826,134 @@ function cloneGroupSession(session: AuxiliaryGroupSession): AuxiliaryGroupSessio
   return {
     ...session,
     panelIds: [...session.panelIds],
-    floatingBounds: { ...session.floatingBounds },
+    dockedPanelIds: [...session.dockedPanelIds],
   };
 }
 
-function upgradeLegacyAuxiliaryLayoutState(
-  legacy: LegacyAuxiliaryLayoutState,
+function getActiveDockedPanelId(
+  session: AuxiliaryGroupSession,
+): string | undefined {
+  return session.dockedPanelIds.includes(session.activePanelId)
+    ? session.activePanelId
+    : session.dockedPanelIds[0];
+}
+
+function upgradeLegacyAuxiliaryLayoutStateV2(
+  legacy: LegacyAuxiliaryLayoutStateV2,
 ): AuxiliaryLayoutState {
   const next = createDefaultAuxiliaryLayoutState();
 
   const right = legacy.byEdge?.right;
   if (right) {
     const session = next.groups['properties-main'];
-    const panelIds = unique(
-      right.panelIds.filter((panelId) =>
-        AUXILIARY_GROUP_DEFINITIONS['properties-main'].panelIds.includes(panelId),
-      ),
+    const panelIds = sortPanelIdsByDefinition(
+      'properties-main',
+      right.panelIds ?? [],
     );
     if (panelIds.length > 0) {
       session.panelIds = panelIds;
+      session.dockedPanelIds = [...panelIds];
     }
     session.activePanelId = session.panelIds.includes(right.activePanelId)
       ? right.activePanelId
-      : session.panelIds[0];
+      : session.dockedPanelIds[0] ?? session.panelIds[0];
     if (Number.isFinite(right.size)) {
       session.dockedSize = right.size;
+      session.slideoutSize = clampSlideoutSize(session.edge, right.size);
     }
   }
 
   const bottom = legacy.byEdge?.bottom;
   if (bottom) {
     const session = next.groups['output-main'];
-    const panelIds = unique(
-      bottom.panelIds.filter((panelId) =>
-        AUXILIARY_GROUP_DEFINITIONS['output-main'].panelIds.includes(panelId),
-      ),
-    );
+    const panelIds = sortPanelIdsByDefinition('output-main', bottom.panelIds ?? []);
     if (panelIds.length > 0) {
       session.panelIds = panelIds;
+      session.dockedPanelIds = [...panelIds];
     }
     session.activePanelId = session.panelIds.includes(bottom.activePanelId)
       ? bottom.activePanelId
-      : session.panelIds[0];
+      : session.dockedPanelIds[0] ?? session.panelIds[0];
     if (Number.isFinite(bottom.size)) {
       session.dockedSize = bottom.size;
+      session.slideoutSize = clampSlideoutSize(session.edge, bottom.size);
     }
   }
 
   return next;
 }
 
-function getFloatingBoundsForPanelIds(
-  dockview: SerializedDockview,
-  panelIds: string[],
-): AuxiliaryFloatingBounds | undefined {
-  const signature = unique(panelIds).sort().join('|');
+function upgradeLegacyAuxiliaryLayoutStateV3(
+  legacy: LegacyAuxiliaryLayoutStateV3,
+): AuxiliaryLayoutState {
+  const next = createDefaultAuxiliaryLayoutState();
 
-  for (const floatingGroup of dockview.floatingGroups ?? []) {
-    const views = unique(floatingGroup.data.views ?? []).sort().join('|');
-    if (views !== signature) {
+  for (const groupId of AUXILIARY_GROUP_ORDER) {
+    const candidate = legacy.groups?.[groupId];
+    if (!candidate) {
       continue;
     }
 
-    return anchoredBoxToFloatingBounds(floatingGroup.position);
+    const session = next.groups[groupId];
+    const panelIds = sortPanelIdsByDefinition(groupId, candidate.panelIds ?? []);
+    if (panelIds.length > 0) {
+      session.panelIds = panelIds;
+    }
+
+    session.activePanelId = session.panelIds.includes(candidate.activePanelId)
+      ? candidate.activePanelId
+      : session.panelIds[0];
+
+    if (Number.isFinite(candidate.dockedSize)) {
+      session.dockedSize = candidate.dockedSize;
+    }
+
+    const slideoutSize =
+      session.edge === 'bottom'
+        ? candidate.floatingBounds?.height
+        : candidate.floatingBounds?.width;
+    if (Number.isFinite(slideoutSize)) {
+      session.slideoutSize = clampSlideoutSize(session.edge, slideoutSize);
+    }
+
+    switch (candidate.presentation) {
+      case 'minimized':
+        session.dockedPanelIds = [];
+        break;
+      case 'floating':
+        session.dockedPanelIds = [];
+        next.slideouts[session.edge].openPanelId = session.activePanelId;
+        break;
+      case 'maximized':
+        session.dockedPanelIds = [...session.panelIds];
+        session.isMaximized = true;
+        break;
+      default:
+        session.dockedPanelIds = [...session.panelIds];
+        break;
+    }
   }
 
-  return undefined;
+  return normalizeAuxiliaryLayoutState(next);
 }
 
-function anchoredBoxToFloatingBounds(
-  bounds: Record<string, unknown>,
-): AuxiliaryFloatingBounds {
+function clampSlideoutSize(edge: AuxiliaryEdge, value: number): number {
   const viewportWidth =
     typeof window === 'undefined' ? 1440 : Math.max(window.innerWidth, 480);
   const viewportHeight =
     typeof window === 'undefined' ? 900 : Math.max(window.innerHeight, 320);
 
-  const width = asFiniteNumber(bounds.width, FALLBACK_FLOATING_BOUNDS.width);
-  const height = asFiniteNumber(bounds.height, FALLBACK_FLOATING_BOUNDS.height);
-  const x = 'left' in bounds
-    ? asFiniteNumber(bounds.left, FALLBACK_FLOATING_BOUNDS.x)
-    : viewportWidth -
-        asFiniteNumber(bounds.right, viewportWidth - FALLBACK_FLOATING_BOUNDS.x) -
-        width;
-  const y = 'top' in bounds
-    ? asFiniteNumber(bounds.top, FALLBACK_FLOATING_BOUNDS.y)
-    : viewportHeight -
-        asFiniteNumber(
-          bounds.bottom,
-          viewportHeight - FALLBACK_FLOATING_BOUNDS.y,
-        ) -
-        height;
+  if (edge === 'bottom') {
+    return clampNumber(value, {
+      minimum: 180,
+      maximum: Math.max(180, viewportHeight - 96),
+    });
+  }
 
-  return clampFloatingBounds({ x, y, width, height });
+  return clampNumber(value, {
+    minimum: 240,
+    maximum: Math.max(240, viewportWidth - 120),
+  });
 }
 
 function clampNumber(
@@ -820,8 +967,20 @@ function clampNumber(
   return Math.min(Math.max(value, options.minimum), options.maximum);
 }
 
-function asFiniteNumber(value: unknown, fallback: number): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+function sortPanelIdsByDefinition(
+  groupId: AuxiliaryGroupId,
+  panelIds: string[],
+): string[] {
+  const order = AUXILIARY_GROUP_DEFINITIONS[groupId].panelIds;
+  return unique(panelIds).filter((panelId) => order.includes(panelId)).sort(
+    (left, right) => order.indexOf(left) - order.indexOf(right),
+  );
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function unique(values: string[]): string[] {
@@ -833,15 +992,26 @@ function isStoredWorkbenchLayout(
 ): value is StoredWorkbenchLayout {
   return (
     isRecord(value) &&
-    value.version === 3 &&
+    value.version === 4 &&
     isSerializedDockview(value.dockview) &&
     isAuxiliaryLayoutState(value.auxiliary)
   );
 }
 
-function isLegacyStoredWorkbenchLayout(
+function isLegacyStoredWorkbenchLayoutV3(
   value: unknown,
-): value is LegacyStoredWorkbenchLayout {
+): value is LegacyStoredWorkbenchLayoutV3 {
+  return (
+    isRecord(value) &&
+    value.version === 3 &&
+    isSerializedDockview(value.dockview) &&
+    isRecord(value.auxiliary)
+  );
+}
+
+function isLegacyStoredWorkbenchLayoutV2(
+  value: unknown,
+): value is LegacyStoredWorkbenchLayoutV2 {
   return (
     isRecord(value) &&
     value.version === 2 &&
@@ -853,30 +1023,18 @@ function isLegacyStoredWorkbenchLayout(
 function isAuxiliaryLayoutState(
   value: unknown,
 ): value is AuxiliaryLayoutState {
-  return isRecord(value) && value.version === 3 && isRecord(value.groups);
+  return (
+    isRecord(value) &&
+    value.version === 4 &&
+    isRecord(value.groups) &&
+    isRecord(value.slideouts)
+  );
 }
 
 function isSerializedDockview(value: unknown): value is SerializedDockview {
   return isRecord(value) && isRecord(value.grid) && isRecord(value.panels);
 }
 
-function isAuxiliaryPresentation(
-  value: unknown,
-): value is AuxiliaryPresentation {
-  return (
-    value === 'docked' ||
-    value === 'minimized' ||
-    value === 'floating' ||
-    value === 'maximized'
-  );
-}
-
-function isNonMinimizedPresentation(
-  value: unknown,
-): value is NonMinimizedPresentation {
-  return value === 'docked' || value === 'floating' || value === 'maximized';
-}
-
 function isRecord(value: unknown): value is Record<string, any> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === "object" && value !== null;
 }

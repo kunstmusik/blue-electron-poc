@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { LayoutList } from 'lucide-react';
 import { useWorkbenchStore } from '../../stores/workbench-store';
-import { getAuxiliaryGroupIdForPanel } from './auxiliary-layout';
+import { getAuxiliaryPanelPresentation } from './auxiliary-layout';
 import { PANEL_REGISTRY } from '../workbench/panel-registry';
 import type { PanelMode } from '../workbench/panel-registry';
 
@@ -52,10 +52,10 @@ export default function WindowMenu() {
               </div>
               {PANEL_REGISTRY.filter((p) => p.mode === mode).map((panel) => (
                 (() => {
-                  const auxiliaryGroupId = getAuxiliaryGroupIdForPanel(panel.id);
-                  const presentation = auxiliaryGroupId
-                    ? auxiliary.groups[auxiliaryGroupId].presentation
-                    : null;
+                  const presentation = getAuxiliaryPanelPresentation(
+                    auxiliary,
+                    panel.id,
+                  );
 
                   return (
                     <button

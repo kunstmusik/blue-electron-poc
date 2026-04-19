@@ -5,15 +5,21 @@ import {
   buildDefaultWorkbenchLayout,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
-  focusAuxiliaryPanel,
+  dockAuxiliaryPanel as dockAuxiliaryPanelLayout,
   getAuxiliaryEdgeForPanel,
   getAuxiliaryGroupIdForPanel,
+  hideAllAuxiliarySlideouts as hideAllAuxiliarySlideoutsLayout,
+  hideAuxiliarySlideout as hideAuxiliarySlideoutLayout,
   isAuxiliaryPanelId,
   maximizeAuxiliaryGroupLayout,
   minimizeAuxiliaryGroupLayout,
   parseStoredWorkbenchLayout,
+  resizeAuxiliarySlideout as resizeAuxiliarySlideoutLayout,
+  revealAuxiliaryPanel,
   restoreAuxiliaryGroupLayout,
   syncAuxiliaryLayoutFromApi,
+  toggleMinimizedAuxiliaryPanel,
+  type AuxiliaryEdge,
   type AuxiliaryGroupId,
   type AuxiliaryLayoutState,
 } from '../components/workbench/auxiliary-layout';
@@ -28,6 +34,7 @@ interface WorkbenchActions {
   setApi: (api: DockviewApi | null) => void;
   openPanel: (panelId: string) => void;
   focusPanel: (panelId: string) => void;
+  toggleAuxiliaryPanel: (panelId: string) => void;
   closePanel: (panelId: string) => void;
   isPanelOpen: (panelId: string) => boolean;
   saveLayout: () => string | null;
@@ -36,6 +43,10 @@ interface WorkbenchActions {
   minimizeAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
   maximizeAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
   restoreAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
+  dockAuxiliaryPanel: (panelId: string) => void;
+  hideAuxiliarySlideout: (edge: AuxiliaryEdge) => void;
+  hideAllAuxiliarySlideouts: () => void;
+  resizeAuxiliarySlideout: (panelId: string, size: number) => void;
   getAuxiliaryGroupForPanel: (panelId: string) => AuxiliaryGroupId | undefined;
 }
 
@@ -55,7 +66,7 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
 
       if (isAuxiliaryPanelId(panelId)) {
         set({
-          auxiliary: focusAuxiliaryPanel(api, auxiliary, panelId),
+          auxiliary: revealAuxiliaryPanel(api, auxiliary, panelId),
         });
         return;
       }
@@ -79,7 +90,13 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       if (!api) return;
 
       if (isAuxiliaryPanelId(panelId)) {
-        get().openPanel(panelId);
+        set({
+          auxiliary: revealAuxiliaryPanel(
+            api,
+            get().auxiliary,
+            panelId,
+          ),
+        });
         return;
       }
 
@@ -88,6 +105,17 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
         panel.api.setActive();
         panel.group.focus();
       }
+    },
+
+    toggleAuxiliaryPanel: (panelId) => {
+      if (!isAuxiliaryPanelId(panelId)) {
+        get().openPanel(panelId);
+        return;
+      }
+
+      set((state) => ({
+        auxiliary: toggleMinimizedAuxiliaryPanel(state.auxiliary, panelId),
+      }));
     },
 
     closePanel: (panelId) => {
@@ -115,7 +143,6 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       if (!api) return null;
 
       const nextAuxiliary = syncAuxiliaryLayoutFromApi(api, auxiliary);
-      set({ auxiliary: nextAuxiliary });
 
       return JSON.stringify(
         createStoredWorkbenchLayout(api.toJSON(), nextAuxiliary),
@@ -178,6 +205,33 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       set({
         auxiliary: restoreAuxiliaryGroupLayout(api, auxiliary, groupId),
       });
+    },
+
+    dockAuxiliaryPanel: (panelId) => {
+      const { api, auxiliary } = get();
+      if (!api) return;
+
+      set({
+        auxiliary: dockAuxiliaryPanelLayout(api, auxiliary, panelId),
+      });
+    },
+
+    hideAuxiliarySlideout: (edge) => {
+      set((state) => ({
+        auxiliary: hideAuxiliarySlideoutLayout(state.auxiliary, edge),
+      }));
+    },
+
+    hideAllAuxiliarySlideouts: () => {
+      set((state) => ({
+        auxiliary: hideAllAuxiliarySlideoutsLayout(state.auxiliary),
+      }));
+    },
+
+    resizeAuxiliarySlideout: (panelId, size) => {
+      set((state) => ({
+        auxiliary: resizeAuxiliarySlideoutLayout(state.auxiliary, panelId, size),
+      }));
     },
 
     getAuxiliaryGroupForPanel: (panelId) => getAuxiliaryGroupIdForPanel(panelId),
