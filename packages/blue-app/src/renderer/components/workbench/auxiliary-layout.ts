@@ -633,8 +633,8 @@ function focusDockviewPanel(api: DockviewApi, panelId: string) {
     return;
   }
 
-  panel.api.focus();
   panel.api.setActive();
+  panel.group.focus();
 }
 
 function normalizeAuxiliaryLayoutState(

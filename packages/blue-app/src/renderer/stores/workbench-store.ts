@@ -62,8 +62,8 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
 
       const existing = api.getPanel(panelId);
       if (existing) {
-        existing.api.focus();
         existing.api.setActive();
+        existing.group.focus();
         return;
       }
 
@@ -85,8 +85,8 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
 
       const panel = api.getPanel(panelId);
       if (panel) {
-        panel.api.focus();
         panel.api.setActive();
+        panel.group.focus();
       }
     },
 

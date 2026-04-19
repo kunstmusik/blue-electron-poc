@@ -3,6 +3,7 @@ import {
   clampFloatingBounds,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
+  focusAuxiliaryPanel,
   getAuxiliaryGroupIdForPanel,
   getMinimizedTabsForEdge,
   isAuxiliaryPanelId,
@@ -111,6 +112,44 @@ describe('workbench auxiliary layout helpers', () => {
     ]);
     expect(tabs.find((tab) => tab.panelId === 'MidiInputPanelTopComponent')?.isActivePanel).toBe(
       true,
+    );
+  });
+
+  it('focuses auxiliary panels through the dockview panel instance API', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const focus = vi.fn();
+    const setActive = vi.fn();
+    const groupFocus = vi.fn();
+    const panel = {
+      id: 'MidiInputPanelTopComponent',
+      focus,
+      api: {
+        setActive,
+        isMaximized: () => false,
+        location: { type: 'grid' },
+      },
+    } as any;
+    const group = {
+      id: 'aux-properties',
+      activePanel: panel,
+      panels: [panel],
+      size: 360,
+      focus: groupFocus,
+    };
+    panel.group = group;
+
+    const api = {
+      getPanel: (panelId: string) =>
+        panelId === 'MidiInputPanelTopComponent' ? panel : undefined,
+      toJSON: () => ({ panels: {}, grid: { root: { type: 'branch' } } }),
+    } as any;
+
+    const next = focusAuxiliaryPanel(api, state, 'MidiInputPanelTopComponent');
+
+    expect(setActive).toHaveBeenCalledOnce();
+    expect(groupFocus).toHaveBeenCalledOnce();
+    expect(next.groups['properties-main'].activePanelId).toBe(
+      'MidiInputPanelTopComponent',
     );
   });
 
