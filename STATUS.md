@@ -1,56 +1,54 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-18
-**Branch**: `013-collapsed-sidebar-research`
+**Branch**: `014-window-system-parity`
 
-## Current Active Work — Spec 013 Collapsed Sidebar Group Research
+## Current Active Work — Spec 014 Window System Parity
 
-Spec `013-collapsed-sidebar-research` is now the current active work. The planning and task-generation steps are complete, and the research package now narrows the next implementation step for collapsed auxiliary groups in the future workbench shell.
+Spec `014-window-system-parity` is now the current active work. This spec takes the bounded spec 013 prototype and moves directly into a parity-first design for the workbench auxiliary window system.
 
-## Current Recommendation
+## Spec 013 Close-Out
 
-- **Preferred direction**: dockview groups plus a thin custom collapse controller
-- **Fallback**: dockview-only grouped sidebars if a separate collapse controller proves unnecessary
-- **Not recommended as primary host**: paneview-backed sidebars
+Spec `013-collapsed-sidebar-research` is complete as a bounded prototype and research slice.
 
-## Why This Is The Recommendation
+- The 013 runtime prototype proved stable panel IDs, auxiliary-edge metadata, and a simplified edge-rail shell in `blue-app`.
+- That slice intentionally did **not** claim full NetBeans RCP parity.
+- Its main recommendation stands: keep dockview as the canonical panel/group host and localize custom behavior around auxiliary-group presentation state.
 
-- The existing `blue-app` shell already uses dockview as the canonical panel/group host.
-- `WindowMenu.tsx` and `workbench-store.ts` define a stable-ID reveal/focus flow that should remain intact.
-- The Java screenshots show durable collapsed edge handles and one-expanded-group-per-edge behavior that dockview alone does not yet prove out as a first-class rail pattern.
-- A thin app-level collapse controller keeps the custom work localized to edge handles, auxiliary-group metadata, and restore policy instead of introducing a second layout system.
+## Spec 014 Goal
 
-## Current Shell Baseline
+Spec 014 is the parity slice for the auxiliary window system. The target behavior is explicit:
 
-The current dockview shell remains intentionally simple:
+- Auxiliary groups can be `docked`, `minimized`, `floating`, or `maximized`
+- Minimizing a group leaves visible ordered edge tabs on the owning edge
+- Clicking a minimized tab reopens the requested content in a floating, resizable tool window
+- Maximizing an auxiliary group presents it with top tabs like the main editor area
+- Restore returns the group to its home edge without duplicating stable panel IDs
+- Layout save/restore and Window-menu reveal must honor the existing presentation state
 
-- `WorkbenchShell.tsx` adds all startup editor tabs, then only the first properties panel on the right and the first output panel on the bottom.
-- `workbench-store.ts` can open and focus panels by stable ID, but new panels do not yet carry collapsed-group placement rules.
-- Layout persistence still stores only raw dockview JSON in local storage under `blue-workbench-layout`.
+## Current Planning Direction
 
-## Bounded Prototype Slice
+- **Canonical runtime host**: dockview groups for docked, floating, and maximized behavior
+- **App-owned layer**: minimized edge-tab controller, home-edge restore metadata, and stable-ID reveal routing
+- **Prototype scope**:
+  - right / `properties`: `SoundObjectPropertiesTopComponent`, `MidiInputPanelTopComponent`
+  - bottom / `output`: `ScoreObjectEditorTopComponent`, `MixerTopComponent`
 
-The next implementation step should stay intentionally small:
+## Why This Is The Direction
 
-1. **Right edge prototype**: `SoundObjectPropertiesTopComponent` expanded, `MidiInputPanelTopComponent` as a collapsed/revealable sibling handle
-2. **Bottom edge prototype**: `ScoreObjectEditorTopComponent` expanded, `MixerTopComponent` as a collapsed/revealable sibling handle
-3. **Persistence**: save dockview JSON plus auxiliary-group metadata for collapsed state, edge ordering, and last active panel
-4. **Reveal flow**: preserve Window-menu and future programmatic reveal by stable panel ID
+- The Java reference is group-oriented and stable-ID-driven.
+- Dockview already exposes floating-group and maximize APIs plus serialized floating/maximized layout state.
+- The parity gap is specifically the minimized side-tab model and transition orchestration, not basic docked layout.
+- Keeping minimized state in app metadata avoids introducing a second layout system while still allowing NetBeans-style visible edge tabs.
 
-## Validation Targets For The Next Implementation Spec
+## Immediate Follow-On
 
-- One auxiliary group per edge can remain expanded while sibling groups stay visible as collapsed handles
-- Clicking a collapsed handle reveals the correct group and focuses its active panel
-- Right-edge and bottom-edge state remain independent
-- Layout restore rebuilds both dockview structure and collapsed-edge metadata
+1. Finish the spec 014 planning package under `specs/014-window-system-parity/`
+2. Generate `tasks.md` for the parity implementation slice
+3. Replace the simplified 013 rail behavior with the full presentation-state model in the renderer workbench
 
 ## Related Specs
 
 - **Spec 011**: closed; dockview was selected as the workbench foundation, with rc-dock as fallback
 - **Spec 012**: closed; demo2026 parity work now matches the Java `01.csd` reference byte-for-byte
-
-## Immediate Follow-On
-
-1. Write the implementation spec or code changes for the bounded collapsed-group prototype in `packages/blue-app/src/renderer/components/workbench`
-2. Route stable-ID reveal through auxiliary-group metadata instead of raw `api.addPanel(...)` placement
-3. Add supplemental persistence for collapsed-edge state alongside dockview JSON
+- **Spec 013**: closed; bounded auxiliary-rail prototype and implementation recommendation completed
