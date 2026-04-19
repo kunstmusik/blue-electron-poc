@@ -21,6 +21,17 @@ This feature produces a planning and decision package, not runtime code. The ent
   - Must map to at least one stable dockview panel ID
   - Must declare a single owning edge
 
+### Initial Prototype Instances
+
+- `properties-rail`
+  - `edge`: `right`
+  - `panelIds`: `SoundObjectPropertiesTopComponent`, `MidiInputPanelTopComponent`
+  - `defaultExpanded`: `SoundObjectPropertiesTopComponent`
+- `output-rail`
+  - `edge`: `bottom`
+  - `panelIds`: `ScoreObjectEditorTopComponent`, `MixerTopComponent`
+  - `defaultExpanded`: `ScoreObjectEditorTopComponent`
+
 ## Entity: CollapsedHandleState
 
 - **Purpose**: Captures the user-visible state of one collapsed or expanded auxiliary handle on an edge.
@@ -79,6 +90,14 @@ This feature produces a planning and decision package, not runtime code. The ent
   - Every assessed approach must include a persistence rating
   - Any non-direct reveal support must explain the missing behavior
 
+### Current Assessments
+
+| approachId | unifiedModel | javaBehaviorFit | revealSupport | persistenceBurden |
+|---|---|---|---|---|
+| `dockview-wrapper` | strong | strong | direct | medium |
+| `dockview-only` | strong | partial | direct | low |
+| `paneview-primary` | weak | partial | partial | high |
+
 ## Entity: PrototypeSlice
 
 - **Purpose**: Defines the smallest implementation experiment that can validate the chosen direction.
@@ -100,3 +119,11 @@ This feature produces a planning and decision package, not runtime code. The ent
 - `CollapsePersistenceSnapshot` stores the durable state for all `AuxiliaryGroupDefinition` records together with dockview layout data.
 - `ApproachAssessment` scores how well each candidate can implement the `AuxiliaryGroupDefinition` and `RevealRequest` behaviors.
 - `PrototypeSlice` validates the preferred `ApproachAssessment` against a bounded subset of `AuxiliaryGroupDefinition` records.
+
+## Implementation Notes
+
+- Dockview panel IDs remain the canonical identity layer.
+- Auxiliary-group IDs sit above dockview and let the app reason about edge rails, collapsed handles, and last-active auxiliary content.
+- Persistence is intentionally modeled as two layers:
+  - dockview JSON for panel/group layout
+  - collapsed-edge metadata for auxiliary-group visibility, ordering, and restore behavior

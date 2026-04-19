@@ -20,6 +20,13 @@ Use the current dockview workbench baseline to prototype Java-style collapsed au
 6. Persist `api.toJSON()` alongside supplemental collapsed-group metadata keyed by auxiliary-group ID and edge.
 7. Verify that Window-menu actions and future programmatic reveal calls still work through stable panel IDs.
 
+## Proof Points For The Prototype
+
+- `WorkbenchShell.tsx` no longer hard-codes a single right panel and a single bottom panel as the only auxiliary baseline.
+- `workbench-store.ts` can route reveal requests through auxiliary-group metadata instead of blindly adding panels with default placement.
+- The same edge-controller abstraction can drive both the right-edge properties rail and the bottom-edge output rail.
+- Restoring the layout reconstructs both dockview groups and collapsed-handle state.
+
 ## Files To Start From
 
 - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
@@ -35,6 +42,7 @@ Use the current dockview workbench baseline to prototype Java-style collapsed au
 - Programmatic reveal by stable panel ID still works after the collapsed-group layer is added.
 - Layout restore brings back both the dockview layout and the collapsed-group edge state.
 - The same abstraction works for both right-edge and bottom-edge auxiliary groups.
+- The fallback path remains viable: if the edge controller proves unnecessary, the design can collapse back to dockview-only grouped sidebars without changing panel IDs.
 
 ## Out Of Scope For The First Prototype
 
@@ -46,3 +54,11 @@ Use the current dockview workbench baseline to prototype Java-style collapsed au
 ## Decision Guardrail
 
 Do not switch the prototype to `Paneview` unless the dockview-backed prototype fails for a concrete reason tied to the Java behavior baseline. The default path for the next session is dockview groups plus a thin custom collapse controller.
+
+## First Files To Modify In The Implementation Spec
+
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`

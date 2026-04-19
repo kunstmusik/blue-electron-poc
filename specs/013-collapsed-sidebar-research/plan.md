@@ -5,7 +5,7 @@
 
 ## Summary
 
-Produce a decision-ready follow-on research package for collapsed auxiliary groups in the dockview workbench by turning the Java Blue collapsed-side-dock behavior from the supplied screenshots into an explicit baseline, then comparing the three candidate implementation directions against the current `blue-electron` shell. The plan narrows the next prototype toward dockview-backed groups with a thin custom collapse controller so panel identity, reveal/focus behavior, and persistence stay unified.
+Produce a decision-ready follow-on research package for collapsed auxiliary groups in the dockview workbench by turning the Java Blue collapsed-side-dock behavior from the supplied screenshots into an explicit baseline, then comparing the three candidate implementation directions against the current `blue-electron` shell. The implementation result for this research feature is a bounded recommendation: keep dockview as the single panel/group host, add a thin custom collapse controller for the Java-style edge rail, and use dockview-only grouped sidebars as the fallback if the wrapper proves unnecessary.
 
 ## Technical Context
 
@@ -80,16 +80,20 @@ node_modules/.pnpm/
 
 1. Use the provided Java screenshots, the spec 011 capability baseline, and the current panel registry as the behavior baseline for collapsed auxiliary groups.
 2. Treat dockview as the current architectural baseline and verify its capabilities from the installed local package/API types rather than memory.
-3. Evaluate the options by unified panel identity, reveal/focus flow, persistence burden, edge-handle discoverability, and fit for both right and bottom auxiliary groups.
-4. Keep the next prototype intentionally small: one right-edge pair (`SoundObjectPropertiesTopComponent` plus `MidiInputPanelTopComponent`) and one bottom-edge pair (`ScoreObjectEditorTopComponent` plus `MixerTopComponent`).
-5. Prefer solutions that add thin control logic around the existing dockview shell over solutions that introduce a second parallel layout model.
+3. Base the current-state audit on the actual shell implementation:
+   - `WorkbenchShell.tsx` currently auto-adds only the first `properties` panel to the right and the first `output` panel below.
+   - `workbench-store.ts` opens new panels by ID but does not preserve edge placement or collapsed-group policy.
+   - `WindowMenu.tsx` provides stable-ID reveal entry points that the future collapsed-group system must preserve.
+4. Evaluate the options by unified panel identity, reveal/focus flow, persistence burden, edge-handle discoverability, and fit for both right and bottom auxiliary groups.
+5. Keep the next prototype intentionally small: one right-edge pair (`SoundObjectPropertiesTopComponent` plus `MidiInputPanelTopComponent`) and one bottom-edge pair (`ScoreObjectEditorTopComponent` plus `MixerTopComponent`).
+6. Prefer solutions that add thin control logic around the existing dockview shell over solutions that introduce a second parallel layout model.
 
 ## Phase 1 Design Artifacts
 
-- `research.md`: planning-phase decision log and candidate comparison for dockview-native groups, paneview, and a custom collapse wrapper
+- `research.md`: completed behavior baseline, shell-gap audit, comparison rubric, candidate assessment, and final recommendation for dockview-only, paneview-primary, and dockview-backed custom-wrapper directions
 - `data-model.md`: entities for auxiliary groups, collapsed handles, reveal requests, persistence metadata, and approach assessment
-- `quickstart.md`: next-session implementation sequence for the bounded prototype
-- `tasks.md`: intentionally deferred to `/speckit.tasks`; not created in this planning step
+- `quickstart.md`: next-session implementation sequence for the bounded prototype, including proof points and decision guardrails
+- `tasks.md`: dependency-ordered research tasks organized by user story
 
 ## Post-Design Constitution Check
 

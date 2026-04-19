@@ -33,3 +33,4 @@
 
 - Validated against the current Spec Kit template on 2026-04-17.
 - This spec intentionally narrows the question to collapsed auxiliary-group behavior so the next decision can be made without reopening the full window-system framework comparison.
+- Revalidated on 2026-04-18 after plan, research, data-model, quickstart, and tasks generation; no requirement wording changes were needed.
