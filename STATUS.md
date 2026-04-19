@@ -1,11 +1,20 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-19
-**Branch**: `014-window-system-parity`
+**Branch**: `015-left-edge-parity`
 
-## Current Active Work — Spec 014 Window System Parity
+## Current Active Work — Spec 015 Left Edge Parity
 
-Spec `014-window-system-parity` is now implemented as the current prototype slice for auxiliary window-system parity in `blue-app`, with docs and tasks updated to match the delivered behavior.
+Spec `015-left-edge-parity` is now the active drafting slice for auxiliary window-system parity follow-on work in `blue-app`.
+
+- Goal: allow users to move auxiliary tools and groups to the left edge and collapse them there with the same behavior already available on the right and bottom edges
+- Constraint: do **not** seed any default left-side tools in fresh or reset layouts unless the Java reference later proves that a left-side default exists
+- Expected outcome: left-edge behavior works for user-driven rearrangement, minimize, slide-out, dock-single-tool, restore-group, maximize, and layout restore flows
+- Next spec-kit step: `/speckit.plan`
+
+## Spec 014 Close-Out
+
+Spec `014-window-system-parity` is complete as the current bounded prototype slice for auxiliary window-system parity in `blue-app`.
 
 ## Spec 013 Close-Out
 
@@ -56,9 +65,9 @@ The implemented 014 slice now provides the bounded prototype behavior for the fo
 
 ## Immediate Follow-On
 
-1. Run a broader manual parity pass against the Java reference UX for minimized, slide-out, maximize, and restore behavior
-2. Decide which Java-backed tool or mode should seed visible left-edge parity in the next slice
-3. Decide whether to broaden the same model to additional `properties` and `output` groups
+1. Plan and implement user-driven left-edge parity without seeding any default left-edge tools
+2. Run a broader manual parity pass against the Java reference UX for minimize, slide-out, maximize, restore, and left-edge rearrangement behavior
+3. Decide whether to broaden the same model to additional `properties` and `output` groups after left-edge parity is stable
 4. Move workbench layout persistence from localStorage to a more durable Electron-side store if needed
 
 ## Related Specs
