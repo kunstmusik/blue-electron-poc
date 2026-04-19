@@ -1,53 +1,45 @@
-import type { AuxiliaryEdge } from './auxiliary-layout';
+import type {
+  AuxiliaryEdge,
+  MinimizedTabState,
+} from './auxiliary-layout';
 import { getAuxiliaryRailLabel } from './auxiliary-layout';
-import { getPanel } from './panel-registry';
 
 interface AuxiliaryRailProps {
   edge: AuxiliaryEdge;
-  panelIds: string[];
-  activePanelId: string;
+  tabs: MinimizedTabState[];
   onSelect: (panelId: string) => void;
 }
 
 export default function AuxiliaryRail({
   edge,
-  panelIds,
-  activePanelId,
+  tabs,
   onSelect,
 }: AuxiliaryRailProps) {
-  const descriptors = panelIds
-    .map((panelId) => getPanel(panelId))
-    .filter((panel): panel is NonNullable<typeof panel> => panel != null);
-
   return (
     <nav
       className={`workbench-edge-rail workbench-edge-rail--${edge}`}
-      aria-label={`${edge} auxiliary panels`}
+      aria-label={`${edge} minimized auxiliary tabs`}
     >
-      {descriptors.map((descriptor) => {
-        const isActive = descriptor.id === activePanelId;
-
-        return (
-          <button
-            key={descriptor.id}
-            type="button"
-            className={[
-              'workbench-edge-rail__button',
-              `workbench-edge-rail__button--${edge}`,
-              isActive ? 'is-active' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => onSelect(descriptor.id)}
-            title={descriptor.title}
-            aria-pressed={isActive}
-          >
-            <span className="workbench-edge-rail__label">
-              {getAuxiliaryRailLabel(descriptor.id)}
-            </span>
-          </button>
-        );
-      })}
+      {tabs.map((tab) => (
+        <button
+          key={`${tab.groupId}:${tab.panelId}`}
+          type="button"
+          className={[
+            'workbench-edge-rail__button',
+            `workbench-edge-rail__button--${edge}`,
+            tab.isActivePanel ? 'is-active' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => onSelect(tab.panelId)}
+          title={getAuxiliaryRailLabel(tab.panelId)}
+          aria-pressed={tab.isActivePanel}
+        >
+          <span className="workbench-edge-rail__label">
+            {getAuxiliaryRailLabel(tab.panelId)}
+          </span>
+        </button>
+      ))}
     </nav>
   );
 }

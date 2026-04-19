@@ -1,9 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  clampFloatingBounds,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
+  getAuxiliaryGroupIdForPanel,
+  getMinimizedTabsForEdge,
+  isAuxiliaryPanelId,
   parseStoredWorkbenchLayout,
-  recordAuxiliaryPanelSelection,
 } from '../components/workbench/auxiliary-layout';
 
 const legacyDockview = {
@@ -18,58 +21,110 @@ const legacyDockview = {
 } as any;
 
 describe('workbench auxiliary layout helpers', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: {
+        innerWidth: 1280,
+        innerHeight: 800,
+      },
+    });
+  });
+
   it('parses the versioned workbench envelope and preserves auxiliary metadata', () => {
     const auxiliary = createDefaultAuxiliaryLayoutState();
-    auxiliary.byEdge.right.activePanelId = 'MidiInputPanelTopComponent';
+    auxiliary.groups['properties-main'].presentation = 'floating';
+    auxiliary.groups['properties-main'].activePanelId =
+      'MidiInputPanelTopComponent';
 
     const stored = createStoredWorkbenchLayout(legacyDockview, auxiliary);
     const parsed = parseStoredWorkbenchLayout(JSON.stringify(stored));
 
     expect(parsed.dockview).toEqual(legacyDockview);
-    expect(parsed.auxiliary.byEdge.right.activePanelId).toBe(
+    expect(parsed.auxiliary.groups['properties-main'].presentation).toBe(
+      'floating',
+    );
+    expect(parsed.auxiliary.groups['properties-main'].activePanelId).toBe(
       'MidiInputPanelTopComponent',
     );
   });
 
-  it('treats legacy raw dockview JSON as a valid layout and seeds default auxiliary rails', () => {
-    const parsed = parseStoredWorkbenchLayout(JSON.stringify(legacyDockview));
+  it('upgrades the legacy version 2 envelope into the group-based state model', () => {
+    const legacy = {
+      version: 2,
+      dockview: legacyDockview,
+      auxiliary: {
+        byEdge: {
+          right: {
+            panelIds: [
+              'SoundObjectPropertiesTopComponent',
+              'MidiInputPanelTopComponent',
+            ],
+            activePanelId: 'MidiInputPanelTopComponent',
+            size: 420,
+          },
+          bottom: {
+            panelIds: [
+              'ScoreObjectEditorTopComponent',
+              'MixerTopComponent',
+            ],
+            activePanelId: 'MixerTopComponent',
+            size: 260,
+          },
+        },
+      },
+    };
 
-    expect(parsed.dockview).toEqual(legacyDockview);
-    expect(parsed.auxiliary.byEdge.right.panelIds).toEqual([
-      'SoundObjectPropertiesTopComponent',
+    const parsed = parseStoredWorkbenchLayout(JSON.stringify(legacy));
+
+    expect(parsed.auxiliary.groups['properties-main'].activePanelId).toBe(
       'MidiInputPanelTopComponent',
-    ]);
-    expect(parsed.auxiliary.byEdge.bottom.panelIds).toEqual([
-      'ScoreObjectEditorTopComponent',
+    );
+    expect(parsed.auxiliary.groups['properties-main'].dockedSize).toBe(420);
+    expect(parsed.auxiliary.groups['output-main'].activePanelId).toBe(
       'MixerTopComponent',
-    ]);
+    );
+    expect(parsed.auxiliary.groups['output-main'].dockedSize).toBe(260);
   });
 
-  it('routes newly opened properties panels onto the right auxiliary edge', () => {
-    const next = recordAuxiliaryPanelSelection(
-      createDefaultAuxiliaryLayoutState(),
-      'MarkersTopComponent',
+  it('limits the parity slice to the prototype auxiliary panels', () => {
+    expect(getAuxiliaryGroupIdForPanel('SoundObjectPropertiesTopComponent')).toBe(
+      'properties-main',
     );
-
-    expect(next.byEdge.right.panelIds).toContain('MarkersTopComponent');
-    expect(next.byEdge.right.activePanelId).toBe('MarkersTopComponent');
-    expect(next.byEdge.bottom.activePanelId).toBe(
-      'ScoreObjectEditorTopComponent',
+    expect(getAuxiliaryGroupIdForPanel('ScoreObjectEditorTopComponent')).toBe(
+      'output-main',
     );
+    expect(getAuxiliaryGroupIdForPanel('MarkersTopComponent')).toBeUndefined();
+    expect(isAuxiliaryPanelId('VirtualKeyboardTopComponent')).toBe(false);
   });
 
-  it('routes newly opened output panels onto the bottom auxiliary edge', () => {
-    const next = recordAuxiliaryPanelSelection(
-      createDefaultAuxiliaryLayoutState(),
-      'VirtualKeyboardTopComponent',
-    );
+  it('derives minimized edge tabs from minimized group sessions', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    state.groups['properties-main'].presentation = 'minimized';
+    state.groups['properties-main'].activePanelId = 'MidiInputPanelTopComponent';
 
-    expect(next.byEdge.bottom.panelIds).toContain('VirtualKeyboardTopComponent');
-    expect(next.byEdge.bottom.activePanelId).toBe(
-      'VirtualKeyboardTopComponent',
-    );
-    expect(next.byEdge.right.activePanelId).toBe(
+    const tabs = getMinimizedTabsForEdge(state, 'right');
+
+    expect(tabs.map((tab) => tab.panelId)).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+    expect(tabs.find((tab) => tab.panelId === 'MidiInputPanelTopComponent')?.isActivePanel).toBe(
+      true,
     );
+  });
+
+  it('clamps invalid floating bounds into the current viewport', () => {
+    const bounds = clampFloatingBounds({
+      x: -300,
+      y: 1200,
+      width: 4000,
+      height: 1200,
+    });
+
+    expect(bounds.x).toBe(0);
+    expect(bounds.y).toBe(0);
+    expect(bounds.width).toBe(1280);
+    expect(bounds.height).toBe(800);
   });
 });

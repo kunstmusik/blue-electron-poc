@@ -6,6 +6,7 @@ import {
 import 'dockview/dist/styles/dockview.css';
 import AuxiliaryRail from './AuxiliaryRail';
 import DockviewPanel from './DockviewPanel';
+import { getMinimizedTabsForEdge } from './auxiliary-layout';
 import { useWorkbenchStore } from '../../stores/workbench-store';
 
 const LAYOUT_STORAGE_KEY = 'blue-workbench-layout';
@@ -14,6 +15,8 @@ export default function WorkbenchShell() {
   const auxiliary = useWorkbenchStore((s) => s.auxiliary);
   const openPanel = useWorkbenchStore((s) => s.openPanel);
   const setApi = useWorkbenchStore((s) => s.setApi);
+  const rightTabs = getMinimizedTabsForEdge(auxiliary, 'right');
+  const bottomTabs = getMinimizedTabsForEdge(auxiliary, 'bottom');
   const listenersRef = useRef<Array<{ dispose: () => void }>>([]);
 
   const disposeListeners = useCallback(() => {
@@ -89,15 +92,13 @@ export default function WorkbenchShell() {
 
       <AuxiliaryRail
         edge="right"
-        panelIds={auxiliary.byEdge.right.panelIds}
-        activePanelId={auxiliary.byEdge.right.activePanelId}
+        tabs={rightTabs}
         onSelect={openPanel}
       />
 
       <AuxiliaryRail
         edge="bottom"
-        panelIds={auxiliary.byEdge.bottom.panelIds}
-        activePanelId={auxiliary.byEdge.bottom.activePanelId}
+        tabs={bottomTabs}
         onSelect={openPanel}
       />
 

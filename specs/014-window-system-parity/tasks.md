@@ -17,9 +17,9 @@
 
 **Purpose**: Prepare the existing workbench prototype for the 014 parity slice.
 
-- [ ] T001 Align the 014 prototype group IDs, layout version, and parity constants in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T002 [P] Extend prototype panel metadata for the parity slice in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`
-- [ ] T003 [P] Add shared parity fixtures and helper scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T001 Align the 014 prototype group IDs, layout version, and parity constants in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T002 [P] Extend prototype panel metadata for the parity slice in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`
+- [X] T003 [P] Add shared parity fixtures and helper scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 ---
 
@@ -29,11 +29,11 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T004 Replace the simplified auxiliary layout types with `AuxiliaryGroupSession`, `MinimizedTabState`, and `WorkbenchParityLayout` support in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T005 Refactor the parity-aware auxiliary session store and reveal intent handling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T006 Update dockview lifecycle wiring, saved-layout loading, and parity-session synchronization in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
-- [ ] T007 [P] Add shared session parsing, bounds-clamping, and canonical-panel invariant coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
-- [ ] T008 [P] Add shared parity shell tokens and edge-presentation scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T004 Replace the simplified auxiliary layout types with `AuxiliaryGroupSession`, `MinimizedTabState`, and `WorkbenchParityLayout` support in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T005 Refactor the parity-aware auxiliary session store and reveal intent handling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [X] T006 Update dockview lifecycle wiring, saved-layout loading, and parity-session synchronization in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
+- [X] T007 [P] Add shared session parsing, bounds-clamping, and canonical-panel invariant coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T008 [P] Add shared parity shell tokens and edge-presentation scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
 
 **Checkpoint**: The workbench has a parity-aware state model, dockview wiring, and shared validation scaffolding.
 
@@ -45,12 +45,12 @@
 
 **Independent Test**: Minimize the right-edge and bottom-edge prototype groups, confirm ordered edge tabs remain visible, then activate a minimized tab and confirm the correct panel opens floating and resizable without duplication.
 
-- [ ] T009 [US1] Implement docked-to-minimized transitions, remembered active-tab ordering, and minimized tab records in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T010 [US1] Implement minimize actions and minimized-tab activation flows in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T011 [P] [US1] Rework minimized edge-tab rendering and edge-specific interaction controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx`
-- [ ] T012 [P] [US1] Add minimized edge-tab and floating-entry styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
-- [ ] T013 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to remove docked groups on minimize and reopen minimized tabs as dockview floating groups
-- [ ] T014 [US1] Add minimize-to-floating regression coverage for the prototype right and bottom groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T009 [US1] Implement docked-to-minimized transitions, remembered active-tab ordering, and minimized tab records in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T010 [US1] Implement minimize actions and minimized-tab activation flows in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [X] T011 [P] [US1] Rework minimized edge-tab rendering and edge-specific interaction controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx`
+- [X] T012 [P] [US1] Add minimized edge-tab and floating-entry styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T013 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to remove docked groups on minimize and reopen minimized tabs as dockview floating groups
+- [X] T014 [US1] Add minimize-to-floating regression coverage for the prototype right and bottom groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 1 is complete when minimized prototype groups remain visible as edge tabs and reopen correctly as floating, resizable tool windows.
 
@@ -62,12 +62,12 @@
 
 **Independent Test**: Maximize a prototype auxiliary group, confirm it presents with top tabs like the main editor area, then restore it back to its prior docked edge with the same active tab and no duplicate panel instances.
 
-- [ ] T015 [US2] Implement maximized presentation helpers, header-position swaps, and docked restore metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T016 [US2] Implement maximize and restore actions that preserve prior edge placement in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T017 [P] [US2] Expose maximize and restore controls for auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
-- [ ] T018 [P] [US2] Add top-tab maximized auxiliary presentation styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
-- [ ] T019 [US2] Wire dockview maximize and exit-maximized flows with edge restore behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
-- [ ] T020 [US2] Add maximize-and-restore regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T015 [US2] Implement maximized presentation helpers, header-position swaps, and docked restore metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T016 [US2] Implement maximize and restore actions that preserve prior edge placement in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [X] T017 [P] [US2] Expose maximize and restore controls for auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
+- [X] T018 [P] [US2] Add top-tab maximized auxiliary presentation styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T019 [US2] Wire dockview maximize and exit-maximized flows with edge restore behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
+- [X] T020 [US2] Add maximize-and-restore regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 2 is complete when prototype auxiliary groups maximize into a top-tab presentation and restore cleanly to their home edge.
 
@@ -79,11 +79,11 @@
 
 **Independent Test**: Save a mixed minimized/floating/maximized layout, reload the workbench, and confirm `WindowMenu` reveal focuses or transitions the existing presentation instead of creating duplicates.
 
-- [ ] T021 [US3] Extend the persisted layout envelope with minimized metadata, floating bounds, and restore versioning in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T022 [US3] Reconcile `fromJSON()` results, clamp restored floating bounds, and route stable-ID reveal to existing presentations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T023 [P] [US3] Update parity-aware reveal routing for prototype auxiliary panels in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
-- [ ] T024 [US3] Rebuild minimized tabs, floating groups, and maximized state after layout restore in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
-- [ ] T025 [US3] Add persistence-and-reveal regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [X] T021 [US3] Extend the persisted layout envelope with minimized metadata, floating bounds, and restore versioning in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [X] T022 [US3] Reconcile `fromJSON()` results, clamp restored floating bounds, and route stable-ID reveal to existing presentations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [X] T023 [P] [US3] Update parity-aware reveal routing for prototype auxiliary panels in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- [X] T024 [US3] Rebuild minimized tabs, floating groups, and maximized state after layout restore in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`
+- [X] T025 [US3] Add persistence-and-reveal regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 3 is complete when saved layouts restore valid presentation state and stable-ID reveal always reuses the current logical group.
 
@@ -93,9 +93,9 @@
 
 **Purpose**: Finish validation, cleanup, and implementation handoff for the parity slice.
 
-- [ ] T026 [P] Clean up parity-specific edge rendering and dead prototype-only branches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
-- [ ] T027 [P] Record completed 014 validation flows and remaining follow-on gaps in `/Users/stevenyi/work/blue-electron/specs/014-window-system-parity/quickstart.md` and `/Users/stevenyi/work/blue-electron/STATUS.md`
-- [ ] T028 Run parity verification through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/package.json` using `pnpm --filter @blue/app test` and `pnpm --filter @blue/app build`
+- [X] T026 [P] Clean up parity-specific edge rendering and dead prototype-only branches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T027 [P] Record completed 014 validation flows and remaining follow-on gaps in `/Users/stevenyi/work/blue-electron/specs/014-window-system-parity/quickstart.md` and `/Users/stevenyi/work/blue-electron/STATUS.md`
+- [X] T028 Run parity verification through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/package.json` using `pnpm --filter @blue/app test` and `pnpm --filter @blue/app build`
 
 ---
 

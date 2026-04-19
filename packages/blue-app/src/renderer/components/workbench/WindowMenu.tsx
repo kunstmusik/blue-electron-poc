@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { LayoutList } from 'lucide-react';
 import { useWorkbenchStore } from '../../stores/workbench-store';
+import { getAuxiliaryGroupIdForPanel } from './auxiliary-layout';
 import { PANEL_REGISTRY } from '../workbench/panel-registry';
 import type { PanelMode } from '../workbench/panel-registry';
 
@@ -15,8 +16,9 @@ const MODE_ORDER: PanelMode[] = ['editor', 'properties', 'output'];
 export default function WindowMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const openPanel = useWorkbenchStore((s) => s.openPanel);
+  const focusPanel = useWorkbenchStore((s) => s.focusPanel);
   const api = useWorkbenchStore((s) => s.api);
+  const auxiliary = useWorkbenchStore((s) => s.auxiliary);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -49,17 +51,34 @@ export default function WindowMenu() {
                 {MODE_LABELS[mode]}
               </div>
               {PANEL_REGISTRY.filter((p) => p.mode === mode).map((panel) => (
-                <button
-                  key={panel.id}
-                  className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-blue-border/50 transition-colors"
-                  onClick={() => {
-                    openPanel(panel.id);
-                    setOpen(false);
-                  }}
-                >
-                  {panel.icon && <span className="mr-1.5">{panel.icon}</span>}
-                  {panel.title}
-                </button>
+                (() => {
+                  const auxiliaryGroupId = getAuxiliaryGroupIdForPanel(panel.id);
+                  const presentation = auxiliaryGroupId
+                    ? auxiliary.groups[auxiliaryGroupId].presentation
+                    : null;
+
+                  return (
+                    <button
+                      key={panel.id}
+                      className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-blue-border/50 transition-colors flex items-center justify-between gap-3"
+                      onClick={() => {
+                        focusPanel(panel.id);
+                        setOpen(false);
+                      }}
+                    >
+                      <span className="truncate">
+                        {panel.icon && <span className="mr-1.5">{panel.icon}</span>}
+                        {panel.title}
+                      </span>
+
+                      {presentation ? (
+                        <span className="text-[10px] uppercase tracking-[0.18em] text-blue-muted">
+                          {presentation}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })()
               ))}
             </div>
           ))}
