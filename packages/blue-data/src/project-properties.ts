@@ -1,9 +1,7 @@
 /**
  * ProjectProperties — holds project-level settings for CSD generation.
- * Mirrors the Java ProjectProperties class.
- *
- * Contains sample rate, ksmps, nchnls, 0dbfs, Csound command line options,
- * and metadata (title, author, notes).
+ * Mirrors the Java ProjectProperties class while preserving existing
+ * compatibility fields used by the current TypeScript codebase.
  */
 import { Element } from './serialization/xml-reader';
 import { ObjRefSaveMap } from './serialization/obj-ref-map';
@@ -12,23 +10,48 @@ export class ProjectProperties {
   title = '';
   author = '';
   notes = '';
+
   sampleRate = '44100';
   ksmps = '64';
-  nchnls = '2';
-  oFormat = 'wav';
+  private _channels = '2';
 
-  // 0dbfs settings (added in 2.1.10)
   useZeroDbFS = false;
   zeroDbFS = '32768';
+
+  diskSampleRate = '44100';
+  diskKsmps = '64';
+  diskChannels = '2';
   diskUseZeroDbFS = false;
   diskZeroDbFS = '32768';
 
-  // Advanced Csound options
-  commandLine = '';
-  completeOverride = false;
+  useAudioOut = true;
+  useAudioIn = false;
+  useMidiIn = false;
+  useMidiOut = false;
+  noteAmpsEnabled = true;
+  outOfRangeEnabled = true;
+  warningsEnabled = true;
+  benchmarkEnabled = true;
   advancedSettings = '';
+  completeOverride = false;
 
-  // Audio output
+  fileName = '';
+  askOnRender = false;
+  diskNoteAmpsEnabled = true;
+  diskOutOfRangeEnabled = true;
+  diskWarningsEnabled = true;
+  diskBenchmarkEnabled = true;
+  diskAdvancedSettings = '';
+  diskCompleteOverride = false;
+  diskAlwaysRenderEntireProject = false;
+
+  mediaFolder = '';
+  copyToMediaFileOnImport = true;
+
+  // Legacy compatibility fields retained for existing callers and file formats.
+  commandLine = '';
+  diskCommandLine = '';
+  oFormat = 'wav';
   audioOutput = '';
 
   constructor(other?: ProjectProperties) {
@@ -38,17 +61,56 @@ export class ProjectProperties {
       this.notes = other.notes;
       this.sampleRate = other.sampleRate;
       this.ksmps = other.ksmps;
-      this.nchnls = other.nchnls;
-      this.oFormat = other.oFormat;
+      this.channels = other.channels;
       this.useZeroDbFS = other.useZeroDbFS;
       this.zeroDbFS = other.zeroDbFS;
+      this.diskSampleRate = other.diskSampleRate;
+      this.diskKsmps = other.diskKsmps;
+      this.diskChannels = other.diskChannels;
       this.diskUseZeroDbFS = other.diskUseZeroDbFS;
       this.diskZeroDbFS = other.diskZeroDbFS;
-      this.commandLine = other.commandLine;
-      this.completeOverride = other.completeOverride;
+      this.useAudioOut = other.useAudioOut;
+      this.useAudioIn = other.useAudioIn;
+      this.useMidiIn = other.useMidiIn;
+      this.useMidiOut = other.useMidiOut;
+      this.noteAmpsEnabled = other.noteAmpsEnabled;
+      this.outOfRangeEnabled = other.outOfRangeEnabled;
+      this.warningsEnabled = other.warningsEnabled;
+      this.benchmarkEnabled = other.benchmarkEnabled;
       this.advancedSettings = other.advancedSettings;
+      this.completeOverride = other.completeOverride;
+      this.fileName = other.fileName;
+      this.askOnRender = other.askOnRender;
+      this.diskNoteAmpsEnabled = other.diskNoteAmpsEnabled;
+      this.diskOutOfRangeEnabled = other.diskOutOfRangeEnabled;
+      this.diskWarningsEnabled = other.diskWarningsEnabled;
+      this.diskBenchmarkEnabled = other.diskBenchmarkEnabled;
+      this.diskAdvancedSettings = other.diskAdvancedSettings;
+      this.diskCompleteOverride = other.diskCompleteOverride;
+      this.diskAlwaysRenderEntireProject = other.diskAlwaysRenderEntireProject;
+      this.mediaFolder = other.mediaFolder;
+      this.copyToMediaFileOnImport = other.copyToMediaFileOnImport;
+      this.commandLine = other.commandLine;
+      this.diskCommandLine = other.diskCommandLine;
+      this.oFormat = other.oFormat;
       this.audioOutput = other.audioOutput;
     }
+  }
+
+  get channels(): string {
+    return this._channels;
+  }
+
+  set channels(value: string) {
+    this._channels = value;
+  }
+
+  get nchnls(): string {
+    return this._channels;
+  }
+
+  set nchnls(value: string) {
+    this._channels = value;
   }
 
   /**
@@ -57,15 +119,11 @@ export class ProjectProperties {
   toCsoundOptions(): string {
     const options: string[] = [];
 
-    // Real-time audio output (default to -odac for live playback)
     options.push('-odac');
-    // Disable text output
     options.push('-d');
 
     if (this.sampleRate) options.push(`-r ${this.sampleRate}`);
     if (this.ksmps) options.push(`-k ${this.ksmps}`);
-    // nchnls and 0dbfs go in orchestra header, not CsOptions
-    // (CsOptions parses -0 as unknown flag, -n as "no sound onto disk")
 
     if (this.commandLine && this.completeOverride) {
       return this.commandLine;
@@ -78,21 +136,53 @@ export class ProjectProperties {
 
   saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = new Element('projectProperties');
+
     if (this.title) elem.addElement('title').setText(this.title);
     if (this.author) elem.addElement('author').setText(this.author);
     if (this.notes) elem.addElement('notes').setText(this.notes);
     if (this.sampleRate) elem.addElement('sampleRate').setText(this.sampleRate);
     if (this.ksmps) elem.addElement('ksmps').setText(this.ksmps);
-    if (this.nchnls) elem.addElement('nchnls').setText(this.nchnls);
-    if (this.oFormat) elem.addElement('oFormat').setText(this.oFormat);
+    if (this.channels) elem.addElement('channels').setText(this.channels);
     elem.addElement('useZeroDbFS').setText(this.useZeroDbFS.toString());
     if (this.zeroDbFS) elem.addElement('zeroDbFS').setText(this.zeroDbFS);
+
+    if (this.diskSampleRate) elem.addElement('diskSampleRate').setText(this.diskSampleRate);
+    if (this.diskKsmps) elem.addElement('diskKsmps').setText(this.diskKsmps);
+    if (this.diskChannels) elem.addElement('diskChannels').setText(this.diskChannels);
     elem.addElement('diskUseZeroDbFS').setText(this.diskUseZeroDbFS.toString());
     if (this.diskZeroDbFS) elem.addElement('diskZeroDbFS').setText(this.diskZeroDbFS);
-    if (this.commandLine) elem.addElement('commandLine').setText(this.commandLine);
-    elem.addElement('completeOverride').setText(this.completeOverride.toString());
+
+    elem.addElement('useAudioOut').setText(this.useAudioOut.toString());
+    elem.addElement('useAudioIn').setText(this.useAudioIn.toString());
+    elem.addElement('useMidiIn').setText(this.useMidiIn.toString());
+    elem.addElement('useMidiOut').setText(this.useMidiOut.toString());
+    elem.addElement('noteAmpsEnabled').setText(this.noteAmpsEnabled.toString());
+    elem.addElement('outOfRangeEnabled').setText(this.outOfRangeEnabled.toString());
+    elem.addElement('warningsEnabled').setText(this.warningsEnabled.toString());
+    elem.addElement('benchmarkEnabled').setText(this.benchmarkEnabled.toString());
     if (this.advancedSettings) elem.addElement('advancedSettings').setText(this.advancedSettings);
+    elem.addElement('completeOverride').setText(this.completeOverride.toString());
+
+    if (this.fileName) elem.addElement('fileName').setText(this.fileName);
+    elem.addElement('askOnRender').setText(this.askOnRender.toString());
+    elem.addElement('diskNoteAmpsEnabled').setText(this.diskNoteAmpsEnabled.toString());
+    elem.addElement('diskOutOfRangeEnabled').setText(this.diskOutOfRangeEnabled.toString());
+    elem.addElement('diskWarningsEnabled').setText(this.diskWarningsEnabled.toString());
+    elem.addElement('diskBenchmarkEnabled').setText(this.diskBenchmarkEnabled.toString());
+    if (this.diskAdvancedSettings) elem.addElement('diskAdvancedSettings').setText(this.diskAdvancedSettings);
+    elem.addElement('diskCompleteOverride').setText(this.diskCompleteOverride.toString());
+    elem.addElement('diskAlwaysRenderEntireProject').setText(this.diskAlwaysRenderEntireProject.toString());
+
+    if (this.mediaFolder) elem.addElement('mediaFolder').setText(this.mediaFolder);
+    elem.addElement('copyToMediaFileOnImport').setText(
+      this.copyToMediaFileOnImport.toString(),
+    );
+
+    if (this.commandLine) elem.addElement('commandLine').setText(this.commandLine);
+    if (this.diskCommandLine) elem.addElement('diskCommandLine').setText(this.diskCommandLine);
+    if (this.oFormat) elem.addElement('oFormat').setText(this.oFormat);
     if (this.audioOutput) elem.addElement('audioOutput').setText(this.audioOutput);
+
     return elem;
   }
 
@@ -100,49 +190,129 @@ export class ProjectProperties {
     const props = new ProjectProperties();
 
     const title = data.getTextString('title');
-    if (title) props.title = title;
+    if (title !== null) props.title = title;
 
     const author = data.getTextString('author');
-    if (author) props.author = author;
+    if (author !== null) props.author = author;
 
     const notes = data.getTextString('notes');
-    if (notes) props.notes = notes;
+    if (notes !== null) props.notes = notes;
 
     const sr = data.getTextString('sampleRate');
-    if (sr) props.sampleRate = sr;
+    if (sr !== null) props.sampleRate = sr;
 
     const ksmps = data.getTextString('ksmps');
-    if (ksmps) props.ksmps = ksmps;
+    if (ksmps !== null) props.ksmps = ksmps;
 
-    const nchnls = data.getTextString('nchnls');
-    if (nchnls) props.nchnls = nchnls;
-
-    const oFormat = data.getTextString('oFormat');
-    if (oFormat) props.oFormat = oFormat;
+    const channels = data.getTextString('channels');
+    if (channels !== null) {
+      props.channels = channels;
+    } else {
+      const legacyNchnls = data.getTextString('nchnls');
+      if (legacyNchnls !== null) props.channels = legacyNchnls;
+    }
 
     const udb = data.getTextString('useZeroDbFS');
-    if (udb) props.useZeroDbFS = udb.toLowerCase() === 'true';
+    if (udb !== null) props.useZeroDbFS = udb.toLowerCase() === 'true';
 
     const zdb = data.getTextString('zeroDbFS');
-    if (zdb) props.zeroDbFS = zdb;
+    if (zdb !== null) props.zeroDbFS = zdb;
+
+    const diskSr = data.getTextString('diskSampleRate');
+    if (diskSr !== null) props.diskSampleRate = diskSr;
+
+    const diskKsmps = data.getTextString('diskKsmps');
+    if (diskKsmps !== null) props.diskKsmps = diskKsmps;
+
+    const diskChannels = data.getTextString('diskChannels');
+    if (diskChannels !== null) props.diskChannels = diskChannels;
 
     const ddb = data.getTextString('diskUseZeroDbFS');
-    if (ddb) props.diskUseZeroDbFS = ddb.toLowerCase() === 'true';
+    if (ddb !== null) props.diskUseZeroDbFS = ddb.toLowerCase() === 'true';
 
     const dzdb = data.getTextString('diskZeroDbFS');
-    if (dzdb) props.diskZeroDbFS = dzdb;
+    if (dzdb !== null) props.diskZeroDbFS = dzdb;
 
-    const cmd = data.getTextString('commandLine');
-    if (cmd) props.commandLine = cmd;
+    const useAudioOut = data.getTextString('useAudioOut');
+    if (useAudioOut !== null) props.useAudioOut = useAudioOut.toLowerCase() === 'true';
 
-    const co = data.getTextString('completeOverride');
-    if (co) props.completeOverride = co.toLowerCase() === 'true';
+    const useAudioIn = data.getTextString('useAudioIn');
+    if (useAudioIn !== null) props.useAudioIn = useAudioIn.toLowerCase() === 'true';
+
+    const useMidiIn = data.getTextString('useMidiIn');
+    if (useMidiIn !== null) props.useMidiIn = useMidiIn.toLowerCase() === 'true';
+
+    const useMidiOut = data.getTextString('useMidiOut');
+    if (useMidiOut !== null) props.useMidiOut = useMidiOut.toLowerCase() === 'true';
+
+    const noteAmpsEnabled = data.getTextString('noteAmpsEnabled');
+    if (noteAmpsEnabled !== null) props.noteAmpsEnabled = noteAmpsEnabled.toLowerCase() === 'true';
+
+    const outOfRangeEnabled = data.getTextString('outOfRangeEnabled');
+    if (outOfRangeEnabled !== null) props.outOfRangeEnabled = outOfRangeEnabled.toLowerCase() === 'true';
+
+    const warningsEnabled = data.getTextString('warningsEnabled');
+    if (warningsEnabled !== null) props.warningsEnabled = warningsEnabled.toLowerCase() === 'true';
+
+    const benchmarkEnabled = data.getTextString('benchmarkEnabled');
+    if (benchmarkEnabled !== null) props.benchmarkEnabled = benchmarkEnabled.toLowerCase() === 'true';
 
     const adv = data.getTextString('advancedSettings');
-    if (adv) props.advancedSettings = adv;
+    if (adv !== null) props.advancedSettings = adv;
+
+    const co = data.getTextString('completeOverride');
+    if (co !== null) props.completeOverride = co.toLowerCase() === 'true';
+
+    const fileName = data.getTextString('fileName');
+    if (fileName !== null) props.fileName = fileName;
+
+    const askOnRender = data.getTextString('askOnRender');
+    if (askOnRender !== null) props.askOnRender = askOnRender.toLowerCase() === 'true';
+
+    const diskNoteAmpsEnabled = data.getTextString('diskNoteAmpsEnabled');
+    if (diskNoteAmpsEnabled !== null) props.diskNoteAmpsEnabled = diskNoteAmpsEnabled.toLowerCase() === 'true';
+
+    const diskOutOfRangeEnabled = data.getTextString('diskOutOfRangeEnabled');
+    if (diskOutOfRangeEnabled !== null) props.diskOutOfRangeEnabled = diskOutOfRangeEnabled.toLowerCase() === 'true';
+
+    const diskWarningsEnabled = data.getTextString('diskWarningsEnabled');
+    if (diskWarningsEnabled !== null) props.diskWarningsEnabled = diskWarningsEnabled.toLowerCase() === 'true';
+
+    const diskBenchmarkEnabled = data.getTextString('diskBenchmarkEnabled');
+    if (diskBenchmarkEnabled !== null) props.diskBenchmarkEnabled = diskBenchmarkEnabled.toLowerCase() === 'true';
+
+    const diskAdv = data.getTextString('diskAdvancedSettings');
+    if (diskAdv !== null) props.diskAdvancedSettings = diskAdv;
+
+    const diskCo = data.getTextString('diskCompleteOverride');
+    if (diskCo !== null) props.diskCompleteOverride = diskCo.toLowerCase() === 'true';
+
+    const diskAlwaysRenderEntireProject = data.getTextString('diskAlwaysRenderEntireProject');
+    if (diskAlwaysRenderEntireProject !== null) {
+      props.diskAlwaysRenderEntireProject =
+        diskAlwaysRenderEntireProject.toLowerCase() === 'true';
+    }
+
+    const mediaFolder = data.getTextString('mediaFolder');
+    if (mediaFolder !== null) props.mediaFolder = mediaFolder;
+
+    const copyToMediaFileOnImport = data.getTextString('copyToMediaFileOnImport');
+    if (copyToMediaFileOnImport !== null) {
+      props.copyToMediaFileOnImport =
+        copyToMediaFileOnImport.toLowerCase() === 'true';
+    }
+
+    const cmd = data.getTextString('commandLine');
+    if (cmd !== null) props.commandLine = cmd;
+
+    const diskCmd = data.getTextString('diskCommandLine');
+    if (diskCmd !== null) props.diskCommandLine = diskCmd;
+
+    const oFormat = data.getTextString('oFormat');
+    if (oFormat !== null) props.oFormat = oFormat;
 
     const ao = data.getTextString('audioOutput');
-    if (ao) props.audioOutput = ao;
+    if (ao !== null) props.audioOutput = ao;
 
     return props;
   }

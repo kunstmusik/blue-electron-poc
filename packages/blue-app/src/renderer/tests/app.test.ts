@@ -3,12 +3,15 @@ import { useProjectStore } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
+import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
 
 // Mock window.blueAPI
 const mockBlueAPI = {
   openFile: vi.fn(),
   saveFile: vi.fn(),
   saveFileAs: vi.fn(),
+  getProjectDocument: vi.fn(),
+  updateProjectDocument: vi.fn(),
   togglePlay: vi.fn(),
   stopPlayback: vi.fn(),
   getProjectInfo: vi.fn(),
@@ -53,12 +56,22 @@ describe('Project Store', () => {
   });
 
   it('T349: setProjectInfo updates all fields', () => {
+    const projectProperties = createEmptyProjectEditorSnapshot().projectProperties;
     const info = {
       title: 'Test Project',
       author: 'Test Author',
       sampleRate: '44100',
       version: '2.10.0',
       filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: 'instr 1\nendin',
+      globalSco: 'e',
+      projectProperties: {
+        ...projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+        sampleRate: '44100',
+      },
     };
 
     useProjectStore.getState().setProjectInfo(info);
@@ -69,6 +82,9 @@ describe('Project Store', () => {
     expect(state.sampleRate).toBe('44100');
     expect(state.version).toBe('2.10.0');
     expect(state.filePath).toBe('/path/to/test.blue');
+    expect(state.globalOrc).toBe('instr 1\nendin');
+    expect(state.globalSco).toBe('e');
+    expect(state.projectProperties.title).toBe('Test Project');
   });
 
   it('T349: markDirty and markClean work', () => {
@@ -79,6 +95,39 @@ describe('Project Store', () => {
 
     useProjectStore.getState().markClean();
     expect(useProjectStore.getState().isDirty).toBe(false);
+  });
+
+  it('T349: updateProjectDocument patches the canonical document and marks it dirty', async () => {
+    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+    const snapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+    });
+
+    await useProjectStore.getState().updateGlobalOrc('instr 1\nendin');
+    await useProjectStore.getState().updateProjectProperties({ title: 'Edited Title' });
+
+    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
+      globalOrc: 'instr 1\nendin',
+    });
+    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
+      projectProperties: { title: 'Edited Title' },
+    });
+    expect(useProjectStore.getState().title).toBe('Edited Title');
+    expect(useProjectStore.getState().isDirty).toBe(true);
   });
 });
 

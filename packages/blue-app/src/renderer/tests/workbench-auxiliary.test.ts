@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyAuxiliaryLayout,
+  buildDefaultWorkbenchLayout,
   cloneAuxiliaryLayoutState,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
@@ -80,15 +81,19 @@ function createDockviewApiStub() {
       position?: { referenceGroup?: any; index?: number };
     }) => {
       const refGroup = position?.referenceGroup || getOrCreateGroup(`g-${id}`);
-      const panel = {
-        id,
-        api: {
-          setActive: () => {
-            refGroup.activePanel = panel;
-          },
-          isMaximized: () => false,
-          close: () => {
-            livePanels.delete(id);
+    const panel = {
+      id,
+      title: id,
+      api: {
+        setActive: () => {
+          refGroup.activePanel = panel;
+        },
+        setTitle: (title: string) => {
+          panel.title = title;
+        },
+        isMaximized: () => false,
+        close: () => {
+          livePanels.delete(id);
             refGroup.panels = refGroup.panels.filter((entry: any) => entry.id !== id);
             if (refGroup.activePanel?.id === id) {
               refGroup.activePanel = refGroup.panels[0];
@@ -131,6 +136,22 @@ function findDerived(
 }
 
 describe('workbench auxiliary layout helpers', () => {
+  it('normalizes dockview panel titles to registry labels', () => {
+    const api = createDockviewApiStub();
+
+    buildDefaultWorkbenchLayout(api);
+
+    expect(api.getPanel('ScoreTopComponent')?.title).toBe('Score');
+    expect(api.getPanel('OrchestraTopComponent')?.title).toBe('Orchestra');
+    expect(api.getPanel('GlobalOrchestraTopComponent')?.title).toBe(
+      'Global Orchestra',
+    );
+    expect(api.getPanel('GlobalScoreTopComponent')?.title).toBe('Global Score');
+    expect(api.getPanel('ProjectPropertiesTopComponent')?.title).toBe(
+      'Project Properties',
+    );
+  });
+
   it('parses the version 5 workbench envelope and preserves per-tool metadata', () => {
     const auxiliary = createDefaultAuxiliaryLayoutState();
     const propsGroup = findSeeded(auxiliary, 'properties-main')!;

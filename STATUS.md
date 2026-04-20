@@ -5,12 +5,16 @@
 
 ## Spec 017 Package
 
-Spec `017-global-project-editors` is now the active next slice for `blue-app`.
+Spec `017-global-project-editors` is complete as the current editor-surface implementation slice for `blue-app`.
 
 - Goal: replace the placeholder editor tabs for `GlobalOrchestraTopComponent`, `GlobalScoreTopComponent`, and `ProjectPropertiesTopComponent` with basic working implementations backed by the current project data model
 - Constraint: keep this slice bounded to basic editing and project-property workflow; defer Monaco, Csound language tooling, and tree-sitter work to the following spec
-- Specification status: complete and ready for planning
-- Immediate next step: `/speckit.plan`
+- Specification status: complete
+- Planning status: complete
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/017-global-project-editors/tasks.md` contains 27 implementation tasks
+- Implementation status: complete; the target panels are now wired to the current project document and validated with `pnpm --filter @blue/data test`, `pnpm --filter @blue/app test`, and `pnpm --filter @blue/app build`
+- Close-out status: complete; final UI polish removed redundant in-panel headers and restored Dockview tab titles to the Java-aligned human-readable labels from the panel registry
+- Immediate next step: start `018-csound-editor-tooling` as the Monaco and Csound-language-tooling research slice
 
 ### Suggested Scope Boundary
 

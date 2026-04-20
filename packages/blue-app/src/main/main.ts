@@ -9,6 +9,11 @@ import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
+import {
+  applyProjectDocumentPatch,
+  createProjectEditorSnapshot,
+  isEmptyProjectDocumentPatch,
+} from '../shared/project-editor';
 
 let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
@@ -18,6 +23,14 @@ let isQuitting = false;
 let pendingQuit = false;
 let playbackStartPromise: Promise<boolean> | null = null;
 let javaScriptRuntimeReady: Promise<void> | null = null;
+
+function getCurrentProjectDocument() {
+  if (!currentData) {
+    return null;
+  }
+
+  return createProjectEditorSnapshot(currentData, currentFilePath);
+}
 
 function ensureJavaScriptRuntime(): Promise<void> {
   if (!javaScriptRuntimeReady) {
@@ -192,11 +205,10 @@ async function openFile(): Promise<void> {
     }
 
     mainWindow.webContents.send('project-loaded', {
+      ...createProjectEditorSnapshot(data, filePath),
       title: data.getProjectProperties().title || path.basename(filePath),
       author: data.getProjectProperties().author,
       sampleRate: data.getProjectProperties().sampleRate,
-      version: data.getVersion(),
-      filePath,
     });
   } catch (err: unknown) {
     await dialog.showErrorBox(
@@ -357,6 +369,23 @@ ipcMain.handle('get-project-info', () => {
     nchnls: currentData.getProjectProperties().nchnls,
     version: currentData.getVersion(),
   };
+});
+
+ipcMain.handle('get-project-document', () => {
+  return getCurrentProjectDocument();
+});
+
+ipcMain.handle('update-project-document', (_event, patch) => {
+  if (!currentData) {
+    throw new Error('No project loaded');
+  }
+
+  if (!patch || isEmptyProjectDocumentPatch(patch)) {
+    throw new Error('Empty project document patch');
+  }
+
+  applyProjectDocumentPatch(currentData, patch);
+  return getCurrentProjectDocument();
 });
 
 // ─── App Lifecycle ───

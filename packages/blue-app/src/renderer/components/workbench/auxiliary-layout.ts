@@ -5,6 +5,7 @@ import type {
   SerializedDockview,
 } from 'dockview';
 import {
+  PANEL_REGISTRY,
   getDefaultEditorPanels,
   getPanel,
   type PanelMode,
@@ -449,6 +450,8 @@ export function applyAuxiliaryLayout(
     focusDockviewPanel(api, activeDockedPanelId);
     api.getPanel(activeDockedPanelId)?.api.maximize();
   }
+
+  syncDockviewPanelTitles(api);
 
   return syncAuxiliaryLayoutFromApi(api, next);
 }
@@ -1182,6 +1185,19 @@ function focusDockviewPanel(api: DockviewApi, panelId: string) {
   if (!panel) return;
   panel.api.setActive();
   panel.group.focus();
+}
+
+function syncDockviewPanelTitles(api: DockviewApi) {
+  for (const descriptor of PANEL_REGISTRY) {
+    const panel = api.getPanel(descriptor.id);
+    if (!panel) {
+      continue;
+    }
+
+    if (panel.api.title !== descriptor.title) {
+      panel.api.setTitle(descriptor.title);
+    }
+  }
 }
 
 function markAuxiliaryGroupElement(

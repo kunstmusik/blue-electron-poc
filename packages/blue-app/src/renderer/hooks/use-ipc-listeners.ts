@@ -4,6 +4,7 @@ import { useProjectStore } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
+import type { ProjectLoadedPayload } from '../../shared/project-editor';
 
 // Declare the global blueAPI type
 declare global {
@@ -12,10 +13,14 @@ declare global {
       openFile: () => Promise<string | null>;
       saveFile: () => Promise<string | null>;
       saveFileAs: () => Promise<string | null>;
+      getProjectDocument: () => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;
+      updateProjectDocument: (
+        patch: import('../../shared/project-editor').ProjectDocumentPatch,
+      ) => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;
       togglePlay: () => Promise<boolean>;
       stopPlayback: () => Promise<void>;
       getProjectInfo: () => Promise<Record<string, string> | null>;
-      onProjectLoaded: (cb: (info: Record<string, string>) => void) => void;
+      onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => void;
       onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;
       onPlaybackError: (cb: (error: string) => void) => void;
       onSaveComplete: (cb: (info: { filePath: string }) => void) => void;

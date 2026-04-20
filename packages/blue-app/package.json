@@ -7,7 +7,7 @@
     "build:main": "tsc -p tsconfig.main.json",
     "build:preload": "tsc -p tsconfig.preload.json",
     "build:renderer": "vite build",
-    "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer",
+    "build": "pnpm --filter @blue/data build && pnpm build:main && pnpm build:preload && pnpm build:renderer",
     "dev": "APP_ENV=dev vite",
     "start": "electron .",
     "test": "vitest run --config vitest.config.ts"
