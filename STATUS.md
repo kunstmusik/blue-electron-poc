@@ -1,7 +1,31 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-20
-**Branch**: `017-global-project-editors`
+**Branch**: `018-csound-editor-tooling`
+
+## Spec 018 Package
+
+Spec `018-csound-editor-tooling` is now the active next slice for `blue-app`.
+
+- Goal: evaluate the next-generation code-editor tooling path for `GlobalOrchestraTopComponent`, with Monaco as the editor candidate and the user-supplied `tree-sitter-csound` repository as the candidate grammar source
+- Constraint: keep this slice research-only and bounded to a decision record for the first rich-editor upgrade; do not promise runtime adoption before viability is clear
+- Specification status: complete
+- Planning status: not started
+- Task status: not started
+- Implementation status: not started
+- Immediate next step: run `/speckit.plan` for `specs/018-csound-editor-tooling` and produce the research package
+
+### Suggested Scope Boundary
+
+- Treat the current spec 017 Global Orchestra panel as the baseline surface
+- Evaluate Monaco only as the candidate rich-editor shell for the first upgrade slice
+- Evaluate the user-supplied `tree-sitter-csound` repository only as the candidate grammar source for that slice
+- Require fallback guidance if Monaco is viable but the grammar candidate is not
+- Leave Global Score and other code-oriented surfaces as explicitly deferred follow-on targets
+
+### Candidate Research Input
+
+- User-supplied grammar candidate: [tree-sitter-csound](https://github.com/PasqualeMainolfi/tree-sitter-csound)
 
 ## Spec 017 Package
 
