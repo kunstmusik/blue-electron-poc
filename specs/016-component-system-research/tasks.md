@@ -17,9 +17,9 @@
 
 **Purpose**: Lock the 016 deliverables and closure criteria before the source audit starts.
 
-- [ ] T001 Finalize the Java inventory scope, exclusion rules, and required feature-tag glossary in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
-- [ ] T002 [P] Align the research deliverable contract and done criteria in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/contracts/research-output.md` and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/quickstart.md`
-- [ ] T003 [P] Align the planning artifacts with the dedicated inventory deliverable in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/plan.md`, `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/spec.md`, and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/data-model.md`
+- [x] T001 Finalize the Java inventory scope, exclusion rules, and required feature-tag glossary in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- [x] T002 [P] Align the research deliverable contract and done criteria in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/contracts/research-output.md` and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/quickstart.md`
+- [x] T003 [P] Align the planning artifacts with the dedicated inventory deliverable in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/plan.md`, `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/spec.md`, and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/data-model.md`
 
 ---
 
@@ -29,10 +29,10 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T004 Record the audited Java source roots, module coverage, and explicit exclusions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T005 [P] Record the audited Electron source roots and current ownership baseline in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md` using `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryTab.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
-- [ ] T006 Create the category scaffolding and feature-to-category mapping sections in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T007 [P] Create the comparison-matrix and recommendation section scaffolding in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T004 Record the audited Java source roots, module coverage, and explicit exclusions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T005 [P] Record the audited Electron source roots and current ownership baseline in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md` using `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryTab.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- [x] T006 Create the category scaffolding and feature-to-category mapping sections in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T007 [P] Create the comparison-matrix and recommendation section scaffolding in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
 
 **Checkpoint**: The spec package has an agreed inventory structure, an explicit baseline, and the section scaffolding needed to complete the research without reopening the planning pass.
 
@@ -44,11 +44,11 @@
 
 **Independent Test**: Review `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md` and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md` and confirm every currently registered Java `TopComponent` in scope and every current Electron panel-registry entry is accounted for with explicit parity notes or gaps.
 
-- [ ] T008 [US1] Populate the editor-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
-- [ ] T009 [P] [US1] Populate the properties-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
-- [ ] T010 [P] [US1] Populate the output-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
-- [ ] T011 [US1] Map every Java component in scope to a current Electron counterpart or explicit gap in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
-- [ ] T012 [US1] Summarize the reusable component-need categories, member surfaces, and current parity status in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T008 [US1] Populate the editor-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- [x] T009 [P] [US1] Populate the properties-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- [x] T010 [P] [US1] Populate the output-mode Java component rows and feature mappings in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- [x] T011 [US1] Map every Java component in scope to a current Electron counterpart or explicit gap in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- [x] T012 [US1] Summarize the reusable component-need categories, member surfaces, and current parity status in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
 
 **Checkpoint**: User Story 1 is complete when the Java component inventory and the grouped category list are both reviewable and traceable to source.
 
@@ -60,10 +60,10 @@
 
 **Independent Test**: Review the comparison sections in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md` and confirm every major category is evaluated against Dockview/custom ownership, Radix, shadcn-style wrappers, and Electron-native menus where relevant.
 
-- [ ] T013 [US2] Define the comparison criteria and category-by-category evaluation template in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T014 [P] [US2] Evaluate Dockview/custom workbench ownership and Radix primitives for each category in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T015 [P] [US2] Evaluate shadcn-style wrappers and Electron-native menus for each category in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T016 [US2] Write the comparison-matrix conclusions, fit boundaries, and explicit keep-custom decisions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T013 [US2] Define the comparison criteria and category-by-category evaluation template in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T014 [P] [US2] Evaluate Dockview/custom workbench ownership and Radix primitives for each category in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T015 [P] [US2] Evaluate shadcn-style wrappers and Electron-native menus for each category in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T016 [US2] Write the comparison-matrix conclusions, fit boundaries, and explicit keep-custom decisions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
 
 **Checkpoint**: User Story 2 is complete when the comparison matrix explains which categories should stay custom, which can use renderer primitives, and where native menus are acceptable or not.
 
@@ -75,10 +75,10 @@
 
 **Independent Test**: Review the recommendation and roadmap sections in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md` and confirm they name an immediate next UI spec, deferred follow-on areas, and explicit rationale for the chosen ownership model.
 
-- [ ] T017 [US3] Write the preferred approach per major category and explicit non-goals in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T018 [P] [US3] Document the immediate next spec candidate, deferred follow-on areas, and bounded pilot suggestions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
-- [ ] T019 [P] [US3] Update the execution and validation handoff guidance in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/quickstart.md`
-- [ ] T020 [US3] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with the final research outcome and recommended next slice
+- [x] T017 [US3] Write the preferred approach per major category and explicit non-goals in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T018 [P] [US3] Document the immediate next spec candidate, deferred follow-on areas, and bounded pilot suggestions in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- [x] T019 [P] [US3] Update the execution and validation handoff guidance in `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/quickstart.md`
+- [x] T020 [US3] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with the final research outcome and recommended next slice
 
 **Checkpoint**: User Story 3 is complete when a reviewer can name the next UI spec and the deferred areas without additional exploratory discussion.
 
@@ -88,8 +88,8 @@
 
 **Purpose**: Tighten traceability and validate the completed research package.
 
-- [ ] T021 [P] Cross-check `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`, `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`, and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/contracts/research-output.md` for coverage gaps, ambiguity, and redundant wording
-- [ ] T022 Run final document validation with `git diff --check` and confirm the 016 handoff summary in `/Users/stevenyi/work/blue-electron/STATUS.md`
+- [x] T021 [P] Cross-check `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`, `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`, and `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/contracts/research-output.md` for coverage gaps, ambiguity, and redundant wording
+- [x] T022 Run final document validation with `git diff --check` and confirm the 016 handoff summary in `/Users/stevenyi/work/blue-electron/STATUS.md`
 
 ---
 

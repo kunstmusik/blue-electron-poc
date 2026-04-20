@@ -132,20 +132,77 @@ That document should be treated as the source-traceable checklist for closure of
 
 - Require one universal UI approach for the whole app: rejected because it does not match the current architecture or the Java parity requirements.
 
-## Recommended Research Boundaries
+## Audit Baseline
 
-The research deliverable should explicitly answer:
+- Java components in scope: `21`
+- Electron panel-registry entries in scope: `21`
+- Explicit exclusions: `MidiProjectSettingsTopComponent` is commented out and intentionally excluded from the completeness count
+- Closure artifact: `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
 
-1. Which current Java surfaces exist and how they cluster into reusable categories.
-2. Which current Electron surfaces are already good enough and should remain custom or Dockview-owned.
-3. Which categories are best served by a primitive component approach.
-4. Which categories, if any, justify a styled wrapper approach.
-5. Which categories, if any, should prefer native operating-system menus.
-6. Which next spec should land first once the recommendation is complete.
+## Inventory Summary
 
-## Deferred Beyond This Slice
+### Java Surface Groups
 
-- Implementing new runtime UI behavior
-- Enabling OS-window popouts for auxiliary groups
-- Converting existing menus or overlays to a new component system
-- Broad restyling work not required to answer the component-system question
+- `editor` mode: `ScoreTopComponent`, `OrchestraTopComponent`, `GlobalOrchestraTopComponent`, `GlobalScoreTopComponent`, `TablesTopComponent`, `UserDefinedOpcodeTopComponent`, `ProjectPropertiesTopComponent`, `BlueLiveTopComponent`, `ScratchPadTopComponent`
+- `properties` mode: `SoundObjectPropertiesTopComponent`, `SoundObjectLibraryTopComponent`, `MarkersTopComponent`, `AudioFilePlayerTopComponent`, `MidiInputPanelTopComponent`
+- `output` mode: `ScoreObjectEditorTopComponent`, `MixerTopComponent`, `VirtualKeyboardTopComponent`, `JavaScriptConsoleTopComponent`, `JythonConsoleTopComponent`, `ClojureConsoleTopComponent`, `BlueFileManagerTopComponent`
+
+### Electron Ownership Baseline
+
+- Dockview-owned: the core editor area tabs and groups
+- Custom workbench-owned: auxiliary rails, slide-outs, move controls, restore actions, and window-system state in `WorkbenchShell.tsx`
+- Renderer-owned reusable primitive candidate: menus and overlays in `AuxiliaryTab.tsx` and `WindowMenu.tsx`
+- Native-system-owned: the Electron app shell or future OS-window shell only, not the workbench tab/context-menu layer
+
+## Component Need Categories
+
+| Category | Representative Java Surfaces | Shared Required UI Features | Current Ownership | Parity Status |
+| --- | --- | --- | --- | --- |
+| Workbench editor tabs | Score, Orchestra, Global Orchestra, Global Score, Tables, UDOs, Project Properties, Blue Live, Scratch Pad | `editor-tabs`, `startup-editor`, `window-menu-entry` | Dockview/custom | Strong; already aligned with the main joined editor area |
+| Property and inspector surfaces | Sound Object Properties, MIDI Input, Markers, Audio File Player | `property-sheet`, `auxiliary-dock-group`, `collapse-slideout`, `maximize-restore`, `floating-popout` | Custom workbench-owned content with renderer primitives for controls | Partial; chrome and lifecycle now work, but content is still bespoke |
+| Browser and library surfaces | Sound Object Library, File Manager | `browser-tree-list`, `auxiliary-dock-group`, `collapse-slideout`, `drag-reposition` | Custom workbench-owned content | Partial; needs category-specific component guidance |
+| Console and REPL surfaces | JavaScript Console, Jython Console, Clojure Console | `console-repl`, `auxiliary-dock-group`, `collapse-slideout`, `window-menu-entry` | Custom workbench-owned content | Partial; state/lifecycle fit is good, editor affordances remain custom |
+| Live-control surfaces | Blue Live, Mixer, Virtual Keyboard | `keyboard-live-control`, `auxiliary-dock-group`, `collapse-slideout`, `maximize-restore` | Custom workbench-owned content | Partial; likely to remain bespoke for the foreseeable future |
+| Auxiliary dock and slideout lifecycle | Properties and output groups plus all derived singleton tools | `auxiliary-dock-group`, `collapse-slideout`, `maximize-restore`, `floating-popout`, `drag-reposition` | Custom workbench-owned with Dockview backing | Strong for the current parity slice |
+| Menus and command surfaces | Auxiliary tab context menu, Window menu, reveal actions | `window-menu-entry` and related command affordances | Renderer-owned primitive candidate | Strong for Radix; weak for Electron-native menus in the workbench |
+
+## Comparison Matrix
+
+| Category | Dockview/custom workbench | Radix primitives | shadcn-style wrappers | Electron-native menus | Recommendation |
+| --- | --- | --- | --- | --- | --- |
+| Workbench editor tabs | Best fit for layout, tab state, drag behavior, and parity | Not a fit | Not a fit | Not a fit | Keep Dockview/custom |
+| Property and inspector surfaces | Best as the container and lifecycle host | Good for controls, popovers, and small overlays | Acceptable later if control repetition grows | Poor fit | Mixed: custom content + Radix primitives |
+| Browser and library surfaces | Best as the host for tree/list content | Good for supporting overlays and command menus | Acceptable later | Poor fit | Mixed: custom content + selective primitives |
+| Console and REPL surfaces | Best as the host for scrollback/input behavior | Good for menus and lightweight overlays | Acceptable later | Poor fit | Keep custom content; use primitives selectively |
+| Live-control surfaces | Best as the host for transport/audio controls | Good for supporting controls and overlays | Acceptable later | Poor fit | Keep custom content; use primitives selectively |
+| Auxiliary dock and slideout lifecycle | Required for current parity behavior | Not sufficient on its own | Not sufficient on its own | Poor fit | Keep custom/Dockview-owned |
+| Menus and command surfaces | Poor fit for renderer menu semantics | Best fit for renderer-owned menus | Acceptable as a wrapper layer over Radix later | Good only for app shell / OS-level actions | Use Radix in renderer; keep Electron-native for app shell only |
+
+## Recommendation Record
+
+- Keep Dockview/custom ownership for the workbench editor area, auxiliary edge lifecycle, float/maximize/restore behavior, and drag-reposition logic.
+- Use Radix primitives for renderer-owned menus, context menus, popovers, and other small overlay affordances that need to stay state-aware and theme-consistent.
+- Defer shadcn-style wrappers until the component inventory proves that repeated primitive combinations are worth standardizing into a wrapper layer.
+- Keep Electron-native menus for the app shell and future OS-window shell actions only; do not move workbench context menus to native menus.
+- Treat property sheets, browser/library panes, console/REPL panes, and live-control panels as custom content surfaces that can still consume shared primitives internally.
+
+## Roadmap
+
+### Immediate Next Spec
+
+- `017-component-primitive-pilot`
+- Goal: take the highest-frequency reusable controls from the inventory and pilot them as a small Radix-backed primitive set before deciding whether shadcn wrappers add real value
+- Bounded pilot surface: workbench context menus, a representative popover/select/dialog set, and a simple inspector field row
+
+### Deferred Follow-On Areas
+
+- OS-window popouts for auxiliary groups
+- Electron-native menu treatment for the workbench shell, if a future parity review shows a clear benefit
+- Broader shadcn adoption across the app before the control inventory is stable
+- Non-workbench restyling work that does not change the component-system decision
+
+## Risks And Assumptions
+
+- The Java inventory is source-traceable, but some surfaces are still better understood as feature families than as one-to-one widget clones.
+- A hybrid recommendation is intentional; forcing one universal ownership model would hide the current architecture’s real boundaries.
+- The next spec should validate the primitive choice on a bounded pilot rather than trying to standardize the entire app in one pass.

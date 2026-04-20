@@ -64,3 +64,9 @@ Produce a research package that inventories Java and Electron UI surfaces, compa
 - The comparison matrix explicitly addresses the current Radix versus shadcn versus native-menu question.
 - The recommendation names a coherent mixed or unified strategy without leaving the core decision ambiguous.
 - The roadmap identifies the next bounded spec to execute.
+
+## Handoff
+
+- The inventory source of truth is `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- The decision record is `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- The recommended next spec is `017-component-primitive-pilot`, centered on a bounded Radix-backed primitive pilot before any broader shadcn adoption

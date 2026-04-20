@@ -3,19 +3,19 @@
 **Date**: 2026-04-20
 **Branch**: `016-component-system-research`
 
-## Current Active Work — Spec 016 Component System Research
+## Spec 016 Package
 
-Spec `016-component-system-research` is now the active research and planning slice for future UI/component-system work in `blue-app`.
+Spec `016-component-system-research` is complete as the research and planning slice for future UI/component-system work in `blue-app`.
 
 - Goal: inventory Java blue UI surfaces and current Electron counterparts, group them into reusable component-need categories, compare Dockview/custom workbench ownership against Radix primitives, shadcn-style wrappers, and Electron-native menus where relevant, and recommend bounded next UI specs
 - Constraint: this slice is documentation-only and must stay traceable to current Java registrations and current Electron implementation boundaries
 - Planning status: complete
-- Task status: generated; `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/tasks.md` contains 22 research tasks
-- Implementation status: not started; this slice should not land runtime behavior changes
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/tasks.md` contains 22 research tasks
+- Implementation status: complete; the research output now includes the dedicated Java inventory and the component-system recommendation record
 
-## Spec 016 Planning Result
+## Spec 016 Close-Out
 
-The 016 planning package is complete:
+The 016 research package is complete:
 
 - `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/spec.md`
 - `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
@@ -27,7 +27,7 @@ The 016 planning package is complete:
 - `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/checklists/requirements.md`
 - `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/tasks.md`
 
-Key outcome of the 016 planning slice:
+Key outcome of the 016 research slice:
 
 - use Java `TopComponent` registrations and window-manager metadata as the baseline inventory corpus
 - require a dedicated Java inventory deliverable at `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md` that maps every registered Java component in scope to required UI features
@@ -35,6 +35,7 @@ Key outcome of the 016 planning slice:
 - group findings by surface family rather than by individual file or window alone
 - compare four concrete approach families: Dockview/custom workbench ownership, Radix primitives, shadcn-style wrappers, and Electron-native menus
 - expect a hybrid recommendation rather than a single-library answer
+- immediate next spec candidate: `017-component-primitive-pilot`
 
 ### Primary Research Inputs
 
@@ -51,8 +52,8 @@ Key outcome of the 016 planning slice:
 
 ### Suggested Next Step
 
-- Run `/speckit.tasks` if task generation is wanted for the research execution itself
-- Otherwise continue directly with the source-audit and comparison work described in `quickstart.md`
+- Start `017-component-primitive-pilot` to validate the reusable primitive set identified by spec 016
+- Keep Electron-native menu treatment deferred until the follow-on component review proves it is worth the plumbing tradeoff
 
 ## Spec 015 Close-Out
 
