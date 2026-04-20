@@ -1,17 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyAuxiliaryLayout,
+  cloneAuxiliaryLayoutState,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
   dockAuxiliaryPanel,
   getAuxiliaryGroupIdForPanel,
   getAuxiliaryPanelPresentation,
   getAuxiliarySlideoutForEdge,
+  getGroupInstanceForPanel,
   getMinimizedTabsForEdge,
   hideAuxiliarySlideout,
   isAuxiliaryPanelId,
+  mergeBackToSeededGroup,
+  minimizeAuxiliaryPanelLayout,
+  moveAuxiliaryEdge,
+  moveGroupToEdge,
+  movePanelToEdge,
   parseStoredWorkbenchLayout,
+  resetAuxiliaryLayout,
   resizeAuxiliarySlideout,
+  syncAuxiliaryLayoutFromApi,
   toggleMinimizedAuxiliaryPanel,
+  type AuxiliaryGroupInstance,
+  type AuxiliaryLayoutState,
 } from '../components/workbench/auxiliary-layout';
 
 const legacyDockview = {
@@ -27,25 +39,37 @@ const legacyDockview = {
 
 function createDockviewApiStub() {
   const livePanels = new Map<string, any>();
-  const group = {
-    id: 'aux-properties',
-    size: 360,
-    panels: [] as any[],
-    activePanel: undefined as any,
-    focus: () => undefined,
-    api: { setHeaderPosition: () => undefined },
-    locked: true,
-  };
+  const groups = new Map<string, any>();
 
-  function insertPanel(panel: any, index: number) {
+  function getOrCreateGroup(id: string) {
+    if (groups.has(id)) return groups.get(id);
+    const group = {
+      id,
+      size: 360,
+      panels: [] as any[],
+      activePanel: undefined as any,
+      focus: () => undefined,
+      api: {
+        setHeaderPosition: () => undefined,
+        location: { type: 'grid' as const },
+      },
+      location: { type: 'grid' as const },
+      locked: true,
+    };
+    groups.set(id, group);
+    return group;
+  }
+
+  function insertPanel(panel: any, position: any, group: any) {
     const panels = [...group.panels];
+    const index = position?.index ?? panels.length;
     panels.splice(index, 0, panel);
     group.panels = panels;
   }
 
   return {
     panels: [{ id: 'ScoreTopComponent' }],
-    addGroup: () => group,
+    addGroup: ({ id }: { id?: string }) => getOrCreateGroup(id || `g-${Date.now()}`),
     addPanel: ({
       id,
       inactive,
@@ -53,31 +77,32 @@ function createDockviewApiStub() {
     }: {
       id: string;
       inactive?: boolean;
-      position?: { index?: number };
+      position?: { referenceGroup?: any; index?: number };
     }) => {
+      const refGroup = position?.referenceGroup || getOrCreateGroup(`g-${id}`);
       const panel = {
         id,
         api: {
           setActive: () => {
-            group.activePanel = panel;
+            refGroup.activePanel = panel;
           },
           isMaximized: () => false,
           close: () => {
             livePanels.delete(id);
-            group.panels = group.panels.filter((entry) => entry.id !== id);
-            if (group.activePanel?.id === id) {
-              group.activePanel = group.panels[0];
+            refGroup.panels = refGroup.panels.filter((entry: any) => entry.id !== id);
+            if (refGroup.activePanel?.id === id) {
+              refGroup.activePanel = refGroup.panels[0];
             }
           },
         },
-        group,
+        group: refGroup,
       };
 
       livePanels.set(id, panel);
-      insertPanel(panel, position?.index ?? group.panels.length);
+      insertPanel(panel, position, refGroup);
 
-      if (!inactive || !group.activePanel) {
-        group.activePanel = panel;
+      if (!inactive || !refGroup.activePanel) {
+        refGroup.activePanel = panel;
       }
 
       return panel;
@@ -87,29 +112,44 @@ function createDockviewApiStub() {
   } as any;
 }
 
+function findSeeded(
+  state: AuxiliaryLayoutState,
+  seedId: string,
+): AuxiliaryGroupInstance | undefined {
+  return state.groups.find(
+    (g) => g.kind === 'seeded' && g.seedGroupId === seedId,
+  );
+}
+
+function findDerived(
+  state: AuxiliaryLayoutState,
+  panelId: string,
+): AuxiliaryGroupInstance | undefined {
+  return state.groups.find(
+    (g) => g.kind === 'derived-singleton' && g.panelIds.includes(panelId),
+  );
+}
+
 describe('workbench auxiliary layout helpers', () => {
-  it('parses the versioned workbench envelope and preserves per-tool metadata', () => {
+  it('parses the version 5 workbench envelope and preserves per-tool metadata', () => {
     const auxiliary = createDefaultAuxiliaryLayoutState();
-    auxiliary.groups['properties-main'].dockedPanelIds = [
-      'MidiInputPanelTopComponent',
-    ];
-    auxiliary.groups['properties-main'].activePanelId =
-      'SoundObjectPropertiesTopComponent';
+    const propsGroup = findSeeded(auxiliary, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
+    propsGroup.activePanelId = 'SoundObjectPropertiesTopComponent';
     auxiliary.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
 
     const stored = createStoredWorkbenchLayout(legacyDockview, auxiliary);
     const parsed = parseStoredWorkbenchLayout(JSON.stringify(stored));
 
     expect(parsed.dockview).toEqual(legacyDockview);
-    expect(parsed.auxiliary.groups['properties-main'].dockedPanelIds).toEqual([
-      'MidiInputPanelTopComponent',
-    ]);
+    const parsedProps = findSeeded(parsed.auxiliary, 'properties-main')!;
+    expect(parsedProps.dockedPanelIds).toEqual(['MidiInputPanelTopComponent']);
     expect(parsed.auxiliary.slideouts.right.openPanelId).toBe(
       'SoundObjectPropertiesTopComponent',
     );
   });
 
-  it('upgrades the legacy version 3 group model into docked subsets plus slideouts', () => {
+  it('upgrades the legacy version 3 group model into v5 seeded instances', () => {
     const legacy = {
       version: 3,
       dockview: legacyDockview,
@@ -132,13 +172,74 @@ describe('workbench auxiliary layout helpers', () => {
 
     const parsed = parseStoredWorkbenchLayout(JSON.stringify(legacy));
 
-    expect(parsed.auxiliary.groups['properties-main'].dockedPanelIds).toEqual(
-      [],
-    );
-    expect(parsed.auxiliary.groups['properties-main'].slideoutSize).toBe(420);
+    const propsGroup = findSeeded(parsed.auxiliary, 'properties-main')!;
+    expect(propsGroup.dockedPanelIds).toEqual([]);
+    expect(propsGroup.slideoutSize).toBe(420);
     expect(parsed.auxiliary.slideouts.right.openPanelId).toBe(
       'MidiInputPanelTopComponent',
     );
+    expect(propsGroup.kind).toBe('seeded');
+  });
+
+  it('upgrades the legacy version 4 group model into v5 seeded instances', () => {
+    const legacy = {
+      version: 4,
+      dockview: legacyDockview,
+      auxiliary: {
+        version: 4,
+        groups: {
+          'properties-main': {
+            id: 'properties-main',
+            edge: 'right',
+            mode: 'properties',
+            panelIds: [
+              'SoundObjectPropertiesTopComponent',
+              'MidiInputPanelTopComponent',
+            ],
+            dockedPanelIds: ['MidiInputPanelTopComponent'],
+            activePanelId: 'SoundObjectPropertiesTopComponent',
+            dockedSize: 380,
+            slideoutSize: 400,
+            isMaximized: false,
+          },
+          'output-main': {
+            id: 'output-main',
+            edge: 'bottom',
+            mode: 'output',
+            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            activePanelId: 'ScoreObjectEditorTopComponent',
+            dockedSize: 228,
+            slideoutSize: 228,
+            isMaximized: false,
+          },
+        },
+        slideouts: {
+          left: { edge: 'left' },
+          right: { edge: 'right', openPanelId: 'SoundObjectPropertiesTopComponent' },
+          bottom: { edge: 'bottom' },
+        },
+      },
+    };
+
+    const parsed = parseStoredWorkbenchLayout(JSON.stringify(legacy));
+
+    const propsGroup = findSeeded(parsed.auxiliary, 'properties-main')!;
+    expect(propsGroup.kind).toBe('seeded');
+    expect(propsGroup.edge).toBe('right');
+    expect(propsGroup.dockedPanelIds).toEqual(['MidiInputPanelTopComponent']);
+    expect(propsGroup.dockedSize).toBe(380);
+    expect(parsed.auxiliary.slideouts.right.openPanelId).toBe(
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    const outputGroup = findSeeded(parsed.auxiliary, 'output-main')!;
+    expect(outputGroup.kind).toBe('seeded');
+    expect(outputGroup.edge).toBe('bottom');
+    expect(outputGroup.panelIds).toEqual([
+      'ScoreObjectEditorTopComponent',
+      'MixerTopComponent',
+    ]);
   });
 
   it('limits the parity slice to the prototype auxiliary panels', () => {
@@ -154,7 +255,8 @@ describe('workbench auxiliary layout helpers', () => {
 
   it('derives minimized edge tabs and the active slideout panel from per-tool state', () => {
     const state = createDefaultAuxiliaryLayoutState();
-    state.groups['properties-main'].dockedPanelIds = ['MidiInputPanelTopComponent'];
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
     state.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
 
     const tabs = getMinimizedTabsForEdge(state, 'right');
@@ -175,7 +277,8 @@ describe('workbench auxiliary layout helpers', () => {
 
   it('toggles minimized tabs open and closed without mutating docked tools', () => {
     const state = createDefaultAuxiliaryLayoutState();
-    state.groups['properties-main'].dockedPanelIds = ['MidiInputPanelTopComponent'];
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
 
     const opened = toggleMinimizedAuxiliaryPanel(
       state,
@@ -189,15 +292,15 @@ describe('workbench auxiliary layout helpers', () => {
     expect(opened.slideouts.right.openPanelId).toBe(
       'SoundObjectPropertiesTopComponent',
     );
-    expect(opened.groups['properties-main'].dockedPanelIds).toEqual([
-      'MidiInputPanelTopComponent',
-    ]);
+    const openedProps = findSeeded(opened, 'properties-main')!;
+    expect(openedProps.dockedPanelIds).toEqual(['MidiInputPanelTopComponent']);
     expect(closed.slideouts.right.openPanelId).toBeUndefined();
   });
 
   it('docks a single slid-out tool without restoring the whole group', () => {
     const state = createDefaultAuxiliaryLayoutState();
-    state.groups['properties-main'].dockedPanelIds = ['MidiInputPanelTopComponent'];
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
     state.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
 
     const api = createDockviewApiStub();
@@ -208,16 +311,49 @@ describe('workbench auxiliary layout helpers', () => {
       'SoundObjectPropertiesTopComponent',
     );
 
-    expect(next.groups['properties-main'].dockedPanelIds).toEqual([
+    const nextProps = findSeeded(next, 'properties-main')!;
+    expect(nextProps.dockedPanelIds).toEqual([
       'SoundObjectPropertiesTopComponent',
       'MidiInputPanelTopComponent',
     ]);
     expect(next.slideouts.right.openPanelId).toBeUndefined();
   });
 
+  it('minimizes a single docked tool without collapsing the whole edge', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const api = createDockviewApiStub();
+    const applied = applyAuxiliaryLayout(api, state);
+
+    const next = minimizeAuxiliaryPanelLayout(
+      api,
+      applied,
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    const propsGroup = findSeeded(next, 'properties-main')!;
+    expect(propsGroup.dockedPanelIds).toEqual(['MidiInputPanelTopComponent']);
+    expect(getMinimizedTabsForEdge(next, 'right').map((tab) => tab.panelId)).toContain(
+      'SoundObjectPropertiesTopComponent',
+    );
+  });
+
+  it('captures live docked size when synchronizing from Dockview', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const api = createDockviewApiStub();
+    const applied = applyAuxiliaryLayout(api, state);
+
+    const liveGroup = api.getPanel('SoundObjectPropertiesTopComponent')?.group;
+    liveGroup.size = 472;
+
+    const synced = syncAuxiliaryLayoutFromApi(api, applied);
+
+    expect(findSeeded(synced, 'properties-main')?.dockedSize).toBe(472);
+  });
+
   it('updates slideout sizing and clearing independently of Dockview state', () => {
     const state = createDefaultAuxiliaryLayoutState();
-    state.groups['properties-main'].dockedPanelIds = ['MidiInputPanelTopComponent'];
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
     state.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
 
     const resized = resizeAuxiliarySlideout(
@@ -227,7 +363,378 @@ describe('workbench auxiliary layout helpers', () => {
     );
     const hidden = hideAuxiliarySlideout(resized, 'right');
 
-    expect(resized.groups['properties-main'].slideoutSize).toBe(512);
+    const resizedProps = findSeeded(resized, 'properties-main')!;
+    expect(resizedProps.slideoutSize).toBe(512);
     expect(hidden.slideouts.right.openPanelId).toBeUndefined();
+  });
+
+  it('creates default state with zero left-edge groups', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const leftGroups = state.groups.filter((g) => g.edge === 'left');
+    expect(leftGroups).toEqual([]);
+    expect(state.version).toBe(5);
+  });
+
+  it('seeds exactly two seeded group instances', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const seeded = state.groups.filter((g) => g.kind === 'seeded');
+    expect(seeded).toHaveLength(2);
+    expect(seeded.map((g) => g.seedGroupId).sort()).toEqual([
+      'output-main',
+      'properties-main',
+    ]);
+  });
+});
+
+describe('v4 to v5 migration', () => {
+  it('preserves edge assignment and presentation state during migration', () => {
+    const v4Stored = {
+      version: 4,
+      dockview: legacyDockview,
+      auxiliary: {
+        version: 4,
+        groups: {
+          'properties-main': {
+            id: 'properties-main',
+            edge: 'right',
+            mode: 'properties',
+            panelIds: [
+              'SoundObjectPropertiesTopComponent',
+              'MidiInputPanelTopComponent',
+            ],
+            dockedPanelIds: [],
+            activePanelId: 'MidiInputPanelTopComponent',
+            dockedSize: 340,
+            slideoutSize: 400,
+            isMaximized: false,
+          },
+          'output-main': {
+            id: 'output-main',
+            edge: 'bottom',
+            mode: 'output',
+            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            activePanelId: 'MixerTopComponent',
+            dockedSize: 260,
+            slideoutSize: 228,
+            isMaximized: true,
+          },
+        },
+        slideouts: {
+          left: { edge: 'left' },
+          right: { edge: 'right', openPanelId: 'MidiInputPanelTopComponent' },
+          bottom: { edge: 'bottom' },
+        },
+      },
+    };
+
+    const parsed = parseStoredWorkbenchLayout(JSON.stringify(v4Stored));
+
+    expect(parsed.auxiliary.version).toBe(5);
+
+    const propsGroup = findSeeded(parsed.auxiliary, 'properties-main')!;
+    expect(propsGroup.kind).toBe('seeded');
+    expect(propsGroup.edge).toBe('right');
+    expect(propsGroup.dockedPanelIds).toEqual([]);
+    expect(propsGroup.dockedSize).toBe(340);
+    expect(parsed.auxiliary.slideouts.right.openPanelId).toBe(
+      'MidiInputPanelTopComponent',
+    );
+
+    const outputGroup = findSeeded(parsed.auxiliary, 'output-main')!;
+    expect(outputGroup.kind).toBe('seeded');
+    expect(outputGroup.edge).toBe('bottom');
+    expect(outputGroup.isMaximized).toBe(true);
+    expect(outputGroup.activePanelId).toBe('MixerTopComponent');
+  });
+});
+
+describe('canonical panel ownership invariants', () => {
+  it('ensures each panel belongs to exactly one group instance', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const allPanelIds = state.groups.flatMap((g) => g.panelIds);
+    const uniquePanelIds = new Set(allPanelIds);
+    expect(allPanelIds.length).toBe(uniquePanelIds.size);
+  });
+
+  it('preserves panel uniqueness after move and split operations', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const api = createDockviewApiStub();
+
+    const moved = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+
+    const allPanelIds = moved.groups.flatMap((g) => g.panelIds);
+    const uniquePanelIds = new Set(allPanelIds);
+    expect(allPanelIds.length).toBe(uniquePanelIds.size);
+  });
+
+  it('preserves panel uniqueness after merge-back', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const split = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+    const derived = findDerived(split, 'SoundObjectPropertiesTopComponent')!;
+
+    const merged = mergeBackToSeededGroup(split, derived.groupInstanceId);
+
+    const allPanelIds = merged.groups.flatMap((g) => g.panelIds);
+    const uniquePanelIds = new Set(allPanelIds);
+    expect(allPanelIds.length).toBe(uniquePanelIds.size);
+    expect(merged.groups.filter((g) => g.kind === 'derived-singleton')).toHaveLength(0);
+  });
+});
+
+describe('left-edge whole-group moves', () => {
+  it('moves a seeded group to the left edge', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+
+    const propsGroup = findSeeded(moved, 'properties-main')!;
+    expect(propsGroup.edge).toBe('left');
+    expect(propsGroup.panelIds).toEqual([
+      'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+  });
+
+  it('clears slideout for source edge when moving a group', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    state.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
+
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+
+    expect(moved.slideouts.right.openPanelId).toBeUndefined();
+    expect(moved.slideouts.left.openPanelId).toBeUndefined();
+  });
+});
+
+describe('left-edge single-tool split', () => {
+  it('creates a derived singleton when one tool splits from a multi-tool group', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+
+    const moved = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+
+    const derived = findDerived(moved, 'SoundObjectPropertiesTopComponent');
+    expect(derived).toBeDefined();
+    expect(derived!.kind).toBe('derived-singleton');
+    expect(derived!.edge).toBe('left');
+    expect(derived!.panelIds).toEqual(['SoundObjectPropertiesTopComponent']);
+    expect(derived!.groupInstanceId).toBe('derived:SoundObjectPropertiesTopComponent');
+
+    const remaining = findSeeded(moved, 'properties-main')!;
+    expect(remaining.panelIds).toEqual(['MidiInputPanelTopComponent']);
+    expect(remaining.edge).toBe('right');
+  });
+
+  it('moves whole group when singleton source has only one panel', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.panelIds = ['SoundObjectPropertiesTopComponent'];
+    propsGroup.dockedPanelIds = ['SoundObjectPropertiesTopComponent'];
+
+    const moved = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+
+    const propsAfter = findSeeded(moved, 'properties-main')!;
+    expect(propsAfter.edge).toBe('left');
+    expect(moved.groups.filter((g) => g.kind === 'derived-singleton')).toHaveLength(0);
+  });
+
+  it('preserves minimized derived singletons after normalization', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const moved = movePanelToEdge(
+      state,
+      'ScoreObjectEditorTopComponent',
+      'left',
+    );
+    const derived = findDerived(moved, 'ScoreObjectEditorTopComponent')!;
+    derived.dockedPanelIds = [];
+
+    const normalized = moveAuxiliaryEdge(moved, 'left', 'left');
+    const tabs = getMinimizedTabsForEdge(normalized, 'left');
+
+    expect(tabs.map((tab) => tab.panelId)).toContain(
+      'ScoreObjectEditorTopComponent',
+    );
+    expect(
+      getGroupInstanceForPanel(normalized, 'ScoreObjectEditorTopComponent')
+        ?.dockedPanelIds,
+    ).toEqual([]);
+  });
+});
+
+describe('reset layout', () => {
+  it('discards derived singletons and re-seeds defaults', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const split = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+    expect(split.groups.filter((g) => g.kind === 'derived-singleton')).toHaveLength(1);
+
+    const reset = resetAuxiliaryLayout();
+    expect(reset.groups.filter((g) => g.kind === 'derived-singleton')).toHaveLength(0);
+    expect(reset.groups.filter((g) => g.edge === 'left')).toHaveLength(0);
+
+    const propsGroup = findSeeded(reset, 'properties-main')!;
+    expect(propsGroup.edge).toBe('right');
+    expect(propsGroup.panelIds).toEqual([
+      'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+  });
+});
+
+describe('merge-back to seeded group', () => {
+  it('merges a derived singleton back into its seeded sibling group', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const split = movePanelToEdge(
+      state,
+      'SoundObjectPropertiesTopComponent',
+      'left',
+    );
+    const derived = findDerived(split, 'SoundObjectPropertiesTopComponent')!;
+
+    const merged = mergeBackToSeededGroup(split, derived.groupInstanceId);
+
+    expect(merged.groups.find((g) => g.groupInstanceId === derived.groupInstanceId)).toBeUndefined();
+
+    const propsGroup = findSeeded(merged, 'properties-main')!;
+    expect(propsGroup.panelIds).toEqual([
+      'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+  });
+
+  it('preserves seeded panel ordering after merge-back', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const split = movePanelToEdge(
+      state,
+      'MidiInputPanelTopComponent',
+      'left',
+    );
+    const derived = findDerived(split, 'MidiInputPanelTopComponent')!;
+
+    const merged = mergeBackToSeededGroup(split, derived.groupInstanceId);
+
+    const propsGroup = findSeeded(merged, 'properties-main')!;
+    expect(propsGroup.panelIds).toEqual([
+      'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+  });
+});
+
+describe('left-edge minimized tabs and slideout', () => {
+  it('produces minimized tabs for a left-edge group', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+    const propsGroup = findSeeded(moved, 'properties-main')!;
+    propsGroup.dockedPanelIds = [];
+
+    const tabs = getMinimizedTabsForEdge(moved, 'left');
+    expect(tabs).toHaveLength(2);
+    expect(tabs.map((t) => t.panelId)).toEqual([
+      'SoundObjectPropertiesTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
+  });
+
+  it('opens a left-edge slideout for a minimized tab', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+    const propsGroup = findSeeded(moved, 'properties-main')!;
+    propsGroup.dockedPanelIds = [];
+
+    const toggled = toggleMinimizedAuxiliaryPanel(
+      moved,
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    expect(toggled.slideouts.left.openPanelId).toBe(
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    const slideout = getAuxiliarySlideoutForEdge(toggled, 'left');
+    expect(slideout).toBeDefined();
+    expect(slideout!.panelId).toBe('SoundObjectPropertiesTopComponent');
+    expect(slideout!.edge).toBe('left');
+  });
+
+  it('derives correct presentation for left-edge panels', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+    const propsGroup = findSeeded(moved, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
+    moved.slideouts.left.openPanelId = 'SoundObjectPropertiesTopComponent';
+
+    expect(getAuxiliaryPanelPresentation(moved, 'MidiInputPanelTopComponent')).toBe('docked');
+    expect(getAuxiliaryPanelPresentation(moved, 'SoundObjectPropertiesTopComponent')).toBe('slideout');
+  });
+});
+
+describe('edge independence', () => {
+  it('left-edge actions do not corrupt right-edge or bottom-edge state', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const moved = moveGroupToEdge(state, 'properties-main', 'left');
+
+    const rightTabs = getMinimizedTabsForEdge(moved, 'right');
+    const bottomTabs = getMinimizedTabsForEdge(moved, 'bottom');
+    expect(rightTabs).toHaveLength(0);
+    expect(bottomTabs).toHaveLength(0);
+
+    const outputGroup = findSeeded(moved, 'output-main')!;
+    expect(outputGroup.edge).toBe('bottom');
+    expect(outputGroup.panelIds).toEqual([
+      'ScoreObjectEditorTopComponent',
+      'MixerTopComponent',
+    ]);
+  });
+
+  it('moves all instances on a docked edge together', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const movedProps = moveGroupToEdge(state, 'properties-main', 'left');
+    const movedOutputTool = movePanelToEdge(
+      movedProps,
+      'ScoreObjectEditorTopComponent',
+      'left',
+    );
+
+    const moved = moveAuxiliaryEdge(movedOutputTool, 'left', 'right');
+
+    expect(findSeeded(moved, 'properties-main')!.edge).toBe('right');
+    expect(findDerived(moved, 'ScoreObjectEditorTopComponent')!.edge).toBe(
+      'right',
+    );
+  });
+});
+
+describe('cloneAuxiliaryLayoutState', () => {
+  it('produces a deep clone that does not share arrays with the source', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const clone = cloneAuxiliaryLayoutState(state);
+
+    const origGroup = state.groups[0];
+    const cloneGroup = clone.groups[0];
+    expect(origGroup.panelIds).not.toBe(cloneGroup.panelIds);
+    expect(origGroup.dockedPanelIds).not.toBe(cloneGroup.dockedPanelIds);
+    expect(origGroup.panelIds).toEqual(cloneGroup.panelIds);
   });
 });

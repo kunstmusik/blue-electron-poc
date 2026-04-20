@@ -39,4 +39,46 @@ describe('workbench store layout persistence', () => {
     expect(serialized).not.toBeNull();
     expect(useWorkbenchStore.getState().auxiliary).toBe(auxiliary);
   });
+
+  it('serializes with version 5 envelope', () => {
+    useWorkbenchStore.setState({
+      api: dockviewApiStub,
+      auxiliary: createDefaultAuxiliaryLayoutState(),
+    });
+
+    const serialized = useWorkbenchStore.getState().saveLayout();
+    const parsed = JSON.parse(serialized!);
+
+    expect(parsed.version).toBe(5);
+    expect(Array.isArray(parsed.auxiliary.groups)).toBe(true);
+    expect(parsed.auxiliary.version).toBe(5);
+  });
+});
+
+describe('workbench store move and reset actions', () => {
+  it('finds the group instance ID for a panel', () => {
+    useWorkbenchStore.setState({
+      api: dockviewApiStub,
+      auxiliary: createDefaultAuxiliaryLayoutState(),
+    });
+
+    const groupInstanceId = useWorkbenchStore
+      .getState()
+      .getAuxiliaryGroupForPanel('SoundObjectPropertiesTopComponent');
+
+    expect(groupInstanceId).toBe('properties-main');
+  });
+
+  it('returns undefined for non-auxiliary panels', () => {
+    useWorkbenchStore.setState({
+      api: dockviewApiStub,
+      auxiliary: createDefaultAuxiliaryLayoutState(),
+    });
+
+    const groupInstanceId = useWorkbenchStore
+      .getState()
+      .getAuxiliaryGroupForPanel('ScoreTopComponent');
+
+    expect(groupInstanceId).toBeUndefined();
+  });
 });

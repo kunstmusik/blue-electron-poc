@@ -17,9 +17,9 @@
 
 **Purpose**: Prepare the existing auxiliary parity slice for the left-edge follow-on work.
 
-- [ ] T001 Align spec 015 layout versioning, feature constants, and instance-model scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T002 [P] Extend shared fixture builders for seeded and derived auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
-- [ ] T003 [P] Prepare shared left-edge move-control and reset-layout UI hooks in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryHeaderActions.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliarySlideout.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- [x] T001 Align spec 015 layout versioning, feature constants, and instance-model scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T002 [P] Extend shared fixture builders for seeded and derived auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
+- [x] T003 [P] Prepare shared left-edge move-control and reset-layout UI hooks in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryHeaderActions.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliarySlideout.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
 
 ---
 
@@ -29,12 +29,12 @@
 
 **⚠️ CRITICAL**: No user story work should begin until this phase is complete.
 
-- [ ] T004 Replace fixed auxiliary sessions with seeded and derived group instances plus version 5 layout parsing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T005 Implement version 4 to version 5 layout migration, group-instance normalization, and canonical panel ownership invariants in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T006 Refactor the auxiliary store to manage group-instance IDs, move intents, and reset-layout actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T007 Rework `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to render rails and slide-outs from instance-based auxiliary state while preserving one visible slide-out per edge
-- [ ] T008 [P] Extend prototype panel metadata and left-edge eligibility helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`
-- [ ] T009 [P] Add migration and canonical-ownership regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
+- [x] T004 Replace fixed auxiliary sessions with seeded and derived group instances plus version 5 layout parsing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T005 Implement version 4 to version 5 layout migration, group-instance normalization, and canonical panel ownership invariants in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T006 Refactor the auxiliary store to manage group-instance IDs, move intents, and reset-layout actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [x] T007 Rework `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to render rails and slide-outs from instance-based auxiliary state while preserving one visible slide-out per edge
+- [x] T008 [P] Extend prototype panel metadata and left-edge eligibility helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panel-registry.ts`
+- [x] T009 [P] Add migration and canonical-ownership regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
 
 **Checkpoint**: The workbench can persist seeded and derived auxiliary group instances without snapping custom edges back to the default seeded layout.
 
@@ -46,13 +46,13 @@
 
 **Independent Test**: Start from the default layout, move a whole prototype group to the left edge, then move one tool out of a multi-tool seeded group to the left edge and verify left-edge minimize and slide-out behavior works in both cases.
 
-- [ ] T010 [US1] Implement whole-group edge reassignment and singleton split creation for left-edge moves in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T011 [US1] Add store actions for move-group and move-panel edge transitions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T012 [P] [US1] Add explicit move-to-left, move-to-right, and move-to-bottom actions for docked auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryHeaderActions.tsx`
-- [ ] T013 [P] [US1] Add move-to-edge controls for slid-out tools in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliarySlideout.tsx`
-- [ ] T014 [P] [US1] Add left-edge move-control and singleton-group styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
-- [ ] T015 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to pass move actions into auxiliary header and slide-out controls
-- [ ] T016 [US1] Add left-edge whole-group and single-tool split regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [x] T010 [US1] Implement whole-group edge reassignment and singleton split creation for left-edge moves in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T011 [US1] Add store actions for move-group and move-panel edge transitions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [x] T012 [P] [US1] Add explicit move-to-left, move-to-right, and move-to-bottom actions for docked auxiliary groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryHeaderActions.tsx`
+- [x] T013 [P] [US1] Add move-to-edge controls for slid-out tools in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliarySlideout.tsx`
+- [x] T014 [P] [US1] Add left-edge move-control and singleton-group styling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [x] T015 [US1] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to pass move actions into auxiliary header and slide-out controls
+- [x] T016 [US1] Add left-edge whole-group and single-tool split regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 1 is complete when users can move whole prototype groups or single prototype tools to the left edge and use normal left-edge minimize and slide-out behavior there.
 
@@ -64,12 +64,12 @@
 
 **Independent Test**: Verify that a fresh or reset layout seeds no left-edge tools, then save a layout with custom left-edge placements and confirm those placements restore after reload.
 
-- [ ] T017 [US2] Implement reset-to-default seeding and custom-left-layout restore helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T018 [US2] Persist custom left-edge group instances and add reset-layout handling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T019 [P] [US2] Expose reset-layout and custom-placement-aware presentation actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
-- [ ] T020 [P] [US2] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to clear saved custom left-edge placements during reset and reseed the default layout cleanly
-- [ ] T021 [US2] Add fresh/reset default-layout and saved-left-layout restore coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
-- [ ] T022 [US2] Add persisted custom-left-layout restore coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [x] T017 [US2] Implement reset-to-default seeding and custom-left-layout restore helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T018 [US2] Persist custom left-edge group instances and add reset-layout handling in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [x] T019 [P] [US2] Expose reset-layout and custom-placement-aware presentation actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- [x] T020 [P] [US2] Wire `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WorkbenchShell.tsx` to clear saved custom left-edge placements during reset and reseed the default layout cleanly
+- [x] T021 [US2] Add fresh/reset default-layout and saved-left-layout restore coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
+- [x] T022 [US2] Add persisted custom-left-layout restore coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 2 is complete when fresh/reset layouts seed no left-edge tools and saved custom left-edge placements restore correctly.
 
@@ -81,11 +81,11 @@
 
 **Independent Test**: Use a left-edge group and a left-edge singleton tool to verify hide-on-repeat-click, dock-single-tool, restore-group, merge-back to the seeded sibling edge, maximize, and Window-menu reveal all reuse the existing presentation without duplication.
 
-- [ ] T023 [US3] Implement merge-back, left-edge restore-group, and reveal invariants for seeded and derived groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
-- [ ] T024 [US3] Route dock-single-tool, restore-group, maximize, and stable-ID reveal flows for left-edge group instances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
-- [ ] T025 [P] [US3] Update left-edge group restore controls for mixed seeded and derived groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx`
-- [ ] T026 [P] [US3] Update left-edge presentation badges and reveal affordances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
-- [ ] T027 [US3] Add left-edge dock, restore, merge-back, maximize, and reveal regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
+- [x] T023 [US3] Implement merge-back, left-edge restore-group, and reveal invariants for seeded and derived groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`
+- [x] T024 [US3] Route dock-single-tool, restore-group, maximize, and stable-ID reveal flows for left-edge group instances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- [x] T025 [P] [US3] Update left-edge group restore controls for mixed seeded and derived groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/AuxiliaryRail.tsx`
+- [x] T026 [P] [US3] Update left-edge presentation badges and reveal affordances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/WindowMenu.tsx`
+- [x] T027 [US3] Add left-edge dock, restore, merge-back, maximize, and reveal regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-auxiliary.test.ts`
 
 **Checkpoint**: User Story 3 is complete when left-edge groups and singleton tools behave consistently with the accepted right-edge and bottom-edge parity rules.
 
@@ -95,8 +95,8 @@
 
 **Purpose**: Finish validation and handoff for the left-edge parity slice.
 
-- [ ] T028 [P] Record completed 015 validation flows and remaining follow-on gaps in `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/quickstart.md` and `/Users/stevenyi/work/blue-electron/STATUS.md`
-- [ ] T029 Run renderer verification through `/Users/stevenyi/work/blue-electron/packages/blue-app/package.json` using `pnpm --filter @blue/app test` and `pnpm --filter @blue/app build`
+- [x] T028 [P] Record completed 015 validation flows and remaining follow-on gaps in `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/quickstart.md` and `/Users/stevenyi/work/blue-electron/STATUS.md`
+- [x] T029 Run renderer verification through `/Users/stevenyi/work/blue-electron/packages/blue-app/package.json` using `pnpm --filter @blue/app test` and `pnpm --filter @blue/app build`
 
 ---
 

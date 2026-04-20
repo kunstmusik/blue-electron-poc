@@ -95,7 +95,12 @@ export default function AuxiliarySlideout({
         onPointerDown={handleResizeStart}
       />
 
-      <header className="workbench-aux-slideout__header">
+      <header
+        className="workbench-aux-slideout__header"
+        data-aux-slideout-drag-handle="true"
+        data-aux-panel-id={slideout.panelId}
+        data-aux-edge={slideout.edge}
+      >
         <div className="workbench-aux-slideout__title">
           {getAuxiliaryRailLabel(slideout.panelId)}
         </div>
@@ -104,6 +109,7 @@ export default function AuxiliarySlideout({
           <button
             type="button"
             className="workbench-aux-slideout__action"
+            data-aux-drag-ignore="true"
             title="Dock tool window"
             aria-label="Dock tool window"
             onClick={onDock}
@@ -114,6 +120,7 @@ export default function AuxiliarySlideout({
           <button
             type="button"
             className="workbench-aux-slideout__action"
+            data-aux-drag-ignore="true"
             title="Hide tool window"
             aria-label="Hide tool window"
             onClick={onClose}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { LayoutList } from 'lucide-react';
+import { LayoutList, RotateCcw } from 'lucide-react';
 import { useWorkbenchStore } from '../../stores/workbench-store';
 import { getAuxiliaryPanelPresentation } from './auxiliary-layout';
 import { PANEL_REGISTRY } from '../workbench/panel-registry';
@@ -17,6 +17,7 @@ export default function WindowMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const focusPanel = useWorkbenchStore((s) => s.focusPanel);
+  const resetLayout = useWorkbenchStore((s) => s.resetLayout);
   const api = useWorkbenchStore((s) => s.api);
   const auxiliary = useWorkbenchStore((s) => s.auxiliary);
 
@@ -50,7 +51,7 @@ export default function WindowMenu() {
               <div className="px-3 py-1 text-xs font-semibold text-blue-muted uppercase tracking-wider">
                 {MODE_LABELS[mode]}
               </div>
-              {PANEL_REGISTRY.filter((p) => p.mode === mode).map((panel) => (
+              {PANEL_REGISTRY.filter((p) => p.mode === mode).map((panel) =>
                 (() => {
                   const presentation = getAuxiliaryPanelPresentation(
                     auxiliary,
@@ -78,10 +79,23 @@ export default function WindowMenu() {
                       ) : null}
                     </button>
                   );
-                })()
-              ))}
+                })(),
+              )}
             </div>
           ))}
+
+          <div className="border-t border-blue-border/40 mt-1 pt-1">
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-blue-border/50 transition-colors flex items-center gap-2"
+              onClick={() => {
+                resetLayout();
+                setOpen(false);
+              }}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset Default Layout
+            </button>
+          </div>
         </div>
       )}
     </div>

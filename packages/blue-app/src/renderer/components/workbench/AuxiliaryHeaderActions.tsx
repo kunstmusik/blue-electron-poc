@@ -1,6 +1,6 @@
 import type { IDockviewHeaderActionsProps } from 'dockview';
 import { PinOff } from 'lucide-react';
-import { getAuxiliaryGroupIdForPanel } from './auxiliary-layout';
+import { getGroupInstanceForPanel } from './auxiliary-layout';
 import { useWorkbenchStore } from '../../stores/workbench-store';
 
 export default function AuxiliaryHeaderActions(
@@ -9,13 +9,14 @@ export default function AuxiliaryHeaderActions(
   const minimizeAuxiliaryGroup = useWorkbenchStore(
     (state) => state.minimizeAuxiliaryGroup,
   );
+  const auxiliary = useWorkbenchStore((state) => state.auxiliary);
 
   const activePanelId = props.activePanel?.id;
-  const groupId = activePanelId
-    ? getAuxiliaryGroupIdForPanel(activePanelId)
+  const instance = activePanelId
+    ? getGroupInstanceForPanel(auxiliary, activePanelId)
     : undefined;
 
-  if (!groupId) {
+  if (!instance) {
     return null;
   }
 
@@ -24,9 +25,10 @@ export default function AuxiliaryHeaderActions(
       <button
         type="button"
         className="workbench-aux-header-action"
+        data-aux-drag-ignore="true"
         title="Minimize tool window group"
         aria-label="Minimize tool window group"
-        onClick={() => minimizeAuxiliaryGroup(groupId)}
+        onClick={() => minimizeAuxiliaryGroup(instance.groupInstanceId)}
       >
         <PinOff size={14} strokeWidth={1.9} />
       </button>

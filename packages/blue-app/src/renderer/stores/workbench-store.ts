@@ -6,21 +6,25 @@ import {
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
   dockAuxiliaryPanel as dockAuxiliaryPanelLayout,
-  getAuxiliaryEdgeForPanel,
-  getAuxiliaryGroupIdForPanel,
+  getAuxiliarySeedGroupIdForPanel,
   hideAllAuxiliarySlideouts as hideAllAuxiliarySlideoutsLayout,
   hideAuxiliarySlideout as hideAuxiliarySlideoutLayout,
   isAuxiliaryPanelId,
   maximizeAuxiliaryGroupLayout,
+  mergeBackToSeededGroup as mergeBackToSeededGroupLayout,
+  minimizeAuxiliaryPanelLayout,
   minimizeAuxiliaryGroupLayout,
+  moveAuxiliaryEdge as moveAuxiliaryEdgeLayout,
+  moveGroupToEdge as moveGroupToEdgeLayout,
+  movePanelToEdge as movePanelToEdgeLayout,
   parseStoredWorkbenchLayout,
+  resetAuxiliaryLayout,
   resizeAuxiliarySlideout as resizeAuxiliarySlideoutLayout,
-  revealAuxiliaryPanel,
   restoreAuxiliaryGroupLayout,
+  revealAuxiliaryPanel,
   syncAuxiliaryLayoutFromApi,
   toggleMinimizedAuxiliaryPanel,
   type AuxiliaryEdge,
-  type AuxiliaryGroupId,
   type AuxiliaryLayoutState,
 } from '../components/workbench/auxiliary-layout';
 import { getPanel } from '../components/workbench/panel-registry';
@@ -35,19 +39,25 @@ interface WorkbenchActions {
   openPanel: (panelId: string) => void;
   focusPanel: (panelId: string) => void;
   toggleAuxiliaryPanel: (panelId: string) => void;
+  minimizeAuxiliaryPanel: (panelId: string) => void;
   closePanel: (panelId: string) => void;
   isPanelOpen: (panelId: string) => boolean;
   saveLayout: () => string | null;
   loadLayout: (json: string | null) => void;
   syncAuxiliaryLayout: () => void;
-  minimizeAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
-  maximizeAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
-  restoreAuxiliaryGroup: (groupId: AuxiliaryGroupId) => void;
+  minimizeAuxiliaryGroup: (groupInstanceId: string) => void;
+  maximizeAuxiliaryGroup: (groupInstanceId: string) => void;
+  restoreAuxiliaryGroup: (groupInstanceId: string) => void;
   dockAuxiliaryPanel: (panelId: string) => void;
   hideAuxiliarySlideout: (edge: AuxiliaryEdge) => void;
   hideAllAuxiliarySlideouts: () => void;
   resizeAuxiliarySlideout: (panelId: string, size: number) => void;
-  getAuxiliaryGroupForPanel: (panelId: string) => AuxiliaryGroupId | undefined;
+  getAuxiliaryGroupForPanel: (panelId: string) => string | undefined;
+  moveAuxiliaryEdge: (sourceEdge: AuxiliaryEdge, targetEdge: AuxiliaryEdge) => void;
+  moveGroupToEdge: (groupInstanceId: string, targetEdge: AuxiliaryEdge) => void;
+  movePanelToEdge: (panelId: string, targetEdge: AuxiliaryEdge) => void;
+  mergeBackToSeededGroup: (groupInstanceId: string) => void;
+  resetLayout: () => void;
 }
 
 export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
@@ -118,11 +128,20 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       }));
     },
 
+    minimizeAuxiliaryPanel: (panelId) => {
+      const { api, auxiliary } = get();
+      if (!api || !isAuxiliaryPanelId(panelId)) return;
+
+      set({
+        auxiliary: minimizeAuxiliaryPanelLayout(api, auxiliary, panelId),
+      });
+    },
+
     closePanel: (panelId) => {
       const { api } = get();
       if (!api) return;
 
-      if (getAuxiliaryEdgeForPanel(panelId)) {
+      if (isAuxiliaryPanelId(panelId)) {
         return;
       }
 
@@ -180,30 +199,30 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       });
     },
 
-    minimizeAuxiliaryGroup: (groupId) => {
+    minimizeAuxiliaryGroup: (groupInstanceId) => {
       const { api, auxiliary } = get();
       if (!api) return;
 
       set({
-        auxiliary: minimizeAuxiliaryGroupLayout(api, auxiliary, groupId),
+        auxiliary: minimizeAuxiliaryGroupLayout(api, auxiliary, groupInstanceId),
       });
     },
 
-    maximizeAuxiliaryGroup: (groupId) => {
+    maximizeAuxiliaryGroup: (groupInstanceId) => {
       const { api, auxiliary } = get();
       if (!api) return;
 
       set({
-        auxiliary: maximizeAuxiliaryGroupLayout(api, auxiliary, groupId),
+        auxiliary: maximizeAuxiliaryGroupLayout(api, auxiliary, groupInstanceId),
       });
     },
 
-    restoreAuxiliaryGroup: (groupId) => {
+    restoreAuxiliaryGroup: (groupInstanceId) => {
       const { api, auxiliary } = get();
       if (!api) return;
 
       set({
-        auxiliary: restoreAuxiliaryGroupLayout(api, auxiliary, groupId),
+        auxiliary: restoreAuxiliaryGroupLayout(api, auxiliary, groupInstanceId),
       });
     },
 
@@ -234,6 +253,52 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       }));
     },
 
-    getAuxiliaryGroupForPanel: (panelId) => getAuxiliaryGroupIdForPanel(panelId),
+    moveAuxiliaryEdge: (sourceEdge, targetEdge) => {
+      const { api, auxiliary } = get();
+      if (!api) return;
+
+      const next = moveAuxiliaryEdgeLayout(auxiliary, sourceEdge, targetEdge);
+      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+    },
+
+    getAuxiliaryGroupForPanel: (panelId) => {
+      const state = get();
+      const instance = state.auxiliary.groups.find((g) =>
+        g.panelIds.includes(panelId),
+      );
+      return instance?.groupInstanceId;
+    },
+
+    moveGroupToEdge: (groupInstanceId, targetEdge) => {
+      const { api, auxiliary } = get();
+      if (!api) return;
+
+      const next = moveGroupToEdgeLayout(auxiliary, groupInstanceId, targetEdge);
+      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+    },
+
+    movePanelToEdge: (panelId, targetEdge) => {
+      const { api, auxiliary } = get();
+      if (!api) return;
+
+      const next = movePanelToEdgeLayout(auxiliary, panelId, targetEdge);
+      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+    },
+
+    mergeBackToSeededGroup: (groupInstanceId) => {
+      const { api, auxiliary } = get();
+      if (!api) return;
+
+      const next = mergeBackToSeededGroupLayout(auxiliary, groupInstanceId);
+      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+    },
+
+    resetLayout: () => {
+      const { api } = get();
+      if (!api) return;
+
+      const fresh = resetAuxiliaryLayout();
+      set({ auxiliary: applyAuxiliaryLayout(api, fresh) });
+    },
   }),
 );

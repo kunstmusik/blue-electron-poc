@@ -80,3 +80,7 @@ export function getPanelsByMode(mode: PanelMode): PanelDescriptor[] {
 export function getDefaultEditorPanels(): PanelDescriptor[] {
   return getPanelsByMode('editor').filter((p) => p.openAtStartup);
 }
+
+export function isAuxiliaryEligiblePanel(panelId: string): boolean {
+  return PANEL_MAP.has(panelId);
+}
