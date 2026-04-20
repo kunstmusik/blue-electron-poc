@@ -1,37 +1,62 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-20
-**Branch**: `015-left-edge-parity`
+**Branch**: `016-component-system-research`
 
-## Current Active Work — Spec 015 Left Edge Parity
+## Current Active Work — Spec 016 Component System Research
 
-Spec `015-left-edge-parity` is now the active implementation slice for auxiliary window-system parity follow-on work in `blue-app`.
+Spec `016-component-system-research` is now the active research and planning slice for future UI/component-system work in `blue-app`.
 
-- Goal: allow users to move auxiliary tools and groups to the left edge and collapse them there with the same behavior already available on the right and bottom edges
-- Constraint: do **not** seed any default left-side tools in fresh or reset layouts unless the Java reference later proves that a left-side default exists
+- Goal: inventory Java blue UI surfaces and current Electron counterparts, group them into reusable component-need categories, compare Dockview/custom workbench ownership against Radix primitives, shadcn-style wrappers, and Electron-native menus where relevant, and recommend bounded next UI specs
+- Constraint: this slice is documentation-only and must stay traceable to current Java registrations and current Electron implementation boundaries
 - Planning status: complete
-- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/tasks.md` contains 29 implementation tasks
-- Implementation status: complete; all 29 tasks (T001–T029) implemented across Phases 1–6
+- Task status: generated; `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/tasks.md` contains 22 research tasks
+- Implementation status: not started; this slice should not land runtime behavior changes
 
-## Spec 015 Planning Result
+## Spec 016 Planning Result
 
-The 015 planning package is complete:
+The 016 planning package is complete:
 
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/spec.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/plan.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/research.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/data-model.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/quickstart.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/contracts/auxiliary-edge-behavior.md`
-- `/Users/stevenyi/work/blue-electron/specs/015-left-edge-parity/tasks.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/plan.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/research.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/data-model.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/quickstart.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/contracts/research-output.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/checklists/requirements.md`
+- `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/tasks.md`
 
-Key outcome of the completed 015 slice:
+Key outcome of the 016 planning slice:
 
-- keep the Java-aligned seeded layout unchanged with zero default left-edge tools
-- migrate the auxiliary layout from the fixed version 4 group model to a version 5 instance-based model
-- represent user-moved single tools as derived singleton group instances
-- move docked groups by dragging their header area and move slide-out tools by dragging their title bar
-- use a Radix-backed in-app context menu on auxiliary tabs rather than an Electron-native context menu so the menu stays Java-parity-themed and renderer-state-aware
+- use Java `TopComponent` registrations and window-manager metadata as the baseline inventory corpus
+- require a dedicated Java inventory deliverable at `/Users/stevenyi/work/blue-electron/specs/016-component-system-research/java-ui-feature-inventory.md` that maps every registered Java component in scope to required UI features
+- audit the current Electron port from both `panel-registry.ts` and the live workbench shell
+- group findings by surface family rather than by individual file or window alone
+- compare four concrete approach families: Dockview/custom workbench ownership, Radix primitives, shadcn-style wrappers, and Electron-native menus
+- expect a hybrid recommendation rather than a single-library answer
+
+### Primary Research Inputs
+
+- Java reference roots:
+  - `/Users/stevenyi/work/nbprojects/blue/blue-ui-core`
+  - `/Users/stevenyi/work/nbprojects/blue/blue-ui-filemanager`
+  - `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor`
+- Java window-manager metadata:
+  - `/Users/stevenyi/work/nbprojects/blue/blue-ui-core/src/main/resources/blue/ui/core/WindowManager.wswmgr`
+- Electron workbench roots:
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/package.json`
+
+### Suggested Next Step
+
+- Run `/speckit.tasks` if task generation is wanted for the research execution itself
+- Otherwise continue directly with the source-audit and comparison work described in `quickstart.md`
+
+## Spec 015 Close-Out
+
+Spec `015-left-edge-parity` is complete as the current auxiliary left-edge parity slice for `blue-app`.
 
 ## Spec 014 Close-Out
 
