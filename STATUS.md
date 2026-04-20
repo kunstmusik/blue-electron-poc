@@ -1,7 +1,26 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-20
-**Branch**: `016-component-system-research`
+**Branch**: `017-global-project-editors`
+
+## Spec 017 Package
+
+Spec `017-global-project-editors` is now the active next slice for `blue-app`.
+
+- Goal: replace the placeholder editor tabs for `GlobalOrchestraTopComponent`, `GlobalScoreTopComponent`, and `ProjectPropertiesTopComponent` with basic working implementations backed by the current project data model
+- Constraint: keep this slice bounded to basic editing and project-property workflow; defer Monaco, Csound language tooling, and tree-sitter work to the following spec
+- Specification status: complete and ready for planning
+- Immediate next step: `/speckit.plan`
+
+### Suggested Scope Boundary
+
+- `GlobalOrchestraTopComponent`: basic editable global orchestra text surface bound to the current project
+- `GlobalScoreTopComponent`: basic editable global score text surface bound to the current project
+- `ProjectPropertiesTopComponent`: basic built-in project-properties sections only; plugin-provided extension tabs remain deferred unless they fall out naturally from existing data binding work
+
+### Deferred Follow-On
+
+- Start `018-csound-editor-tooling` after spec 017 to evaluate Monaco integration and tree-sitter-backed Csound language support, using [tree-sitter-csound](https://github.com/PasqualeMainolfi/tree-sitter-csound) as the starting grammar candidate for investigation
 
 ## Spec 016 Package
 
@@ -35,7 +54,7 @@ Key outcome of the 016 research slice:
 - group findings by surface family rather than by individual file or window alone
 - compare four concrete approach families: Dockview/custom workbench ownership, Radix primitives, shadcn-style wrappers, and Electron-native menus
 - expect a hybrid recommendation rather than a single-library answer
-- immediate next spec candidate: `017-component-primitive-pilot`
+- immediate next spec candidate recorded during 016 was `017-component-primitive-pilot`, but that placeholder is now superseded by the concrete implementation slice `017-global-project-editors`
 
 ### Primary Research Inputs
 
@@ -52,8 +71,8 @@ Key outcome of the 016 research slice:
 
 ### Suggested Next Step
 
-- Start `017-component-primitive-pilot` to validate the reusable primitive set identified by spec 016
-- Keep Electron-native menu treatment deferred until the follow-on component review proves it is worth the plumbing tradeoff
+- Start `017-global-project-editors` to implement the first non-placeholder editor-area surfaces identified during the 016 audit
+- Keep Monaco, tree-sitter, and broader code-editor tooling deferred to the following spec so the first implementation pass stays bounded
 
 ## Spec 015 Close-Out
 
