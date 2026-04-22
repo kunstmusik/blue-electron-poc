@@ -1,6 +1,6 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-20
+Auto-generated from all feature plans. Last updated: 2026-04-22
 
 ## Active Technologies
 - React 19.x, Electron, dockview 5.2.0 + collapsed auxiliary-group planning for the workbench shell (013-collapsed-sidebar-research)
@@ -12,8 +12,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-20
 - Repository documentation only (`specs/016-component-system-research/`) (016-component-system-research)
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + `@blue/data`, React 19, Zustand 5.x, `dockview` 5.2.0, Vitest 4.x, existing Electron preload/main IPC bridge (017-global-project-editors)
 - Main-process in-memory `currentData` plus `.blue` XML serialization through `@blue/data`; renderer mirrors an editable snapshot for the active projec (017-global-project-editors)
-- Markdown research documents derived from the current spec 017 editor implementation, Java Global Orchestra and related editor references, Monaco as the candidate editor shell, and the user-supplied `tree-sitter-csound` repository as the candidate grammar source (018-csound-editor-tooling)
-- Repository documentation only (`specs/018-csound-editor-tooling/`) until planning begins (018-csound-editor-tooling)
+- TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + `@blue/data`, React 19, Zustand 5.x, `dockview` 5.2.0, Vitest 4.x, CodeMirror 6 via `codemirror`, `@codemirror/autocomplete`, `@codemirror/state`, `@codemirror/view`, plus `@kunstmusik/codemirror-lang-csound`; Monaco and `tree-sitter-csound` are deferred fallback/research inputs (018-csound-editor-tooling)
+- Main-process in-memory current project document plus existing `.blue` XML serialization through `@blue/data`; renderer edits flow through the existing project snapshot/store bridge (018-csound-editor-tooling)
 
 - TypeScript 5.x, strict mode + `@rgrove/parse-xml` (XML parsing), `vitest` (testing), `esbuild` (bundling for Electron) 
 
@@ -41,7 +41,4 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
-- 018-csound-editor-tooling: Added Markdown research-spec scaffolding derived from the current Global Orchestra editor implementation, the Monaco editor candidate, and the user-supplied `tree-sitter-csound` grammar candidate
-- 017-global-project-editors: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + `@blue/data`, React 19, Zustand 5.x, `dockview` 5.2.0, Vitest 4.x, existing Electron preload/main IPC bridge
-- 016-component-system-research: Added Markdown planning documents derived from TypeScript 5.8.x renderer code and Java NetBeans sources + Java Blue `TopComponent` registrations and window-manager metadata, current React 19 / Electron 35 / Dockview 5.2.0 renderer implementation, candidate UI approaches under study: Radix primitives, shadcn/ui-style wrappers, and Electron-native menus
-- 015-left-edge-parity: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/store code + `dockview` 5.2.0 / `dockview-core` 5.2.0, Zustand 5.x, Vitest 4.x, current workbench shell in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench`
+- 018-csound-editor-tooling: Selected and implemented CodeMirror for Global Orchestra with `@kunstmusik/codemirror-lang-csound`, dynamic completion adapter scaffolding, and Java Blue editor parity deferred to the next spec

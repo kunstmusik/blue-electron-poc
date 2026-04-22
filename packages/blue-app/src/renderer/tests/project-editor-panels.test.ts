@@ -5,6 +5,7 @@ import type { ProjectPropertiesSnapshot } from '../../shared/project-editor';
 import GlobalOrchestraPanel from '../components/workbench/panels/GlobalOrchestraPanel';
 import GlobalScorePanel from '../components/workbench/panels/GlobalScorePanel';
 import ProjectPropertiesPanel from '../components/workbench/panels/ProjectPropertiesPanel';
+import { createDynamicCsoundCompletionSource } from '../components/workbench/panels/editors/csound-completions';
 
 interface MockProjectState {
   loaded: boolean;
@@ -108,9 +109,44 @@ describe('Project editor panels', () => {
 
     const html = renderToStaticMarkup(createElement(GlobalOrchestraPanel));
 
-    expect(html).not.toContain('Global Orchestra');
+    expect(html).toContain('data-editor-kind="codemirror"');
+    expect(html).toContain('data-editor-language="csound-orc"');
+    expect(html).toContain('aria-label="Global Orchestra Csound editor"');
     expect(html).toContain('instr 1');
-    expect(html).toContain('textarea');
+    expect(html).not.toContain('textarea');
+  });
+
+  it('adapts dynamic Csound completions for the selected editor', async () => {
+    const source = createDynamicCsoundCompletionSource([
+      (context) => [
+        {
+          label: `project_${context.text.length}_${context.position}`,
+          type: 'function',
+          detail: context.explicit ? 'explicit' : 'implicit',
+        },
+      ],
+    ]);
+    const result = source({
+      explicit: true,
+      pos: 4,
+      state: {
+        doc: {
+          toString: () => 'instr 1\nendin',
+        },
+      },
+      matchBefore: () => ({ from: 0, to: 4, text: 'proj' }),
+    } as never);
+
+    const resolved = result instanceof Promise ? await result : result;
+
+    expect(resolved?.from).toBe(0);
+    expect(resolved?.options).toEqual([
+      {
+        label: 'project_13_4',
+        type: 'function',
+        detail: 'explicit',
+      },
+    ]);
   });
 
   it('shows the project properties empty state when unloaded', () => {

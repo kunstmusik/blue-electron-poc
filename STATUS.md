@@ -1,27 +1,52 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-20
+**Date**: 2026-04-22
 **Branch**: `018-csound-editor-tooling`
 
 ## Spec 018 Package
 
 Spec `018-csound-editor-tooling` is now the active next slice for `blue-app`.
 
-- Goal: evaluate the next-generation code-editor tooling path for `GlobalOrchestraTopComponent`, with Monaco as the editor candidate and the user-supplied `tree-sitter-csound` repository as the candidate grammar source
-- Constraint: keep this slice research-only and bounded to a decision record for the first rich-editor upgrade; do not promise runtime adoption before viability is clear
-- Specification status: complete
-- Planning status: not started
-- Task status: not started
-- Implementation status: not started
-- Immediate next step: run `/speckit.plan` for `specs/018-csound-editor-tooling` and produce the research package
+- Goal: choose and implement a richer editor for `GlobalOrchestraTopComponent` after evaluating CodeMirror plus `@kunstmusik/codemirror-lang-csound` against Monaco plus optional grammar/language-support work
+- Constraint: Monaco adoption is no longer assumed mandatory; dynamic completion support is now an explicit decision criterion, and the selected editor must expose a documented path for project/runtime completion sources
+- Specification status: revised for CodeMirror vs Monaco evaluation
+- Planning status: revised; the 018 design package is now in `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/plan.md`, `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/research.md`, `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/contracts/global-orchestra-editor-surface.md`, and `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/quickstart.md`
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/tasks.md` contains 20 completed tasks
+- Implementation status: complete; CodeMirror is selected and implemented for `GlobalOrchestraTopComponent`
+- Close-out status: complete; CodeMirror is active for `GlobalOrchestraTopComponent`, the current project load/edit/save path is preserved, and editor-selection research is documented
+- Immediate next step: open the follow-on Java Blue Csound editor parity slice for Cut/Copy/Paste behavior, context-menu insertions, completion/hint parity, and future reuse across other Csound text surfaces
 
 ### Suggested Scope Boundary
 
-- Treat the current spec 017 Global Orchestra panel as the baseline surface
-- Evaluate Monaco only as the candidate rich-editor shell for the first upgrade slice
-- Evaluate the user-supplied `tree-sitter-csound` repository only as the candidate grammar source for that slice
-- Require fallback guidance if Monaco is viable but the grammar candidate is not
+- Treat the current spec 017 Global Orchestra panel as the baseline surface to be replaced
+- Evaluate CodeMirror plus `@kunstmusik/codemirror-lang-csound` and Monaco plus optional grammar/language-support work before choosing the implementation path
+- Require the selected editor in the shipped slice for `GlobalOrchestraTopComponent`
+- Require a documented dynamic completion extension point for the selected editor
+- Keep `tree-sitter-csound` as a possible follow-on or Monaco-language-support input rather than the only language-support candidate
 - Leave Global Score and other code-oriented surfaces as explicitly deferred follow-on targets
+- Defer Java Blue editor context-menu parity, Cut/Copy/Paste verification, and project/runtime completion sources to the next spec rather than expanding 018
+
+### Planning Outcome
+
+- CodeMirror is now a first-class candidate because `@kunstmusik/codemirror-lang-csound` already provides CSD/ORC/SCO language support, opcode and UDO completions, semantic highlighting, hover, indentation, and folding
+- Monaco remains viable but likely requires more Csound-specific language work because there is no comparable package already in the repo
+- Both candidates support dynamic completions: CodeMirror through completion sources/language data and Monaco through completion item providers
+- Keep the current `project-store` patch path as the only persistence flow for `globalOrc`
+- Final direction: CodeMirror is selected for 018 because the package installs/builds cleanly in `@blue/app` and gives the strongest Csound-specific baseline
+
+### Implementation Summary
+
+- Added CodeMirror dependencies: `codemirror`, `@codemirror/autocomplete`, `@codemirror/state`, `@codemirror/view`, and `@kunstmusik/codemirror-lang-csound`
+- Implemented `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx` as the local CodeMirror adapter
+- Implemented `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-language.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-completions.ts`
+- Updated `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalOrchestraPanel.tsx` to use the selected editor when a project is loaded
+- Added renderer coverage for the selected editor marker and dynamic completion adapter in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+
+### Validation
+
+- `pnpm --filter @blue/app test`: PASS
+- `pnpm --filter @blue/app build`: PASS
+- Residual warnings are unchanged: package lacks `"type": "module"` for `postcss.config.js`, and Vite reports the existing large renderer chunk warning
 
 ### Candidate Research Input
 

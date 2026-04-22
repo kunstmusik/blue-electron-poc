@@ -4,6 +4,7 @@ import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
+import { isTextEditingTarget } from '../hooks/use-keyboard-shortcuts';
 
 // Mock window.blueAPI
 const mockBlueAPI = {
@@ -217,6 +218,24 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().status).toBe('stopping');
     expect(usePlaybackStore.getState().isPlaying).toBe(true);
     expect(usePlaybackStore.getState().message).toBe('Stopping playback...');
+  });
+});
+
+describe('Keyboard Shortcuts', () => {
+  it('treats CodeMirror and form controls as text-editing targets', () => {
+    expect(isTextEditingTarget({
+      closest: vi.fn((selector: string) => (selector.includes('.cm-editor') ? {} : null)),
+    } as never)).toBe(true);
+    expect(isTextEditingTarget({
+      closest: vi.fn((selector: string) => (selector.includes('textarea') ? {} : null)),
+    } as never)).toBe(true);
+  });
+
+  it('does not treat non-editing targets as text-editing targets', () => {
+    expect(isTextEditingTarget({
+      closest: vi.fn(() => null),
+    } as never)).toBe(false);
+    expect(isTextEditingTarget(null)).toBe(false);
   });
 });
 

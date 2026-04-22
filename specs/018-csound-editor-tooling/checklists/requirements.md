@@ -2,33 +2,33 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-04-20  
-**Feature**: [spec.md](/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/spec.md)
+**Feature**: [/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/spec.md](/Users/stevenyi/work/blue-electron/specs/018-csound-editor-tooling/spec.md)
 
 ## Content Quality
 
-- [x] No implementation details (languages, frameworks, APIs)
-- [x] Focused on user value and business needs
-- [x] Written for non-technical stakeholders
-- [x] All mandatory sections completed
+- [X] No implementation details beyond necessary editor-candidate names
+- [X] Focused on user value and business needs
+- [X] Written for non-technical stakeholders where possible
+- [X] All mandatory sections completed
 
 ## Requirement Completeness
 
-- [x] No [NEEDS CLARIFICATION] markers remain
-- [x] Requirements are testable and unambiguous
-- [x] Success criteria are measurable
-- [x] Success criteria are technology-agnostic (no implementation details)
-- [x] All acceptance scenarios are defined
-- [x] Edge cases are identified
-- [x] Scope is clearly bounded
-- [x] Dependencies and assumptions identified
+- [X] No [NEEDS CLARIFICATION] markers remain
+- [X] Requirements are testable and unambiguous
+- [X] Success criteria are measurable
+- [X] Success criteria are technology-aware only where the feature explicitly requires editor-candidate comparison
+- [X] All acceptance scenarios are defined
+- [X] Edge cases are identified
+- [X] Scope is clearly bounded
+- [X] Dependencies and assumptions identified
 
 ## Feature Readiness
 
-- [x] All functional requirements have clear acceptance criteria
-- [x] User scenarios cover primary flows
-- [x] Feature meets measurable outcomes defined in Success Criteria
-- [x] No implementation details leak into specification
+- [X] All functional requirements have clear acceptance criteria
+- [X] User scenarios cover primary flows
+- [X] Feature meets measurable outcomes defined in Success Criteria
+- [X] Implementation detail leakage is limited to the explicit editor/library evaluation requested by the user
 
 ## Notes
 
-- This is a research and decision-record slice. The user explicitly named Monaco and `tree-sitter-csound`, so the specification treats them as candidate approaches to evaluate rather than as predetermined implementation choices.
+- Updated on 2026-04-22 to remove Monaco as a mandatory preselected outcome and require a CodeMirror vs Monaco evaluation, including dynamic completion support and the user-supplied `@kunstmusik/codemirror-lang-csound` package.

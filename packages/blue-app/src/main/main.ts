@@ -85,8 +85,8 @@ function createWindow(): void {
     {
       label: 'Playback',
       submenu: [
-        { label: 'Play', accelerator: 'Space', click: () => { void togglePlay(); } },
-        { label: 'Stop', accelerator: 'Escape', click: () => { void stopPlayback(); } },
+        { label: 'Play', click: () => { void togglePlay(); } },
+        { label: 'Stop', click: () => { void stopPlayback(); } },
       ],
     },
   ]);
