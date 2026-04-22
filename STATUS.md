@@ -1,11 +1,40 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-22
-**Branch**: `018-csound-editor-tooling`
+**Branch**: `019-csound-editor-parity`
+
+## Spec 019 Package
+
+Spec `019-csound-editor-parity` is now the active next slice for `blue-app`.
+
+- Goal: add Java Blue Csound editor parity on top of the CodeMirror Global Orchestra editor from spec 018
+- Scope: reliable Cut/Copy/Paste, Java Blue-style editor context menu insertions, first Java Blue-derived completion/hint parity pass, and reusable editor helpers for future Csound text surfaces
+- Specification status: complete draft in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/spec.md`
+- Planning status: complete; design artifacts are in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/contracts/csound-editor-parity-surface.md`, and `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/quickstart.md`
+- Task status: ready; `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/tasks.md` contains 37 tasks
+- Implementation status: not started
+- Immediate next step: implement User Story 1 first, starting with reusable editor commands and Cut/Copy/Paste behavior before adding the Java Blue context menu
+
+### Java Reference Anchors
+
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/actions/BlueVariablesMenu.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/actions/OpcodesMenu.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/actions/BlueOpcodesMenu.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-core/src/main/java/blue/ui/core/editor/actions/CodeRepositoryMenu.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-core/src/main/java/blue/ui/core/editor/actions/AddToCodeRepositoryAction.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/CsoundOrcCompletionProvider.java`
+
+### Planning Notes
+
+- Use a renderer-owned context menu first, likely Radix-backed, because the menu needs direct CodeMirror selection and insertion state.
+- Review Electron standard Edit menu roles for clipboard reliability; native menus may be needed for keyboard/platform behavior, but should not replace the Java Blue-style editor context menu by default.
+- Blue Variables and Blue Opcodes are high-confidence implementation targets for this slice.
+- Opcodes, Custom, and Add to Code Repository may be full, partial, or explicitly disabled/deferred depending on available metadata and repository storage support.
+- Completion parity should start with document-local Csound variables, Blue Variables/Blue Opcodes entries, and project UDOs if available from the active project snapshot.
 
 ## Spec 018 Package
 
-Spec `018-csound-editor-tooling` is now the active next slice for `blue-app`.
+Spec `018-csound-editor-tooling` is complete and committed as the CodeMirror editor-selection and Global Orchestra implementation slice for `blue-app`.
 
 - Goal: choose and implement a richer editor for `GlobalOrchestraTopComponent` after evaluating CodeMirror plus `@kunstmusik/codemirror-lang-csound` against Monaco plus optional grammar/language-support work
 - Constraint: Monaco adoption is no longer assumed mandatory; dynamic completion support is now an explicit decision criterion, and the selected editor must expose a documented path for project/runtime completion sources
