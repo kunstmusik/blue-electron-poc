@@ -28,6 +28,7 @@ import {
   type AuxiliaryLayoutState,
 } from '../components/workbench/auxiliary-layout';
 import { getPanel } from '../components/workbench/panel-registry';
+import type { NativeMenuCommand } from '../../shared/workbench-menu';
 
 interface WorkbenchState {
   api: DockviewApi | null;
@@ -58,6 +59,7 @@ interface WorkbenchActions {
   movePanelToEdge: (panelId: string, targetEdge: AuxiliaryEdge) => void;
   mergeBackToSeededGroup: (groupInstanceId: string) => void;
   resetLayout: () => void;
+  handleNativeMenuCommand: (command: NativeMenuCommand) => void;
 }
 
 export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
@@ -299,6 +301,17 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
 
       const fresh = resetAuxiliaryLayout();
       set({ auxiliary: applyAuxiliaryLayout(api, fresh) });
+    },
+
+    handleNativeMenuCommand: (command) => {
+      switch (command.type) {
+        case 'focus-panel':
+          get().openPanel(command.panelId);
+          return;
+        case 'reset-layout':
+          get().resetLayout();
+          return;
+      }
     },
   }),
 );

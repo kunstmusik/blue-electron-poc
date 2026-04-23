@@ -45,6 +45,52 @@
     @apply text-red-400;
   }
 
+  .toolbar-shell {
+    @apply flex items-center gap-4 px-4 py-3 bg-blue-surface border-b border-blue-border shrink-0;
+  }
+
+  .toolbar-group {
+    @apply flex items-center gap-2 shrink-0;
+  }
+
+  .toolbar-icon-button {
+    @apply inline-flex items-center justify-center h-9 w-9 rounded-lg border border-blue-accent/20
+           bg-blue-border text-gray-100 transition-colors
+           hover:bg-blue-accent/20 hover:text-white
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .toolbar-icon-button.is-active {
+    @apply bg-blue-accent text-white border-blue-accent hover:bg-blue-accent-hover;
+  }
+
+  .toolbar-text-button {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-blue-accent/20
+           bg-blue-border px-3 py-1.5 text-sm font-medium text-gray-100 transition-colors
+           hover:bg-blue-accent/20 hover:text-white
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .toolbar-text-button.is-active {
+    @apply bg-blue-accent text-white border-blue-accent hover:bg-blue-accent-hover;
+  }
+
+  .toolbar-display-card {
+    @apply rounded-xl border border-blue-border/80 bg-black/85 px-4 py-2 shadow-inner min-w-0;
+  }
+
+  .toolbar-display-label {
+    @apply text-[11px] uppercase tracking-[0.18em] text-blue-muted;
+  }
+
+  .toolbar-display-main {
+    @apply font-mono text-base font-medium leading-tight text-gray-100;
+  }
+
+  .toolbar-display-secondary {
+    @apply font-mono text-xs text-gray-300 leading-tight;
+  }
+
   /* Responsive utilities */
   @media (max-width: 768px) {
     .project-details-grid {

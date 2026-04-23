@@ -5,6 +5,7 @@ import {
   type ProjectDocumentPatch,
   type ProjectLoadedPayload,
   type ProjectPropertiesSnapshot,
+  type ToolbarProjectTransportSnapshot,
 } from '../../shared/project-editor';
 
 interface ProjectState {
@@ -19,6 +20,7 @@ interface ProjectState {
   globalOrc: string;
   globalSco: string;
   projectProperties: ProjectPropertiesSnapshot;
+  transport: ToolbarProjectTransportSnapshot;
 }
 
 interface ProjectActions {
@@ -36,6 +38,7 @@ interface ProjectActions {
   updateProjectProperties: (
     patch: Partial<ProjectPropertiesSnapshot>,
   ) => Promise<void>;
+  setLoopRendering: (loopRendering: boolean) => Promise<void>;
 }
 
 function buildInitialState(): ProjectState {
@@ -53,6 +56,7 @@ function buildInitialState(): ProjectState {
     globalOrc: snapshot.globalOrc,
     globalSco: snapshot.globalSco,
     projectProperties: snapshot.projectProperties,
+    transport: snapshot.transport,
   };
 }
 
@@ -130,6 +134,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       const nextProjectProperties = info.projectProperties
         ? mergeProjectProperties(state.projectProperties, info.projectProperties)
         : state.projectProperties;
+      const nextTransport = info.transport
+        ? {
+            ...state.transport,
+            ...info.transport,
+            tempoMap: info.transport.tempoMap ?? state.transport.tempoMap,
+          }
+        : state.transport;
       const summary = info.projectProperties
         ? syncSummaryFromProperties(nextProjectProperties)
         : {
@@ -155,6 +166,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         globalOrc: info.globalOrc ?? state.globalOrc,
         globalSco: info.globalSco ?? state.globalSco,
         projectProperties: nextProjectProperties,
+        transport: nextTransport,
       };
     });
   },
@@ -176,7 +188,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     if (
       patch.globalOrc === undefined &&
       patch.globalSco === undefined &&
-      (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0)
+      (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
+      (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
       return;
     }
@@ -212,6 +225,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         }
       }
 
+      if (patch.transport) {
+        next.transport = {
+          ...state.transport,
+          ...patch.transport,
+          tempoMap: state.transport.tempoMap,
+        };
+      }
+
       return next;
     });
 
@@ -232,5 +253,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   updateProjectProperties: async (patch) => {
     await get().applyProjectDocumentPatch({ projectProperties: patch });
+  },
+
+  setLoopRendering: async (loopRendering) => {
+    await get().applyProjectDocumentPatch({
+      transport: { loopRendering },
+    });
   },
 }));

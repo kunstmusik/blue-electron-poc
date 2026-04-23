@@ -1,9 +1,17 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { useProjectStore } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
+import { getWindowTitle } from '../../shared/window-title';
+import MainToolbar from '../components/menu-bar/MainToolbar';
+import {
+  buildPlayheadDisplayState,
+  buildSelectionDisplayState,
+} from '../components/menu-bar/toolbar-formatters';
 import { isTextEditingTarget } from '../hooks/use-keyboard-shortcuts';
 
 // Mock window.blueAPI
@@ -20,7 +28,9 @@ const mockBlueAPI = {
   getProjectInfo: vi.fn(),
   onProjectLoaded: vi.fn(),
   onPlaybackStatus: vi.fn(),
+  onPlaybackClock: vi.fn(),
   onPlaybackError: vi.fn(),
+  onNativeMenuCommand: vi.fn(),
   onSaveComplete: vi.fn(),
   onSaveError: vi.fn(),
 };
@@ -60,6 +70,7 @@ describe('Project Store', () => {
 
   it('T349: setProjectInfo updates all fields', () => {
     const projectProperties = createEmptyProjectEditorSnapshot().projectProperties;
+    const projectTransport = createEmptyProjectEditorSnapshot().transport;
     const info = {
       title: 'Test Project',
       author: 'Test Author',
@@ -75,6 +86,12 @@ describe('Project Store', () => {
         author: 'Test Author',
         sampleRate: '44100',
       },
+      transport: {
+        ...projectTransport,
+        renderStartTime: 4,
+        renderEndTime: 12,
+        loopRendering: true,
+      },
     };
 
     useProjectStore.getState().setProjectInfo(info);
@@ -88,6 +105,8 @@ describe('Project Store', () => {
     expect(state.globalOrc).toBe('instr 1\nendin');
     expect(state.globalSco).toBe('e');
     expect(state.projectProperties.title).toBe('Test Project');
+    expect(state.transport.renderStartTime).toBe(4);
+    expect(state.transport.loopRendering).toBe(true);
   });
 
   it('T349: markDirty and markClean work', () => {
@@ -154,6 +173,31 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().isPlaying).toBe(true);
     expect(usePlaybackStore.getState().status).toBe('stopping');
     expect(usePlaybackStore.getState().message).toBe('Stopping playback...');
+  });
+
+  it('T350: setLoopRendering patches the project transport state', async () => {
+    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+
+    const snapshot = createEmptyProjectEditorSnapshot();
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      projectProperties: snapshot.projectProperties,
+      transport: snapshot.transport,
+    });
+
+    await useProjectStore.getState().setLoopRendering(true);
+
+    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
+      transport: { loopRendering: true },
+    });
+    expect(useProjectStore.getState().transport.loopRendering).toBe(true);
   });
 
   it('T350: togglePlay sets starting state while playback is preparing', async () => {
@@ -253,6 +297,77 @@ describe('UI Store', () => {
 
     useUIStore.getState().setActivePanel('welcome');
     expect(useUIStore.getState().activePanel).toBe('welcome');
+  });
+});
+
+describe('Toolbar Shell', () => {
+  it('renders the Java-style toolbar without the old file buttons', () => {
+    const html = renderToStaticMarkup(createElement(MainToolbar));
+
+    expect(html).toContain('toolbar-shell');
+    expect(html).toContain('toolbar-group');
+    expect(html).toContain('toolbar-display-card');
+    expect(html).toContain('toolbar-icon-button');
+    expect(html).toContain('toolbar-text-button');
+    expect(html).toContain('Playhead');
+    expect(html).toContain('Selection');
+    expect(html).toContain('Blue Live');
+    expect(html).toContain('MIDI Input');
+    expect(html).not.toContain('Open .blue file');
+    expect(html).not.toContain('Save As (Cmd+Shift+S)');
+    expect(html).not.toContain('Window panels');
+  });
+
+  it('derives playhead and selection display state from the shared transport snapshot', () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    const transport = {
+      ...snapshot.transport,
+      renderStartTime: 8,
+      renderEndTime: 12,
+      loopRendering: true,
+      tempoMap: {
+        enabled: true,
+        points: [
+          { beat: 0, tempo: 120, curveType: 'constant' as const },
+          { beat: 8, tempo: 120, curveType: 'constant' as const },
+        ],
+      },
+    };
+    const playback = {
+      status: 'playing' as const,
+      clock: {
+        sessionId: 1,
+        sampleFrames: 44100,
+        sequence: 1,
+        sampleRate: 44100,
+        ksmps: 64,
+        receivedAtMs: Date.now(),
+      },
+      display: {
+        sampleFrames: 44100,
+        elapsedSeconds: 1,
+        source: 'engine-authority' as const,
+      },
+    };
+
+    const playhead = buildPlayheadDisplayState(transport, playback);
+    const selection = buildSelectionDisplayState(transport);
+
+    expect(playhead.primaryText).toBe('10.00');
+    expect(playhead.secondaryText).toBe('0:05.000');
+    expect(playhead.source).toBe('engine-authority');
+    expect(selection.startText).toBe('8.00 / 0:04.000');
+    expect(selection.endText).toBe('12.00 / 0:06.000');
+    expect(selection.durationText).toBe('4.00 / 0:02.000');
+  });
+});
+
+describe('Window title', () => {
+  it('formats the app title from the current project file name', () => {
+    expect(getWindowTitle(null)).toBe('Blue');
+    expect(getWindowTitle('/Users/stevenyi/work/demo/project.blue')).toBe(
+      'Blue - project.blue',
+    );
   });
 });
 

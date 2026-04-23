@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultAuxiliaryLayoutState } from '../components/workbench/auxiliary-layout';
 import { useWorkbenchStore } from '../stores/workbench-store';
 
@@ -80,5 +80,36 @@ describe('workbench store move and reset actions', () => {
       .getAuxiliaryGroupForPanel('ScoreTopComponent');
 
     expect(groupInstanceId).toBeUndefined();
+  });
+});
+
+describe('workbench store native menu commands', () => {
+  it('routes focus-panel commands through openPanel', () => {
+    const openPanel = vi.fn();
+    useWorkbenchStore.setState({
+      openPanel: openPanel as never,
+      resetLayout: vi.fn() as never,
+    });
+
+    useWorkbenchStore.getState().handleNativeMenuCommand({
+      type: 'focus-panel',
+      panelId: 'ScoreTopComponent',
+    });
+
+    expect(openPanel).toHaveBeenCalledWith('ScoreTopComponent');
+  });
+
+  it('routes reset-layout commands through resetLayout', () => {
+    const resetLayout = vi.fn();
+    useWorkbenchStore.setState({
+      openPanel: vi.fn() as never,
+      resetLayout: resetLayout as never,
+    });
+
+    useWorkbenchStore.getState().handleNativeMenuCommand({
+      type: 'reset-layout',
+    });
+
+    expect(resetLayout).toHaveBeenCalledOnce();
   });
 });

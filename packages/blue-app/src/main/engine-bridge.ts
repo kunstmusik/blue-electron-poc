@@ -13,9 +13,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Parameter, TempoMap } from '@blue/data';
 import { AutomationCurve, getEngineAutomationPoints } from '@blue/data';
+import type { PlaybackClockSnapshot } from '../shared/project-editor';
 
 interface AutomationTimingContext {
   renderStartTime: number;
+  sampleRate?: number;
+  ksmps?: number;
   tempoMap?: TempoMap | null;
 }
 
@@ -51,6 +54,10 @@ export class EngineBridge {
 
   private sendPlaybackStatus(status: 'starting' | 'playing' | 'stopping' | 'stopped' | 'error', message?: string): void {
     this.mainWindow.webContents.send('playback-status', message ? { status, message } : { status });
+  }
+
+  private sendPlaybackClock(snapshot: PlaybackClockSnapshot): void {
+    this.mainWindow.webContents.send('playback-clock', snapshot);
   }
 
   private clearStatePolling(): void {
@@ -108,6 +115,16 @@ export class EngineBridge {
   private async handleEngineState(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): Promise<void> {
     if (!this.awaitingPlaybackTerminalState) {
       return;
+    }
+
+    if (source === 'pubsub' && snapshot.running) {
+      this.sendPlaybackClock({
+        sessionId: this.playbackSessionId,
+        sampleFrames: snapshot.sampleFrames,
+        sequence: snapshot.sequence,
+        sampleRate: snapshot.sampleRate,
+        ksmps: snapshot.ksmps,
+      });
     }
 
     if (snapshot.sequence < this.lastEngineStateSequence) {
@@ -522,6 +539,13 @@ export class EngineBridge {
       this.pendingPolledTerminalState = null;
       this.lastEngineStateSequence = 0;
       this.startStatePolling(this.playbackSessionId);
+      this.sendPlaybackClock({
+        sessionId: this.playbackSessionId,
+        sampleFrames: 0,
+        sequence: 0,
+        sampleRate: automationTiming?.sampleRate,
+        ksmps: automationTiming?.ksmps,
+      });
       this.sendPlaybackStatus('playing', 'Playing via blue-engine');
 
       return true;

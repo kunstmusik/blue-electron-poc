@@ -4,7 +4,12 @@ import { useProjectStore } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
-import type { ProjectLoadedPayload } from '../../shared/project-editor';
+import { useWorkbenchStore } from '../stores/workbench-store';
+import type {
+  PlaybackClockSnapshot,
+  ProjectLoadedPayload,
+} from '../../shared/project-editor';
+import type { NativeMenuCommand } from '../../shared/workbench-menu';
 
 // Declare the global blueAPI type
 declare global {
@@ -24,7 +29,9 @@ declare global {
       getProjectInfo: () => Promise<Record<string, string> | null>;
       onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => void;
       onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;
+      onPlaybackClock: (cb: (clock: PlaybackClockSnapshot) => void) => void;
       onPlaybackError: (cb: (error: string) => void) => void;
+      onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => void;
       onSaveComplete: (cb: (info: { filePath: string }) => void) => void;
       onSaveError: (cb: (error: string) => void) => void;
     };
@@ -37,11 +44,15 @@ export function useIPCListeners(): void {
   const addRecentFile = useSettingsStore((s) => s.addRecentFile);
   const setStatus = usePlaybackStore((s) => s.setStatus);
   const setError = usePlaybackStore((s) => s.setError);
+  const acceptPlaybackClock = usePlaybackStore((s) => s.acceptPlaybackClock);
+  const resetPlayback = usePlaybackStore((s) => s.reset);
+  const handleNativeMenuCommand = useWorkbenchStore((s) => s.handleNativeMenuCommand);
 
   useEffect(() => {
     if (!window.blueAPI) return;
 
     window.blueAPI.onProjectLoaded((info) => {
+      resetPlayback();
       setProjectInfo(info);
       setActivePanel('project');
       if (info.filePath) {
@@ -54,8 +65,16 @@ export function useIPCListeners(): void {
       setStatus(status);
     });
 
+    window.blueAPI.onPlaybackClock((clock) => {
+      acceptPlaybackClock(clock);
+    });
+
     window.blueAPI.onPlaybackError((error) => {
       setError(error);
+    });
+
+    window.blueAPI.onNativeMenuCommand((command) => {
+      handleNativeMenuCommand(command);
     });
 
     window.blueAPI.onSaveComplete(() => {
@@ -65,5 +84,14 @@ export function useIPCListeners(): void {
     window.blueAPI.onSaveError((error) => {
       toast.error(`Save error: ${error}`);
     });
-  }, [setProjectInfo, setActivePanel, addRecentFile, setStatus, setError]);
+  }, [
+    addRecentFile,
+    acceptPlaybackClock,
+    handleNativeMenuCommand,
+    resetPlayback,
+    setError,
+    setProjectInfo,
+    setActivePanel,
+    setStatus,
+  ]);
 }

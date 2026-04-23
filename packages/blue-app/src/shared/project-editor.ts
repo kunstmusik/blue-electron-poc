@@ -1,4 +1,32 @@
-import { BlueData, ProjectProperties } from '@blue/data';
+import { BlueData, ProjectProperties, TempoMap } from '@blue/data';
+
+export type TempoCurveTypeSnapshot = 'constant' | 'linear';
+
+export interface TempoPointSnapshot {
+  beat: number;
+  tempo: number;
+  curveType: TempoCurveTypeSnapshot;
+}
+
+export interface TempoMapSnapshot {
+  enabled: boolean;
+  points: TempoPointSnapshot[];
+}
+
+export interface ToolbarProjectTransportSnapshot {
+  renderStartTime: number;
+  renderEndTime: number;
+  loopRendering: boolean;
+  tempoMap: TempoMapSnapshot;
+}
+
+export interface PlaybackClockSnapshot {
+  sessionId: number;
+  sampleFrames: number;
+  sequence: number;
+  sampleRate?: number;
+  ksmps?: number;
+}
 
 export interface ProjectPropertiesSnapshot {
   title: string;
@@ -43,6 +71,7 @@ export interface ProjectEditorSnapshot {
   globalOrc: string;
   globalSco: string;
   projectProperties: ProjectPropertiesSnapshot;
+  transport: ToolbarProjectTransportSnapshot;
   loaded: boolean;
 }
 
@@ -58,10 +87,11 @@ export interface ProjectDocumentPatch {
   globalOrc?: string;
   globalSco?: string;
   projectProperties?: Partial<ProjectPropertiesSnapshot>;
+  transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>>;
 }
 
 export type ProjectLoadedPayload = ProjectSummarySnapshot &
-  Partial<Pick<ProjectEditorSnapshot, 'globalOrc' | 'globalSco' | 'projectProperties' | 'loaded'>>;
+  Partial<Pick<ProjectEditorSnapshot, 'globalOrc' | 'globalSco' | 'projectProperties' | 'transport' | 'loaded'>>;
 
 function createDefaultProjectPropertiesSnapshot(): ProjectPropertiesSnapshot {
   return {
@@ -113,7 +143,54 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
     globalOrc: '',
     globalSco: '',
     projectProperties: createDefaultProjectPropertiesSnapshot(),
+    transport: createEmptyToolbarProjectTransportSnapshot(),
     loaded: false,
+  };
+}
+
+export function createEmptyTempoMapSnapshot(): TempoMapSnapshot {
+  return {
+    enabled: false,
+    points: [
+      {
+        beat: 0,
+        tempo: 60,
+        curveType: 'constant',
+      },
+    ],
+  };
+}
+
+export function createTempoMapSnapshot(tempoMap: TempoMap): TempoMapSnapshot {
+  return {
+    enabled: tempoMap.isEnabled(),
+    points: tempoMap.getTempoPoints().map((point) => ({
+      beat: point.beat,
+      tempo: point.tempo,
+      curveType: point.curveType === 'CONSTANT' ? 'constant' : 'linear',
+    })),
+  };
+}
+
+export function createEmptyToolbarProjectTransportSnapshot(): ToolbarProjectTransportSnapshot {
+  return {
+    renderStartTime: 0,
+    renderEndTime: -1,
+    loopRendering: false,
+    tempoMap: createEmptyTempoMapSnapshot(),
+  };
+}
+
+export function createToolbarProjectTransportSnapshot(
+  data: BlueData,
+): ToolbarProjectTransportSnapshot {
+  return {
+    renderStartTime: data.getRenderStartTime(),
+    renderEndTime: data.getRenderEndTime(),
+    loopRendering: data.isLoopRendering(),
+    tempoMap: createTempoMapSnapshot(
+      data.getScore().getTimeContext().getTempoMap(),
+    ),
   };
 }
 
@@ -170,6 +247,7 @@ export function createProjectEditorSnapshot(
     projectProperties: createProjectPropertiesSnapshot(
       data.getProjectProperties(),
     ),
+    transport: createToolbarProjectTransportSnapshot(data),
     loaded: true,
   };
 }
@@ -258,6 +336,23 @@ export function applyProjectDocumentPatch(
       ) || changed;
   }
 
+  if (patch.transport) {
+    if (patch.transport.renderStartTime !== undefined && data.getRenderStartTime() !== patch.transport.renderStartTime) {
+      data.setRenderStartTime(patch.transport.renderStartTime);
+      changed = true;
+    }
+
+    if (patch.transport.renderEndTime !== undefined && data.getRenderEndTime() !== patch.transport.renderEndTime) {
+      data.setRenderEndTime(patch.transport.renderEndTime);
+      changed = true;
+    }
+
+    if (patch.transport.loopRendering !== undefined && data.isLoopRendering() !== patch.transport.loopRendering) {
+      data.setLoopRendering(patch.transport.loopRendering);
+      changed = true;
+    }
+  }
+
   return changed;
 }
 
@@ -265,10 +360,14 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
   const hasProjectProperties =
     patch.projectProperties !== undefined &&
     Object.keys(patch.projectProperties).length > 0;
+  const hasTransport =
+    patch.transport !== undefined &&
+    Object.keys(patch.transport).length > 0;
 
   return (
     patch.globalOrc === undefined &&
     patch.globalSco === undefined &&
-    !hasProjectProperties
+    !hasProjectProperties &&
+    !hasTransport
   );
 }

@@ -9,11 +9,17 @@ import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
+import { getWindowTitle } from '../shared/window-title';
 import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
   isEmptyProjectDocumentPatch,
 } from '../shared/project-editor';
+import {
+  getPanelsByMode,
+  type NativeMenuCommand,
+  type PanelMode,
+} from '../shared/workbench-menu';
 
 let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
@@ -32,6 +38,38 @@ function getCurrentProjectDocument() {
   return createProjectEditorSnapshot(currentData, currentFilePath);
 }
 
+function updateWindowTitle(): void {
+  if (mainWindow) {
+    mainWindow.setTitle(getWindowTitle(currentFilePath));
+  }
+}
+
+function sendNativeMenuCommand(command: NativeMenuCommand): void {
+  if (mainWindow) {
+    mainWindow.webContents.send('native-menu-command', command);
+  }
+}
+
+function buildWorkbenchMenuItems(mode: PanelMode) {
+  return getPanelsByMode(mode).map((panel) => ({
+    label: panel.title,
+    click: () => sendNativeMenuCommand({ type: 'focus-panel', panelId: panel.id }),
+  }));
+}
+
+function buildNativeWindowMenu() {
+  return [
+    { label: 'Editors', submenu: buildWorkbenchMenuItems('editor') },
+    { label: 'Properties', submenu: buildWorkbenchMenuItems('properties') },
+    { label: 'Output', submenu: buildWorkbenchMenuItems('output') },
+    { type: 'separator' as const },
+    {
+      label: 'Reset Default Layout',
+      click: () => sendNativeMenuCommand({ type: 'reset-layout' }),
+    },
+  ];
+}
+
 function ensureJavaScriptRuntime(): Promise<void> {
   if (!javaScriptRuntimeReady) {
     javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((error) => {
@@ -47,6 +85,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    title: getWindowTitle(currentFilePath),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -95,6 +134,10 @@ function createWindow(): void {
       ],
     },
     {
+      label: 'Window',
+      submenu: buildNativeWindowMenu(),
+    },
+    {
       label: 'Playback',
       submenu: [
         { label: 'Play', click: () => { void togglePlay(); } },
@@ -103,6 +146,7 @@ function createWindow(): void {
     },
   ]);
   Menu.setApplicationMenu(menu);
+  updateWindowTitle();
 }
 
 /**
@@ -199,6 +243,7 @@ async function openFile(): Promise<void> {
     const data = await BlueData.loadFromString(xml);
     currentData = data;
     currentFilePath = filePath;
+    updateWindowTitle();
 
     // Debug: log arrangement IDs and UDOs
     const arr = data.getArrangement();
@@ -257,6 +302,7 @@ function doSave(filePath: string): void {
   try {
     const xml = currentData.saveToString();
     fs.writeFileSync(filePath, xml, 'utf-8');
+    updateWindowTitle();
     if (mainWindow) {
       mainWindow.webContents.send('save-complete', { filePath });
     }
@@ -317,6 +363,8 @@ async function startPlayback(): Promise<boolean> {
     let parameters: any[] | undefined;
     const automationTiming = {
       renderStartTime: currentData.getRenderStartTime(),
+      sampleRate: Number(currentData.getProjectProperties().sampleRate) || 44100,
+      ksmps: Number(currentData.getProjectProperties().ksmps) || 64,
       tempoMap: currentData.getScore().getTimeContext().getTempoMap(),
     };
     if (arrangement && mixer) {

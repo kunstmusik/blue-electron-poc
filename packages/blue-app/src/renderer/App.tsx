@@ -2,7 +2,7 @@ import { useIPCListeners } from './hooks/use-ipc-listeners';
 import { useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts';
 import { useProjectStore } from './stores/project-store';
 import { useUIStore } from './stores/ui-store';
-import MenuBar from './components/menu-bar/MenuBar';
+import MainToolbar from './components/menu-bar/MainToolbar';
 import WelcomeScreen from './components/welcome/WelcomeScreen';
 import WorkbenchShell from './components/workbench/WorkbenchShell';
 import ErrorBoundary from './components/notifications/ErrorBoundary';
@@ -17,7 +17,7 @@ export default function App(): JSX.Element {
   return (
     <ErrorBoundary>
       <div className="flex flex-col h-screen overflow-hidden">
-        <MenuBar />
+        <MainToolbar />
 
         <main className="flex-1 overflow-hidden relative">
           {activePanel === 'welcome' && <WelcomeScreen />}

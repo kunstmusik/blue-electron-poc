@@ -6,7 +6,9 @@ import type {
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
+  PlaybackClockSnapshot,
 } from '../shared/project-editor';
+import type { NativeMenuCommand } from '../shared/workbench-menu';
 
 contextBridge.exposeInMainWorld('blueAPI', {
   // File operations
@@ -42,8 +44,14 @@ contextBridge.exposeInMainWorld('blueAPI', {
   onPlaybackStatus: (callback: (status: unknown) => void) => {
     ipcRenderer.on('playback-status', (_event, status) => callback(status));
   },
+  onPlaybackClock: (callback: (clock: PlaybackClockSnapshot) => void) => {
+    ipcRenderer.on('playback-clock', (_event, clock) => callback(clock as PlaybackClockSnapshot));
+  },
   onPlaybackError: (callback: (error: string) => void) => {
     ipcRenderer.on('playback-error', (_event, error) => callback(error));
+  },
+  onNativeMenuCommand: (callback: (command: NativeMenuCommand) => void) => {
+    ipcRenderer.on('native-menu-command', (_event, command) => callback(command as NativeMenuCommand));
   },
   onSaveComplete: (callback: (info: unknown) => void) => {
     ipcRenderer.on('save-complete', (_event, info) => callback(info));

@@ -1,7 +1,21 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-22
+**Date**: 2026-04-23
 **Branch**: `019-csound-editor-parity`
+
+## Spec 020 Package
+
+Spec `020-main-toolbar-parity` is complete for `blue-app`.
+
+- Goal: replace the renderer header with a Java Blue-style main toolbar and move file/window ownership into the native Electron menus
+- Scope: transport controls, engine-authoritative playhead and selection displays, Blue Live buttons, native `File` menu ownership, native `Window` menu command routing, and window-title parity
+- Specification status: complete draft in `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/spec.md`
+- Planning status: complete; design artifacts are in `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/contracts/main-toolbar-parity-surface.md`, and `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/quickstart.md`
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/020-main-toolbar-parity/tasks.md` contains 27 tasks and all are complete
+- Implementation status: complete; the Java-style toolbar shell, transport controls, playhead/selection display, native File and Window menu handling, and `Blue - [project.blue]` window titles are implemented
+- Validation status: `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check` all pass
+- Remaining gap: playhead timing is intentionally hybrid for now, with engine-authored snapshots plus renderer interpolation; shared-memory transport remains deferred
+- Immediate next step: start the next spec once a new follow-on scope is selected
 
 ## Spec 019 Package
 
