@@ -5,15 +5,17 @@
 
 ## Spec 019 Package
 
-Spec `019-csound-editor-parity` is now the active next slice for `blue-app`.
+Spec `019-csound-editor-parity` is complete for `blue-app`.
 
 - Goal: add Java Blue Csound editor parity on top of the CodeMirror Global Orchestra editor from spec 018
 - Scope: reliable Cut/Copy/Paste, Java Blue-style editor context menu insertions, first Java Blue-derived completion/hint parity pass, and reusable editor helpers for future Csound text surfaces
 - Specification status: complete draft in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/spec.md`
 - Planning status: complete; design artifacts are in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/contracts/csound-editor-parity-surface.md`, and `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/quickstart.md`
-- Task status: ready; `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/tasks.md` contains 37 tasks
-- Implementation status: not started
-- Immediate next step: implement User Story 1 first, starting with reusable editor commands and Cut/Copy/Paste behavior before adding the Java Blue context menu
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/tasks.md` contains 37 tasks and all are complete
+- Implementation status: complete; clipboard reliability, Java Blue-style editor context-menu insertions, completion/hint baseline, and reusable editor surface support are implemented
+- Validation status: `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check` all pass
+- Remaining gap: project-level UDO completion is deferred
+- Immediate next step: start the next Csound editor parity slice focused on any remaining Java Blue feature gaps and deeper tooling parity
 
 ### Java Reference Anchors
 
@@ -30,7 +32,8 @@ Spec `019-csound-editor-parity` is now the active next slice for `blue-app`.
 - Review Electron standard Edit menu roles for clipboard reliability; native menus may be needed for keyboard/platform behavior, but should not replace the Java Blue-style editor context menu by default.
 - Blue Variables and Blue Opcodes are high-confidence implementation targets for this slice.
 - Opcodes, Custom, and Add to Code Repository may be full, partial, or explicitly disabled/deferred depending on available metadata and repository storage support.
-- Completion parity should start with document-local Csound variables, Blue Variables/Blue Opcodes entries, and project UDOs if available from the active project snapshot.
+- Completion parity now covers document-local Csound variables, Blue Variables/Blue Opcodes entries, and document-local UDO names; project-level UDO support is deferred.
+- Completion implementation now uses the CodeMirror Csound rich opcode catalog for Java Blue-shaped opcode rows and manual-summary help text, scans document-local Csound variables using the Java prefix rules, supports document-local UDO names, and exposes optional BSB replacement-key completion context for future BlueSynthBuilder editors. The package does not expose a standalone `opcodes.json`; the rich catalog module is the usable source.
 
 ## Spec 018 Package
 

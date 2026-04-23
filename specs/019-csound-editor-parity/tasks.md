@@ -17,9 +17,9 @@
 
 **Purpose**: Lock the Java source anchors and create a small test boundary before implementation.
 
-- [ ] T001 Record final Java source anchors and scoped parity decisions in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`
-- [ ] T002 [P] Add editor parity test scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
-- [ ] T003 [P] Add reusable test helpers for CodeMirror editor rendering or command invocation in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [X] T001 Record final Java source anchors and scoped parity decisions in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`
+- [X] T002 [P] Add editor parity test scaffolding in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [X] T003 [P] Add reusable test helpers for CodeMirror editor rendering or command invocation in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
 
 ---
 
@@ -29,10 +29,10 @@
 
 **CRITICAL**: No story implementation should hardcode editor command behavior directly in `GlobalOrchestraPanel`.
 
-- [ ] T004 [P] Define `CsoundEditorCommand`, insertion item, and menu item typings in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/editor-adapter-types.ts`
-- [ ] T005 [P] Implement selection-aware text insertion helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-actions.ts`
-- [ ] T006 [P] Implement Java Blue menu data builders for Blue Variables, Blue Opcodes, and deferred categories in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
-- [ ] T007 Add unit coverage for insertion and menu data helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [X] T004 [P] Define `CsoundEditorCommand`, insertion item, and menu item typings in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/editor-adapter-types.ts`
+- [X] T005 [P] Implement selection-aware text insertion helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-actions.ts`
+- [X] T006 [P] Implement Java Blue menu data builders for Blue Variables, Blue Opcodes, and deferred categories in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
+- [X] T007 Add unit coverage for insertion and menu data helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
 
 **Checkpoint**: Reusable editor command and menu metadata exist and are tested without rendering the full workbench.
 
@@ -46,14 +46,14 @@
 
 ### Tests for User Story 1
 
-- [ ] T008 [P] [US1] Add shortcut-gating regression tests for CodeMirror clipboard and playback conflicts in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/app.test.ts`
-- [ ] T009 [P] [US1] Add clipboard command behavior tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [X] T008 [P] [US1] Add shortcut-gating regression tests for CodeMirror clipboard and playback conflicts in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/app.test.ts`
+- [X] T009 [P] [US1] Add clipboard command behavior tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement Cut, Copy, and Paste editor commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-actions.ts`
-- [ ] T011 [US1] Review and update Electron standard Edit menu roles for focused editor clipboard behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T012 [US1] Preserve text-editor shortcut precedence for CodeMirror, context-menu focus, and completion popup focus in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/hooks/use-keyboard-shortcuts.ts`
+- [X] T010 [US1] Implement Cut, Copy, and Paste editor commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-actions.ts`
+- [X] T011 [US1] Review and update Electron standard Edit menu roles for focused editor clipboard behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [X] T012 [US1] Preserve text-editor shortcut precedence for CodeMirror, context-menu focus, and completion popup focus in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/hooks/use-keyboard-shortcuts.ts`
 
 **Checkpoint**: User Story 1 is complete when editor clipboard actions work and no playback shortcut regression is present.
 
@@ -67,17 +67,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T013 [P] [US2] Add context-menu shape and required item tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
-- [ ] T014 [P] [US2] Add Global Orchestra editor context-menu rendering/insertion coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [X] T013 [P] [US2] Add context-menu shape and required item tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [X] T014 [P] [US2] Add Global Orchestra editor context-menu rendering/insertion coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Implement a Radix-backed `CsoundEditorContextMenu` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/CsoundEditorContextMenu.tsx`
-- [ ] T016 [US2] Wire `CsoundEditorContextMenu` into `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
-- [ ] T017 [US2] Implement Blue Variables insertion items in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
-- [ ] T018 [US2] Implement Blue Opcodes insertion items in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
-- [ ] T019 [US2] Add deferred or data-backed Opcodes, Custom, and Add to Code Repository states in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
-- [ ] T020 [US2] Add context-menu styling consistent with Java Blue/Dockview menus in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
+- [X] T015 [US2] Implement a Radix-backed `CsoundEditorContextMenu` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/CsoundEditorContextMenu.tsx`
+- [X] T016 [US2] Wire `CsoundEditorContextMenu` into `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
+- [X] T017 [US2] Implement Blue Variables insertion items in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
+- [X] T018 [US2] Implement Blue Opcodes insertion items in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
+- [X] T019 [US2] Add deferred or data-backed Opcodes, Custom, and Add to Code Repository states in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
+- [X] T020 [US2] Add context-menu styling consistent with Java Blue/Dockview menus in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles/index.css`
 
 **Checkpoint**: User Story 2 is complete when the Java Blue context menu opens in Global Orchestra and the required high-confidence insertions work.
 
@@ -91,16 +91,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T021 [P] [US3] Add document-local Csound variable completion tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
-- [ ] T022 [P] [US3] Add Blue opcode or project-UDO completion tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [X] T021 [P] [US3] Add document-local Csound variable completion tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [X] T022 [P] [US3] Add Blue opcode or project-UDO completion tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Implement Java Blue-style document-local variable completion provider in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-java-blue-completions.ts`
-- [ ] T024 [US3] Implement Blue Variables and Blue Opcodes completion entries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-java-blue-completions.ts`
-- [ ] T025 [US3] Add project-UDO completion extraction if available from the active project snapshot in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-java-blue-completions.ts`
-- [ ] T026 [US3] Merge Java Blue-derived providers into selected editor language setup in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-language.ts`
-- [ ] T027 [US3] Document implemented and deferred completion/hint parity in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`
+- [X] T023 [US3] Implement Java Blue-style document-local variable completion provider in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-java-blue-completions.ts`
+- [X] T024 [US3] Implement Blue Variables and Blue Opcodes completion entries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-java-blue-completions.ts`
+- [X] T025 [US3] Investigate whether `@kunstmusik/codemirror-lang-csound` exposes an `opcodes.json`-style catalog and document the result in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`
+- [X] T026 [US3] Merge Java Blue-derived providers into selected editor language setup in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-language.ts`
+- [X] T027 [US3] Document implemented and deferred completion/hint parity in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/research.md`
 
 **Checkpoint**: User Story 3 is complete when at least one concrete Java Blue-derived completion category works and deferred hint/completion gaps are documented.
 
@@ -114,11 +114,11 @@
 
 ### Implementation for User Story 4
 
-- [ ] T028 [P] [US4] Update the reusable editor contract documentation in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/contracts/csound-editor-parity-surface.md`
-- [ ] T029 [US4] Refactor `SelectedCodeEditor` props for reusable menu and completion source injection in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
-- [ ] T030 [US4] Keep `GlobalOrchestraPanel` as a thin consumer of reusable editor behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalOrchestraPanel.tsx`
-- [ ] T031 [US4] Add Global Orchestra save/reopen persistence regression coverage after editor parity actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
-- [ ] T032 [US4] Add reuse handoff notes for Global Score and future Csound editors in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/quickstart.md`
+- [X] T028 [P] [US4] Update the reusable editor contract documentation in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/contracts/csound-editor-parity-surface.md`
+- [X] T029 [US4] Refactor `SelectedCodeEditor` props for reusable menu and completion source injection in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
+- [X] T030 [US4] Keep `GlobalOrchestraPanel` as a thin consumer of reusable editor behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalOrchestraPanel.tsx`
+- [X] T031 [US4] Add Global Orchestra save/reopen persistence regression coverage after editor parity actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [X] T032 [US4] Add reuse handoff notes for Global Score and future Csound editors in `/Users/stevenyi/work/blue-electron/specs/019-csound-editor-parity/quickstart.md`
 
 **Checkpoint**: User Story 4 is complete when the parity behavior is reusable and the follow-on path for Global Score is explicit.
 
@@ -128,11 +128,11 @@
 
 **Purpose**: Final validation and handoff.
 
-- [ ] T033 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with spec 019 scope, validation status, and any parity gaps deferred
-- [ ] T034 [P] Update `/Users/stevenyi/work/blue-electron/AGENTS.md` if implementation changes the active technology/context notes generated during planning
-- [ ] T035 Run `pnpm --filter @blue/app test`
-- [ ] T036 Run `pnpm --filter @blue/app build`
-- [ ] T037 Run `git diff --check`
+- [X] T033 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with spec 019 scope, validation status, and any parity gaps deferred
+- [X] T034 [P] Update `/Users/stevenyi/work/blue-electron/AGENTS.md` if implementation changes the active technology/context notes generated during planning
+- [X] T035 Run `pnpm --filter @blue/app test`
+- [X] T036 Run `pnpm --filter @blue/app build`
+- [X] T037 Run `git diff --check`
 
 ---
 

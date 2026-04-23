@@ -13,8 +13,9 @@ Validate that the CodeMirror-backed Global Orchestra editor behaves more like Ja
 5. Verify/fix keyboard Cut/Copy/Paste behavior, including Electron main-menu roles if needed.
 6. Add Blue Variables and Blue Opcodes insertion items.
 7. Add or defer Opcodes, Custom, and Add to Code Repository based on available metadata and repository support.
-8. Add the first Java Blue-derived completion/hint provider.
-9. Add tests and update parity-gap documentation.
+8. Add the first Java Blue-derived completion/hint provider and pass reusable completion context through `SelectedCodeEditor`.
+9. Defer active-project UDO extraction unless a dedicated project opcode source is added later; use `javaBlueCompletionOptions.projectOpcodeNames` only when that source exists.
+10. Add tests and update parity-gap documentation.
 
 ## Manual Validation
 
@@ -44,6 +45,8 @@ Validate that the CodeMirror-backed Global Orchestra editor behaves more like Ja
 2. Trigger completion and confirm document-local variable matches appear.
 3. Trigger completion for Blue opcode or Java-derived entries.
 4. Confirm entries do not duplicate obvious CodeMirror package completions.
+5. Treat project-level UDO completion as deferred for this slice.
+6. Reuse the same `SelectedCodeEditor` path for Global Score and future text editors rather than duplicating menu or completion plumbing.
 
 ### Persistence
 

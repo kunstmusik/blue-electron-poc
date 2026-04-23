@@ -83,6 +83,18 @@ function createWindow(): void {
       ],
     },
     {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
       label: 'Playback',
       submenu: [
         { label: 'Play', click: () => { void togglePlay(); } },

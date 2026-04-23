@@ -1,0 +1,197 @@
+import * as ContextMenu from '@radix-ui/react-context-menu';
+import type { EditorView } from '@codemirror/view';
+import { ChevronRight } from 'lucide-react';
+import React, { useMemo, type MutableRefObject, type ReactNode } from 'react';
+
+import {
+  copySelectionToClipboard,
+  cutSelectionToClipboard,
+  pasteClipboardText,
+  type CsoundEditorClipboardBridge,
+  insertTextAtSelection,
+} from './csound-editor-actions';
+import type {
+  CsoundEditorCommandItem,
+  CsoundEditorDisabledItem,
+  CsoundEditorInsertionItem,
+  CsoundEditorMenuItem,
+  CsoundEditorSeparatorItem,
+  CsoundEditorSubmenuItem,
+} from './editor-adapter-types';
+
+interface CsoundEditorContextMenuProps {
+  children: ReactNode;
+  editorViewRef: MutableRefObject<EditorView | null>;
+  menuItems: CsoundEditorMenuItem[];
+  clipboardBridge?: CsoundEditorClipboardBridge;
+}
+
+function getPortalContainer(): HTMLElement | undefined {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
+
+  return document.body;
+}
+
+function isSubmenuItem(item: CsoundEditorMenuItem): item is CsoundEditorSubmenuItem {
+  return item.kind === 'submenu';
+}
+
+function isCommandItem(item: CsoundEditorMenuItem): item is CsoundEditorCommandItem {
+  return item.kind === 'command';
+}
+
+function isInsertionItem(item: CsoundEditorMenuItem): item is CsoundEditorInsertionItem {
+  return item.kind === 'insertion';
+}
+
+function isDisabledItem(item: CsoundEditorMenuItem): item is CsoundEditorDisabledItem {
+  return item.kind === 'disabled';
+}
+
+function isSeparatorItem(item: CsoundEditorMenuItem): item is CsoundEditorSeparatorItem {
+  return item.kind === 'separator';
+}
+
+function getMenuItemClassName(disabled?: boolean): string {
+  return ['workbench-context-menu__item', disabled ? 'workbench-context-menu__item--disabled' : '']
+    .filter(Boolean)
+    .join(' ');
+}
+
+function renderMenuItem(
+  item: CsoundEditorMenuItem,
+  editorViewRef: MutableRefObject<EditorView | null>,
+  clipboardBridge: CsoundEditorClipboardBridge | undefined,
+): ReactNode {
+  if (isSeparatorItem(item)) {
+    return <ContextMenu.Separator key={item.id} className="workbench-context-menu__separator" />;
+  }
+
+  if (isSubmenuItem(item)) {
+    const portalContainer = getPortalContainer();
+
+    return (
+      <ContextMenu.Sub key={item.id}>
+        <ContextMenu.SubTrigger
+          className={getMenuItemClassName(item.disabled)}
+          disabled={item.disabled}
+          title={item.disabledReason}
+        >
+          <span>{item.label}</span>
+          <ChevronRight size={12} style={{ marginLeft: 'auto', flexShrink: 0 }} />
+        </ContextMenu.SubTrigger>
+        {portalContainer ? (
+          <ContextMenu.Portal container={portalContainer}>
+            <ContextMenu.SubContent
+              className="workbench-context-menu workbench-context-menu--editor workbench-context-menu--submenu"
+              sideOffset={6}
+              alignOffset={-4}
+            >
+              {item.items.map((childItem) => renderMenuItem(childItem, editorViewRef, clipboardBridge))}
+            </ContextMenu.SubContent>
+          </ContextMenu.Portal>
+        ) : null}
+      </ContextMenu.Sub>
+    );
+  }
+
+  if (isDisabledItem(item)) {
+    return (
+      <ContextMenu.Item
+        key={item.id}
+        className={getMenuItemClassName(true)}
+        disabled
+        title={item.disabledReason}
+      >
+        {item.label}
+      </ContextMenu.Item>
+    );
+  }
+
+  if (isInsertionItem(item)) {
+    const handleSelect = () => {
+      const editorView = editorViewRef.current;
+      if (!editorView || item.disabled) {
+        return;
+      }
+
+      insertTextAtSelection(editorView, item.insertText);
+    };
+
+    return (
+      <ContextMenu.Item
+        key={item.id}
+        className={getMenuItemClassName(item.disabled)}
+        disabled={item.disabled}
+        title={item.disabledReason}
+        onSelect={handleSelect}
+      >
+        {item.label}
+      </ContextMenu.Item>
+    );
+  }
+
+  if (isCommandItem(item)) {
+    const handleSelect = () => {
+      const editorView = editorViewRef.current;
+      if (!editorView || item.disabled) {
+        return;
+      }
+
+      switch (item.command) {
+        case 'cut':
+          void cutSelectionToClipboard(editorView, clipboardBridge);
+          break;
+        case 'copy':
+          void copySelectionToClipboard(editorView, clipboardBridge);
+          break;
+        case 'paste':
+          void pasteClipboardText(editorView, clipboardBridge);
+          break;
+      }
+    };
+
+    return (
+      <ContextMenu.Item
+        key={item.id}
+        className={getMenuItemClassName(item.disabled)}
+        disabled={item.disabled}
+        title={item.disabledReason}
+        onSelect={handleSelect}
+      >
+        {item.label}
+      </ContextMenu.Item>
+    );
+  }
+
+  return null;
+}
+
+export default function CsoundEditorContextMenu({
+  children,
+  editorViewRef,
+  menuItems,
+  clipboardBridge,
+}: CsoundEditorContextMenuProps): JSX.Element {
+  const portalContainer = useMemo(() => getPortalContainer(), []);
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+
+      {portalContainer ? (
+        <ContextMenu.Portal container={portalContainer}>
+          <ContextMenu.Content
+            className="workbench-context-menu workbench-context-menu--editor"
+            sideOffset={6}
+            align="start"
+          >
+            {menuItems.map((item) => renderMenuItem(item, editorViewRef, clipboardBridge))}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      ) : null}
+    </ContextMenu.Root>
+  );
+}

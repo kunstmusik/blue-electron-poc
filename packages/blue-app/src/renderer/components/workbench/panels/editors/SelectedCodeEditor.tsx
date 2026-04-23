@@ -3,10 +3,17 @@ import { basicSetup, EditorView } from 'codemirror';
 import { EditorState, type Extension } from '@codemirror/state';
 import { placeholder as editorPlaceholder } from '@codemirror/view';
 
+import CsoundEditorContextMenu from './CsoundEditorContextMenu';
 import { createCsoundEditorExtensions, SELECTED_CSOUND_EDITOR } from './csound-editor-language';
-import type { DynamicCsoundCompletionProvider, SelectedCodeEditorProps } from './editor-adapter-types';
+import { createJavaBlueCsoundEditorMenuItems } from './csound-editor-menu';
+import type {
+  DynamicCsoundCompletionProvider,
+  JavaBlueCsoundCompletionOptions,
+  SelectedCodeEditorProps,
+} from './editor-adapter-types';
 
 const EMPTY_DYNAMIC_COMPLETION_PROVIDERS: DynamicCsoundCompletionProvider[] = [];
+const EMPTY_JAVA_BLUE_COMPLETION_OPTIONS: JavaBlueCsoundCompletionOptions = {};
 
 const blueCodeMirrorTheme = EditorView.theme(
   {
@@ -50,6 +57,11 @@ const blueCodeMirrorTheme = EditorView.theme(
       backgroundColor: '#304872',
       color: '#ffffff',
     },
+    '.cm-tooltip.cm-completionInfo': {
+      maxWidth: 'min(640px, 70vw)',
+      whiteSpace: 'pre-wrap',
+      lineHeight: '1.45',
+    },
   },
   { dark: true },
 );
@@ -60,6 +72,8 @@ export default function SelectedCodeEditor({
   ariaLabel,
   readOnly = false,
   dynamicCompletionProviders = EMPTY_DYNAMIC_COMPLETION_PROVIDERS,
+  javaBlueCompletionOptions = EMPTY_JAVA_BLUE_COMPLETION_OPTIONS,
+  contextMenuItems,
   onChange,
 }: SelectedCodeEditorProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -90,7 +104,7 @@ export default function SelectedCodeEditor({
 
         void onChangeRef.current(update.state.doc.toString());
       }),
-      ...createCsoundEditorExtensions(dynamicCompletionProviders),
+      ...createCsoundEditorExtensions(dynamicCompletionProviders, javaBlueCompletionOptions),
     ];
 
     if (readOnly) {
@@ -110,7 +124,7 @@ export default function SelectedCodeEditor({
         viewRef.current = null;
       }
     };
-  }, [dynamicCompletionProviders, readOnly]);
+  }, [dynamicCompletionProviders, javaBlueCompletionOptions, readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -137,17 +151,21 @@ export default function SelectedCodeEditor({
     }
   }, [value]);
 
+  const menuItems = contextMenuItems ?? createJavaBlueCsoundEditorMenuItems({ readOnly });
+
   return (
-    <div
-      className="selected-code-editor selected-code-editor--codemirror"
-      data-editor-kind={SELECTED_CSOUND_EDITOR.kind}
-      data-editor-language={SELECTED_CSOUND_EDITOR.languageId}
-      aria-label={ariaLabel}
-    >
-      <div ref={containerRef} className="selected-code-editor__mount" />
-      <pre className="selected-code-editor__ssr-preview" aria-hidden="true">
-        {value || placeholder}
-      </pre>
-    </div>
+    <CsoundEditorContextMenu editorViewRef={viewRef} menuItems={menuItems}>
+      <div
+        className="selected-code-editor selected-code-editor--codemirror"
+        data-editor-kind={SELECTED_CSOUND_EDITOR.kind}
+        data-editor-language={SELECTED_CSOUND_EDITOR.languageId}
+        aria-label={ariaLabel}
+      >
+        <div ref={containerRef} className="selected-code-editor__mount" />
+        <pre className="selected-code-editor__ssr-preview" aria-hidden="true">
+          {value || placeholder}
+        </pre>
+      </div>
+    </CsoundEditorContextMenu>
   );
 }

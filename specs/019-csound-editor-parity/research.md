@@ -100,13 +100,23 @@ Rationale:
 
 Reference: `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/CsoundOrcCompletionProvider.java`
 
-Decision: implement a first Java-derived completion provider that supplements the CodeMirror package rather than replacing it.
+Decision: implement a first Java-derived completion provider that uses the installed CodeMirror Csound rich opcode catalog as the opcode/manual metadata source and layers in Java Blue-specific completion categories.
 
 Rationale:
 
 - Java uses opcode names from `CsoundManualUtilities.getOpcodeNames()`.
 - Java also scans document text before the caret for matching Csound variables when the current filter looks like a Csound variable prefix.
 - Auto-query is disabled (`getAutoQueryTypes` returns `0`), so manual invocation is an acceptable parity baseline if CodeMirror default behavior differs.
+- The CodeMirror Csound package exposes `csoundRichOpcodeCatalog`, which provides opcode names, syntax variants, short descriptions, categories, and manual-page references without bundling Java's installed Csound manual HTML.
+- The Electron implementation should avoid duplicate opcode rows by replacing the package autocomplete source with a Java Blue-shaped source built from the same catalog, while preserving the package language/hover support.
+
+### Opcode Catalog Source Investigation
+
+Investigation result for T025:
+
+- `@kunstmusik/codemirror-lang-csound` does not publish a standalone `opcodes.json` asset in the installed package or in its public exports.
+- The package does publish the rich catalog through `./rich` as `csoundRichOpcodeCatalog` and `getCsoundRichOpcodeEntry`, which is sufficient for opcode metadata use in the renderer.
+- The rich catalog is the practical integration point for this spec; separate project-UDO extraction remains deferred.
 
 ### Completion Items And Hints
 
@@ -114,6 +124,7 @@ References:
 
 - `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/CsoundOrcCompletionItem.java`
 - `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/OpcodeDocumentation.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-editor/src/main/java/blue/ui/editor/csound/orc/CsoundOrcVariableCompletionItem.java`
 
 Decision: preserve the idea of completion detail/help when available, but do not require full bundled Csound manual HTML in 019.
 
@@ -123,6 +134,23 @@ Rationale:
 - Selecting an opcode inserts the opcode signature.
 - Documentation comes from installed Csound manual HTML files and extracts the reference entry content.
 - The CodeMirror Csound package already includes opcode completions and hover information; the 019 work should avoid duplicate noisy completions.
+- Java variable completion item labels show the discovered variable with right label `variable` and do not provide documentation.
+
+### BlueSynthBuilder Replacement-Key Completion
+
+References:
+
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-core/src/main/java/blue/orchestra/editor/blueSynthBuilder/BSBCompletionProvider.java`
+- `/Users/stevenyi/work/nbprojects/blue/blue-ui-core/src/main/java/blue/orchestra/editor/blueSynthBuilder/BSBCompletionItem.java`
+
+Decision: support BSB replacement-key completion as optional editor context, but do not surface BSB object names in Global Orchestra.
+
+Rationale:
+
+- Java BSB completion only runs when the provider has a `BSBGraphicInterface`.
+- It scans the current token for `<`, then offers each whitespace-free replacement key from every BSB object.
+- The inserted text is wrapped as `<replacementKey>`, and the right label is the BSB object's class name.
+- Global Orchestra should remain opcode/variable-oriented; future BSB editors can pass their object replacement keys into the shared CodeMirror adapter.
 
 ## Decision: Renderer Context Menu First
 
@@ -159,15 +187,17 @@ Rationale:
 Initial completion parity should include:
 
 - document-local Csound variable completions using Java's prefix classes (`i`, `k`, `a`, `gi`, `gk`, `ga`, `w`, `f`, `gw`, `gf`, `S`, `gS`)
-- Blue Variables insertion items, optionally mirrored as completion entries if useful
+- Blue Variables mirrored as `<...>` completion entries
 - Blue Opcodes completion entries
-- project-level UDO names from `@blue/data` if exposed in the current project snapshot with reasonable effort
+- document-local UDO names
+- optional BSB replacement-key entries for future BSB editor consumers, not for Global Orchestra
 
 Deferred:
 
-- full Csound manual HTML documentation extraction
+- full Csound manual HTML documentation extraction beyond the rich catalog summary text
 - complete custom code repository editor/storage
-- BlueSynthBuilder-specific completion parity unless it falls out naturally from shared editor helpers
+- active-project UDO extraction from the project snapshot
+- wiring BSB object replacement keys into an actual BlueSynthBuilder editor surface
 
 ## Open Implementation Risks
 

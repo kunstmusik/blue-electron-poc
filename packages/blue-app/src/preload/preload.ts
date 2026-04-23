@@ -1,7 +1,7 @@
 /**
  * Preload script — exposes safe IPC bridges to the renderer process.
  */
-import { contextBridge, ipcRenderer } from 'electron';
+import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import type {
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
@@ -19,6 +19,14 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('get-project-document') as Promise<ProjectEditorSnapshot | null>,
   updateProjectDocument: (patch: ProjectDocumentPatch) =>
     ipcRenderer.invoke('update-project-document', patch) as Promise<ProjectEditorSnapshot | null>,
+
+  // Clipboard
+  readClipboardText: () => Promise.resolve(clipboard.readText()),
+  writeClipboardText: (text: string) => {
+    return Promise.resolve().then(() => {
+      clipboard.writeText(text);
+    });
+  },
 
   // Playback
   togglePlay: () => ipcRenderer.invoke('toggle-play'),

@@ -24,6 +24,7 @@ export function isTextEditingTarget(target: EventTarget | null): boolean {
         '[contenteditable=""]',
         '[contenteditable="true"]',
         '.cm-editor',
+        '.workbench-context-menu',
         '.selected-code-editor',
       ].join(','),
     ),

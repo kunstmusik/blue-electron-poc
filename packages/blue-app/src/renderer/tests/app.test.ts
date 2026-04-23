@@ -13,6 +13,8 @@ const mockBlueAPI = {
   saveFileAs: vi.fn(),
   getProjectDocument: vi.fn(),
   updateProjectDocument: vi.fn(),
+  readClipboardText: vi.fn().mockResolvedValue(''),
+  writeClipboardText: vi.fn().mockResolvedValue(undefined),
   togglePlay: vi.fn(),
   stopPlayback: vi.fn(),
   getProjectInfo: vi.fn(),
@@ -228,6 +230,9 @@ describe('Keyboard Shortcuts', () => {
     } as never)).toBe(true);
     expect(isTextEditingTarget({
       closest: vi.fn((selector: string) => (selector.includes('textarea') ? {} : null)),
+    } as never)).toBe(true);
+    expect(isTextEditingTarget({
+      closest: vi.fn((selector: string) => (selector.includes('.workbench-context-menu') ? {} : null)),
     } as never)).toBe(true);
   });
 

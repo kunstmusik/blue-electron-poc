@@ -16,6 +16,8 @@ declare global {
       updateProjectDocument: (
         patch: ProjectDocumentPatch,
       ) => Promise<ProjectEditorSnapshot | null>;
+      readClipboardText: () => Promise<string>;
+      writeClipboardText: (text: string) => Promise<void>;
       togglePlay: () => Promise<boolean>;
       stopPlayback: () => Promise<void>;
       getProjectInfo: () => Promise<Record<string, string> | null>;

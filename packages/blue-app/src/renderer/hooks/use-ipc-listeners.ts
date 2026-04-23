@@ -17,6 +17,8 @@ declare global {
       updateProjectDocument: (
         patch: import('../../shared/project-editor').ProjectDocumentPatch,
       ) => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;
+      readClipboardText: () => Promise<string>;
+      writeClipboardText: (text: string) => Promise<void>;
       togglePlay: () => Promise<boolean>;
       stopPlayback: () => Promise<void>;
       getProjectInfo: () => Promise<Record<string, string> | null>;

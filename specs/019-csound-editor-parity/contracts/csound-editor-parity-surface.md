@@ -10,8 +10,8 @@ The reusable editor surface accepts:
 - `readOnly`: whether editing actions are allowed
 - `onChange(nextValue)`: existing project-store update path
 - `dynamicCompletionProviders`: existing spec 018 completion extension point
-- `menuSources`: Java Blue-derived context-menu categories and insertion items
-- `projectContext`: optional active project snapshot for UDO or project-aware completions
+- `contextMenuItems`: Java Blue-derived context-menu categories and insertion items
+- `javaBlueCompletionOptions`: optional Java Blue completion context such as BSB replacement keys and project opcode names
 
 ## Required Commands
 

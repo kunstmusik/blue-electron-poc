@@ -14,12 +14,73 @@ export type DynamicCsoundCompletionProvider = (
   context: CsoundCompletionContext,
 ) => Completion[] | Promise<Completion[]>;
 
+export type CsoundEditorCommand = 'cut' | 'copy' | 'paste';
+
+export interface CsoundEditorSeparatorItem {
+  kind: 'separator';
+  id: string;
+}
+
+export interface CsoundEditorCommandItem {
+  kind: 'command';
+  id: string;
+  label: string;
+  command: CsoundEditorCommand;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export interface CsoundEditorInsertionItem {
+  kind: 'insertion';
+  id: string;
+  label: string;
+  insertText: string;
+  detail?: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export interface CsoundEditorSubmenuItem {
+  kind: 'submenu';
+  id: string;
+  label: string;
+  items: CsoundEditorMenuItem[];
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
+export interface CsoundEditorDisabledItem {
+  kind: 'disabled';
+  id: string;
+  label: string;
+  disabledReason: string;
+}
+
+export type CsoundEditorMenuItem =
+  | CsoundEditorCommandItem
+  | CsoundEditorInsertionItem
+  | CsoundEditorSubmenuItem
+  | CsoundEditorDisabledItem
+  | CsoundEditorSeparatorItem;
+
+export interface JavaBlueBsbReplacementKey {
+  key: string;
+  objectType?: string;
+}
+
+export interface JavaBlueCsoundCompletionOptions {
+  bsbReplacementKeys?: JavaBlueBsbReplacementKey[];
+  projectOpcodeNames?: string[];
+}
+
 export interface SelectedCodeEditorProps {
   value: string;
   placeholder?: string;
   ariaLabel: string;
   readOnly?: boolean;
   dynamicCompletionProviders?: DynamicCsoundCompletionProvider[];
+  javaBlueCompletionOptions?: JavaBlueCsoundCompletionOptions;
+  contextMenuItems?: CsoundEditorMenuItem[];
   onChange: (value: string) => void | Promise<void>;
 }
 

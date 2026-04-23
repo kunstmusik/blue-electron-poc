@@ -1,11 +1,14 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { CompletionContext } from '@codemirror/autocomplete';
+import { EditorState } from '@codemirror/state';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectPropertiesSnapshot } from '../../shared/project-editor';
 import GlobalOrchestraPanel from '../components/workbench/panels/GlobalOrchestraPanel';
 import GlobalScorePanel from '../components/workbench/panels/GlobalScorePanel';
 import ProjectPropertiesPanel from '../components/workbench/panels/ProjectPropertiesPanel';
 import { createDynamicCsoundCompletionSource } from '../components/workbench/panels/editors/csound-completions';
+import { createJavaBlueCsoundCompletionSource } from '../components/workbench/panels/editors/csound-java-blue-completions';
 
 interface MockProjectState {
   loaded: boolean;
@@ -20,8 +23,8 @@ interface MockProjectState {
   ) => void | Promise<void>;
 }
 
-const { mockProjectState } = vi.hoisted(() => {
-  const projectProperties: ProjectPropertiesSnapshot = {
+const { BASE_PROJECT_PROPERTIES, mockProjectState } = vi.hoisted(() => {
+  const BASE_PROJECT_PROPERTIES: ProjectPropertiesSnapshot = {
     title: '',
     author: '',
     notes: '',
@@ -59,12 +62,13 @@ const { mockProjectState } = vi.hoisted(() => {
   };
 
   return {
+    BASE_PROJECT_PROPERTIES,
     mockProjectState: {
       loaded: false,
       title: '',
       globalOrc: '',
       globalSco: '',
-      projectProperties,
+      projectProperties: { ...BASE_PROJECT_PROPERTIES },
       updateGlobalOrc: vi.fn(),
       updateGlobalSco: vi.fn(),
       updateProjectProperties: vi.fn(),
@@ -72,25 +76,72 @@ const { mockProjectState } = vi.hoisted(() => {
   };
 });
 
+interface ProjectEditorPanelFixture {
+  loaded?: boolean;
+  title?: string;
+  globalOrc?: string;
+  globalSco?: string;
+  projectProperties?: Partial<ProjectPropertiesSnapshot>;
+}
+
+function applyProjectFixture(fixture: ProjectEditorPanelFixture = {}): void {
+  const projectProperties = {
+    ...BASE_PROJECT_PROPERTIES,
+    ...fixture.projectProperties,
+  };
+
+  if (fixture.title !== undefined) {
+    projectProperties.title = fixture.title;
+  }
+
+  mockProjectState.loaded = fixture.loaded ?? true;
+  mockProjectState.title = fixture.title ?? '';
+  mockProjectState.globalOrc = fixture.globalOrc ?? '';
+  mockProjectState.globalSco = fixture.globalSco ?? '';
+  mockProjectState.projectProperties = projectProperties;
+}
+
+function renderProjectPanelMarkup(
+  Component: () => JSX.Element,
+  fixture: ProjectEditorPanelFixture = {},
+): string {
+  applyProjectFixture(fixture);
+  return renderToStaticMarkup(createElement(Component));
+}
+
+function createPanelCompletionResult(doc: string) {
+  const source = createJavaBlueCsoundCompletionSource();
+  const state = EditorState.create({ doc });
+  const context = new CompletionContext(state, state.doc.length, true);
+  const result = source(context);
+
+  if (result instanceof Promise) {
+    throw new Error('Expected synchronous Java Blue completion results');
+  }
+
+  return result;
+}
+
 vi.mock('../stores/project-store', () => ({
   useProjectStore: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
 }));
 
 beforeEach(() => {
-  mockProjectState.loaded = false;
-  mockProjectState.title = '';
-  mockProjectState.globalOrc = '';
-  mockProjectState.globalSco = '';
-  mockProjectState.projectProperties = {
-    ...mockProjectState.projectProperties,
+  applyProjectFixture({
+    loaded: false,
     title: '',
-    author: '',
-    notes: '',
-    sampleRate: '44100',
-    ksmps: '64',
-    nchnls: '2',
-  };
+    globalOrc: '',
+    globalSco: '',
+    projectProperties: {
+      title: '',
+      author: '',
+      notes: '',
+      sampleRate: '44100',
+      ksmps: '64',
+      nchnls: '2',
+    },
+  });
   vi.clearAllMocks();
 });
 
@@ -103,17 +154,32 @@ describe('Project editor panels', () => {
   });
 
   it('renders the global orchestra editor when loaded', () => {
-    mockProjectState.loaded = true;
-    mockProjectState.title = 'Loaded Project';
-    mockProjectState.globalOrc = 'instr 1\n  out 0\nendin';
-
-    const html = renderToStaticMarkup(createElement(GlobalOrchestraPanel));
+    const html = renderProjectPanelMarkup(GlobalOrchestraPanel, {
+      title: 'Loaded Project',
+      globalOrc: 'instr 1\n  out 0\nendin',
+    });
 
     expect(html).toContain('data-editor-kind="codemirror"');
     expect(html).toContain('data-editor-language="csound-orc"');
     expect(html).toContain('aria-label="Global Orchestra Csound editor"');
     expect(html).toContain('instr 1');
     expect(html).not.toContain('textarea');
+  });
+
+  it('keeps the loaded Global Orchestra text visible across save/reopen-style rerenders', () => {
+    const initialHtml = renderProjectPanelMarkup(GlobalOrchestraPanel, {
+      title: 'Loaded Project',
+      globalOrc: 'instr 1\n  out 0\nendin',
+    });
+
+    const reopenedHtml = renderProjectPanelMarkup(GlobalOrchestraPanel, {
+      title: 'Loaded Project',
+      globalOrc: 'instr 1\n  out 0.5\nendin',
+    });
+
+    expect(initialHtml).toContain('out 0');
+    expect(reopenedHtml).toContain('out 0.5');
+    expect(reopenedHtml).toContain('data-editor-kind="codemirror"');
   });
 
   it('adapts dynamic Csound completions for the selected editor', async () => {
@@ -157,17 +223,15 @@ describe('Project editor panels', () => {
   });
 
   it('renders the built-in project properties tabs when loaded', () => {
-    mockProjectState.loaded = true;
-    mockProjectState.title = 'Loaded Project';
-    mockProjectState.projectProperties = {
-      ...mockProjectState.projectProperties,
+    const html = renderProjectPanelMarkup(ProjectPropertiesPanel, {
       title: 'Loaded Project',
-      author: 'Composer',
-      sampleRate: '48000',
-      ksmps: '32',
-    };
-
-    const html = renderToStaticMarkup(createElement(ProjectPropertiesPanel));
+      projectProperties: {
+        title: 'Loaded Project',
+        author: 'Composer',
+        sampleRate: '48000',
+        ksmps: '32',
+      },
+    });
 
     expect(html).toContain('Project Information');
     expect(html).toContain('Realtime');
@@ -177,13 +241,25 @@ describe('Project editor panels', () => {
   });
 
   it('renders the global score editor when loaded', () => {
-    mockProjectState.loaded = true;
-    mockProjectState.title = 'Loaded Project';
-    mockProjectState.globalSco = 'e';
-
-    const html = renderToStaticMarkup(createElement(GlobalScorePanel));
+    const html = renderProjectPanelMarkup(GlobalScorePanel, {
+      title: 'Loaded Project',
+      globalSco: 'e',
+    });
 
     expect(html).not.toContain('Global Score');
     expect(html).toContain('textarea');
+  });
+
+  it('exposes Blue opcode completions from the panel-level Java Blue completion source', () => {
+    const result = createPanelCompletionResult('blueMixer');
+
+    expect(result?.options).toContainEqual({
+      label: 'blueMixerOut',
+      type: 'function',
+      detail: 'Blue opcode',
+      apply: 'blueMixerOut asig1 [, asig2...]',
+      info: 'blueMixerOut\n\nRoutes audio-rate signals to the Blue mixer.',
+      boost: 25,
+    });
   });
 });
