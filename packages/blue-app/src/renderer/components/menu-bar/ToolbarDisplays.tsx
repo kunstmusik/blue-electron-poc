@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { usePlaybackStore } from '../../stores/playback-store';
 import { useProjectStore } from '../../stores/project-store';
 import {
@@ -25,20 +25,16 @@ function ToolbarDisplayCard({
 
 export default function ToolbarDisplays(): JSX.Element {
   const transport = useProjectStore((s) => s.transport);
-  const playback = usePlaybackStore((s) => ({
-    status: s.status,
-    clock: s.clock,
-    display: s.display,
-  }));
+  const status = usePlaybackStore((s) => s.status);
+  const clock = usePlaybackStore((s) => s.clock);
+  const display = usePlaybackStore((s) => s.display);
 
-  const playhead = useMemo(
-    () => buildPlayheadDisplayState(transport, playback),
-    [playback, transport],
-  );
-  const selection = useMemo(
-    () => buildSelectionDisplayState(transport),
-    [transport],
-  );
+  const playhead = buildPlayheadDisplayState(transport, {
+    status,
+    clock,
+    display,
+  });
+  const selection = buildSelectionDisplayState(transport);
 
   return (
     <div className="flex flex-1 min-w-0 items-center justify-center gap-3">
