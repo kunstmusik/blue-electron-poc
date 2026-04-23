@@ -46,7 +46,7 @@
   }
 
   .toolbar-shell {
-    @apply flex items-center gap-4 px-4 py-3 bg-blue-surface border-b border-blue-border shrink-0;
+    @apply flex items-center gap-2.5 px-3 py-2.5 bg-blue-surface border-b border-blue-border shrink-0;
   }
 
   .toolbar-group {
@@ -66,7 +66,7 @@
 
   .toolbar-text-button {
     @apply inline-flex items-center justify-center gap-2 rounded-lg border border-blue-accent/20
-           bg-blue-border px-3 py-1.5 text-sm font-medium text-gray-100 transition-colors
+           bg-blue-border px-2.5 py-1 text-[11px] font-medium text-gray-100 transition-colors
            hover:bg-blue-accent/20 hover:text-white
            disabled:opacity-40 disabled:cursor-not-allowed;
   }
@@ -76,19 +76,154 @@
   }
 
   .toolbar-display-card {
-    @apply rounded-xl border border-blue-border/80 bg-black/85 px-4 py-2 shadow-inner min-w-0;
+    @apply rounded-xl border border-blue-border/80 bg-black/85 px-3 py-1.5 shadow-inner min-w-0;
   }
 
   .toolbar-display-label {
-    @apply text-[11px] uppercase tracking-[0.18em] text-blue-muted;
+    @apply text-[10px] uppercase tracking-[0.2em] text-blue-muted;
   }
 
   .toolbar-display-main {
-    @apply font-mono text-base font-medium leading-tight text-gray-100;
+    @apply font-mono text-[12px] font-medium leading-tight text-gray-100;
   }
 
   .toolbar-display-secondary {
-    @apply font-mono text-xs text-gray-300 leading-tight;
+    @apply font-mono text-[11px] text-gray-300 leading-tight;
+  }
+
+  .toolbar-display-main--playhead,
+  .toolbar-display-secondary--playhead {
+    @apply text-[12px] text-gray-100;
+  }
+
+  .toolbar-displays {
+    @apply min-w-0;
+  }
+
+  .toolbar-displays__inner {
+    @apply flex items-center justify-center gap-3 min-w-0;
+  }
+
+  .toolbar-display-values {
+    @apply min-w-0;
+  }
+
+  .toolbar-display-values--playhead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 20px;
+  }
+
+  .toolbar-display-values--selection {
+    @apply grid grid-cols-3 gap-4;
+  }
+
+  .toolbar-display-values--playhead > div,
+  .toolbar-display-values--selection > div {
+    @apply min-w-0 truncate text-right;
+  }
+
+  .toolbar-display-secondary--selection {
+    @apply text-[12px] text-gray-100;
+  }
+
+  .toolbar-context-menu {
+    min-width: 172px;
+    padding: 0;
+    border: 1px solid rgba(84, 108, 155, 0.28);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(45, 63, 102, 0.98), rgba(24, 36, 63, 0.98)),
+      linear-gradient(180deg, #243455, #16223f);
+    box-shadow:
+      0 14px 28px rgba(3, 7, 18, 0.3),
+      inset 0 0 0 1px rgba(188, 207, 255, 0.04);
+    color: #eef4ff;
+    z-index: 120;
+    overflow: hidden;
+  }
+
+  .toolbar-context-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 12px;
+    outline: none;
+    font-size: 12px;
+    color: inherit;
+    user-select: none;
+    background: transparent;
+  }
+
+  .toolbar-context-menu__item[data-highlighted] {
+    background: rgba(86, 119, 182, 0.46);
+    color: #fff7f8;
+  }
+
+  .toolbar-context-menu__item[data-disabled] {
+    color: rgba(154, 167, 193, 0.54);
+  }
+
+  .toolbar-context-menu__separator {
+    height: 1px;
+    margin: 0;
+    background: rgba(94, 119, 168, 0.24);
+  }
+
+  .toolbar-context-menu__item-indicator {
+    @apply inline-flex h-3 w-3 items-center justify-center flex-none;
+  }
+
+  .editor-context-menu {
+    min-width: 176px;
+    padding: 0;
+    border: 1px solid rgba(84, 108, 155, 0.28);
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(45, 63, 102, 0.98), rgba(24, 36, 63, 0.98)),
+      linear-gradient(180deg, #243455, #16223f);
+    box-shadow:
+      0 14px 28px rgba(3, 7, 18, 0.3),
+      inset 0 0 0 1px rgba(188, 207, 255, 0.04);
+    color: #eef4ff;
+    z-index: 120;
+    overflow: hidden;
+  }
+
+  .editor-context-menu__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 32px;
+    padding: 0 12px;
+    outline: none;
+    font-size: 12px;
+    color: inherit;
+    user-select: none;
+    background: transparent;
+  }
+
+  .editor-context-menu__item[data-highlighted] {
+    background: rgba(86, 119, 182, 0.46);
+    color: #fff7f8;
+  }
+
+  .editor-context-menu__item[data-disabled] {
+    color: rgba(154, 167, 193, 0.54);
+  }
+
+  .editor-context-menu__separator {
+    height: 1px;
+    margin: 0;
+    background: rgba(94, 119, 168, 0.24);
+  }
+
+  .workbench-context-menu__item-indicator {
+    @apply inline-flex h-3 w-3 items-center justify-center flex-none;
   }
 
   /* Responsive utilities */

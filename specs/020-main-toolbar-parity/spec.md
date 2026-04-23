@@ -2,7 +2,7 @@
 
 **Feature Branch**: `020-main-toolbar-parity`
 **Created**: 2026-04-23
-**Status**: Draft
+**Status**: Complete
 **Input**: User description: "Update the main header to be like Java Blue's MainToolBar with transport controls, playhead display, selection display, and blueLive buttons. Find corresponding Lucide icons for transport buttons. Main concern is layout and functionality, but styling should use slightly rounded rectangles as has been used so far in the app. Move the Window button and dropdown to the system menu bar. When a file opens, change the window title to `Blue - [name of project.blue]` instead of showing project info in the top-left header."
 
 ## User Scenarios & Testing *(mandatory)*

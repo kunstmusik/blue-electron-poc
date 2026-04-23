@@ -47,6 +47,7 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 020-main-toolbar-parity: Closed out the main toolbar parity slice after finalizing playhead/selection alignment and the toolbar/editor context-menu styles
 - 020-main-toolbar-parity: Added Java Blue-style main toolbar, native File/Window menu handling, engine-authoritative playhead interpolation, and window title parity
 - 020-main-toolbar-parity: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + Electron `Menu`/`BrowserWindow`, Zustand 5.x stores, `@blue/data` time/tempo utilities, `dockview` 5.2.0 workbench state, `lucide-react` transport icons
 - 020-main-toolbar-parity: Added fixed-per-performance playback clock metadata caching for engine-authoritative toolbar timing

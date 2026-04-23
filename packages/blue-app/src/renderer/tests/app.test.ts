@@ -7,6 +7,7 @@ import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
 import { getWindowTitle } from '../../shared/window-title';
+import { TimeBase } from '../../shared/time-base';
 import MainToolbar from '../components/menu-bar/MainToolbar';
 import {
   buildPlayheadDisplayState,
@@ -307,12 +308,17 @@ describe('Toolbar Shell', () => {
     expect(html).toContain('toolbar-shell');
     expect(html).toContain('toolbar-group');
     expect(html).toContain('toolbar-display-card');
+    expect(html).toContain('toolbar-display-values--playhead');
+    expect(html).toContain('toolbar-display-values--selection');
     expect(html).toContain('toolbar-icon-button');
     expect(html).toContain('toolbar-text-button');
     expect(html).toContain('Playhead');
     expect(html).toContain('Selection');
     expect(html).toContain('Blue Live');
     expect(html).toContain('MIDI Input');
+    expect(html).not.toContain('>Start<');
+    expect(html).not.toContain('>End<');
+    expect(html).not.toContain('>Duration<');
     expect(html).not.toContain('Open .blue file');
     expect(html).not.toContain('Save As (Cmd+Shift+S)');
     expect(html).not.toContain('Window panels');
@@ -359,6 +365,52 @@ describe('Toolbar Shell', () => {
     expect(selection.startText).toBe('8.00 / 0:04.000');
     expect(selection.endText).toBe('12.00 / 0:06.000');
     expect(selection.durationText).toBe('4.00 / 0:02.000');
+  });
+
+  it('formats the playhead using alternate display modes', () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    const transport = {
+      ...snapshot.transport,
+      renderStartTime: 8,
+      renderEndTime: 12,
+      loopRendering: true,
+      tempoMap: {
+        enabled: true,
+        points: [
+          { beat: 0, tempo: 120, curveType: 'constant' as const },
+          { beat: 8, tempo: 120, curveType: 'constant' as const },
+        ],
+      },
+      meterMap: {
+        entries: [{ measure: 1, numBeats: 4, beatLength: 4 }],
+      },
+      sampleRate: 48000,
+      smpteFrameRate: 30,
+    };
+    const playback = {
+      status: 'playing' as const,
+      clock: {
+        sessionId: 1,
+        sampleFrames: 48000,
+        sequence: 1,
+        sampleRate: 48000,
+        ksmps: 64,
+        receivedAtMs: Date.now(),
+      },
+      display: {
+        sampleFrames: 48000,
+        elapsedSeconds: 1,
+        source: 'engine-authority' as const,
+      },
+    };
+
+    const playhead = buildPlayheadDisplayState(transport, playback, {
+      primaryMode: TimeBase.BBT,
+      secondaryMode: TimeBase.SMPTE,
+    });
+
+    expect(playhead.primaryText).toBe('3.3.0');
+    expect(playhead.secondaryText).toBe('00:00:05:00');
   });
 });
 

@@ -55,7 +55,7 @@ function isSeparatorItem(item: CsoundEditorMenuItem): item is CsoundEditorSepara
 }
 
 function getMenuItemClassName(disabled?: boolean): string {
-  return ['workbench-context-menu__item', disabled ? 'workbench-context-menu__item--disabled' : '']
+  return ['editor-context-menu__item', disabled ? 'editor-context-menu__item--disabled' : '']
     .filter(Boolean)
     .join(' ');
 }
@@ -66,7 +66,7 @@ function renderMenuItem(
   clipboardBridge: CsoundEditorClipboardBridge | undefined,
 ): ReactNode {
   if (isSeparatorItem(item)) {
-    return <ContextMenu.Separator key={item.id} className="workbench-context-menu__separator" />;
+    return <ContextMenu.Separator key={item.id} className="editor-context-menu__separator" />;
   }
 
   if (isSubmenuItem(item)) {
@@ -85,7 +85,7 @@ function renderMenuItem(
         {portalContainer ? (
           <ContextMenu.Portal container={portalContainer}>
             <ContextMenu.SubContent
-              className="workbench-context-menu workbench-context-menu--editor workbench-context-menu--submenu"
+              className="editor-context-menu editor-context-menu--submenu"
               sideOffset={6}
               alignOffset={-4}
             >
@@ -184,7 +184,7 @@ export default function CsoundEditorContextMenu({
       {portalContainer ? (
         <ContextMenu.Portal container={portalContainer}>
           <ContextMenu.Content
-            className="workbench-context-menu workbench-context-menu--editor"
+            className="editor-context-menu"
             sideOffset={6}
             align="start"
           >

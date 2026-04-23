@@ -1,4 +1,8 @@
-import { BlueData, ProjectProperties, TempoMap } from '@blue/data';
+import {
+  BlueData,
+  ProjectProperties,
+  TempoMap,
+} from '@blue/data';
 
 export type TempoCurveTypeSnapshot = 'constant' | 'linear';
 
@@ -13,11 +17,34 @@ export interface TempoMapSnapshot {
   points: TempoPointSnapshot[];
 }
 
+export interface MeterSnapshot {
+  measure: number;
+  numBeats: number;
+  beatLength: number;
+}
+
+export interface MeterMapSnapshot {
+  entries: MeterSnapshot[];
+}
+
+interface MeterMapLike {
+  getEntries(): ReadonlyArray<{
+    measure: number;
+    meter: {
+      numBeats: number;
+      beatLength: number;
+    };
+  }>;
+}
+
 export interface ToolbarProjectTransportSnapshot {
   renderStartTime: number;
   renderEndTime: number;
   loopRendering: boolean;
   tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
+  sampleRate: number;
+  smpteFrameRate: number;
 }
 
 export interface PlaybackClockSnapshot {
@@ -161,6 +188,18 @@ export function createEmptyTempoMapSnapshot(): TempoMapSnapshot {
   };
 }
 
+export function createEmptyMeterMapSnapshot(): MeterMapSnapshot {
+  return {
+    entries: [
+      {
+        measure: 1,
+        numBeats: 4,
+        beatLength: 4,
+      },
+    ],
+  };
+}
+
 export function createTempoMapSnapshot(tempoMap: TempoMap): TempoMapSnapshot {
   return {
     enabled: tempoMap.isEnabled(),
@@ -172,18 +211,32 @@ export function createTempoMapSnapshot(tempoMap: TempoMap): TempoMapSnapshot {
   };
 }
 
+export function createMeterMapSnapshot(meterMap: MeterMapLike): MeterMapSnapshot {
+  return {
+    entries: meterMap.getEntries().map((entry) => ({
+      measure: entry.measure,
+      numBeats: entry.meter.numBeats,
+      beatLength: entry.meter.beatLength,
+    })),
+  };
+}
+
 export function createEmptyToolbarProjectTransportSnapshot(): ToolbarProjectTransportSnapshot {
   return {
     renderStartTime: 0,
     renderEndTime: -1,
     loopRendering: false,
     tempoMap: createEmptyTempoMapSnapshot(),
+    meterMap: createEmptyMeterMapSnapshot(),
+    sampleRate: 44100,
+    smpteFrameRate: 30,
   };
 }
 
 export function createToolbarProjectTransportSnapshot(
   data: BlueData,
 ): ToolbarProjectTransportSnapshot {
+  const timeContext = data.getScore().getTimeContext();
   return {
     renderStartTime: data.getRenderStartTime(),
     renderEndTime: data.getRenderEndTime(),
@@ -191,6 +244,9 @@ export function createToolbarProjectTransportSnapshot(
     tempoMap: createTempoMapSnapshot(
       data.getScore().getTimeContext().getTempoMap(),
     ),
+    meterMap: createMeterMapSnapshot(timeContext.getMeterMap()),
+    sampleRate: Number(data.getProjectProperties().sampleRate) || 44100,
+    smpteFrameRate: timeContext.getSmpteFramesPerSecond(),
   };
 }
 

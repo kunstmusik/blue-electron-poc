@@ -34,11 +34,6 @@ export default defineConfig({
                 },
               },
             },
-            renderer: {
-              resolve: {
-                '@blue/data': { type: 'cjs' },
-              },
-            },
           }),
           electronRenderer(),
         ]
