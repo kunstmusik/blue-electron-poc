@@ -10,6 +10,8 @@ import { ObjRefSaveMap, ObjRefLoadMap } from "../serialization/obj-ref-map";
 import { Instrument } from "./instrument";
 import { BSBCompilationUnit } from "./blue-synth-builder/bsb-compilation-unit";
 import { BSBGraphicInterface } from "./blue-synth-builder/bsb-graphic-interface";
+import { BSBGroup } from "./blue-synth-builder/bsb-group";
+import { BSBWidget } from "./blue-synth-builder/bsb-widget";
 import { Parameter, AutomationCurve } from "../automation/parameter";
 import {
   StringChannel,
@@ -23,6 +25,7 @@ export class BlueSynthBuilder extends Instrument {
   private _globalOrc = "";
   private _globalSco = "";
   private _graphicInterface = new BSBGraphicInterface();
+  private _graphicInterfaceXML: Element | null = null;
   private _parameters: Parameter[] = [];
   private _opcodeList = new OpcodeList();
 
@@ -30,11 +33,17 @@ export class BlueSynthBuilder extends Instrument {
     super();
     if (other) {
       this._name = other._name;
+      this._enabled = other._enabled;
+      this._comment = other._comment;
       this._instrumentText = other._instrumentText;
       this._alwaysOnInstrumentText = other._alwaysOnInstrumentText;
       this._globalOrc = other._globalOrc;
       this._globalSco = other._globalSco;
       this._editEnabled = other._editEnabled;
+      this._opcodeList = OpcodeList.loadFromXML(other._opcodeList.saveAsXML());
+      this._graphicInterfaceXML = other._graphicInterfaceXML
+        ? Element.parse(other._graphicInterfaceXML.toXml())
+        : null;
       // Deep copy graphic interface
       this._graphicInterface = new BSBGraphicInterface();
     }
@@ -75,6 +84,7 @@ export class BlueSynthBuilder extends Instrument {
   }
   setGraphicInterface(gi: BSBGraphicInterface): void {
     this._graphicInterface = gi;
+    this._graphicInterfaceXML = null;
   }
 
   isEditEnabled(): boolean {
@@ -133,6 +143,40 @@ export class BlueSynthBuilder extends Instrument {
     return this._opcodeList;
   }
 
+  setOpcodeList(opcodeList: OpcodeList): void {
+    this._opcodeList = opcodeList;
+  }
+
+  updateWidgetValue(objectName: string, value: number): boolean {
+    const widget = this.findWidgetByObjectName(objectName);
+    if (!widget || widget.value === value) {
+      return false;
+    }
+
+    widget.value = value;
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  private findWidgetByObjectName(objectName: string): BSBWidget | null {
+    const visit = (widget: BSBWidget): BSBWidget | null => {
+      if (widget.objectName === objectName) {
+        return widget;
+      }
+
+      if (widget instanceof BSBGroup) {
+        for (const child of widget.getChildren()) {
+          const found = visit(child);
+          if (found) return found;
+        }
+      }
+
+      return null;
+    };
+
+    return visit(this._graphicInterface.getRootGroup());
+  }
+
   /**
    * Recursively collect StringChannels from BSBGroup and its children.
    */
@@ -161,7 +205,8 @@ export class BlueSynthBuilder extends Instrument {
     const elem = new Element("instrument");
     elem.setAttribute("type", "blue.orchestra.BlueSynthBuilder");
     elem.setAttribute("editEnabled", this._editEnabled.toString());
-    if (this._name) elem.addElement("name").setText(this._name);
+    elem.addElement("name").setText(this._name);
+    elem.addElement("comment").setText(this._comment);
     if (this._instrumentText)
       elem.addElement("instrumentText").setText(this._instrumentText);
     if (this._alwaysOnInstrumentText) {
@@ -171,7 +216,12 @@ export class BlueSynthBuilder extends Instrument {
     }
     if (this._globalOrc) elem.addElement("globalOrc").setText(this._globalOrc);
     if (this._globalSco) elem.addElement("globalSco").setText(this._globalSco);
-    // graphicInterface would be saved here
+    if (this._graphicInterfaceXML) {
+      elem.addElement(Element.parse(this._graphicInterfaceXML.toXml()));
+    } else {
+      elem.addElement(this._graphicInterface.saveAsXML());
+    }
+    elem.addElement(this._opcodeList.saveAsXML());
     return elem;
   }
 
@@ -186,6 +236,9 @@ export class BlueSynthBuilder extends Instrument {
 
     const name = data.getTextString("name");
     if (name) bsb._name = name;
+
+    const comment = data.getTextString("comment");
+    if (comment) bsb._comment = comment;
 
     const instrText = data.getTextString("instrumentText");
     if (instrText) bsb._instrumentText = instrText;
@@ -202,6 +255,7 @@ export class BlueSynthBuilder extends Instrument {
     // Load graphic interface
     const giElem = data.getElement("graphicInterface");
     if (giElem) {
+      bsb._graphicInterfaceXML = Element.parse(giElem.toXml());
       bsb._graphicInterface.loadFromXML(giElem);
     }
 

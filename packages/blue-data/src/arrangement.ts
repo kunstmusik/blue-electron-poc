@@ -8,7 +8,6 @@
  */
 import { InstrumentAssignment } from "./instruments/instrument-assignment";
 import { Instrument } from "./instruments/instrument";
-import { loadInstrumentFromXML } from "./instruments/instrument-registry";
 import { CompileData } from "./compile-data";
 import { Parameter } from "./automation/parameter";
 import { replaceAll, stripSingleLineComments } from "./utilities/text";
@@ -30,7 +29,7 @@ export class Arrangement {
   // ─── Instrument management ───
 
   addInstrument(instrument: Instrument, instrumentId?: string): number {
-    const id = instrumentId || "0";
+    const id = instrumentId || this.getNextInstrumentId();
     const ia = new InstrumentAssignment();
     ia.arrangementId = id;
     ia.instr = instrument;
@@ -61,6 +60,55 @@ export class Arrangement {
 
   removeInstrument(index: number): Instrument | null {
     return this.arrangement.splice(index, 1)[0]?.instr ?? null;
+  }
+
+  removeInstrumentById(arrangementId: string): Instrument | null {
+    const index = this.arrangement.findIndex((ia) => ia.arrangementId === arrangementId);
+    if (index < 0) return null;
+    return this.removeInstrument(index);
+  }
+
+  replaceInstrument(arrangementId: string, instrument: Instrument): boolean {
+    const assignment = this.arrangement.find((ia) => ia.arrangementId === arrangementId);
+    if (!assignment) return false;
+    assignment.instr = instrument;
+    return true;
+  }
+
+  updateAssignment(
+    arrangementId: string,
+    patch: { enabled?: boolean; nextArrangementId?: string },
+  ): boolean {
+    const assignment = this.arrangement.find((ia) => ia.arrangementId === arrangementId);
+    if (!assignment) return false;
+    let changed = false;
+    if (patch.enabled !== undefined && assignment.enabled !== patch.enabled) {
+      assignment.enabled = patch.enabled;
+      changed = true;
+    }
+    if (patch.nextArrangementId !== undefined && patch.nextArrangementId.trim()) {
+      const nextArrangementId = patch.nextArrangementId.trim();
+      const duplicate = this.arrangement.some(
+        (ia) => ia !== assignment && ia.arrangementId === nextArrangementId,
+      );
+      if (!duplicate && assignment.arrangementId !== nextArrangementId) {
+        assignment.arrangementId = nextArrangementId;
+        this.sort();
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  getNextInstrumentId(): string {
+    let max = 0;
+    for (const ia of this.arrangement) {
+      const value = Number.parseInt(ia.arrangementId, 10);
+      if (Number.isFinite(value)) {
+        max = Math.max(max, value);
+      }
+    }
+    return String(max + 1);
   }
 
   private sort(): void {
@@ -314,11 +362,7 @@ export class Arrangement {
   saveAsXML(): Element {
     const elem = new Element("arrangement");
     for (const ia of this.arrangement) {
-      const iaElem = new Element("instrumentAssignment");
-      iaElem.setAttribute("id", ia.arrangementId);
-      iaElem.setAttribute("enabled", ia.enabled.toString());
-      // Instrument reference is stored separately in InstrumentLibrary
-      elem.addElement(iaElem);
+      elem.addElement(ia.saveAsXML());
     }
     return elem;
   }
@@ -329,21 +373,7 @@ export class Arrangement {
 
     while (items.hasMoreElements()) {
       const elem = items.next();
-      const ia = new InstrumentAssignment();
-      ia.arrangementId =
-        elem.getAttribute("arrangementId") ?? elem.getAttribute("id") ?? "0";
-      ia.enabled = elem.getAttribute("enabled") !== "false";
-
-      // Load embedded <instrument> element if present
-      const instrElem = elem.getElement("instrument");
-      if (instrElem) {
-        const instr = loadInstrumentFromXML(instrElem);
-        if (instr) {
-          ia.instr = instr;
-        }
-      }
-
-      arr.arrangement.push(ia);
+      arr.arrangement.push(InstrumentAssignment.loadFromXML(elem));
     }
 
     return arr;

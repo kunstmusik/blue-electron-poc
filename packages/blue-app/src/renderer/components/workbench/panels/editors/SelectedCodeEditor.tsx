@@ -70,6 +70,7 @@ export default function SelectedCodeEditor({
   value,
   placeholder,
   ariaLabel,
+  active = true,
   readOnly = false,
   dynamicCompletionProviders = EMPTY_DYNAMIC_COMPLETION_PROVIDERS,
   javaBlueCompletionOptions = EMPTY_JAVA_BLUE_COMPLETION_OPTIONS,
@@ -79,7 +80,6 @@ export default function SelectedCodeEditor({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
-  const initialValueRef = useRef(value);
   const syncingFromPropsRef = useRef(false);
 
   useEffect(() => {
@@ -112,7 +112,7 @@ export default function SelectedCodeEditor({
     }
 
     const view = new EditorView({
-      doc: initialValueRef.current,
+      doc: value,
       extensions,
       parent: container,
     });
@@ -150,6 +150,14 @@ export default function SelectedCodeEditor({
       syncingFromPropsRef.current = false;
     }
   }, [value]);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    viewRef.current?.requestMeasure();
+  }, [active]);
 
   const menuItems = contextMenuItems ?? createJavaBlueCsoundEditorMenuItems({ readOnly });
 

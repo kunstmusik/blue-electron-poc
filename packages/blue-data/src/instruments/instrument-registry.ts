@@ -8,6 +8,10 @@
 import { Element } from "../serialization/xml-reader";
 import { Instrument } from "./instrument";
 import { BlueSynthBuilder } from "./blue-synth-builder";
+import { GenericInstrument } from "./generic-instrument";
+import { JavaScriptInstrument } from "./javascript-instrument";
+import { PythonInstrument } from "./python-instrument";
+import { BlueX7 } from "./blue-x7";
 
 /** Type for instrument loader functions */
 export type InstrumentLoader = (data: Element) => Instrument | null;
@@ -41,6 +45,18 @@ export function loadInstrumentFromXML(data: Element): Instrument | null {
 function init(): void {
   registerInstrumentType("blue.orchestra.BlueSynthBuilder", (data: Element) => {
     return BlueSynthBuilder.loadFromXML(data);
+  });
+  registerInstrumentType("blue.orchestra.GenericInstrument", (data: Element) => {
+    return GenericInstrument.loadFromXML(data);
+  });
+  registerInstrumentType("blue.orchestra.JavaScriptInstrument", (data: Element) => {
+    return JavaScriptInstrument.loadFromXML(data);
+  });
+  registerInstrumentType("blue.orchestra.PythonInstrument", (data: Element) => {
+    return PythonInstrument.loadFromXML(data);
+  });
+  registerInstrumentType("blue.orchestra.BlueX7", (data: Element) => {
+    return BlueX7.loadFromXML(data);
   });
 }
 

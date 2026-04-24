@@ -1,0 +1,160 @@
+import React, { useState } from 'react';
+import type { InstrumentSnapshot } from '../../../../../shared/project-editor';
+import type { InstrumentPatch } from '../../../../../shared/project-editor';
+import BlueSynthBuilderEditor from './BlueSynthBuilderEditor';
+import BlueX7Editor from './BlueX7Editor';
+import GenericInstrumentEditor from './GenericInstrumentEditor';
+import InstrumentCommentsPanel from './InstrumentCommentsPanel';
+import JavaScriptInstrumentEditor from './JavaScriptInstrumentEditor';
+import PythonInstrumentDummyPanel from './PythonInstrumentDummyPanel';
+import type { OrchestraMutationProps } from './types';
+
+interface InstrumentEditorPanelProps extends OrchestraMutationProps {
+  instrument: InstrumentSnapshot | undefined;
+}
+
+function EditorSurface({
+  instrument,
+  onOrchestraPatch,
+}: {
+  instrument: InstrumentSnapshot;
+} & OrchestraMutationProps): JSX.Element {
+  const dispatchInstrumentPatch = (patch: InstrumentPatch) =>
+    onOrchestraPatch({
+      type: 'updateInstrument',
+      assignmentId: instrument.assignmentId,
+      patch,
+    });
+
+  switch (instrument.type) {
+    case 'generic':
+      return (
+        <GenericInstrumentEditor
+          instrument={instrument}
+          onInstrumentPatch={dispatchInstrumentPatch}
+          onOrchestraPatch={onOrchestraPatch}
+        />
+      );
+    case 'javascript':
+      return (
+        <JavaScriptInstrumentEditor
+          instrument={instrument}
+          onInstrumentPatch={dispatchInstrumentPatch}
+          onOrchestraPatch={onOrchestraPatch}
+        />
+      );
+    case 'python':
+      return (
+        <PythonInstrumentDummyPanel
+          instrument={instrument}
+          onInstrumentPatch={dispatchInstrumentPatch}
+          onOrchestraPatch={onOrchestraPatch}
+        />
+      );
+    case 'blueX7':
+      return (
+        <BlueX7Editor
+          instrument={instrument}
+          onInstrumentPatch={dispatchInstrumentPatch}
+          onOrchestraPatch={onOrchestraPatch}
+        />
+      );
+    case 'blueSynthBuilder':
+      return (
+        <BlueSynthBuilderEditor
+          instrument={instrument}
+          onInstrumentPatch={dispatchInstrumentPatch}
+          onOrchestraPatch={onOrchestraPatch}
+        />
+      );
+    case 'unknown':
+      return (
+        <div className="flex h-full items-center justify-center p-6 text-center text-sm text-blue-muted">
+          Unsupported instrument type: {instrument.instrumentType}
+        </div>
+      );
+  }
+
+  return (
+    <div className="flex h-full items-center justify-center p-6 text-sm text-blue-muted">
+      Unsupported instrument.
+    </div>
+  );
+}
+
+export default function InstrumentEditorPanel({
+  instrument,
+  onOrchestraPatch,
+}: InstrumentEditorPanelProps): JSX.Element {
+  const [activeTab, setActiveTab] = useState<'editor' | 'comments'>('editor');
+
+  if (!instrument) {
+    return (
+      <section className="flex h-full flex-col bg-blue-bg" aria-label="Instrument editor">
+        <div className="border-b border-blue-border bg-[#10192a] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-blue-muted">
+          Instrument Editor
+        </div>
+        <div className="flex flex-1 items-center justify-center p-6 text-sm text-blue-muted">
+          Select an arrangement instrument to edit.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex h-full min-h-0 flex-col bg-blue-bg" aria-label="Instrument editor">
+      <div className="flex items-center gap-1 border-b border-blue-border bg-[#10192a] px-2">
+        <button
+          type="button"
+          className={[
+            'border-b-2 px-3 py-2 text-xs',
+            activeTab === 'editor'
+              ? 'border-blue-accent text-gray-100'
+              : 'border-transparent text-blue-muted hover:text-gray-100',
+          ].join(' ')}
+          onClick={() => setActiveTab('editor')}
+        >
+          Instrument Editor
+        </button>
+        <button
+          type="button"
+          className={[
+            'border-b-2 px-3 py-2 text-xs',
+            activeTab === 'comments'
+              ? 'border-blue-accent text-gray-100'
+              : 'border-transparent text-blue-muted hover:text-gray-100',
+          ].join(' ')}
+          onClick={() => setActiveTab('comments')}
+        >
+          Comments
+        </button>
+      </div>
+
+      <div className="relative min-h-0 flex-1">
+        <div
+          className={activeTab === 'editor' ? 'relative h-full' : 'pointer-events-none absolute inset-0'}
+          aria-hidden={activeTab !== 'editor'}
+          style={{ visibility: activeTab === 'editor' ? 'visible' : 'hidden' }}
+        >
+          <EditorSurface instrument={instrument} onOrchestraPatch={onOrchestraPatch} />
+        </div>
+        <div
+          className={activeTab === 'comments' ? 'relative h-full' : 'pointer-events-none absolute inset-0'}
+          aria-hidden={activeTab !== 'comments'}
+          style={{ visibility: activeTab === 'comments' ? 'visible' : 'hidden' }}
+        >
+          <InstrumentCommentsPanel
+            comment={instrument.comment}
+            onCommentChange={(comment) =>
+              onOrchestraPatch({
+                type: 'updateInstrumentComment',
+                assignmentId: instrument.assignmentId,
+                comment,
+              })
+            }
+          />
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -1,0 +1,23 @@
+import React from 'react';
+
+interface InstrumentNameFieldProps {
+  name: string;
+  onNameChange: (name: string) => void | Promise<void>;
+}
+
+export default function InstrumentNameField({
+  name,
+  onNameChange,
+}: InstrumentNameFieldProps): JSX.Element {
+  return (
+    <label className="flex items-center gap-3 text-xs text-blue-muted">
+      <span className="w-20 shrink-0 text-right">Name</span>
+      <input
+        className="min-w-0 flex-1 rounded border border-blue-border bg-[#0d1524] px-2 py-1.5 text-sm text-gray-100 outline-none focus:border-blue-accent"
+        value={name}
+        onChange={(event) => void onNameChange(event.target.value)}
+      />
+    </label>
+  );
+}
+

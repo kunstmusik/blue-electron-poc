@@ -4,6 +4,7 @@ import { PANEL_MAP } from './panel-registry';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 import GlobalOrchestraPanel from './panels/GlobalOrchestraPanel';
 import GlobalScorePanel from './panels/GlobalScorePanel';
+import OrchestraPanel from './panels/OrchestraPanel';
 import ProjectPropertiesPanel from './panels/ProjectPropertiesPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
@@ -21,7 +22,9 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
     return (
       <div ref={ref} className="workbench-panel-shell">
         <div className="workbench-panel-shell__content">
-          {descriptor.id === 'GlobalOrchestraTopComponent' ? (
+          {descriptor.id === 'OrchestraTopComponent' ? (
+            <OrchestraPanel />
+          ) : descriptor.id === 'GlobalOrchestraTopComponent' ? (
             <GlobalOrchestraPanel />
           ) : descriptor.id === 'GlobalScoreTopComponent' ? (
             <GlobalScorePanel />

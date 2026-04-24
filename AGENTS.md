@@ -20,6 +20,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-23
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + Electron `Menu`/`BrowserWindow`, Zustand 5.x stores, `@blue/data` time/tempo utilities, `dockview` 5.2.0 workbench state, `lucide-react` transport icons (020-main-toolbar-parity)
 - Existing renderer Zustand stores plus project snapshot IPC; optional lightweight renderer preference persistence for toolbar-only toggles via existing local storage patterns (020-main-toolbar-parity)
 - Existing renderer Zustand stores plus project snapshot IPC; fixed-per-performance playback clock metadata cached in the renderer playback store; optional lightweight renderer preference persistence for toolbar-only toggles via existing local storage patterns (020-main-toolbar-parity)
+- TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data`, Zustand 5.x project store, Dockview 5.2.0 workbench panel registry, CodeMirror 6 editor surface from specs 018/019, Radix Context Menu, proposed `@tanstack/react-table` for arrangement table behavior, existing `@tanstack/react-virtual` if large table virtualization becomes necessary (021-orchestra-editor)
+- Main-process in-memory `BlueData` remains canonical; renderer consumes serializable project/orchestra snapshots and sends explicit patch intents through the existing project document IPC bridge; `.blue` XML remains the persistence forma (021-orchestra-editor)
 
 - TypeScript 5.x, strict mode + `@rgrove/parse-xml` (XML parsing), `vitest` (testing), `esbuild` (bundling for Electron) 
 
@@ -47,9 +49,6 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 021-orchestra-editor: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data`, Zustand 5.x project store, Dockview 5.2.0 workbench panel registry, CodeMirror 6 editor surface from specs 018/019, Radix Context Menu, proposed `@tanstack/react-table` for arrangement table behavior, existing `@tanstack/react-virtual` if large table virtualization becomes necessary
 - 020-main-toolbar-parity: Closed out the main toolbar parity slice after finalizing playhead/selection alignment and the toolbar/editor context-menu styles
 - 020-main-toolbar-parity: Added Java Blue-style main toolbar, native File/Window menu handling, engine-authoritative playhead interpolation, and window title parity
-- 020-main-toolbar-parity: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + Electron `Menu`/`BrowserWindow`, Zustand 5.x stores, `@blue/data` time/tempo utilities, `dockview` 5.2.0 workbench state, `lucide-react` transport icons
-- 020-main-toolbar-parity: Added fixed-per-performance playback clock metadata caching for engine-authoritative toolbar timing
-- 019-csound-editor-parity: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages + CodeMirror 6 (`codemirror`, `@codemirror/view`, `@codemirror/state`, `@codemirror/autocomplete`), `@kunstmusik/codemirror-lang-csound`, Radix Context Menu already present in `@blue/app`, existing `@blue/data` project model
-- 019-csound-editor-parity: Added a reusable Csound editor surface with renderer-owned context menus, Java Blue-style completion sources, and deferred project-level UDO support

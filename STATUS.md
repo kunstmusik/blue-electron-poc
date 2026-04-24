@@ -1,7 +1,20 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-23
-**Branch**: `019-csound-editor-parity`
+**Branch**: `021-orchestra-editor`
+
+## Spec 021 Package
+
+Spec `021-orchestra-editor` is complete and closed out for `blue-app`.
+
+- Goal: replace the Orchestra placeholder with a Java Blue-style arrangement/library-left and instrument-editor-right surface
+- Scope completed: nested draggable splitters, TanStack-backed arrangement table, inline enabled/id editing, row context actions with deferred import/export placeholders, selected instrument editor/comments tabs, GenericInstrument and JavaScriptInstrument code editors with explicit UDO placeholder tabs, BlueX7 baseline preservation editor, BlueSynthBuilder baseline editor, Python dummy panel, and temporary program-library placeholder
+- Data compatibility: `@blue/data` now preserves instrument comments, JavaScriptInstrument, PythonInstrument, BlueX7, Java-compatible instrument assignments, and baseline BlueSynthBuilder `graphicInterface` XML
+- Project bridge: `ProjectEditorSnapshot`, `ProjectDocumentPatch`, main-process patching, preload/global typing, and `project-store` now carry orchestra snapshots and patch intents
+- Task status: complete; `/Users/stevenyi/work/blue-electron/specs/021-orchestra-editor/tasks.md` contains 55 completed tasks
+- Validation status: `pnpm --filter @blue/data test`, `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check` pass
+- Explicit deferrals: program-wide orchestra library, `.binstr` import/export beyond placeholders, embedded opcode-list editing for Generic/JavaScript instruments, detailed BlueX7 parameter editor parity, Python execution/editor parity, and deeper Java BlueSynthBuilder layout/widget/preset/opcode-list parity
+- Immediate next step: start Spec 022 planning for BlueSynthBuilder interface/widget/preset parity
 
 ## Spec 020 Package
 

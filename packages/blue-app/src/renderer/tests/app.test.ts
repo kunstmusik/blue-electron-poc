@@ -152,6 +152,275 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().title).toBe('Edited Title');
     expect(useProjectStore.getState().isDirty).toBe(true);
   });
+
+  it('T349: updateOrchestra patches local orchestra text immediately', async () => {
+    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+
+    const baseSnapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: baseSnapshot.globalOrc,
+      globalSco: baseSnapshot.globalSco,
+      orchestra: {
+        ...baseSnapshot.orchestra,
+        loaded: true,
+        arrangement: {
+          rows: [
+            {
+              assignmentId: '1',
+              enabled: true,
+              instrumentName: 'Lead',
+              instrumentType: 'generic',
+              instrumentSummary: 'GenericInstrument',
+              editable: true,
+            },
+          ],
+        },
+        instruments: [
+          {
+            assignmentId: '1',
+            type: 'generic',
+            name: 'Lead',
+            enabled: true,
+            comment: 'lead comment',
+            text: 'aout oscili p4, p5',
+            globalOrc: '',
+            globalSco: '',
+          },
+        ],
+      },
+      projectProperties: {
+        ...baseSnapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: baseSnapshot.transport,
+    });
+
+    const pending = useProjectStore.getState().updateOrchestra({
+      type: 'updateInstrument',
+      assignmentId: '1',
+      patch: { text: 'aout oscili p4, p6' },
+    });
+
+    expect(useProjectStore.getState().orchestra.instruments[0]?.text).toBe(
+      'aout oscili p4, p6',
+    );
+
+    await pending;
+  });
+
+  it('T349: addInstrument creates local generic and BSB entries', async () => {
+    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+
+    const baseSnapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: baseSnapshot.globalOrc,
+      globalSco: baseSnapshot.globalSco,
+      orchestra: {
+        ...baseSnapshot.orchestra,
+        loaded: true,
+      },
+      projectProperties: {
+        ...baseSnapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: baseSnapshot.transport,
+    });
+
+    await useProjectStore.getState().updateOrchestra({
+      type: 'addInstrument',
+      instrumentType: 'generic',
+    });
+    await useProjectStore.getState().updateOrchestra({
+      type: 'addInstrument',
+      instrumentType: 'blueSynthBuilder',
+    });
+
+    const state = useProjectStore.getState();
+    expect(state.orchestra.arrangement.rows).toHaveLength(2);
+    expect(state.orchestra.instruments[0]?.type).toBe('generic');
+    expect(state.orchestra.instruments[1]?.type).toBe('blueSynthBuilder');
+  });
+
+  it('T349: updateOrchestra patches local BSB code immediately', async () => {
+    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+
+    const baseSnapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: baseSnapshot.globalOrc,
+      globalSco: baseSnapshot.globalSco,
+      orchestra: {
+        ...baseSnapshot.orchestra,
+        loaded: true,
+        arrangement: {
+          rows: [
+            {
+              assignmentId: '1',
+              enabled: true,
+              instrumentName: 'Builder',
+              instrumentType: 'blueSynthBuilder',
+              instrumentSummary: 'BlueSynthBuilder',
+              editable: true,
+            },
+          ],
+        },
+        instruments: [
+          {
+            assignmentId: '1',
+            type: 'blueSynthBuilder',
+            name: 'Builder',
+            enabled: true,
+            comment: '',
+            instrumentText: 'aout oscili <amp>, <freq>',
+            alwaysOnInstrumentText: '',
+            globalOrc: '',
+            globalSco: '',
+            objectNames: ['amp', 'freq'],
+            widgets: [
+              { objectName: 'amp', widgetType: 'BSBKnob', value: 0.5, minimum: 0, maximum: 1 },
+              { objectName: 'freq', widgetType: 'BSBValue', value: 440, minimum: 20, maximum: 20000 },
+            ],
+          },
+        ],
+      },
+      projectProperties: {
+        ...baseSnapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: baseSnapshot.transport,
+    });
+
+    const pending = useProjectStore.getState().updateOrchestra({
+      type: 'updateInstrument',
+      assignmentId: '1',
+      patch: { instrumentText: 'aout oscili <amp>, <freq> * 0.5' },
+    });
+
+    const instrument = useProjectStore.getState().orchestra.instruments[0];
+    expect(instrument?.type).toBe('blueSynthBuilder');
+    expect(instrument?.type === 'blueSynthBuilder' ? instrument.instrumentText : null).toBe(
+      'aout oscili <amp>, <freq> * 0.5',
+    );
+
+    await pending;
+  });
+
+  it('T349: ignores stale orchestra snapshots from older patch responses', async () => {
+    let resolveFirst:
+      | ((value: ReturnType<typeof createEmptyProjectEditorSnapshot> & { title: string; author: string; sampleRate: string }) => void)
+      | undefined;
+    let resolveSecond:
+      | ((value: ReturnType<typeof createEmptyProjectEditorSnapshot> & { title: string; author: string; sampleRate: string }) => void)
+      | undefined;
+
+    const baseSnapshot = createEmptyProjectEditorSnapshot();
+    const createLoadedSnapshot = (text: string) => ({
+      ...baseSnapshot,
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      orchestra: {
+        ...baseSnapshot.orchestra,
+        loaded: true,
+        arrangement: {
+          rows: [
+            {
+              assignmentId: '1',
+              enabled: true,
+              instrumentName: 'Lead',
+              instrumentType: 'generic',
+              instrumentSummary: 'GenericInstrument',
+              editable: true,
+            },
+          ],
+        },
+        instruments: [
+          {
+            assignmentId: '1',
+            type: 'generic' as const,
+            name: 'Lead',
+            enabled: true,
+            comment: 'lead comment',
+            text,
+            globalOrc: '',
+            globalSco: '',
+          },
+        ],
+      },
+      projectProperties: {
+        ...baseSnapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+    });
+
+    mockBlueAPI.updateProjectDocument
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve;
+          }),
+      );
+
+    useProjectStore.getState().setProjectInfo(createLoadedSnapshot('aout oscili p4, p5'));
+
+    const first = useProjectStore.getState().updateOrchestra({
+      type: 'updateInstrument',
+      assignmentId: '1',
+      patch: { text: 'aout oscili p4, p6' },
+    });
+    const second = useProjectStore.getState().updateOrchestra({
+      type: 'updateInstrument',
+      assignmentId: '1',
+      patch: { text: 'aout oscili p4, p7' },
+    });
+
+    expect(useProjectStore.getState().orchestra.instruments[0]?.text).toBe(
+      'aout oscili p4, p7',
+    );
+
+    resolveSecond?.(createLoadedSnapshot('aout oscili p4, p7'));
+    await second;
+
+    resolveFirst?.(createLoadedSnapshot('aout oscili p4, p6'));
+    await first;
+
+    expect(useProjectStore.getState().orchestra.instruments[0]?.text).toBe(
+      'aout oscili p4, p7',
+    );
+  });
 });
 
 describe('Playback Store', () => {

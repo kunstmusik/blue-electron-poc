@@ -45,6 +45,26 @@ function getRegistry(): Record<string, BSBWidgetCtor> {
   return _registry;
 }
 
+export function loadBsbWidgetFromXML(data: Element): BSBWidget | null {
+  const type = data.getAttribute("type") ?? "";
+  const Ctor = getRegistry()[type];
+  if (!Ctor) return null;
+
+  const child = new Ctor();
+  if (child instanceof BSBGroup) {
+    child.loadFromXML(data);
+  } else if (
+    "loadFromXML" in child &&
+    typeof child.loadFromXML === "function"
+  ) {
+    (child.loadFromXML as (data: Element) => void).call(child, data);
+  } else {
+    child.loadFromXMLCommon(data);
+  }
+
+  return child;
+}
+
 export class BSBGroup extends BSBWidget {
   private _children: BSBWidget[] = [];
 
@@ -71,24 +91,11 @@ export class BSBGroup extends BSBWidget {
   }
 
   private _loadChildren(data: Element): void {
-    const registry = getRegistry();
     const children = data.getElements("bsbObject");
     while (children.hasMoreElements()) {
       const childElem = children.next();
-      const type = childElem.getAttribute("type") ?? "";
-      const Ctor = registry[type];
-      if (Ctor) {
-        const child = new Ctor();
-        if (child instanceof BSBGroup) {
-          child.loadFromXML(childElem);
-        } else if (
-          "loadFromXML" in child &&
-          typeof child.loadFromXML === "function"
-        ) {
-          (child.loadFromXML as (data: Element) => void).call(child, childElem);
-        } else {
-          child.loadFromXMLCommon(childElem);
-        }
+      const child = loadBsbWidgetFromXML(childElem);
+      if (child) {
         this._children.push(child);
       }
     }
@@ -97,4 +104,69 @@ export class BSBGroup extends BSBWidget {
   override loadFromXMLCommon(data: Element): void {
     super.loadFromXMLCommon(data);
   }
+
+  saveAsXML(): Element {
+    return saveBsbWidgetAsXML(this);
+  }
+}
+
+const COMMON_WIDGET_FIELDS = new Set([
+  'objectName',
+  'x',
+  'y',
+  'value',
+  'minimum',
+  'maximum',
+  'parameterName',
+]);
+
+const SKIPPED_WIDGET_FIELDS = new Set([
+  '_children',
+  'stringChannel',
+]);
+
+function getWidgetXmlType(widget: BSBWidget): string {
+  const constructorName = widget.constructor.name;
+  return `blue.orchestra.blueSynthBuilder.${constructorName}`;
+}
+
+function addPrimitiveElement(parent: Element, key: string, value: unknown): void {
+  if (value === null || value === undefined) return;
+  if (
+    typeof value !== 'string' &&
+    typeof value !== 'number' &&
+    typeof value !== 'boolean'
+  ) {
+    return;
+  }
+  parent.addElement(key).setText(String(value));
+}
+
+function saveBsbWidgetAsXML(widget: BSBWidget): Element {
+  const elem = new Element('bsbObject');
+  elem.setAttribute('type', getWidgetXmlType(widget));
+
+  addPrimitiveElement(elem, 'objectName', widget.objectName);
+  addPrimitiveElement(elem, 'x', widget.x);
+  addPrimitiveElement(elem, 'y', widget.y);
+  addPrimitiveElement(elem, 'value', widget.value);
+  addPrimitiveElement(elem, 'minimum', widget.minimum);
+  addPrimitiveElement(elem, 'maximum', widget.maximum);
+  addPrimitiveElement(elem, 'parameterName', widget.parameterName);
+
+  for (const [key, value] of Object.entries(widget as unknown as Record<string, unknown>)) {
+    if (COMMON_WIDGET_FIELDS.has(key) || SKIPPED_WIDGET_FIELDS.has(key)) {
+      continue;
+    }
+
+    addPrimitiveElement(elem, key, value);
+  }
+
+  if (widget instanceof BSBGroup) {
+    for (const child of widget.getChildren()) {
+      elem.addElement(saveBsbWidgetAsXML(child));
+    }
+  }
+
+  return elem;
 }

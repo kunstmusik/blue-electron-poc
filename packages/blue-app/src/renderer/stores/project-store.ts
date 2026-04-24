@@ -1,10 +1,22 @@
 import { create } from 'zustand';
 import { toast } from 'sonner';
 import {
+  BlueSynthBuilder,
+  BlueX7,
+  GenericInstrument,
+  JavaScriptInstrument,
+} from '@blue/data';
+import {
   createEmptyProjectEditorSnapshot,
+  type ArrangementRowSnapshot,
+  type InstrumentPatch,
+  type InstrumentSnapshot,
   type ProjectDocumentPatch,
   type ProjectLoadedPayload,
   type ProjectPropertiesSnapshot,
+  type OrchestraPatch,
+  type OrchestraSnapshot,
+  type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
 } from '../../shared/project-editor';
 
@@ -19,6 +31,7 @@ interface ProjectState {
   loaded: boolean;
   globalOrc: string;
   globalSco: string;
+  orchestra: OrchestraSnapshot;
   projectProperties: ProjectPropertiesSnapshot;
   transport: ToolbarProjectTransportSnapshot;
 }
@@ -35,11 +48,14 @@ interface ProjectActions {
   applyProjectDocumentPatch: (patch: ProjectDocumentPatch) => Promise<void>;
   updateGlobalOrc: (globalOrc: string) => Promise<void>;
   updateGlobalSco: (globalSco: string) => Promise<void>;
+  updateOrchestra: (orchestra: OrchestraPatch) => Promise<void>;
   updateProjectProperties: (
     patch: Partial<ProjectPropertiesSnapshot>,
   ) => Promise<void>;
   setLoopRendering: (loopRendering: boolean) => Promise<void>;
 }
+
+let latestProjectPatchRequestId = 0;
 
 function buildInitialState(): ProjectState {
   const snapshot = createEmptyProjectEditorSnapshot();
@@ -55,6 +71,7 @@ function buildInitialState(): ProjectState {
     loaded: snapshot.loaded,
     globalOrc: snapshot.globalOrc,
     globalSco: snapshot.globalSco,
+    orchestra: snapshot.orchestra,
     projectProperties: snapshot.projectProperties,
     transport: snapshot.transport,
   };
@@ -78,6 +95,322 @@ function syncSummaryFromProperties(
     author: properties.author,
     sampleRate: properties.sampleRate,
   };
+}
+
+function cloneInstrumentSnapshot(instrument: InstrumentSnapshot): InstrumentSnapshot {
+  return structuredClone(instrument);
+}
+
+function cloneOrchestraSnapshot(orchestra: OrchestraSnapshot): OrchestraSnapshot {
+  return {
+    ...orchestra,
+    arrangement: {
+      rows: orchestra.arrangement.rows.map((row) => ({ ...row })),
+    },
+    instruments: orchestra.instruments.map((instrument) => cloneInstrumentSnapshot(instrument)),
+    temporaryLibrary: {
+      ...orchestra.temporaryLibrary,
+    },
+  };
+}
+
+function getNextArrangementId(rows: ArrangementRowSnapshot[]): string {
+  let max = 0;
+  for (const row of rows) {
+    const value = Number.parseInt(row.assignmentId, 10);
+    if (Number.isFinite(value)) {
+      max = Math.max(max, value);
+    }
+  }
+  return String(max + 1);
+}
+
+function createDefaultInstrumentSnapshot(
+  instrumentType: SupportedNewInstrumentType,
+  assignmentId: string,
+  enabled = true,
+): InstrumentSnapshot {
+  switch (instrumentType) {
+    case 'generic': {
+      const instrument = new GenericInstrument();
+      return {
+        assignmentId,
+        type: 'generic',
+        name: instrument.getName(),
+        enabled,
+        comment: instrument.getComment(),
+        text: instrument.getText(),
+        globalOrc: instrument.getGlobalOrc(),
+        globalSco: instrument.getGlobalSco(),
+      };
+    }
+    case 'javascript': {
+      const instrument = new JavaScriptInstrument();
+      return {
+        assignmentId,
+        type: 'javascript',
+        name: instrument.getName(),
+        enabled,
+        comment: instrument.getComment(),
+        text: instrument.getText(),
+        globalOrc: instrument.getGlobalOrc(),
+        globalSco: instrument.getGlobalSco(),
+      };
+    }
+    case 'blueX7': {
+      const instrument = new BlueX7();
+      return {
+        assignmentId,
+        type: 'blueX7',
+        name: instrument.getName(),
+        enabled,
+        comment: instrument.getComment(),
+      };
+    }
+    case 'blueSynthBuilder': {
+      const instrument = new BlueSynthBuilder();
+      return {
+        assignmentId,
+        type: 'blueSynthBuilder',
+        name: instrument.getName(),
+        enabled,
+        comment: instrument.getComment(),
+        instrumentText: instrument.getInstrumentText(),
+        alwaysOnInstrumentText: instrument.getAlwaysOnInstrumentText(),
+        globalOrc: instrument.getGlobalOrc(),
+        globalSco: instrument.getGlobalSco(),
+        objectNames: [],
+        widgets: [],
+      };
+    }
+  }
+
+  throw new Error(`Unsupported instrument type: ${instrumentType}`);
+}
+
+function updateInstrumentSnapshot(
+  orchestra: OrchestraSnapshot,
+  assignmentId: string,
+  patch: InstrumentPatch,
+): void {
+  const instrument = orchestra.instruments.find((candidate) => candidate.assignmentId === assignmentId);
+  const row = orchestra.arrangement.rows.find((candidate) => candidate.assignmentId === assignmentId);
+
+  if (!instrument) {
+    return;
+  }
+
+  if (patch.name !== undefined) {
+    instrument.name = patch.name;
+    if (row) {
+      row.instrumentName = patch.name;
+    }
+  }
+
+  if (patch.enabled !== undefined) {
+    instrument.enabled = patch.enabled;
+    if (row) {
+      row.enabled = patch.enabled;
+    }
+  }
+
+  if (patch.comment !== undefined) {
+    instrument.comment = patch.comment;
+  }
+
+  if (instrument.type === 'generic' || instrument.type === 'javascript' || instrument.type === 'python') {
+    if (patch.text !== undefined) {
+      instrument.text = patch.text;
+    }
+    if (patch.globalOrc !== undefined) {
+      instrument.globalOrc = patch.globalOrc;
+    }
+    if (patch.globalSco !== undefined) {
+      instrument.globalSco = patch.globalSco;
+    }
+  } else if (instrument.type === 'blueSynthBuilder') {
+    if (patch.instrumentText !== undefined) {
+      instrument.instrumentText = patch.instrumentText;
+    }
+    if (patch.alwaysOnInstrumentText !== undefined) {
+      instrument.alwaysOnInstrumentText = patch.alwaysOnInstrumentText;
+    }
+    if (patch.globalOrc !== undefined) {
+      instrument.globalOrc = patch.globalOrc;
+    }
+    if (patch.globalSco !== undefined) {
+      instrument.globalSco = patch.globalSco;
+    }
+    if (patch.bsbWidgetValues) {
+      instrument.widgets = instrument.widgets.map((widget) => {
+        const value = patch.bsbWidgetValues?.[widget.objectName];
+        return value === undefined ? widget : { ...widget, value };
+      });
+    }
+  }
+}
+
+function applyOrchestraPatchSnapshot(
+  orchestra: OrchestraSnapshot,
+  patch: OrchestraPatch,
+): OrchestraSnapshot {
+  const next = cloneOrchestraSnapshot(orchestra);
+
+  switch (patch.type) {
+    case 'addInstrument': {
+      const assignmentId = getNextArrangementId(next.arrangement.rows);
+      const instrument = createDefaultInstrumentSnapshot(patch.instrumentType, assignmentId);
+      next.arrangement.rows.push({
+        assignmentId,
+        enabled: instrument.enabled,
+        instrumentName: instrument.name,
+        instrumentType: instrument.type,
+        instrumentSummary: instrument.type,
+        editable: true,
+      });
+      next.instruments.push(instrument);
+      break;
+    }
+    case 'removeAssignment': {
+      next.arrangement.rows = next.arrangement.rows.filter(
+        (row) => row.assignmentId !== patch.assignmentId,
+      );
+      next.instruments = next.instruments.filter(
+        (instrument) => instrument.assignmentId !== patch.assignmentId,
+      );
+      break;
+    }
+    case 'duplicateAssignment': {
+      const sourceRow = next.arrangement.rows.find(
+        (row) => row.assignmentId === patch.sourceAssignmentId,
+      );
+      const sourceInstrument = next.instruments.find(
+        (instrument) => instrument.assignmentId === patch.sourceAssignmentId,
+      );
+      if (sourceRow && sourceInstrument) {
+        const assignmentId = getNextArrangementId(next.arrangement.rows);
+        const duplicatedInstrument = cloneInstrumentSnapshot(sourceInstrument);
+        duplicatedInstrument.assignmentId = assignmentId;
+        next.arrangement.rows.push({
+          ...sourceRow,
+          assignmentId,
+        });
+        next.instruments.push(duplicatedInstrument);
+      }
+      break;
+    }
+    case 'pasteInstrument': {
+      const assignmentId = getNextArrangementId(next.arrangement.rows);
+      const pastedInstrument = cloneInstrumentSnapshot(patch.instrument);
+      pastedInstrument.assignmentId = assignmentId;
+      next.arrangement.rows.push({
+        assignmentId,
+        enabled: pastedInstrument.enabled,
+        instrumentName: pastedInstrument.name,
+        instrumentType: pastedInstrument.type,
+        instrumentSummary: pastedInstrument.type,
+        editable: true,
+      });
+      next.instruments.push(pastedInstrument);
+      break;
+    }
+    case 'updateAssignment': {
+      const row = next.arrangement.rows.find(
+        (candidate) => candidate.assignmentId === patch.assignmentId,
+      );
+      const instrument = next.instruments.find(
+        (candidate) => candidate.assignmentId === patch.assignmentId,
+      );
+      if (row) {
+        if (patch.enabled !== undefined) {
+          row.enabled = patch.enabled;
+          if (instrument) {
+            instrument.enabled = patch.enabled;
+          }
+        }
+
+        if (patch.nextAssignmentId && patch.nextAssignmentId.trim()) {
+          const nextAssignmentId = patch.nextAssignmentId.trim();
+          const duplicate = next.arrangement.rows.some(
+            (candidate) =>
+              candidate !== row && candidate.assignmentId === nextAssignmentId,
+          );
+          if (!duplicate && row.assignmentId !== nextAssignmentId) {
+            row.assignmentId = nextAssignmentId;
+            if (instrument) {
+              instrument.assignmentId = nextAssignmentId;
+            }
+          }
+        }
+      }
+      break;
+    }
+    case 'replaceInstrument': {
+      const row = next.arrangement.rows.find(
+        (candidate) => candidate.assignmentId === patch.assignmentId,
+      );
+      if (row) {
+        const instrument = createDefaultInstrumentSnapshot(
+          patch.instrumentType,
+          patch.assignmentId,
+          row.enabled,
+        );
+        row.instrumentType = instrument.type;
+        row.instrumentName = instrument.name;
+        row.instrumentSummary = instrument.type;
+        const index = next.instruments.findIndex(
+          (candidate) => candidate.assignmentId === patch.assignmentId,
+        );
+        if (index >= 0) {
+          next.instruments[index] = instrument;
+        }
+      }
+      break;
+    }
+    case 'convertGenericToBsb': {
+      const source = next.instruments.find(
+        (candidate) => candidate.assignmentId === patch.assignmentId,
+      );
+      const row = next.arrangement.rows.find(
+        (candidate) => candidate.assignmentId === patch.assignmentId,
+      );
+      if (source?.type === 'generic' && row) {
+        const converted: InstrumentSnapshot = {
+          assignmentId: source.assignmentId,
+          type: 'blueSynthBuilder',
+          name: source.name,
+          enabled: source.enabled,
+          comment: source.comment,
+          instrumentText: source.text,
+          alwaysOnInstrumentText: '',
+          globalOrc: source.globalOrc,
+          globalSco: source.globalSco,
+          objectNames: [],
+          widgets: [],
+        };
+        row.instrumentType = converted.type;
+        row.instrumentName = converted.name;
+        row.instrumentSummary = converted.type;
+        const index = next.instruments.findIndex(
+          (candidate) => candidate.assignmentId === patch.assignmentId,
+        );
+        if (index >= 0) {
+          next.instruments[index] = converted;
+        }
+      }
+      break;
+    }
+    case 'updateInstrument': {
+      updateInstrumentSnapshot(next, patch.assignmentId, patch.patch);
+      break;
+    }
+    case 'updateInstrumentComment': {
+      updateInstrumentSnapshot(next, patch.assignmentId, { comment: patch.comment });
+      break;
+    }
+  }
+
+  return next;
 }
 
 export const useProjectStore = create<ProjectState & ProjectActions>()((set, get) => ({
@@ -165,6 +498,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         isDirty: false,
         globalOrc: info.globalOrc ?? state.globalOrc,
         globalSco: info.globalSco ?? state.globalSco,
+        orchestra: info.orchestra ?? state.orchestra,
         projectProperties: nextProjectProperties,
         transport: nextTransport,
       };
@@ -188,11 +522,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     if (
       patch.globalOrc === undefined &&
       patch.globalSco === undefined &&
+      patch.orchestra === undefined &&
       (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
       (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
       return;
     }
+
+    const requestId = ++latestProjectPatchRequestId;
 
     set((state) => {
       const next: ProjectState = {
@@ -206,6 +543,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
       if (patch.globalSco !== undefined) {
         next.globalSco = patch.globalSco;
+      }
+
+      if (patch.orchestra !== undefined) {
+        next.orchestra = applyOrchestraPatchSnapshot(state.orchestra, patch.orchestra);
       }
 
       if (patch.projectProperties) {
@@ -237,7 +578,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     });
 
     try {
-      await window.blueAPI.updateProjectDocument(patch);
+      const snapshot = await window.blueAPI.updateProjectDocument(patch);
+      if (snapshot && requestId === latestProjectPatchRequestId) {
+        get().setProjectInfo(snapshot);
+        set({ isDirty: true });
+      }
     } catch (err: unknown) {
       toast.error(`Project update failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -249,6 +594,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   updateGlobalSco: async (globalSco) => {
     await get().applyProjectDocumentPatch({ globalSco });
+  },
+
+  updateOrchestra: async (orchestra) => {
+    await get().applyProjectDocumentPatch({ orchestra });
   },
 
   updateProjectProperties: async (patch) => {

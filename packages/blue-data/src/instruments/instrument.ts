@@ -3,10 +3,12 @@
  * Mirrors the Java Instrument class.
  */
 import { DeepCopyable } from '../deep-copyable';
+import { Element } from '../serialization/xml-reader';
 
 export abstract class Instrument implements DeepCopyable<Instrument> {
   protected _name = '';
   protected _enabled = true;
+  protected _comment = '';
 
   getName(): string {
     return this._name;
@@ -22,6 +24,14 @@ export abstract class Instrument implements DeepCopyable<Instrument> {
 
   setEnabled(enabled: boolean): void {
     this._enabled = enabled;
+  }
+
+  getComment(): string {
+    return this._comment;
+  }
+
+  setComment(comment: string): void {
+    this._comment = comment ?? '';
   }
 
   /** Generate global orchestra code (common to all instances). */
@@ -53,4 +63,6 @@ export abstract class Instrument implements DeepCopyable<Instrument> {
   }
 
   abstract deepCopy(): Instrument;
+
+  abstract saveAsXML(): Element;
 }

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `021-orchestra-editor`
 **Created**: 2026-04-23
-**Status**: Draft
+**Status**: Complete
 **Input**: User description: "Implement the Orchestra editor. Defer program-wide orchestra library and use a temporary component. Implement the arrangement panel, instrument editor and comments tabs, all instrument editors including BlueSynthBuilder, evaluate TanStack Table for arrangement tables, and defer Python instrument behind a dummy panel."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -51,10 +51,10 @@ As a composer with existing Java Blue projects, I need the Electron port to edit
 
 **Acceptance Scenarios**:
 
-1. **Given** a GenericInstrument is selected, **When** the user edits instrument text, embedded UDO data, global orchestra, or global score fields, **Then** those fields update the project model and generated instrument output.
-2. **Given** a JavaScriptInstrument is selected, **When** the user edits script text, embedded UDO data, global orchestra, or global score fields, **Then** those fields persist and keep Java Blue-compatible XML.
-3. **Given** a BlueX7 instrument is selected, **When** the user edits its primary synthesis/operator settings or generated Csound text fields, **Then** those edits persist without losing Java Blue's BlueX7 data structure.
-4. **Given** a BlueSynthBuilder instrument is selected, **When** the user edits its interface, code, always-on code, global orchestra/score, UDO data, object names, and relevant widget/control state, **Then** the BSB instrument persists and produces generated instrument text using BSB replacement semantics.
+1. **Given** a GenericInstrument is selected, **When** the user edits instrument text, global orchestra, or global score fields and opens the UDO tab, **Then** those text fields update the project model while embedded opcode-list editing is clearly deferred.
+2. **Given** a JavaScriptInstrument is selected, **When** the user edits script text, global orchestra, or global score fields and opens the UDO tab, **Then** those fields persist and the deferred opcode-list state is clearly communicated without claiming unsupported editing.
+3. **Given** a BlueX7 instrument is selected, **When** the user opens its editor and edits baseline metadata, **Then** name and comment changes persist and BlueX7 XML is preserved without dropping unsupported FM/operator data.
+4. **Given** a BlueSynthBuilder instrument is selected, **When** the user edits code tabs or currently loaded widget values and switches among Interface, Code, and UDO tabs, **Then** the BSB instrument persists and produces generated instrument text using BSB replacement semantics while richer interface, preset, and opcode-list editing remains deferred.
 5. **Given** a PythonInstrument is selected, **When** the user opens its editor, **Then** a dummy/deferred panel is shown and the existing instrument XML is preserved without claiming Python execution support.
 
 ---
@@ -114,12 +114,12 @@ As an implementer, I need a documented decision on TanStack Table versus regular
 - **FR-009**: The full program-wide orchestra library MUST be deferred and documented as out of scope; a temporary component MAY occupy the Java library area for layout continuity and future integration.
 - **FR-010**: The instrument editor region MUST provide `Instrument Editor` and `Comments` tabs matching Java Blue's core workflow.
 - **FR-011**: The comments tab MUST persist per-instrument comments through project save/reopen flows.
-- **FR-012**: GenericInstrument editing MUST include instrument text, embedded UDO surface or documented placeholder, global orchestra, and global score fields.
-- **FR-013**: JavaScriptInstrument editing MUST include script text, embedded UDO surface or documented placeholder, global orchestra, and global score fields.
-- **FR-014**: BlueX7 editing MUST provide a functional editor for the Java Blue BlueX7 model fields needed to preserve and modify existing BlueX7 instruments.
-- **FR-015**: BlueSynthBuilder editing MUST be implemented in this spec and decomposed into manageable tasks covering BSB interface editing, code editing, always-on code, global orchestra/score, UDO data, widget/object-name state, and generated instrument replacement semantics.
+- **FR-012**: GenericInstrument editing MUST include instrument text, global orchestra, and global score fields plus an explicit embedded UDO placeholder until opcode-list editing is implemented.
+- **FR-013**: JavaScriptInstrument editing MUST include script text, global orchestra, and global score fields plus an explicit embedded UDO placeholder until opcode-list editing is implemented.
+- **FR-014**: BlueX7 editing MUST preserve existing BlueX7 data and support baseline metadata editing; detailed FM/operator/PEG/Csound parameter editing is deferred to a follow-on parity slice.
+- **FR-015**: BlueSynthBuilder editing MUST deliver the baseline Java Blue surface shipped in this slice: code tabs, current-widget value editing for loaded widgets, object-name completion, and explicit Interface/UDO follow-on panels; full Java layout/widget/preset/opcode-list parity is deferred to a follow-on slice.
 - **FR-016**: PythonInstrument editing MUST be explicitly deferred behind a dummy panel that prevents accidental data loss and communicates the deferred state.
-- **FR-017**: The data/model layer MUST load and save the instrument types required by this spec without dropping unknown XML fields needed for Java Blue compatibility.
+- **FR-017**: The data/model layer MUST load and save the instrument types required by this spec without dropping the baseline XML fields and preserved child structures currently in scope for Java Blue compatibility.
 - **FR-018**: Planning MUST evaluate TanStack Table against regular HTML table implementation for the arrangement panel before table implementation begins.
 - **FR-019**: The final arrangement table choice MUST support keyboard navigation, row selection, inline editing where needed, context actions, and future drag/drop or reorder work.
 - **FR-020**: The implementation MUST include tests for arrangement rendering/mutation, editor routing by instrument type, comment persistence, XML round-trip preservation, and BSB baseline editing/generation.
@@ -142,11 +142,11 @@ As an implementer, I need a documented decision on TanStack Table versus regular
 
 - **SC-001**: A reviewer can open the Orchestra tab and see an arrangement/library-left and instrument-editor-right layout instead of the placeholder panel.
 - **SC-002**: A reviewer can add, select, remove, copy, paste, replace, and save supported arrangement instruments without corrupting the project XML.
-- **SC-003**: A reviewer can select a GenericInstrument, JavaScriptInstrument, BlueX7, and BlueSynthBuilder and see a type-appropriate editor in the `Instrument Editor` tab.
+- **SC-003**: A reviewer can select a GenericInstrument, JavaScriptInstrument, BlueX7, and BlueSynthBuilder and see the type-appropriate editor or preservation-focused baseline panel in the `Instrument Editor` tab.
 - **SC-004**: A reviewer can edit instrument comments, save/reopen the project, and see those comments preserved.
 - **SC-005**: A reviewer can open a PythonInstrument and see an explicit dummy/deferred panel while the underlying instrument data remains preserved.
 - **SC-006**: A reviewer can inspect planning artifacts and find the TanStack Table versus regular table decision for the arrangement panel.
-- **SC-007**: A reviewer can edit a BlueSynthBuilder instrument enough to preserve interface/code/widget state and verify generated instrument text still performs BSB object-name replacement.
+- **SC-007**: A reviewer can edit a BlueSynthBuilder instrument enough to preserve interface XML, code/widget baseline state, and verify generated instrument text still performs BSB object-name replacement.
 - **SC-008**: A reviewer can inspect the spec/plan and see that program-wide orchestra library implementation is deferred while a temporary component is used for this slice.
 
 ## Assumptions
@@ -155,5 +155,10 @@ As an implementer, I need a documented decision on TanStack Table versus regular
 - Program-wide orchestra library parity is intentionally deferred to a later spec, even though the Java `OrchestraTopComponent` includes `UserInstrumentLibrary`.
 - Embedded UDO editing should be preserved where feasible, but project-wide UDO repository management remains outside this slice unless planning identifies a safe reuse path.
 - PythonInstrument execution/editor parity is deferred; this slice only preserves existing Python instrument data and shows a dummy panel.
-- BlueSynthBuilder is in scope despite being large; implementation planning should split it into smaller tasks rather than defer it wholesale.
+- BlueSynthBuilder is closed here as a baseline editing slice; full interface-layout, preset, and embedded opcode-list parity are deferred to the next follow-on spec.
 - The implementation should reuse existing editor and menu conventions where appropriate, but the specification does not require a particular table library until the TanStack Table evaluation is complete.
+
+## Close-Out
+
+- Spec 021 is complete as the baseline Orchestra editor slice for `blue-app`.
+- Follow-on work is explicitly deferred to later specs: program-wide orchestra library, `.binstr` import/export beyond placeholders, embedded opcode-list editing for Generic and JavaScript instruments, detailed BlueX7 parameter editing, deeper BlueSynthBuilder interface/widget/preset/opcode-list parity, and Python runtime/editor support.

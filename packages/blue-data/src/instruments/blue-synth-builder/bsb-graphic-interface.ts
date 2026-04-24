@@ -6,7 +6,7 @@
  */
 import { Element } from "../../serialization/xml-reader";
 import { BSBCompilationUnit } from "./bsb-compilation-unit";
-import { BSBGroup } from "./bsb-group";
+import { BSBGroup, loadBsbWidgetFromXML } from "./bsb-group";
 import { Parameter } from "../../automation/parameter";
 
 export class BSBGraphicInterface {
@@ -34,7 +34,27 @@ export class BSBGraphicInterface {
     const bsbObjects = data.getElements("bsbObject");
     while (bsbObjects.hasMoreElements()) {
       const objElem = bsbObjects.next();
-      this.rootGroup.loadFromXML(objElem);
+      const widget = loadBsbWidgetFromXML(objElem);
+      if (widget) {
+        this.rootGroup.addChild(widget);
+      }
     }
+  }
+
+  saveAsXML(): Element {
+    const elem = new Element("graphicInterface");
+    if (this.gridSettings) {
+      elem.addElement("gridSettings").setText(this.gridSettings);
+    }
+    for (const child of this.rootGroup.getChildren()) {
+      elem.addElement(child instanceof BSBGroup ? child.saveAsXML() : this.saveWidget(child));
+    }
+    return elem;
+  }
+
+  private saveWidget(widget: import("./bsb-widget").BSBWidget): Element {
+    const tempGroup = new BSBGroup();
+    tempGroup.addChild(widget);
+    return tempGroup.saveAsXML().getElement("bsbObject") ?? new Element("bsbObject");
   }
 }

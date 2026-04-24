@@ -6,11 +6,13 @@ import { Instrument } from './instrument';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 import { DeepCopyable } from '../deep-copyable';
+import { OpcodeList } from '../opcodes/opcode-list';
 
 export class GenericInstrument extends Instrument implements DeepCopyable<GenericInstrument> {
   private _text = '';
   private _globalOrc = '';
   private _globalSco = '';
+  private _opcodeList = new OpcodeList();
 
   constructor() {
     super();
@@ -22,7 +24,31 @@ export class GenericInstrument extends Instrument implements DeepCopyable<Generi
   }
 
   setText(text: string): void {
-    this._text = text;
+    this._text = text ?? '';
+  }
+
+  getGlobalOrc(): string {
+    return this._globalOrc;
+  }
+
+  setGlobalOrc(globalOrc: string): void {
+    this._globalOrc = globalOrc ?? '';
+  }
+
+  getGlobalSco(): string {
+    return this._globalSco;
+  }
+
+  setGlobalSco(globalSco: string): void {
+    this._globalSco = globalSco ?? '';
+  }
+
+  getOpcodeList(): OpcodeList {
+    return this._opcodeList;
+  }
+
+  setOpcodeList(opcodeList: OpcodeList): void {
+    this._opcodeList = opcodeList;
   }
 
   override generateGlobalOrc(): string | null {
@@ -40,24 +66,29 @@ export class GenericInstrument extends Instrument implements DeepCopyable<Generi
   // ─── XML ───
 
   saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('genericInstrument');
-    elem.setAttribute('name', this._name);
-    elem.setAttribute('enabled', this._enabled.toString());
-    elem.addElement('text').setText(this._text);
-    if (this._globalOrc) elem.addElement('globalOrc').setText(this._globalOrc);
-    if (this._globalSco) elem.addElement('globalSco').setText(this._globalSco);
+    const elem = new Element('instrument');
+    elem.setAttribute('type', 'blue.orchestra.GenericInstrument');
+    elem.addElement('name').setText(this._name);
+    elem.addElement('comment').setText(this._comment);
+    elem.addElement('globalOrc').setText(this._globalOrc);
+    elem.addElement('globalSco').setText(this._globalSco);
+    elem.addElement('instrumentText').setText(this._text);
+    elem.addElement(this._opcodeList.saveAsXML());
     return elem;
   }
 
   static loadFromXML(data: Element): GenericInstrument {
     const instr = new GenericInstrument();
-    instr.setName(data.getAttribute('name') ?? '');
+    instr.setName(data.getTextString('name') ?? data.getAttribute('name') ?? '');
+    instr.setComment(data.getTextString('comment') ?? '');
     instr.setEnabled(data.getAttribute('enabled') !== 'false');
-    instr.setText(data.getTextString('text') ?? '');
+    instr.setText(data.getTextString('instrumentText') ?? data.getTextString('text') ?? '');
     const go = data.getTextString('globalOrc');
-    if (go) (instr as any)._globalOrc = go;
+    if (go !== null) instr._globalOrc = go;
     const gs = data.getTextString('globalSco');
-    if (gs) (instr as any)._globalSco = gs;
+    if (gs !== null) instr._globalSco = gs;
+    const opcodeList = data.getElement('opcodeList');
+    if (opcodeList) instr._opcodeList = OpcodeList.loadFromXML(opcodeList);
     return instr;
   }
 
@@ -65,9 +96,11 @@ export class GenericInstrument extends Instrument implements DeepCopyable<Generi
     const copy = new GenericInstrument();
     copy._name = this._name;
     copy._enabled = this._enabled;
+    copy._comment = this._comment;
     copy._text = this._text;
     copy._globalOrc = this._globalOrc;
     copy._globalSco = this._globalSco;
+    copy._opcodeList = OpcodeList.loadFromXML(this._opcodeList.saveAsXML());
     return copy;
   }
 }

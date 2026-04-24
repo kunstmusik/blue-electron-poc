@@ -77,6 +77,7 @@ export interface SelectedCodeEditorProps {
   value: string;
   placeholder?: string;
   ariaLabel: string;
+  active?: boolean;
   readOnly?: boolean;
   dynamicCompletionProviders?: DynamicCsoundCompletionProvider[];
   javaBlueCompletionOptions?: JavaBlueCsoundCompletionOptions;
