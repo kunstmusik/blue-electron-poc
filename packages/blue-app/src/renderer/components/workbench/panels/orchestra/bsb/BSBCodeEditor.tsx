@@ -21,7 +21,7 @@ export default function BSBCodeEditor({
   onInstrumentPatch,
 }: SelectedInstrumentEditorProps & {
   instrument: BlueSynthBuilderInstrumentSnapshot;
-}): JSX.Element {
+}): React.ReactElement {
   const [activeTab, setActiveTab] = useState<BsbCodeTab>('instrumentText');
   const objectNamesSignature = instrument.objectNames.join('\u0000');
   const bsbReplacementKeys = useMemo(

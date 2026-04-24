@@ -8,7 +8,7 @@ interface InstrumentCommentsPanelProps {
 export default function InstrumentCommentsPanel({
   comment,
   onCommentChange,
-}: InstrumentCommentsPanelProps): JSX.Element {
+}: InstrumentCommentsPanelProps): React.ReactElement {
   return (
     <div className="flex h-full flex-col bg-blue-bg p-4">
       <textarea

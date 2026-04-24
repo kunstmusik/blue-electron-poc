@@ -2,10 +2,16 @@
 
 **Feature Branch**: `022-bsb-interface-parity`
 **Created**: 2026-04-24
-**Status**: Draft
+**Status**: Infrastructure Complete (Widget Rendering Deferred to SPEC 023)
 **Input**: User description: "Follow Spec 021 by implementing the missing BlueSynthBuilder widgets and interface editor parity, including the richer Java Blue interface surface, preset handling, and embedded opcode-list editing."
 
 ## User Scenarios & Testing *(mandatory)*
+
+### Current Implementation Notes
+
+- The current Electron prototype includes the BSB snapshot/patch plumbing, preset-group round-trip support, an editable interface canvas with selection, a synchronized property/grid sidebar shell, a preset application bar, and a Java-style split-view UDO editor (UDOTable + UDOEditor).
+- The implementation is below Java Blue parity in one major area: the Interface tab still renders placeholder-style widget boxes rather than real widget-specific controls and Java-like layout composition. Individual widget rendering (Slider, Knob, Toggle, SoundFile, etc.) is deferred to SPEC 023.
+- This slice establishes the BSB editing infrastructure (canvas, property sheet, grid settings, preset management, UDO table/editor) that SPEC 023 will build upon for widget-specific rendering.
 
 ### User Story 1 - Edit the BSB interface surface (Priority: P1)
 
@@ -53,6 +59,8 @@ As a composer working with an existing BlueSynthBuilder instrument, I need prese
 2. **Given** the BSB UDO tab is opened, **When** the user edits the embedded opcode list, **Then** the instrument retains the updated opcode-list data through save/reopen.
 3. **Given** a BSB instrument has no presets or no embedded UDOs, **When** the corresponding surfaces open, **Then** the UI shows a clear empty state rather than a broken editor.
 
+**Current gap**: the UDO surface currently exposes a text editor for embedded opcode-list contents, but it does not yet provide the Java-style split layout, opcode table management, or structured opcode editing fields for classic/modern UDO definitions.
+
 ---
 
 ### User Story 4 - Preserve unsupported BSB data safely (Priority: P2)
@@ -67,6 +75,8 @@ As a composer opening older or richer Java Blue projects, I need unsupported or 
 
 1. **Given** a BSB instrument contains a widget or preset structure the Electron port does not fully edit, **When** the user performs supported edits elsewhere, **Then** unsupported data is preserved rather than silently dropped.
 2. **Given** unsupported data blocks a specific editing affordance, **When** the user reaches that area, **Then** the UI communicates the limitation without breaking the rest of the editor.
+
+**Current gap**: unsupported BSB preservation exists only at a coarse snapshot/preserved-XML level. There is not yet a full Java-style editable/preserved hybrid rendering model for partially supported widget classes, grouped layouts, and preset metadata.
 
 ### Edge Cases
 
@@ -93,6 +103,12 @@ As a composer opening older or richer Java Blue projects, I need unsupported or 
 - **FR-010**: Interface edits that affect object names or widget values MUST remain synchronized with BSB code completions and generated instrument semantics in the existing Code tab workflow.
 - **FR-011**: Unsupported or partially ported BSB widgets, groups, or preset data MUST be preserved safely when users perform supported edits.
 - **FR-012**: The implementation MUST include automated coverage for interface rendering/editing, property updates, preset application, embedded opcode-list persistence, completion synchronization, and unsupported-data preservation.
+
+### Implementation Reality Check
+
+- FR-003, FR-005, and FR-006 are only partially satisfied: the current Interface tab has selection, layout editing, and property sheet infrastructure, but still renders generic widget placeholders rather than widget-specific controls (Slider, Knob, Toggle, etc.). Widget-specific rendering is deferred to SPEC 023.
+- FR-009 is satisfied: the UDO tab now provides a Java-style split-view editor with UDOTable and UDOEditor, supporting add/remove/copy/paste/move operations and structured UDO definition editing.
+- FR-011 is satisfied via raw-XML preservation and preserved-only indicators; unsupported widget/preset data round-trips safely even when not fully editable.
 
 ### Key Entities *(include if feature involves data)*
 

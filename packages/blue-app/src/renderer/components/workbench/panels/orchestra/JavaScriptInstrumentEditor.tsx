@@ -19,7 +19,7 @@ export default function JavaScriptInstrumentEditor({
   onInstrumentPatch,
 }: SelectedInstrumentEditorProps & {
   instrument: JavaScriptInstrumentSnapshot;
-}): JSX.Element {
+}): React.ReactElement {
   const [activeTab, setActiveTab] = useState<JavaScriptTab>('instrument');
 
   return (

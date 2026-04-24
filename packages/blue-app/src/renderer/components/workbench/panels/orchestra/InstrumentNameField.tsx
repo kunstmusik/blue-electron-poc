@@ -8,7 +8,7 @@ interface InstrumentNameFieldProps {
 export default function InstrumentNameField({
   name,
   onNameChange,
-}: InstrumentNameFieldProps): JSX.Element {
+}: InstrumentNameFieldProps): React.ReactElement {
   return (
     <label className="flex items-center gap-3 text-xs text-blue-muted">
       <span className="w-20 shrink-0 text-right">Name</span>

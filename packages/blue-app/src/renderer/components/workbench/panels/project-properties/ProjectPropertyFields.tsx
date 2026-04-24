@@ -9,7 +9,7 @@ function SectionCard({
   title: string;
   description?: string;
   children: ReactNode;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <section className="rounded-lg border border-blue-border bg-blue-surface/70 p-4">
       <div className="mb-4">
@@ -27,7 +27,7 @@ function FieldRow({
 }: {
   label: string;
   children: ReactNode;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <label className="grid grid-cols-[180px_minmax(0,1fr)] items-center gap-4">
       <span className="text-sm text-blue-muted">{label}</span>
@@ -48,7 +48,7 @@ function InputBase({
   onChange: (value: string) => void | Promise<void>;
   placeholder?: string;
   type?: string;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <input
       type={type}
@@ -71,7 +71,7 @@ function TextAreaBase({
   disabled: boolean;
   onChange: (value: string) => void | Promise<void>;
   placeholder?: string;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <textarea
       className="min-h-24 w-full rounded-md border border-blue-border bg-[#0d1524] px-3 py-2 text-sm text-gray-100 outline-none transition-colors placeholder:text-blue-muted focus:border-blue-accent disabled:cursor-not-allowed disabled:opacity-60"
@@ -91,7 +91,7 @@ function CheckboxBase({
   checked: boolean;
   disabled: boolean;
   onChange: (value: boolean) => void | Promise<void>;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <input
       type="checkbox"

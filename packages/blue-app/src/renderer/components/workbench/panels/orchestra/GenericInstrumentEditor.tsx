@@ -32,7 +32,7 @@ export default function GenericInstrumentEditor({
   onInstrumentPatch,
 }: SelectedInstrumentEditorProps & {
   instrument: GenericInstrumentSnapshot;
-}): JSX.Element {
+}): React.ReactElement {
   const [activeTab, setActiveTab] = useState<GenericTab>('instrument');
 
   return (

@@ -15,7 +15,7 @@ function ToolbarTextButton({
   title: string;
   onClick?: () => void | Promise<void>;
   children: ReactNode;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <button
       type="button"
@@ -32,7 +32,7 @@ function ToolbarTextButton({
   );
 }
 
-export default function ToolbarBlueLive(): JSX.Element {
+export default function ToolbarBlueLive(): React.ReactElement {
   const openPanel = useWorkbenchStore((s) => s.openPanel);
   const isBlueLiveOpen = useWorkbenchStore((s) => s.isPanelOpen('BlueLiveTopComponent'));
   const isMidiInputOpen = useWorkbenchStore((s) => s.isPanelOpen('MidiInputPanelTopComponent'));

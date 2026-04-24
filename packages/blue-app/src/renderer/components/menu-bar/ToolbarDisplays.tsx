@@ -16,7 +16,7 @@ import {
 const ToolbarDisplayCard = forwardRef<HTMLElement, ComponentPropsWithoutRef<'section'> & {
   title: string;
 }>(
-  ({ title, children, className = '', ...props }, ref): JSX.Element => (
+  ({ title, children, className = '', ...props }, ref): React.ReactElement => (
     <section
       ref={ref}
       className={`toolbar-display-card ${className}`.trim()}
@@ -38,7 +38,7 @@ function ContextMenuCheckItem({
   checked: boolean;
   onSelect: () => void;
   children: ReactNode;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <ContextMenu.CheckboxItem
       className="toolbar-context-menu__item"
@@ -71,7 +71,7 @@ function ToolbarFormatSubmenu({
   portalContainer?: HTMLElement;
   includeOff?: boolean;
   offLabel?: string;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <ContextMenu.Sub>
       <ContextMenu.SubTrigger className="toolbar-context-menu__item">
@@ -129,7 +129,7 @@ function ToolbarPlayheadMenu({
   secondaryMode: ToolbarDisplayMode;
   onPrimaryModeChange: (mode: ToolbarDisplayMode) => void;
   onSecondaryModeChange: (mode: ToolbarDisplayMode) => void;
-}): JSX.Element {
+}): React.ReactElement {
   const portalContainer = typeof document !== 'undefined' ? document.body : undefined;
 
   return (
@@ -165,7 +165,7 @@ function ToolbarPlayheadMenu({
   );
 }
 
-export default function ToolbarDisplays(): JSX.Element {
+export default function ToolbarDisplays(): React.ReactElement {
   const transport = useProjectStore((s) => s.transport);
   const status = usePlaybackStore((s) => s.status);
   const clock = usePlaybackStore((s) => s.clock);

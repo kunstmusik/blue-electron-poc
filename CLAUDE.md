@@ -3,8 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-04-24
 
 ## Active Technologies
-- TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + Existing `@blue/data` BlueSynthBuilder model and BSB widget classes, existing `@blue/app` Orchestra/BSB editor shell from Spec 021, Zustand 5.x project store, CodeMirror 6 BSB code editors, current renderer styling/utilities, and Java Blue BSB reference sources under `/Users/stevenyi/work/nbprojects/blue` (021-orchestra-editor)
-- Main-process in-memory `BlueData` remains canonical; renderer consumes serializable BSB interface/preset snapshots and dispatches explicit patch intents through the existing project document IPC bridge; `.blue` XML remains the persistence forma (021-orchestra-editor)
+- TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `PresetGroup`/`Preset` BSB preset model, Zustand 5.x project store with BSB interface/opcode-list patch support, Dockview 5.2.0, CodeMirror 6, `BsbInterfacePatch` union type for structured BSB mutations (022-bsb-interface-parity)
+- BSB Interface tab now renders an editable widget canvas with selection, property-sheet editing, grid settings, preset application, and Java-style split-view UDO editor (UDOTable + UDOEditor); snapshot contract extended with `widgetTree`, `gridSettings`, `editEnabled`, `presetGroup`, `opcodeListText`; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023 (022-bsb-interface-parity)
 
 - TypeScript 5.x, strict mode + `@rgrove/parse-xml` (XML parsing), `vitest` (testing), `esbuild` (bundling for Electron) 
 
@@ -32,4 +32,4 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
-- 021-orchestra-editor: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + Existing `@blue/data` BlueSynthBuilder model and BSB widget classes, existing `@blue/app` Orchestra/BSB editor shell from Spec 021, Zustand 5.x project store, CodeMirror 6 BSB code editors, current renderer styling/utilities, and Java Blue BSB reference sources under `/Users/stevenyi/work/nbprojects/blue`
+- 022-bsb-interface-parity: Added BSB editing infrastructure including editable interface canvas with selection, property-sheet editing, grid settings panel, preset application bar, Java-style split-view UDO editor (UDOTable + UDOEditor), preset model (PresetGroup/Preset), BSB interface/opcode-list patch support, and snapshot contract extensions; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023

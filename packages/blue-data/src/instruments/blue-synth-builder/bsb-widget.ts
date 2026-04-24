@@ -17,7 +17,8 @@ export abstract class BSBWidget {
   value = 0;
   minimum = 0;
   maximum = 1;
-  parameterName: string | null = null; // Links to automation parameter
+  parameterName: string | null = null;
+  id = ''; // Links to automation parameter
 
   /**
    * Collect this widget's replacement value into the compilation unit.

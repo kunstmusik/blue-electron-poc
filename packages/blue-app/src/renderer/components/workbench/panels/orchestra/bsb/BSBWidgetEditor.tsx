@@ -12,7 +12,7 @@ interface BSBWidgetEditorProps {
 export default function BSBWidgetEditor({
   widgets,
   onInstrumentPatch,
-}: BSBWidgetEditorProps): JSX.Element {
+}: BSBWidgetEditorProps): React.ReactElement {
   if (widgets.length === 0) {
     return (
       <div className="rounded border border-blue-border bg-[#0d1524] px-4 py-3 text-sm text-blue-muted">

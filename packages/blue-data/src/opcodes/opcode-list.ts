@@ -13,6 +13,43 @@ export class OpcodeList {
     this._opcodes.push(opcode);
   }
 
+  /**
+   * Add an opcode at a specific index. If index is out of bounds, appends.
+   */
+  addOpcodeAt(index: number, opcode: OpcodeDefinition): void {
+    if (index < 0 || index > this._opcodes.length) {
+      this._opcodes.push(opcode);
+    } else {
+      this._opcodes.splice(index, 0, opcode);
+    }
+  }
+
+  /**
+   * Remove the opcode at the specified index.
+   */
+  removeOpcodeAt(index: number): boolean {
+    if (index < 0 || index >= this._opcodes.length) return false;
+    this._opcodes.splice(index, 1);
+    return true;
+  }
+
+  /**
+   * Replace the opcode at the specified index.
+   */
+  replaceOpcodeAt(index: number, opcode: OpcodeDefinition): boolean {
+    if (index < 0 || index >= this._opcodes.length) return false;
+    this._opcodes[index] = opcode;
+    return true;
+  }
+
+  /**
+   * Clear all opcodes.
+   */
+  clear(): void {
+    this._opcodes = [];
+    this._counter = 0;
+  }
+
   size(): number {
     return this._opcodes.length;
   }

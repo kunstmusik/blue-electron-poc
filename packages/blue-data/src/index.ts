@@ -21,6 +21,8 @@ export { JavaScriptInstrument } from './instruments/javascript-instrument';
 export { PythonInstrument } from './instruments/python-instrument';
 export { BlueX7 } from './instruments/blue-x7';
 export { BlueSynthBuilder } from './instruments/blue-synth-builder';
+export { PresetGroup } from './instruments/blue-synth-builder/preset-group';
+export { Preset } from './instruments/blue-synth-builder/preset';
 export { InstrumentAssignment } from './instruments/instrument-assignment';
 export { InstrumentLibrary } from './instruments/instrument-library';
 

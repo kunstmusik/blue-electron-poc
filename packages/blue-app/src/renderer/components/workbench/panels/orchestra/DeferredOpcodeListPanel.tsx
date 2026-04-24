@@ -6,7 +6,7 @@ interface DeferredOpcodeListPanelProps {
 
 export default function DeferredOpcodeListPanel({
   message,
-}: DeferredOpcodeListPanelProps): JSX.Element {
+}: DeferredOpcodeListPanelProps): React.ReactElement {
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg p-4">
       <div className="rounded-lg border border-blue-border bg-blue-surface/50 px-4 py-3">

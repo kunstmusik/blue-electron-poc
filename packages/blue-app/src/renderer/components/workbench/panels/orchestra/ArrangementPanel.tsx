@@ -20,7 +20,7 @@ function AddButton({
   label: string;
   instrumentType: SupportedNewInstrumentType;
   onAdd: (instrumentType: SupportedNewInstrumentType) => void;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <button
       type="button"
@@ -37,7 +37,7 @@ export default function ArrangementPanel({
   selectedAssignmentId,
   onSelectAssignment,
   onOrchestraPatch,
-}: ArrangementPanelProps): JSX.Element {
+}: ArrangementPanelProps): React.ReactElement {
   const [clipboardInstrument, setClipboardInstrument] = useState<InstrumentSnapshot | null>(null);
   const columns = useMemo(
     () =>

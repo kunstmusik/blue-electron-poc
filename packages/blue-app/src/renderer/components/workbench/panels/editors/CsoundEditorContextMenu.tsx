@@ -174,7 +174,7 @@ export default function CsoundEditorContextMenu({
   editorViewRef,
   menuItems,
   clipboardBridge,
-}: CsoundEditorContextMenuProps): JSX.Element {
+}: CsoundEditorContextMenuProps): React.ReactElement {
   const portalContainer = useMemo(() => getPortalContainer(), []);
 
   return (

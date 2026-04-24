@@ -10,7 +10,7 @@ import { useProjectStore } from '../../stores/project-store';
  * - Virtualized rendering for large projects (@tanstack/react-virtual)
  * - Zoom, scroll, selection, drag-and-drop
  */
-export default function ScoreTimeline(): JSX.Element {
+export default function ScoreTimeline(): React.ReactElement {
   const title = useProjectStore((s) => s.title);
 
   return (

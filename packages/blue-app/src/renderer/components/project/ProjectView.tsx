@@ -2,7 +2,7 @@ import { useProjectStore } from '../../stores/project-store';
 import ProjectMetadata from './ProjectMetadata';
 import ScoreTimeline from './ScoreTimeline';
 
-export default function ProjectView(): JSX.Element {
+export default function ProjectView(): React.ReactElement {
   const title = useProjectStore((s) => s.title);
   const isLoading = useProjectStore((s) => s.isLoading);
 

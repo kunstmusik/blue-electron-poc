@@ -102,7 +102,7 @@ function applyProjectFixture(fixture: ProjectEditorPanelFixture = {}): void {
 }
 
 function renderProjectPanelMarkup(
-  Component: () => JSX.Element,
+  Component: () => React.ReactElement,
   fixture: ProjectEditorPanelFixture = {},
 ): string {
   applyProjectFixture(fixture);

@@ -47,7 +47,7 @@ export default function SplitPane({
   initialSplit = 0.5,
   minFirstSize = 240,
   minSecondSize = 240,
-}: SplitPaneProps): JSX.Element {
+}: SplitPaneProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const dragCleanupRef = useRef<(() => void) | null>(null);
   const [containerSize, setContainerSize] = useState(0);

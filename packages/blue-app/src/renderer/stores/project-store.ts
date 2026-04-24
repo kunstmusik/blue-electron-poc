@@ -247,7 +247,133 @@ function updateInstrumentSnapshot(
         return value === undefined ? widget : { ...widget, value };
       });
     }
+    if (patch.bsbOpcodeListText !== undefined) {
+      instrument.opcodeListText = patch.bsbOpcodeListText;
+    }
+    if (patch.bsbInterface) {
+      applyBsbInterfacePatchToSnapshot(instrument, patch.bsbInterface);
+    }
   }
+}
+
+function applyBsbInterfacePatchToSnapshot(
+  instrument: import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot,
+  patch: import('../../shared/project-editor').BsbInterfacePatch,
+): void {
+  switch (patch.type) {
+    case 'setEditEnabled':
+      instrument.editEnabled = patch.value;
+      break;
+    case 'selectWidget':
+      break;
+    case 'updateWidgetProperties': {
+      if (!instrument.widgetTree) break;
+      const updateNode = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+        if (node.id === patch.widgetId) {
+          for (const [key, value] of Object.entries(patch.properties)) {
+            switch (key) {
+              case 'objectName': node.objectName = value as string; break;
+              case 'x': node.x = value as number; break;
+              case 'y': node.y = value as number; break;
+              case 'width': node.width = value as number; break;
+              case 'height': node.height = value as number; break;
+              default: node.properties[key] = value; break;
+            }
+          }
+          if (patch.properties.objectName !== undefined) {
+            instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
+            instrument.widgets = instrument.widgets.map((w) =>
+              w.objectName === patch.properties.objectName ? { ...w, objectName: patch.properties.objectName as string } : w
+            );
+          }
+          return true;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            if (updateNode(child)) return true;
+          }
+        }
+        return false;
+      };
+      updateNode(instrument.widgetTree);
+      break;
+    }
+    case 'moveWidget': {
+      if (!instrument.widgetTree) break;
+      const moveNode = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+        if (node.id === patch.widgetId) {
+          node.x = patch.x;
+          node.y = patch.y;
+          return true;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            if (moveNode(child)) return true;
+          }
+        }
+        return false;
+      };
+      moveNode(instrument.widgetTree);
+      break;
+    }
+    case 'resizeWidget': {
+      if (!instrument.widgetTree) break;
+      const resizeNode = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+        if (node.id === patch.widgetId) {
+          node.width = patch.width;
+          node.height = patch.height;
+          return true;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            if (resizeNode(child)) return true;
+          }
+        }
+        return false;
+      };
+      resizeNode(instrument.widgetTree);
+      break;
+    }
+    case 'updateGridSettings':
+      instrument.gridSettings = { ...instrument.gridSettings, ...patch.patch };
+      break;
+    case 'applyPreset':
+      if (instrument.presetGroup) {
+        instrument.presetGroup.currentPresetUniqueId = patch.presetUniqueId;
+        instrument.presetGroup.currentPresetModified = false;
+      }
+      break;
+    case 'updatePreset':
+      if (instrument.presetGroup) {
+        instrument.presetGroup.currentPresetModified = false;
+      }
+      break;
+    case 'addPreset':
+      // Optimistic update - actual preset creation happens on main process
+      if (instrument.presetGroup) {
+        instrument.presetGroup.currentPresetModified = false;
+      }
+      break;
+    case 'addPresetGroup':
+      // Optimistic update - actual group creation happens on main process
+      break;
+    case 'synchronizePresets':
+      // Optimistic update - actual sync happens on main process
+      break;
+    case 'updateEmbeddedOpcodeList':
+      instrument.opcodeListText = patch.opcodeList;
+      break;
+  }
+}
+
+function collectObjectNamesFromTree(node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): string[] {
+  const names: string[] = [];
+  const visit = (n: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+    if (n.objectName) names.push(n.objectName);
+    if (n.children) n.children.forEach(visit);
+  };
+  if (node.children) node.children.forEach(visit);
+  return names.sort();
 }
 
 function applyOrchestraPatchSnapshot(

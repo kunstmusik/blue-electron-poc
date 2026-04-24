@@ -1,6 +1,6 @@
 import { useProjectStore } from '../../stores/project-store';
 
-export default function ProjectMetadata(): JSX.Element {
+export default function ProjectMetadata(): React.ReactElement {
   const title = useProjectStore((s) => s.title);
   const author = useProjectStore((s) => s.author);
   const sampleRate = useProjectStore((s) => s.sampleRate);

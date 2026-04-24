@@ -12,7 +12,7 @@ export default function RealtimeRenderTab({
   disabled,
   properties,
   updateProjectProperties,
-}: ProjectPropertiesTabProps): JSX.Element {
+}: ProjectPropertiesTabProps): React.ReactElement {
   return (
     <div className="space-y-4">
       <SectionCard

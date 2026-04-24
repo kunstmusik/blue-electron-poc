@@ -5,9 +5,13 @@ import {
   GenericInstrument,
   Instrument,
   JavaScriptInstrument,
+  OpcodeDefinition,
+  Preset,
+  PresetGroup,
   ProjectProperties,
   PythonInstrument,
   TempoMap,
+  UDOStyle,
 } from '@blue/data';
 
 export type TempoCurveTypeSnapshot = 'constant' | 'linear';
@@ -180,6 +184,22 @@ export interface BlueSynthBuilderInstrumentSnapshot extends InstrumentSnapshotBa
   globalSco: string;
   objectNames: string[];
   widgets: BsbWidgetSnapshot[];
+  editEnabled: boolean;
+  gridSettings: GridSettingsSnapshot;
+  widgetTree: BsbWidgetNodeSnapshot | null;
+  presetGroup?: PresetGroupSnapshot;
+  opcodeListText?: string;
+  udolist?: UdoDefinitionSnapshot[];
+}
+
+export interface UdoDefinitionSnapshot {
+  name: string;
+  style: 'CLASSIC' | 'MODERN';
+  outTypes: string;
+  inTypes: string;
+  inputArguments: string;
+  code: string;
+  comments: string;
 }
 
 export interface BsbWidgetSnapshot {
@@ -189,6 +209,58 @@ export interface BsbWidgetSnapshot {
   minimum: number;
   maximum: number;
 }
+
+export interface GridSettingsSnapshot {
+  enabled: boolean;
+  snapEnabled: boolean;
+  width: number;
+  height: number;
+}
+
+export interface BsbWidgetNodeSnapshot {
+  id: string;
+  type: string;
+  objectName: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  editable: boolean;
+  preservedOnly?: boolean;
+  properties: Record<string, string | number | boolean | null>;
+  children?: BsbWidgetNodeSnapshot[];
+}
+
+export interface PresetGroupSnapshot {
+  name: string;
+  currentPresetUniqueId?: string;
+  currentPresetModified: boolean;
+  subGroups: PresetGroupSnapshot[];
+  presets: PresetSnapshot[];
+}
+
+export interface PresetSnapshot {
+  uniqueId: string;
+  name: string;
+}
+
+export type BsbInterfacePatch =
+  | { type: 'setEditEnabled'; value: boolean }
+  | { type: 'selectWidget'; widgetId?: string }
+  | { type: 'updateWidgetProperties'; widgetId: string; properties: Record<string, string | number | boolean | null> }
+  | { type: 'moveWidget'; widgetId: string; x: number; y: number }
+  | { type: 'resizeWidget'; widgetId: string; width: number; height: number }
+  | { type: 'updateGridSettings'; patch: Partial<GridSettingsSnapshot> }
+  | { type: 'applyPreset'; presetUniqueId: string }
+  | { type: 'updatePreset'; presetUniqueId: string }
+  | { type: 'addPreset'; presetName: string; presetGroupPath?: string }
+  | { type: 'addPresetGroup'; groupName: string; parentGroupPath?: string }
+  | { type: 'synchronizePresets' }
+  | { type: 'updateEmbeddedOpcodeList'; opcodeList: string }
+  | { type: 'addUdo'; index?: number; definition?: UdoDefinitionSnapshot }
+  | { type: 'removeUdo'; index: number }
+  | { type: 'updateUdo'; index: number; patch: Partial<UdoDefinitionSnapshot> }
+  | { type: 'reorderUdo'; from: number; to: number };
 
 export interface UnknownInstrumentSnapshot extends InstrumentSnapshotBase {
   type: 'unknown';
@@ -230,6 +302,8 @@ export type InstrumentPatch = Partial<{
   globalOrc: string;
   globalSco: string;
   bsbWidgetValues: Record<string, number>;
+  bsbOpcodeListText: string;
+  bsbInterface: BsbInterfacePatch;
 }>;
 
 export type OrchestraPatch =
@@ -522,7 +596,7 @@ function collectBsbWidgets(bsb: BlueSynthBuilder): BsbWidgetSnapshot[] {
     }
     const children =
       typeof record.getChildren === 'function'
-        ? (record.getChildren as () => unknown)()
+        ? (record.getChildren as () => unknown[]).call(node)
         : record.children ?? record._children;
     if (Array.isArray(children)) {
       children.forEach(visit);
@@ -535,6 +609,137 @@ function collectBsbWidgets(bsb: BlueSynthBuilder): BsbWidgetSnapshot[] {
 
 function collectBsbObjectNames(bsb: BlueSynthBuilder): string[] {
   return collectBsbWidgets(bsb).map((widget) => widget.objectName);
+}
+
+const KNOWN_WIDGET_TYPES = new Set([
+  'BSBKnob', 'BSBCheckBox', 'BSBHSlider', 'BSBVSlider',
+  'BSBHSliderBank', 'BSBVSliderBank', 'BSBValue', 'BSBDropdown',
+  'BSBXYController', 'BSBSubChannelDropdown', 'BSBFileSelector',
+  'BSBTextField', 'BSBLabel', 'BSBLineObject', 'BSBGroup',
+]);
+
+function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
+  if (!widget || typeof widget !== 'object') return null;
+  const record = widget as Record<string, unknown>;
+
+  const id = typeof record.id === 'string' ? record.id : '';
+  if (!id) return null;
+
+  const ctorName = typeof record.constructor === 'function' && 'name' in record.constructor
+    ? String(record.constructor.name)
+    : 'Unknown';
+
+  const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
+
+  const properties: Record<string, string | number | boolean | null> = {};
+  for (const [key, val] of Object.entries(record)) {
+    if (['id', 'objectName', 'x', 'y', 'value', 'minimum', 'maximum', 'parameterName', '_children', 'children', 'stringChannel'].includes(key)) continue;
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
+      properties[key] = val as string | number | boolean | null;
+    }
+  }
+
+  const getChildren = record.getChildren;
+  const childArray = typeof getChildren === 'function' ? (getChildren as () => unknown[]).call(widget) : [];
+  const children: BsbWidgetNodeSnapshot[] = [];
+  if (Array.isArray(childArray)) {
+    for (const child of childArray) {
+      const node = buildWidgetTreeNode(child);
+      if (node) children.push(node);
+    }
+  }
+
+  const width = typeof record.knobWidth === 'number' ? record.knobWidth
+    : typeof record.sliderWidth === 'number' ? record.sliderWidth
+    : typeof record.width === 'number' ? record.width
+    : ctorName === 'BSBGroup' ? (typeof record._width === 'number' ? record._width : 200)
+    : 60;
+
+  const height = typeof record.knobHeight === 'number' ? record.knobHeight
+    : typeof record.sliderHeight === 'number' ? record.sliderHeight
+    : typeof record.height === 'number' ? record.height
+    : ctorName === 'BSBGroup' ? (typeof record._height === 'number' ? record._height : 100)
+    : 24;
+
+  return {
+    id,
+    type: ctorName,
+    objectName: typeof record.objectName === 'string' ? record.objectName : '',
+    x: typeof record.x === 'number' ? record.x : 0,
+    y: typeof record.y === 'number' ? record.y : 0,
+    width,
+    height,
+    editable: !preservedOnly,
+    preservedOnly,
+    properties,
+    children: children.length > 0 ? children : undefined,
+  };
+}
+
+function buildWidgetTreeSnapshot(bsb: BlueSynthBuilder): BsbWidgetNodeSnapshot | null {
+  const rootGroup = bsb.getGraphicInterface().getRootGroup();
+  const rootChildren = rootGroup.getChildren();
+  if (rootChildren.length === 0) return null;
+
+  const children: BsbWidgetNodeSnapshot[] = [];
+  for (const child of rootChildren) {
+    const node = buildWidgetTreeNode(child);
+    if (node) children.push(node);
+  }
+
+  return {
+    id: rootGroup.id || 'root',
+    type: 'BSBRootGroup',
+    objectName: '',
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    editable: true,
+    properties: {},
+    children,
+  };
+}
+
+function buildGridSettingsSnapshot(bsb: BlueSynthBuilder): GridSettingsSnapshot {
+  const gs = bsb.getGraphicInterface().getGridSettings();
+  return {
+    enabled: gs.enabled,
+    snapEnabled: gs.snapEnabled,
+    width: gs.width,
+    height: gs.height,
+  };
+}
+
+function buildPresetGroupSnapshot(bsb: import('@blue/data').BlueSynthBuilder): PresetGroupSnapshot | undefined {
+  const pg = bsb.getPresetGroup();
+  if (!pg) return undefined;
+
+  const convert = (group: import('@blue/data').PresetGroup): PresetGroupSnapshot => ({
+    name: group.getPresetGroupName(),
+    currentPresetUniqueId: group.getCurrentPresetUniqueId() || undefined,
+    currentPresetModified: group.isCurrentPresetModified(),
+    subGroups: group.getSubGroups().map(convert),
+    presets: group.getPresets().map((p) => ({
+      uniqueId: p.getUniqueId(),
+      name: p.getPresetName(),
+    })),
+  });
+
+  return convert(pg);
+}
+
+function buildUdoListSnapshot(bsb: import('@blue/data').BlueSynthBuilder): UdoDefinitionSnapshot[] {
+  const udos = bsb.getUdoList();
+  return udos.map((udo: import('@blue/data').OpcodeDefinition) => ({
+    name: udo.getName(),
+    style: udo.getStyle(),
+    outTypes: udo.getOutTypes(),
+    inTypes: udo.getInTypes(),
+    inputArguments: udo.getInputArguments(),
+    code: udo.getCode(),
+    comments: udo.getComments(),
+  }));
 }
 
 export function createInstrumentSnapshot(
@@ -604,6 +809,12 @@ export function createInstrumentSnapshot(
       globalSco: instrument.getGlobalSco(),
       objectNames: collectBsbObjectNames(instrument),
       widgets: collectBsbWidgets(instrument),
+      editEnabled: instrument.getGraphicInterface().isEditEnabled(),
+      gridSettings: buildGridSettingsSnapshot(instrument),
+      widgetTree: buildWidgetTreeSnapshot(instrument),
+      presetGroup: buildPresetGroupSnapshot(instrument),
+      opcodeListText: instrument.getOpcodeListText(),
+      udolist: buildUdoListSnapshot(instrument),
     };
   }
 
@@ -701,6 +912,98 @@ function createInstrumentFromSnapshot(snapshot: InstrumentSnapshot): Instrument 
   return instrument;
 }
 
+function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfacePatch): boolean {
+  switch (patch.type) {
+    case 'setEditEnabled':
+      instrument.setBsbEditEnabled(patch.value);
+      return true;
+    case 'selectWidget':
+      return false;
+    case 'updateWidgetProperties':
+      return instrument.updateWidgetProperties(patch.widgetId, patch.properties);
+    case 'moveWidget':
+      return instrument.updateWidgetProperties(patch.widgetId, {
+        x: patch.x,
+        y: patch.y,
+      });
+    case 'resizeWidget':
+      return instrument.updateWidgetProperties(patch.widgetId, {
+        width: patch.width,
+        height: patch.height,
+      });
+    case 'updateGridSettings':
+      instrument.setBsbGridSettings(patch.patch);
+      return true;
+    case 'applyPreset':
+      return instrument.applyPreset(patch.presetUniqueId);
+    case 'updatePreset': {
+      const presetGroup = instrument.getPresetGroup();
+      if (!presetGroup) return false;
+      const preset = presetGroup.findPresetByUniqueId(patch.presetUniqueId);
+      if (!preset) return false;
+      preset.updatePresets(instrument.getGraphicInterface());
+      presetGroup.setCurrentPresetModified(false);
+      return true;
+    }
+    case 'addPreset': {
+      const presetGroup = instrument.getPresetGroup();
+      if (!presetGroup) return false;
+      const preset = new Preset();
+      preset.updatePresets(instrument.getGraphicInterface());
+      preset.setPresetName(patch.presetName);
+      preset['uniqueId'] = crypto.randomUUID();
+      presetGroup.getPresets().push(preset);
+      presetGroup.getPresets().sort((a, b) => a.getPresetName().localeCompare(b.getPresetName()));
+      presetGroup.setCurrentPresetUniqueId(preset.getUniqueId());
+      presetGroup.setCurrentPresetModified(false);
+      return true;
+    }
+    case 'addPresetGroup': {
+      const presetGroup = instrument.getPresetGroup();
+      if (!presetGroup) return false;
+      const newFolder = new PresetGroup();
+      newFolder.setPresetGroupName(patch.groupName);
+      presetGroup.getSubGroups().push(newFolder);
+      presetGroup.getSubGroups().sort((a, b) => a.getPresetGroupName().localeCompare(b.getPresetGroupName()));
+      return true;
+    }
+    case 'synchronizePresets': {
+      const presetGroup = instrument.getPresetGroup();
+      if (!presetGroup) return false;
+      // TODO: Implement synchronizePresets functionality
+      return false;
+    }
+    case 'updateEmbeddedOpcodeList':
+      instrument.setOpcodeListText(patch.opcodeList);
+      return true;
+    case 'addUdo': {
+      if (!patch.definition) {
+        return instrument.addUdo(patch.index, undefined);
+      }
+      const definition = new OpcodeDefinition();
+      definition.setName(patch.definition.name);
+      definition.setStyle(UDOStyle[patch.definition.style as keyof typeof UDOStyle]);
+      definition.setOutTypes(patch.definition.outTypes);
+      definition.setInTypes(patch.definition.inTypes);
+      definition.setInputArguments(patch.definition.inputArguments);
+      definition.setCode(patch.definition.code);
+      definition.setComments(patch.definition.comments);
+      return instrument.addUdo(patch.index, definition);
+    }
+    case 'removeUdo':
+      return instrument.removeUdo(patch.index);
+    case 'updateUdo': {
+      const convertedPatch: Record<string, unknown> = { ...patch.patch };
+      if (patch.patch.style !== undefined) {
+        convertedPatch.style = UDOStyle[patch.patch.style as keyof typeof UDOStyle];
+      }
+      return instrument.updateUdo(patch.index, convertedPatch as Parameters<typeof instrument.updateUdo>[1]);
+    }
+    case 'reorderUdo':
+      return instrument.reorderUdo(patch.from, patch.to);
+  }
+}
+
 function applyInstrumentPatch(instrument: Instrument, patch: InstrumentPatch): boolean {
   let changed = false;
   if (patch.name !== undefined && instrument.getName() !== patch.name) {
@@ -769,6 +1072,13 @@ function applyInstrumentPatch(instrument: Instrument, patch: InstrumentPatch): b
       for (const [objectName, value] of Object.entries(patch.bsbWidgetValues)) {
         changed = instrument.updateWidgetValue(objectName, value) || changed;
       }
+    }
+    if (patch.bsbOpcodeListText !== undefined && instrument.getOpcodeListText() !== patch.bsbOpcodeListText) {
+      instrument.setOpcodeListText(patch.bsbOpcodeListText);
+      changed = true;
+    }
+    if (patch.bsbInterface) {
+      changed = applyBsbInterfacePatch(instrument, patch.bsbInterface) || changed;
     }
   }
 

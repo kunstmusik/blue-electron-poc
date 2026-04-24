@@ -1,7 +1,7 @@
 import { FolderOpen } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settings-store';
 
-export default function WelcomeScreen(): JSX.Element {
+export default function WelcomeScreen(): React.ReactElement {
   const recentFiles = useSettingsStore((s) => s.recentFiles);
   const removeRecentFile = useSettingsStore((s) => s.removeRecentFile);
   const openFile = useSettingsStore((s) => s.openFile);

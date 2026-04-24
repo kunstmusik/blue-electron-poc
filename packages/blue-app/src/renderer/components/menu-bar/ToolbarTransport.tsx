@@ -14,9 +14,9 @@ function ToolbarIconButton({
   active?: boolean;
   disabled?: boolean;
   title: string;
-  children: JSX.Element;
+  children: React.ReactElement;
   onClick?: () => void | Promise<void>;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <button
       type="button"
@@ -33,7 +33,7 @@ function ToolbarIconButton({
   );
 }
 
-export default function ToolbarTransport(): JSX.Element {
+export default function ToolbarTransport(): React.ReactElement {
   const hasProject = useProjectStore((s) => s.filePath !== null);
   const isLoading = useProjectStore((s) => s.isLoading);
   const loopRendering = useProjectStore((s) => s.transport.loopRendering);

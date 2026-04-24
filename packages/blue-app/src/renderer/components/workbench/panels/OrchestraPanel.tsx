@@ -5,7 +5,7 @@ import InstrumentEditorPanel from './orchestra/InstrumentEditorPanel';
 import SplitPane from './orchestra/SplitPane';
 import TemporaryInstrumentLibraryPanel from './orchestra/TemporaryInstrumentLibraryPanel';
 
-function EmptyOrchestraState(): JSX.Element {
+function EmptyOrchestraState(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center bg-blue-bg px-6 text-center text-blue-muted">
       <div className="max-w-md rounded-lg border border-blue-border bg-blue-surface/70 px-6 py-5">
@@ -18,7 +18,7 @@ function EmptyOrchestraState(): JSX.Element {
   );
 }
 
-export default function OrchestraPanel(): JSX.Element {
+export default function OrchestraPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const orchestra = useProjectStore((state) => state.orchestra);
   const updateOrchestra = useProjectStore((state) => state.updateOrchestra);

@@ -4,7 +4,7 @@ import ToolbarBlueLive from './ToolbarBlueLive';
 import ToolbarDisplays from './ToolbarDisplays';
 import ToolbarTransport from './ToolbarTransport';
 
-export default function MainToolbar(): JSX.Element {
+export default function MainToolbar(): React.ReactElement {
   return (
     <header className="toolbar-shell">
       <ToolbarTransport />

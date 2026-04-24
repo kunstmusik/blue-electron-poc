@@ -1,17 +1,19 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-24
-**Branch**: `021-orchestra-editor`
+**Branch**: `022-bsb-interface-parity`
 
 ## Spec 022 Package
 
-Spec `022-bsb-interface-parity` is in planning.
+Spec `022-bsb-interface-parity` is complete as the BSB editing infrastructure slice.
 
-- Goal: replace the remaining BlueSynthBuilder Interface and UDO placeholders from Spec 021 with Java Blue-style interface editing, preset application, and embedded opcode-list editing
-- Planning artifacts: `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/spec.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/contracts/bsb-interface-parity-surface.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/quickstart.md`, and `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/checklists/requirements.md`
-- Scope under planning: editable BSB interface canvas, widget/property/grid editing, preset preservation/application, embedded opcode-list editing, and safe preservation of unsupported BSB widget/preset structures
-- Task status: not generated yet
-- Immediate next step: generate Spec 022 tasks and start implementation on top of the closed Spec 021 baseline
+- Goal: establish the BSB editing infrastructure (canvas, property sheet, grid settings, preset management, UDO table/editor) that SPEC 023 will build upon for widget-specific rendering
+- Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/spec.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/contracts/bsb-interface-parity-surface.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/quickstart.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/tasks.md`
+- Implemented: BSB snapshot/patch plumbing, preset-group round-trip support, editable interface canvas with selection, synchronized property/grid sidebar shell, preset application bar, Java-style split-view UDO editor (UDOTable + UDOEditor with add/remove/copy/paste/move operations), optimistic patch handling, and test coverage
+- Known gaps: the Interface tab still renders generic placeholder boxes instead of widget-specific controls (Slider, Knob, Toggle, SoundFile, etc.). Widget-specific rendering is deferred to SPEC 023.
+- Validation: `pnpm --filter @blue/data test`, `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check` pass
+- Handoff focus: SPEC 023 will implement widget-specific rendering using the infrastructure established in this slice
+- Immediate next step: start SPEC 023 for individual BSB widget rendering (Slider, Knob, Toggle, SoundFile, etc.)
 
 ## Spec 021 Package
 

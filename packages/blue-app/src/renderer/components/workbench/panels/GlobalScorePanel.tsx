@@ -2,7 +2,7 @@ import React from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import ProjectTextEditorPanel from './ProjectTextEditorPanel';
 
-export default function GlobalScorePanel(): JSX.Element {
+export default function GlobalScorePanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const globalSco = useProjectStore((state) => state.globalSco);
   const updateGlobalSco = useProjectStore((state) => state.updateGlobalSco);

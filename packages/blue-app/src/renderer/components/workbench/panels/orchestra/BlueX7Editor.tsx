@@ -8,7 +8,7 @@ export default function BlueX7Editor({
   onInstrumentPatch,
 }: SelectedInstrumentEditorProps & {
   instrument: BlueX7InstrumentSnapshot;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <div className="flex h-full flex-col bg-blue-bg">
       <div className="border-b border-blue-border bg-[#10192a] px-3 py-2">

@@ -16,7 +16,7 @@ export default function ProjectTextEditorPanel({
   emptyDescription,
   disabled,
   onChange,
-}: ProjectTextEditorPanelProps): JSX.Element {
+}: ProjectTextEditorPanelProps): React.ReactElement {
   if (disabled) {
     return (
       <div className="flex h-full flex-col bg-blue-bg text-gray-100">

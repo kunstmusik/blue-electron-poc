@@ -3,7 +3,7 @@ import { useProjectStore } from '../../../stores/project-store';
 import ProjectTextEditorPanel from './ProjectTextEditorPanel';
 import SelectedCodeEditor from './editors/SelectedCodeEditor';
 
-export default function GlobalOrchestraPanel(): JSX.Element {
+export default function GlobalOrchestraPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const globalOrc = useProjectStore((state) => state.globalOrc);
   const updateGlobalOrc = useProjectStore((state) => state.updateGlobalOrc);

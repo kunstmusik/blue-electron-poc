@@ -123,6 +123,7 @@ const COMMON_WIDGET_FIELDS = new Set([
 const SKIPPED_WIDGET_FIELDS = new Set([
   '_children',
   'stringChannel',
+  'id',
 ]);
 
 function getWidgetXmlType(widget: BSBWidget): string {

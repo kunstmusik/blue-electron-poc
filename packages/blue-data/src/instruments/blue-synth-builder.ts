@@ -18,6 +18,35 @@ import {
   BSBFileSelector,
 } from "./blue-synth-builder/bsb-file-selector";
 import { OpcodeList } from "../opcodes/opcode-list";
+import { PresetGroup } from "./blue-synth-builder/preset-group";
+import { Preset } from "./blue-synth-builder/preset";
+import { OpcodeDefinition } from "../opcodes/opcode-definition";
+import { UDOStyle } from "../opcodes/udo-style";
+
+function parseUdoBlock(
+  block: string,
+  OpcodeDef: typeof OpcodeDefinition,
+  style: typeof UDOStyle,
+): OpcodeDefinition | null {
+  const lines = block.split("\n").map((l) => l.trim());
+  if (lines.length < 3) return null;
+  const headerIdx = lines.findIndex((l) => l.startsWith("opcode "));
+  if (headerIdx < 0) return null;
+  const header = lines[headerIdx];
+  const endIdx = lines.findIndex((l, i) => i > headerIdx && l.startsWith("endop"));
+  const codeLines = endIdx > headerIdx ? lines.slice(headerIdx + 1, endIdx) : lines.slice(headerIdx + 1);
+
+  const match = header.match(/^opcode\s+(\w+),\s*([^,]*),\s*(.*)$/);
+  if (!match) return null;
+
+  const udo = new OpcodeDef();
+  udo.setName(match[1]);
+  udo.setOutTypes(match[2].trim());
+  udo.setInTypes(match[3].trim());
+  udo.setStyle(style.MODERN);
+  udo.setCode(codeLines.join("\n"));
+  return udo;
+}
 
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = "";
@@ -28,6 +57,7 @@ export class BlueSynthBuilder extends Instrument {
   private _graphicInterfaceXML: Element | null = null;
   private _parameters: Parameter[] = [];
   private _opcodeList = new OpcodeList();
+  private _presetGroup: PresetGroup | null = null;
 
   constructor(other?: BlueSynthBuilder) {
     super();
@@ -147,6 +177,190 @@ export class BlueSynthBuilder extends Instrument {
     this._opcodeList = opcodeList;
   }
 
+  getOpcodeListText(): string {
+    return this._opcodeList.toString();
+  }
+
+  setOpcodeListText(text: string): void {
+    const lines = text.split("\n");
+    const newList = new OpcodeList();
+    let current: string[] = [];
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("opcode") && trimmed.includes(",") && !current.some((l) => l.trim().startsWith("opcode"))) {
+        if (current.length > 0) {
+          const udo = parseUdoBlock(current.join("\n"), OpcodeDefinition, UDOStyle);
+          if (udo) newList.addOpcode(udo);
+        }
+        current = [line];
+      } else {
+        current.push(line);
+      }
+    }
+    if (current.length > 0) {
+      const udo = parseUdoBlock(current.join("\n"), OpcodeDefinition, UDOStyle);
+      if (udo) newList.addOpcode(udo);
+    }
+    this._opcodeList = newList;
+  }
+
+  /**
+   * Get all UDO definitions as a structured array.
+   */
+  getUdoList(): OpcodeDefinition[] {
+    return this._opcodeList.getOpcodes();
+  }
+
+  /**
+   * Add a new UDO at the specified index (or append if index is out of bounds).
+   */
+  addUdo(index?: number, definition?: OpcodeDefinition): boolean {
+    const udo = definition ?? new OpcodeDefinition();
+    if (index === undefined || index < 0 || index > this._opcodeList.size()) {
+      this._opcodeList.addOpcode(udo);
+    } else {
+      this._opcodeList.addOpcodeAt(index, udo);
+    }
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  /**
+   * Remove the UDO at the specified index.
+   */
+  removeUdo(index: number): boolean {
+    const result = this._opcodeList.removeOpcodeAt(index);
+    if (result) {
+      this._graphicInterfaceXML = null;
+    }
+    return result;
+  }
+
+  /**
+   * Update a UDO at the specified index with partial properties.
+   */
+  updateUdo(index: number, patch: Partial<{
+    name: string;
+    style: UDOStyle;
+    outTypes: string;
+    inTypes: string;
+    inputArguments: string;
+    code: string;
+    comments: string;
+  }>): boolean {
+    const udo = this._opcodeList.getOpcode(index);
+    if (!udo) return false;
+
+    if (patch.name !== undefined) udo.setName(patch.name);
+    if (patch.style !== undefined) udo.setStyle(patch.style);
+    if (patch.outTypes !== undefined) udo.setOutTypes(patch.outTypes);
+    if (patch.inTypes !== undefined) udo.setInTypes(patch.inTypes);
+    if (patch.inputArguments !== undefined) udo.setInputArguments(patch.inputArguments);
+    if (patch.code !== undefined) udo.setCode(patch.code);
+    if (patch.comments !== undefined) udo.setComments(patch.comments);
+
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  /**
+   * Reorder a UDO from one index to another.
+   */
+  reorderUdo(fromIndex: number, toIndex: number): boolean {
+    if (fromIndex === toIndex) return true;
+    const udo = this._opcodeList.getOpcode(fromIndex);
+    if (!udo) return false;
+
+    this._opcodeList.removeOpcodeAt(fromIndex);
+    this._opcodeList.addOpcodeAt(toIndex, udo);
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  getPresetGroup(): PresetGroup | null {
+    return this._presetGroup;
+  }
+
+  setPresetGroup(group: PresetGroup | null): void {
+    this._presetGroup = group;
+  }
+
+  applyPreset(presetUniqueId: string): boolean {
+    if (!this._presetGroup) return false;
+    const preset = this._presetGroup.findPresetByUniqueId(presetUniqueId);
+    if (!preset) return false;
+
+    const valuesMap = preset.getValuesMap();
+    const visit = (widgets: BSBWidget[]): void => {
+      for (const widget of widgets) {
+        const val = valuesMap.get(widget.objectName);
+        if (val !== undefined) {
+          const parsed = parseFloat(val.replace(/^ver2:/, ""));
+          if (Number.isFinite(parsed)) {
+            widget.value = parsed;
+          }
+        }
+        if (widget instanceof BSBGroup) {
+          visit(widget.getChildren());
+        }
+      }
+    };
+    visit(this._graphicInterface.getRootGroup().getChildren());
+    this._graphicInterfaceXML = null;
+    this._presetGroup.setCurrentPresetUniqueId(presetUniqueId);
+    this._presetGroup.setCurrentPresetModified(false);
+    return true;
+  }
+
+  updateWidgetProperties(
+    widgetId: string,
+    properties: Record<string, string | number | boolean | null>,
+  ): boolean {
+    const widget = this._graphicInterface.findWidgetById(widgetId);
+    if (!widget) return false;
+
+    for (const [key, value] of Object.entries(properties)) {
+      switch (key) {
+        case "objectName":
+          if (typeof value === "string") widget.objectName = value;
+          break;
+        case "x":
+          if (typeof value === "number") widget.x = value;
+          break;
+        case "y":
+          if (typeof value === "number") widget.y = value;
+          break;
+        case "value":
+          if (typeof value === "number") widget.value = value;
+          break;
+        case "minimum":
+          if (typeof value === "number") widget.minimum = value;
+          break;
+        case "maximum":
+          if (typeof value === "number") widget.maximum = value;
+          break;
+        default:
+          if (key in widget) {
+            (widget as unknown as Record<string, unknown>)[key] = value;
+          }
+          break;
+      }
+    }
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  setBsbEditEnabled(enabled: boolean): void {
+    this._graphicInterface.setEditEnabled(enabled);
+    this._editEnabled = enabled;
+    this._graphicInterfaceXML = null;
+  }
+
+  setBsbGridSettings(settings: Partial<import("./blue-synth-builder/bsb-graphic-interface").GridSettingsData>): void {
+    this._graphicInterface.setGridSettings(settings);
+    this._graphicInterfaceXML = null;
+  }
+
   updateWidgetValue(objectName: string, value: number): boolean {
     const widget = this.findWidgetByObjectName(objectName);
     if (!widget || widget.value === value) {
@@ -221,6 +435,9 @@ export class BlueSynthBuilder extends Instrument {
     } else {
       elem.addElement(this._graphicInterface.saveAsXML());
     }
+    if (this._presetGroup) {
+      elem.addElement(this._presetGroup.saveAsXML());
+    }
     elem.addElement(this._opcodeList.saveAsXML());
     return elem;
   }
@@ -257,6 +474,12 @@ export class BlueSynthBuilder extends Instrument {
     if (giElem) {
       bsb._graphicInterfaceXML = Element.parse(giElem.toXml());
       bsb._graphicInterface.loadFromXML(giElem);
+    }
+
+    // Load preset group
+    const presetGroupElem = data.getElement("presetGroup");
+    if (presetGroupElem) {
+      bsb._presetGroup = PresetGroup.loadFromXML(presetGroupElem);
     }
 
     // Load parameters

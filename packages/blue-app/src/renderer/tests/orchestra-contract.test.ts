@@ -4,6 +4,9 @@ import {
   BlueSynthBuilder,
   GenericInstrument,
   JavaScriptInstrument,
+  PresetGroup,
+  Preset,
+  Element,
 } from '@blue/data';
 import {
   applyProjectDocumentPatch,
@@ -129,5 +132,121 @@ describe('Orchestra project document contract', () => {
     const assignments = data.getArrangement().getArrangement();
     expect(assignments).toHaveLength(2);
     expect(assignments[1]!.instr.getName()).toBe('Pasted Lead');
+  });
+});
+
+function createProjectWithBSBInstrument(): BlueData {
+  const data = new BlueData();
+  const bsb = new BlueSynthBuilder();
+  bsb.setName('BSB Test');
+  bsb.setInstrumentText('aout oscili <amp>, 440');
+  const gi = bsb.getGraphicInterface();
+  const giXml = `<graphicInterface editEnabled="true">
+    <gridSettings><width>10</width><height>10</height><gridStyle>DOT</gridStyle><snapGridEnabled>true</snapGridEnabled></gridSettings>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+      <objectName>amp</objectName>
+      <x>10</x><y>20</y>
+      <value>0.5</value>
+      <minimum>0</minimum><maximum>1</maximum>
+      <knobWidth>60</knobWidth><knobHeight>60</knobHeight>
+    </bsbObject>
+  </graphicInterface>`;
+  gi.loadFromXML(Element.parse(giXml));
+  bsb.setGraphicInterface(gi);
+
+  const presetGroup = new PresetGroup();
+  const preset = new Preset();
+  preset.presetName = 'Default';
+  preset.uniqueId = 'p1';
+  preset.setValue('amp', 'ver2:0.75');
+  presetGroup.presets.push(preset);
+  bsb.setPresetGroup(presetGroup);
+
+  data.getArrangement().addInstrument(bsb, '1');
+  return data;
+}
+
+describe('BSB Interface Parity contract', () => {
+  it('populates widgetTree, gridSettings, editEnabled, and presetGroup in BSB snapshots', () => {
+    const data = createProjectWithBSBInstrument();
+    const snapshot = createProjectEditorSnapshot(data, '/tmp/bsb.blue');
+    const bsb = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+
+    expect(bsb.type).toBe('blueSynthBuilder');
+    expect(bsb.editEnabled).toBe(true);
+    expect(bsb.gridSettings).toEqual({ enabled: true, snapEnabled: true, width: 10, height: 10 });
+    expect(bsb.widgetTree).not.toBeNull();
+    expect(bsb.widgetTree!.children).toHaveLength(1);
+    expect(bsb.widgetTree!.children![0].objectName).toBe('amp');
+    expect(bsb.widgetTree!.children![0].type).toBe('BSBKnob');
+    expect(bsb.widgetTree!.children![0].width).toBe(60);
+    expect(bsb.presetGroup).toBeDefined();
+    expect(bsb.presetGroup!.presets).toHaveLength(1);
+    expect(bsb.presetGroup!.presets[0].name).toBe('Default');
+  });
+
+  it('applies BSB interface patches through the updateInstrument contract', () => {
+    const data = createProjectWithBSBInstrument();
+
+    const changed = applyProjectDocumentPatch(data, {
+      orchestra: {
+        type: 'updateInstrument',
+        assignmentId: '1',
+        patch: {
+          bsbInterface: { type: 'setEditEnabled', value: false },
+        },
+      },
+    });
+    expect(changed).toBe(true);
+
+    const bsb = data.getArrangement().getInstrumentById('1') as BlueSynthBuilder;
+    expect(bsb.getGraphicInterface().isEditEnabled()).toBe(false);
+  });
+
+  it('updates widget properties via BSB interface patches', () => {
+    const data = createProjectWithBSBInstrument();
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const bsb = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    const widgetId = bsb.widgetTree!.children![0].id;
+
+    const changed = applyProjectDocumentPatch(data, {
+      orchestra: {
+        type: 'updateInstrument',
+        assignmentId: '1',
+        patch: {
+          bsbInterface: {
+            type: 'updateWidgetProperties',
+            widgetId,
+            properties: { objectName: 'gain', x: 50 },
+          },
+        },
+      },
+    });
+    expect(changed).toBe(true);
+
+    const after = createProjectEditorSnapshot(data, null);
+    const afterBsb = after.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    expect(afterBsb.widgetTree!.children![0].objectName).toBe('gain');
+    expect(afterBsb.widgetTree!.children![0].x).toBe(50);
+  });
+
+  it('applies presets via BSB interface patches', () => {
+    const data = createProjectWithBSBInstrument();
+
+    const changed = applyProjectDocumentPatch(data, {
+      orchestra: {
+        type: 'updateInstrument',
+        assignmentId: '1',
+        patch: {
+          bsbInterface: { type: 'applyPreset', presetUniqueId: 'p1' },
+        },
+      },
+    });
+    expect(changed).toBe(true);
+
+    const bsb = data.getArrangement().getInstrumentById('1') as BlueSynthBuilder;
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const bsbSnap = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    expect(bsbSnap.presetGroup!.currentPresetUniqueId).toBe('p1');
   });
 });

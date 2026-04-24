@@ -7,7 +7,7 @@ interface TemporaryInstrumentLibraryPanelProps {
 
 export default function TemporaryInstrumentLibraryPanel({
   library,
-}: TemporaryInstrumentLibraryPanelProps): JSX.Element {
+}: TemporaryInstrumentLibraryPanelProps): React.ReactElement {
   return (
     <section
       className="flex h-full min-h-0 flex-col bg-[#111a2d]"

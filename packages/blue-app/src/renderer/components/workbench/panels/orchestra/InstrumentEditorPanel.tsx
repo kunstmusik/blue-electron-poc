@@ -18,7 +18,7 @@ function EditorSurface({
   onOrchestraPatch,
 }: {
   instrument: InstrumentSnapshot;
-} & OrchestraMutationProps): JSX.Element {
+} & OrchestraMutationProps): React.ReactElement {
   const dispatchInstrumentPatch = (patch: InstrumentPatch) =>
     onOrchestraPatch({
       type: 'updateInstrument',
@@ -85,7 +85,7 @@ function EditorSurface({
 export default function InstrumentEditorPanel({
   instrument,
   onOrchestraPatch,
-}: InstrumentEditorPanelProps): JSX.Element {
+}: InstrumentEditorPanelProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<'editor' | 'comments'>('editor');
 
   if (!instrument) {

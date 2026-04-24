@@ -23,7 +23,7 @@ function MenuItem({
   children: React.ReactNode;
   disabled?: boolean;
   onSelect: () => void;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <ContextMenu.Item
       className="editor-context-menu__item"
@@ -39,7 +39,7 @@ function AddInstrumentSubmenu({
   onAdd,
 }: {
   onAdd: (instrumentType: SupportedNewInstrumentType) => void;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <ContextMenu.Sub>
       <ContextMenu.SubTrigger className="editor-context-menu__item">
@@ -71,7 +71,7 @@ export default function ArrangementContextMenu({
   onPaste,
   onOrchestraPatch,
   children,
-}: ArrangementContextMenuProps): JSX.Element {
+}: ArrangementContextMenuProps): React.ReactElement {
   const addInstrument = (instrumentType: SupportedNewInstrumentType) => {
     void onOrchestraPatch({
       type: 'addInstrument',

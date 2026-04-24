@@ -84,6 +84,10 @@ describe('Orchestra code instrument editors', () => {
         { objectName: 'amp', widgetType: 'BSBKnob', value: 0.5, minimum: 0, maximum: 1 },
         { objectName: 'freq', widgetType: 'BSBValue', value: 440, minimum: 20, maximum: 20000 },
       ],
+      editEnabled: true,
+      gridSettings: { enabled: false, snapEnabled: false, width: 10, height: 10 },
+      widgetTree: null,
+      udolist: [],
     };
 
     const html = renderToStaticMarkup(
@@ -97,7 +101,7 @@ describe('Orchestra code instrument editors', () => {
     expect(html).toContain('Builder');
     expect(html).toContain('Code');
     expect(html).toContain('Interface');
-    expect(html).toContain('UDO editing is deferred');
+    expect(html).toContain('UDO');
     expect(html).toContain('aout oscili');
 
     const editorTabs = [...html.matchAll(/data-bsb-editor-tab="([^"]+)"/g)].map(

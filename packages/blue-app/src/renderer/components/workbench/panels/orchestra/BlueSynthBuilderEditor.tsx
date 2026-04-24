@@ -14,7 +14,7 @@ export default function BlueSynthBuilderEditor({
   onOrchestraPatch,
 }: SelectedInstrumentEditorProps & {
   instrument: BlueSynthBuilderInstrumentSnapshot;
-}): JSX.Element {
+}): React.ReactElement {
   const [activeTab, setActiveTab] = useState<BsbEditorTab>('interface');
 
   return (
@@ -80,7 +80,7 @@ export default function BlueSynthBuilderEditor({
           />
         </div>
         <div className={activeTab === 'udo' ? 'h-full' : 'hidden'} aria-hidden={activeTab !== 'udo'}>
-          <BSBUDOPanel />
+          <BSBUDOPanel instrument={instrument} onInstrumentPatch={onInstrumentPatch} />
         </div>
       </div>
     </div>

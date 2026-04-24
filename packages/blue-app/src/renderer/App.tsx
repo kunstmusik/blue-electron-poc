@@ -7,7 +7,7 @@ import WelcomeScreen from './components/welcome/WelcomeScreen';
 import WorkbenchShell from './components/workbench/WorkbenchShell';
 import ErrorBoundary from './components/notifications/ErrorBoundary';
 
-export default function App(): JSX.Element {
+export default function App(): React.ReactElement {
   useIPCListeners();
   useKeyboardShortcuts();
 

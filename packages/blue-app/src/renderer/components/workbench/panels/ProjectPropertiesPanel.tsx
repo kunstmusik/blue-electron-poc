@@ -26,7 +26,7 @@ function TabButton({
   active: boolean;
   label: string;
   onClick: () => void;
-}): JSX.Element {
+}): React.ReactElement {
   return (
     <button
       type="button"
@@ -43,7 +43,7 @@ function TabButton({
   );
 }
 
-function EmptyProjectPropertiesState(): JSX.Element {
+function EmptyProjectPropertiesState(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center bg-blue-bg px-6 text-center text-blue-muted">
       <div className="max-w-md rounded-lg border border-blue-border bg-blue-surface/70 px-6 py-5">
@@ -62,7 +62,7 @@ function TabContent({
 }: {
   tab: ProjectPropertiesTabKey;
   props: ProjectPropertiesTabProps;
-}): JSX.Element {
+}): React.ReactElement {
   switch (tab) {
     case 'information':
       return <ProjectInformationTab {...props} />;
@@ -75,7 +75,7 @@ function TabContent({
   }
 }
 
-export default function ProjectPropertiesPanel(): JSX.Element {
+export default function ProjectPropertiesPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const projectProperties = useProjectStore((state) => state.projectProperties);
   const updateProjectProperties = useProjectStore(

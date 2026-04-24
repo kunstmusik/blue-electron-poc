@@ -76,7 +76,7 @@ export default function SelectedCodeEditor({
   javaBlueCompletionOptions = EMPTY_JAVA_BLUE_COMPLETION_OPTIONS,
   contextMenuItems,
   onChange,
-}: SelectedCodeEditorProps): JSX.Element {
+}: SelectedCodeEditorProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);

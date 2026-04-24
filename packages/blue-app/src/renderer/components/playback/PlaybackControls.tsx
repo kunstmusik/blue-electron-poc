@@ -2,7 +2,7 @@ import { Play, Square } from 'lucide-react';
 import { useProjectStore } from '../../stores/project-store';
 import { usePlaybackStore } from '../../stores/playback-store';
 
-export default function PlaybackControls(): JSX.Element {
+export default function PlaybackControls(): React.ReactElement {
   const hasProject = useProjectStore((s) => s.filePath !== null);
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
   const status = usePlaybackStore((s) => s.status);
