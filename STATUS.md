@@ -1,7 +1,17 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-23
+**Date**: 2026-04-24
 **Branch**: `021-orchestra-editor`
+
+## Spec 022 Package
+
+Spec `022-bsb-interface-parity` is in planning.
+
+- Goal: replace the remaining BlueSynthBuilder Interface and UDO placeholders from Spec 021 with Java Blue-style interface editing, preset application, and embedded opcode-list editing
+- Planning artifacts: `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/spec.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/plan.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/research.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/contracts/bsb-interface-parity-surface.md`, `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/quickstart.md`, and `/Users/stevenyi/work/blue-electron/specs/022-bsb-interface-parity/checklists/requirements.md`
+- Scope under planning: editable BSB interface canvas, widget/property/grid editing, preset preservation/application, embedded opcode-list editing, and safe preservation of unsupported BSB widget/preset structures
+- Task status: not generated yet
+- Immediate next step: generate Spec 022 tasks and start implementation on top of the closed Spec 021 baseline
 
 ## Spec 021 Package
 
