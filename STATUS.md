@@ -1,7 +1,19 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-24
-**Branch**: `022-bsb-interface-parity`
+**Branch**: `023-bsb-widget-ui`
+
+## Spec 023 Package
+
+Spec `023-bsb-widget-ui` is in planning.
+
+- Goal: replace the generic placeholder widget boxes with Java Blue-parity widget-specific visual rendering for all 15 BSB widget types in both edit and non-edit mode; close out `@blue/data` model property gaps identified against Java `*BeanInfo.java` descriptors; deliver typed per-widget property sheet panels that expose the same fields as Java Blue's property sheet
+- Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/spec.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/plan.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/research.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/contracts/bsb-widget-ui-surface.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/quickstart.md`
+- Known scope: 15 widget types (BSBHSlider, BSBVSlider, BSBKnob, BSBCheckBox, BSBDropdown, BSBLabel, BSBTextField, BSBValue, BSBGroup, BSBXYController, BSBFileSelector, BSBLineObject, BSBSubChannelDropdown, BSBHSliderBank, BSBVSliderBank); `BSBEnvelopeGenerator` and `BSBTabbedPane` remain deferred
+- Data model parity gaps: documented in `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/data-model.md`; audit of `knobHeight` and `precision` fields required before model changes
+- Edit-mode affordances: resize handles for the 5 resizable widget types (HSlider-width, VSlider-height, Knob-width, LineObject-both, XYController-both); `BSBValue` edit-mode placeholder behavior
+- Validation: `pnpm --filter @blue/data test`, `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check`
+- Immediate next step: Phase 0 XML audit (check Java `.blue` for `knobHeight`, `precision`, field name variants), then Phase 1 data model parity in `@blue/data`
 
 ## Spec 022 Package
 
