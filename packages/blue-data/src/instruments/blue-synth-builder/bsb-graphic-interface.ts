@@ -80,7 +80,11 @@ export class BSBGraphicInterface {
       const objElem = bsbObjects.next();
       const widget = loadBsbWidgetFromXML(objElem);
       if (widget) {
-        this.rootGroup.addChild(widget);
+        if (widget instanceof BSBGroup) {
+          this.rootGroup = widget;
+        } else {
+          this.rootGroup.addChild(widget);
+        }
       }
     }
     assignWidgetIds(this.rootGroup.getChildren());
@@ -125,9 +129,7 @@ export class BSBGraphicInterface {
       elem.addElement(gsElem);
     }
 
-    for (const child of this.rootGroup.getChildren()) {
-      elem.addElement(child instanceof BSBGroup ? child.saveAsXML() : this.saveWidget(child));
-    }
+    elem.addElement(this.rootGroup.saveAsXML());
     return elem;
   }
 
@@ -143,11 +145,5 @@ export class BSBGraphicInterface {
       return null;
     };
     return visit(this.rootGroup.getChildren());
-  }
-
-  private saveWidget(widget: BSBWidget): Element {
-    const tempGroup = new BSBGroup();
-    tempGroup.addChild(widget);
-    return tempGroup.saveAsXML().getElement("bsbObject") ?? new Element("bsbObject");
   }
 }

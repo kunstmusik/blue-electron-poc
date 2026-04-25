@@ -1,6 +1,6 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-24
+Auto-generated from all feature plans. Last updated: 2026-04-25
 
 ## Active Technologies
 - React 19.x, Electron, dockview 5.2.0 + collapsed auxiliary-group planning for the workbench shell (013-collapsed-sidebar-research)
@@ -52,6 +52,7 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 023-bsb-widget-ui: Phases 0-3 complete (data model parity + 15 widget renderers + generic dynamic property sheet with BeanInfo filtering + interaction fixes: slider drag, dropdown, group navigation/breadcrumb, value panel edit, group child blocking, color parsing, group sizing). Remaining: Phase 4 resize handles, Phase 5 validation
 - 022-bsb-interface-parity: Added BSB editable interface canvas, widget property sheet, grid settings panel, preset application bar, embedded opcode-list editor, preset model (PresetGroup/Preset), BsbInterfacePatch contract, widget tree snapshots, and optimistic patch handling for BSB interface mutations
 - 021-orchestra-editor: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data`, Zustand 5.x project store, Dockview 5.2.0 workbench panel registry, CodeMirror 6 editor surface from specs 018/019, Radix Context Menu, proposed `@tanstack/react-table` for arrangement table behavior, existing `@tanstack/react-virtual` if large table virtualization becomes necessary
 - 020-main-toolbar-parity: Closed out the main toolbar parity slice after finalizing playhead/selection alignment and the toolbar/editor context-menu styles

@@ -225,9 +225,12 @@ export interface BsbWidgetNodeSnapshot {
   y: number;
   width: number;
   height: number;
+  value: number;
+  minimum: number;
+  maximum: number;
   editable: boolean;
   preservedOnly?: boolean;
-  properties: Record<string, string | number | boolean | null>;
+  properties: Record<string, unknown>;
   children?: BsbWidgetNodeSnapshot[];
 }
 
@@ -631,12 +634,28 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
 
   const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
 
-  const properties: Record<string, string | number | boolean | null> = {};
+  const properties: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(record)) {
-    if (['id', 'objectName', 'x', 'y', 'value', 'minimum', 'maximum', 'parameterName', '_children', 'children', 'stringChannel'].includes(key)) continue;
+    if (['id', 'objectName', 'x', 'y', 'parameterName', '_children', 'children', 'stringChannel', 'labelFont', 'font'].includes(key)) continue;
     if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
       properties[key] = val as string | number | boolean | null;
     }
+  }
+
+  const fontKeys = ['labelFont', 'font'] as const;
+  for (const fk of fontKeys) {
+    const fv = record[fk];
+    if (fv && typeof fv === 'object') {
+      const f = fv as Record<string, unknown>;
+      if (typeof f.name === 'string') properties[`${fk}.name`] = f.name;
+      if (typeof f.size === 'number') properties[`${fk}.size`] = f.size;
+      if (typeof f.style === 'number') properties[`${fk}.style`] = f.style;
+    }
+  }
+
+  const dropdownItems = record.dropdownItems;
+  if (Array.isArray(dropdownItems)) {
+    properties['dropdownItems'] = dropdownItems;
   }
 
   const getChildren = record.getChildren;
@@ -649,17 +668,42 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
     }
   }
 
-  const width = typeof record.knobWidth === 'number' ? record.knobWidth
-    : typeof record.sliderWidth === 'number' ? record.sliderWidth
-    : typeof record.width === 'number' ? record.width
-    : ctorName === 'BSBGroup' ? (typeof record._width === 'number' ? record._width : 200)
-    : 60;
+  let width: number;
+  let height: number;
 
-  const height = typeof record.knobHeight === 'number' ? record.knobHeight
-    : typeof record.sliderHeight === 'number' ? record.sliderHeight
-    : typeof record.height === 'number' ? record.height
-    : ctorName === 'BSBGroup' ? (typeof record._height === 'number' ? record._height : 100)
-    : 24;
+  const vde = record.valueDisplayEnabled === true;
+  const le = record.labelEnabled === true;
+
+  if (ctorName === 'BSBHSlider') {
+    width = (typeof record.sliderWidth === 'number' ? record.sliderWidth : 150) + (vde ? 50 : 0);
+    height = 30;
+  } else if (ctorName === 'BSBVSlider') {
+    width = 50;
+    height = (typeof record.sliderHeight === 'number' ? record.sliderHeight : 150) + (vde ? 30 : 0);
+  } else if (ctorName === 'BSBKnob') {
+    const kw = typeof record.knobWidth === 'number' ? record.knobWidth : 60;
+    width = kw;
+    height = kw + (le ? 16 : 0) + (vde ? 14 : 0);
+  } else if (ctorName === 'BSBGroup') {
+    width = typeof record.width === 'number' ? record.width : 20;
+    height = typeof record.height === 'number' ? record.height : 20;
+    delete properties['width'];
+    delete properties['height'];
+  } else if (ctorName === 'BSBLabel' || ctorName === 'BSBCheckBox') {
+    width = typeof record.width === 'number' ? record.width : 0;
+    height = typeof record.height === 'number' ? record.height : 0;
+  } else if (ctorName === 'BSBDropdown' || ctorName === 'BSBSubChannelDropdown') {
+    const fontSize = typeof record.fontSize === 'number' ? record.fontSize : 12;
+    width = 0;
+    height = typeof record.height === 'number' ? record.height : Math.max(24, fontSize + 8);
+  } else {
+    width = typeof record.sliderWidth === 'number' ? record.sliderWidth
+      : typeof record.width === 'number' ? record.width
+      : 60;
+    height = typeof record.sliderHeight === 'number' ? record.sliderHeight
+      : typeof record.height === 'number' ? record.height
+      : 24;
+  }
 
   return {
     id,
@@ -669,6 +713,9 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
     y: typeof record.y === 'number' ? record.y : 0,
     width,
     height,
+    value: typeof record.value === 'number' ? record.value : 0,
+    minimum: typeof record.minimum === 'number' ? record.minimum : 0,
+    maximum: typeof record.maximum === 'number' ? record.maximum : 1,
     editable: !preservedOnly,
     preservedOnly,
     properties,
@@ -695,6 +742,9 @@ function buildWidgetTreeSnapshot(bsb: BlueSynthBuilder): BsbWidgetNodeSnapshot |
     y: 0,
     width: 0,
     height: 0,
+    value: 0,
+    minimum: 0,
+    maximum: 0,
     editable: true,
     properties: {},
     children,

@@ -14,11 +14,13 @@ export abstract class BSBWidget {
   objectName = '';
   x = 0;
   y = 0;
+  comment = '';
+  automationAllowed = true;
   value = 0;
   minimum = 0;
   maximum = 1;
   parameterName: string | null = null;
-  id = ''; // Links to automation parameter
+  id = '';
 
   /**
    * Collect this widget's replacement value into the compilation unit.
@@ -47,20 +49,32 @@ export abstract class BSBWidget {
    * Load widget properties from XML.
    * Subclasses override to load type-specific properties.
    */
-  loadFromXMLCommon(data: Element): void {
+  static loadCommonFromXML(widget: BSBWidget, data: Element): void {
     const objName = data.getTextString('objectName');
-    if (objName) this.objectName = objName;
+    if (objName) widget.objectName = objName;
     const x = data.getTextString('x');
-    if (x) this.x = parseInt(x, 10);
+    if (x) widget.x = parseInt(x, 10);
     const y = data.getTextString('y');
-    if (y) this.y = parseInt(y, 10);
+    if (y) widget.y = parseInt(y, 10);
+    const comment = data.getTextString('comment');
+    if (comment) widget.comment = comment;
+    const autoAllowedElem = data.getElement('automationAllowed');
+    if (autoAllowedElem) {
+      widget.automationAllowed = autoAllowedElem.getTextString() === 'true';
+    } else {
+      widget.automationAllowed = false;
+    }
     const val = data.getTextString('value');
-    if (val) this.value = parseFloat(val);
+    if (val) widget.value = parseFloat(val);
     const min = data.getTextString('minimum');
-    if (min) this.minimum = parseFloat(min);
+    if (min) widget.minimum = parseFloat(min);
     const max = data.getTextString('maximum');
-    if (max) this.maximum = parseFloat(max);
+    if (max) widget.maximum = parseFloat(max);
     const param = data.getTextString('parameterName');
-    if (param) this.parameterName = param;
+    if (param) widget.parameterName = param;
+  }
+
+  loadFromXMLCommon(data: Element): void {
+    BSBWidget.loadCommonFromXML(this, data);
   }
 }

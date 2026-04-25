@@ -148,7 +148,7 @@ function createProjectWithBSBInstrument(): BlueData {
       <x>10</x><y>20</y>
       <value>0.5</value>
       <minimum>0</minimum><maximum>1</maximum>
-      <knobWidth>60</knobWidth><knobHeight>60</knobHeight>
+      <knobWidth>60</knobWidth>
     </bsbObject>
   </graphicInterface>`;
   gi.loadFromXML(Element.parse(giXml));

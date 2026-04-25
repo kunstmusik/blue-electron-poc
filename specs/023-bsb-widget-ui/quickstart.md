@@ -23,9 +23,11 @@
 
 3. **Phase 2 — Widget renderer components**: Create `widgets/BSB[Name]Widget.tsx` for each of the 15 widget types. Start with `BSBHSlider`, `BSBKnob`, `BSBCheckBox`, `BSBLabel` since they have clear, simple layouts. Wire them into `BSBInterfaceCanvas.tsx`.
 
-4. **Phase 3 — Per-widget property panels**: Create `property-panels/BSB[Name]Properties.tsx` for each widget type. Wire into `BSBPropertySheet.tsx`.
+4. **Phase 3 — Generic dynamic property sheet**: Replaced per-widget panel approach with a single `BSBPropertySheet.tsx` that uses a `BEANINFO_PROPERTIES` map (15 widget types) to dynamically filter which fields appear per widget type. Includes inline dropdown items editor.
 
-5. **Phase 4 — Edit-mode affordances**: Add resize handles in the canvas wrapper for the 5 resizable types; implement `BSBValue` edit-mode placeholder.
+5. **Phase 3.5 — Widget interaction fixes**: Slider thumb drag, dropdown interaction, BSB group navigation with breadcrumb bar, value panel double-click editing, group color parsing, canvas background color, group child selection blocking in edit mode, group width/height calculation fix. See `BSB_GROUP_PANEL_WIDTH_ISSUE.md` for remaining ~5px group width issue.
+
+6. **Phase 4 — Edit-mode affordances**: Add resize handles in the canvas wrapper for the 5 resizable types; implement `BSBValue` edit-mode placeholder.
 
 6. **Phase 5 — Validation**: Full test + build pass, manual verification, XML round-trip diff.
 
@@ -63,8 +65,9 @@ git diff --check
 | `packages/blue-data/src/instruments/blue-synth-builder/bsb-knob.ts` | Model changes |
 | `packages/blue-app/.../bsb/BSBInterfaceCanvas.tsx` | Widget dispatch |
 | `packages/blue-app/.../bsb/BSBPropertySheet.tsx` | Property panel dispatch |
-| `packages/blue-app/.../bsb/widgets/` | Per-widget renderer components (new) |
-| `packages/blue-app/.../bsb/property-panels/` | Per-widget property panels (new) |
+| `packages/blue-app/.../bsb/widgets/` | Per-widget renderer components |
+| `packages/blue-app/.../bsb/BSBPropertySheet.tsx` | Generic dynamic property sheet with BeanInfo filtering |
+| `specs/023-bsb-widget-ui/BSB_GROUP_PANEL_WIDTH_ISSUE.md` | BSBGroup width investigation |
 
 ## Expected Follow-On Work
 

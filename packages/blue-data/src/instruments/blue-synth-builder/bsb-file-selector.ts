@@ -9,18 +9,15 @@ import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { Parameter } from '../../automation/parameter';
 
-/**
- * StringChannel — represents a string variable in CSD.
- * Used by BSBFileSelector widgets to pass file paths to Csound instruments.
- */
 export interface StringChannel {
   objectName: string;
   value: string;
-  channelName: string | null; // Set during CSD generation (e.g., "gS_blue_str0")
+  channelName: string | null;
 }
 
 export class BSBFileSelector extends BSBWidget {
-  selectedPath = '';
+  fileName = '';
+  textFieldWidth = 100;
   stringChannelEnabled = false;
   private stringChannel: StringChannel = {
     objectName: '',
@@ -30,24 +27,21 @@ export class BSBFileSelector extends BSBWidget {
 
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
-    // Java stores as <fileName> in the XML
-    const fileName = data.getTextString('fileName');
-    if (fileName !== null) this.selectedPath = fileName;
-    const scEnabled = data.getTextString('stringChannelEnabled');
-    if (scEnabled) this.stringChannelEnabled = scEnabled === 'true';
-    this.syncStringChannel();
-  }
-
-  override loadFromXMLCommon(data: Element): void {
-    super.loadFromXMLCommon(data);
-    this.syncStringChannel();
+    const fn = data.getTextString('fileName');
+    if (fn !== null) this.fileName = fn;
+    const tw = data.getTextString('textFieldWidth');
+    if (tw) this.textFieldWidth = parseInt(tw, 10);
+    const scEnabled = data.getElement('stringChannelEnabled');
+    if (scEnabled) this.stringChannelEnabled = scEnabled.getTextString() === 'true';
+    else this.stringChannelEnabled = false;
+    this.syncStringChannels();
   }
 
   override collectReplacements(
     unit: BSBCompilationUnit,
     _parameters?: Parameter[],
   ): void {
-    const fileNameValue = this.selectedPath.replace(/\\/g, '/');
+    const fileNameValue = this.fileName.replace(/\\/g, '/');
 
     if (this.stringChannelEnabled && this.stringChannel.channelName) {
       this.stringChannel.value = fileNameValue;
@@ -58,9 +52,6 @@ export class BSBFileSelector extends BSBWidget {
     unit.addReplacementValue(this.objectName, fileNameValue);
   }
 
-  /**
-   * Get this widget as a StringChannel if enabled.
-   */
   getStringChannel(): StringChannel | null {
     if (!this.stringChannelEnabled) return null;
     this.syncStringChannel();
@@ -69,6 +60,10 @@ export class BSBFileSelector extends BSBWidget {
 
   private syncStringChannel(): void {
     this.stringChannel.objectName = this.objectName;
-    this.stringChannel.value = this.selectedPath.replace(/\\/g, '/');
+    this.stringChannel.value = this.fileName.replace(/\\/g, '/');
+  }
+
+  private syncStringChannels(): void {
+    this.syncStringChannel();
   }
 }

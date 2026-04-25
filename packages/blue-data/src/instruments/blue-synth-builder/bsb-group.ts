@@ -16,6 +16,7 @@ import { BSBFileSelector } from "./bsb-file-selector";
 import { BSBTextField } from "./bsb-text-field";
 import { BSBLabel } from "./bsb-label";
 import { BSBLineObject } from "./bsb-line-object";
+import { loadFontFromXML, saveFontToXML, type BSBFont } from "./bsb-knob";
 
 type BSBWidgetCtor = new () => BSBWidget;
 
@@ -67,6 +68,14 @@ export function loadBsbWidgetFromXML(data: Element): BSBWidget | null {
 
 export class BSBGroup extends BSBWidget {
   private _children: BSBWidget[] = [];
+  groupName = 'Group';
+  backgroundColor = 'rgba(0,0,0,0.2)';
+  borderColor = '#000000';
+  labelTextColor = '#FFFFFF';
+  titleEnabled = true;
+  width = 20;
+  height = 20;
+  font: BSBFont = { name: 'Roboto', size: 12, style: 0 };
 
   getChildren(): BSBWidget[] {
     return [...this._children];
@@ -87,6 +96,24 @@ export class BSBGroup extends BSBWidget {
 
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
+    const gnAttr = data.getAttribute("groupName");
+    if (gnAttr) this.groupName = gnAttr;
+    const gn = data.getTextString('groupName');
+    if (gn !== null) this.groupName = gn;
+    const bg = data.getTextString('backgroundColor');
+    if (bg) this.backgroundColor = bg;
+    const bc = data.getTextString('borderColor');
+    if (bc) this.borderColor = bc;
+    const ltc = data.getTextString('labelTextColor');
+    if (ltc) this.labelTextColor = ltc;
+    const te = data.getElement('titleEnabled');
+    if (te) this.titleEnabled = te.getTextString() === 'true';
+    const w = data.getTextString('width');
+    if (w) this.width = parseInt(w, 10);
+    const h = data.getTextString('height');
+    if (h) this.height = parseInt(h, 10);
+    const fontElem = data.getElement('font');
+    if (fontElem) this.font = loadFontFromXML(fontElem);
     this._loadChildren(data);
   }
 
@@ -114,6 +141,8 @@ const COMMON_WIDGET_FIELDS = new Set([
   'objectName',
   'x',
   'y',
+  'comment',
+  'automationAllowed',
   'value',
   'minimum',
   'maximum',
@@ -124,6 +153,9 @@ const SKIPPED_WIDGET_FIELDS = new Set([
   '_children',
   'stringChannel',
   'id',
+  'labelFont',
+  'font',
+  'dropdownItems',
 ]);
 
 function getWidgetXmlType(widget: BSBWidget): string {
@@ -143,13 +175,17 @@ function addPrimitiveElement(parent: Element, key: string, value: unknown): void
   parent.addElement(key).setText(String(value));
 }
 
-function saveBsbWidgetAsXML(widget: BSBWidget): Element {
+export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
   const elem = new Element('bsbObject');
   elem.setAttribute('type', getWidgetXmlType(widget));
 
   addPrimitiveElement(elem, 'objectName', widget.objectName);
   addPrimitiveElement(elem, 'x', widget.x);
   addPrimitiveElement(elem, 'y', widget.y);
+  if (widget.comment) {
+    elem.addElement('comment').setText(widget.comment);
+  }
+  addPrimitiveElement(elem, 'automationAllowed', widget.automationAllowed);
   addPrimitiveElement(elem, 'value', widget.value);
   addPrimitiveElement(elem, 'minimum', widget.minimum);
   addPrimitiveElement(elem, 'maximum', widget.maximum);
@@ -159,13 +195,25 @@ function saveBsbWidgetAsXML(widget: BSBWidget): Element {
     if (COMMON_WIDGET_FIELDS.has(key) || SKIPPED_WIDGET_FIELDS.has(key)) {
       continue;
     }
-
     addPrimitiveElement(elem, key, value);
   }
 
+  if (widget instanceof BSBKnob) {
+    elem.addElement(saveFontToXML(widget.labelFont));
+  }
   if (widget instanceof BSBGroup) {
+    elem.addElement(saveFontToXML(widget.font));
     for (const child of widget.getChildren()) {
       elem.addElement(saveBsbWidgetAsXML(child));
+    }
+  }
+  if (widget instanceof BSBDropdown && widget.dropdownItems.length > 0) {
+    const listElem = elem.addElement('bsbDropdownItemList');
+    for (const item of widget.dropdownItems) {
+      const itemElem = listElem.addElement('bsbDropdownItem');
+      itemElem.setAttribute('uniqueId', item.uniqueId);
+      itemElem.addElement('name').setText(item.name);
+      itemElem.addElement('value').setText(item.value);
     }
   }
 

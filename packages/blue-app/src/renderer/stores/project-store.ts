@@ -277,6 +277,9 @@ function applyBsbInterfacePatchToSnapshot(
               case 'y': node.y = value as number; break;
               case 'width': node.width = value as number; break;
               case 'height': node.height = value as number; break;
+              case 'value': node.value = value as number; break;
+              case 'minimum': node.minimum = value as number; break;
+              case 'maximum': node.maximum = value as number; break;
               default: node.properties[key] = value; break;
             }
           }

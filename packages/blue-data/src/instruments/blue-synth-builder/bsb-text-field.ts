@@ -5,17 +5,21 @@
  */
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
+import { BSBCompilationUnit } from './bsb-compilation-unit';
 
 export class BSBTextField extends BSBWidget {
-  textFieldValue = '';
+  textValue = '';
+  textFieldWidth = 100;
 
-  override collectReplacements(unit: import('./bsb-compilation-unit').BSBCompilationUnit): void {
-    unit.addReplacementValue(this.objectName, this.textFieldValue);
+  override collectReplacements(unit: BSBCompilationUnit): void {
+    unit.addReplacementValue(this.objectName, this.textValue);
   }
 
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
-    const text = data.getTextString('textFieldValue');
-    if (text) this.textFieldValue = text;
+    const text = data.getTextString('value');
+    if (text !== null) this.textValue = text;
+    const tw = data.getTextString('textFieldWidth');
+    if (tw) this.textFieldWidth = parseInt(tw, 10);
   }
 }
