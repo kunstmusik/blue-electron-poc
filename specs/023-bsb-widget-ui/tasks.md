@@ -144,7 +144,7 @@
 
 ### Tests for Phase 4
 
-- [ ] T056 [P] [US3] Add edit-mode affordance coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/bsb-interface-editor.test.tsx`: enable edit mode, confirm resize handle presence for BSBHSlider/BSBVSlider/BSBKnob/BSBLineObject/BSBXYController; confirm BSBValue renders non-interactive label in edit mode
+- [x] T056 [P] [US3] Add edit-mode affordance coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/bsb-interface-editor.test.tsx`: confirm resize handle presence for BSBHSlider/BSBVSlider/BSBKnob/BSBLineObject/BSBXYController; confirm BSBValue renders non-interactive label in edit mode; added `data-resize-edge` attribute to ResizeHandle for testability
 
 ### Implementation for Phase 4
 

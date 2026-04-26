@@ -224,15 +224,11 @@
 
   .bsb-tooltip-content {
     padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(84, 108, 155, 0.28);
-    background:
-      linear-gradient(180deg, rgba(45, 63, 102, 0.98), rgba(24, 36, 63, 0.98)),
-      linear-gradient(180deg, #243455, #16223f);
-    box-shadow:
-      0 14px 28px rgba(3, 7, 18, 0.3),
-      inset 0 0 0 1px rgba(188, 207, 255, 0.04);
-    color: #eef4ff;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.9);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
     font-size: 12px;
     line-height: 1.4;
     max-width: 240px;
@@ -252,7 +248,7 @@
   }
 
   .bsb-tooltip-arrow {
-    fill: rgba(45, 63, 102, 0.98);
+    fill: rgba(0, 0, 0, 0.9);
   }
 
   .workbench-context-menu__item-indicator {

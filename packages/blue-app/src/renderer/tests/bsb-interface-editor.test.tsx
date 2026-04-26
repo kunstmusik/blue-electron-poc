@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi } from 'vitest';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
@@ -5,6 +7,9 @@ import type {
   BsbInterfacePatch,
   GridSettingsSnapshot,
 } from '../../shared/project-editor';
+import WidgetWrapper from '../components/workbench/panels/orchestra/bsb/widgets/WidgetWrapper';
+import BSBValueWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBValueWidget';
+import { BSB_WIDGET_RESIZE_META } from '../components/workbench/panels/orchestra/bsb/bsb-widget-meta';
 
 function makeWidgetNode(overrides: Partial<BsbWidgetNodeSnapshot> = {}): BsbWidgetNodeSnapshot {
   return {
@@ -179,5 +184,107 @@ describe('BSB Grid Settings', () => {
     const base: GridSettingsSnapshot = { enabled: true, snapEnabled: true, width: 10, height: 10 };
     const updated = { ...base, ...{ width: 20 } };
     expect(updated).toEqual({ enabled: true, snapEnabled: true, width: 20, height: 10 });
+  });
+});
+
+describe('BSB Edit-Mode Affordances (T056)', () => {
+  const resizableTypes = [
+    { type: 'BSBHSlider', expectedEdges: ['left', 'right'] },
+    { type: 'BSBVSlider', expectedEdges: ['top', 'bottom'] },
+    { type: 'BSBKnob', expectedEdges: ['left', 'right', 'top', 'bottom'] },
+    { type: 'BSBLineObject', expectedEdges: ['left', 'right', 'top', 'bottom'] },
+    { type: 'BSBXYController', expectedEdges: ['left', 'right', 'top', 'bottom'] },
+  ];
+
+  for (const { type, expectedEdges } of resizableTypes) {
+    it(`shows resize handles for ${type} when selected in edit mode`, () => {
+      const node = makeWidgetNode({ id: 'w1', type, width: 100, height: 100 });
+      const meta = BSB_WIDGET_RESIZE_META[type];
+      const html = renderToStaticMarkup(
+        createElement(WidgetWrapper, {
+          node,
+          isSelected: true,
+          editEnabled: true,
+          onWidgetSelect: vi.fn(),
+          resizeMeta: meta,
+          onBsbInterfacePatch: vi.fn(),
+          children: createElement('div', null, 'widget'),
+        }),
+      );
+
+      for (const edge of expectedEdges) {
+        expect(html).toContain(`data-resize-edge="${edge}"`);
+      }
+    });
+  }
+
+  it('does not show resize handles when edit mode is disabled', () => {
+    const node = makeWidgetNode({ id: 'w1', type: 'BSBHSlider', width: 100, height: 100 });
+    const meta = BSB_WIDGET_RESIZE_META['BSBHSlider'];
+    const html = renderToStaticMarkup(
+      createElement(WidgetWrapper, {
+        node,
+        isSelected: true,
+        editEnabled: false,
+        onWidgetSelect: vi.fn(),
+        resizeMeta: meta,
+        onBsbInterfacePatch: vi.fn(),
+        children: createElement('div', null, 'widget'),
+      }),
+    );
+
+    expect(html).not.toContain('data-resize-edge');
+  });
+
+  it('does not show resize handles when widget is not selected', () => {
+    const node = makeWidgetNode({ id: 'w1', type: 'BSBHSlider', width: 100, height: 100 });
+    const meta = BSB_WIDGET_RESIZE_META['BSBHSlider'];
+    const html = renderToStaticMarkup(
+      createElement(WidgetWrapper, {
+        node,
+        isSelected: false,
+        editEnabled: true,
+        onWidgetSelect: vi.fn(),
+        resizeMeta: meta,
+        onBsbInterfacePatch: vi.fn(),
+        children: createElement('div', null, 'widget'),
+      }),
+    );
+
+    expect(html).not.toContain('data-resize-edge');
+  });
+
+  it('renders BSBValue as non-interactive label in edit mode', () => {
+    const node = makeWidgetNode({ id: 'w1', type: 'BSBValue', objectName: 'gain', width: 60, height: 24 });
+    const html = renderToStaticMarkup(
+      createElement(BSBValueWidget, {
+        node,
+        isSelected: false,
+        editEnabled: true,
+        onWidgetSelect: vi.fn(),
+        resizeMeta: BSB_WIDGET_RESIZE_META['BSBValue'],
+        onBsbInterfacePatch: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('gain');
+    expect(html).toContain('pointer-events-none');
+  });
+
+  it('renders BSBValue as interactive numeric display in non-edit mode', () => {
+    const node = makeWidgetNode({ id: 'w1', type: 'BSBValue', objectName: 'gain', width: 60, height: 24, properties: { value: 0.75 } });
+    const html = renderToStaticMarkup(
+      createElement(BSBValueWidget, {
+        node,
+        isSelected: false,
+        editEnabled: false,
+        onWidgetSelect: vi.fn(),
+        resizeMeta: BSB_WIDGET_RESIZE_META['BSBValue'],
+        onBsbInterfacePatch: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('0.7500');
+    expect(html).not.toContain('pointer-events-none');
   });
 });
