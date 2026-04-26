@@ -1,9 +1,11 @@
 /**
  * Electron main process — manages app window, file dialogs, and engine lifecycle.
  */
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, nativeImage } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+
+app.setName('Blue');
 import { BlueData } from '@blue/data';
 import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
@@ -83,11 +85,28 @@ function ensureJavaScriptRuntime(): Promise<void> {
   return javaScriptRuntimeReady;
 }
 
+function getAppIcon(): Electron.NativeImage | undefined {
+  const iconPath = (() => {
+    if (process.platform === 'darwin') {
+      return path.join(__dirname, '..', '..', 'assets', 'blue.icns');
+    }
+    if (process.platform === 'win32') {
+      return path.join(__dirname, '..', '..', 'assets', 'blue.ico');
+    }
+    return path.join(__dirname, '..', '..', 'assets', 'blueIcon.png');
+  })();
+  if (fs.existsSync(iconPath)) {
+    return nativeImage.createFromPath(iconPath);
+  }
+  return undefined;
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: getWindowTitle(currentFilePath),
+    icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'preload.js'),
       contextIsolation: true,
@@ -513,6 +532,13 @@ ipcMain.handle('update-project-document', (_event, patch) => {
 // ─── App Lifecycle ───
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) {
+    const dockIcon = getAppIcon();
+    if (dockIcon) {
+      app.dock.setIcon(dockIcon);
+    }
+  }
+
   createWindow();
 
   app.on('activate', () => {
