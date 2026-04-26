@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
@@ -208,68 +209,70 @@ export default function BSBInterfaceCanvas({
   );
 
   return (
-    <div className="flex h-full flex-col">
-      {editEnabled && groupStack.length > 0 && (
-        <div className="flex items-center gap-1 border-b border-blue-border bg-[#111a2d] px-2 py-1">
-          <BreadcrumbItem label="Root" onClick={() => navigateTo(0)} active={groupStack.length === 0} />
-          {groupStack.map((entry, i) => (
-            <React.Fragment key={entry.id}>
-              <ChevronIcon />
-              <BreadcrumbItem
-                label={entry.name}
-                onClick={() => navigateTo(i + 1)}
-                active={i === groupStack.length - 1}
-              />
-            </React.Fragment>
-          ))}
-        </div>
-      )}
-      {editEnabled ? (
-        <ContextMenu.Root>
-          <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
-          <ContextMenu.Portal>
-            <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
-              {BSB_ADDABLE_WIDGETS.map((w) => (
-                <ContextMenu.Item
-                  key={w.type}
-                  className="editor-context-menu__item"
-                  onSelect={() => {
-                    handleAddWidget(w.type, contextMenuPos.current.x, contextMenuPos.current.y);
-                  }}
-                >
-                  Add {w.label}
-                </ContextMenu.Item>
-              ))}
-              {selectedWidgetId && (
-                <>
-                  <ContextMenu.Separator className="editor-context-menu__separator" />
+    <Tooltip.Provider delayDuration={100} skipDelayDuration={0}>
+      <div className="flex h-full flex-col">
+        {editEnabled && groupStack.length > 0 && (
+          <div className="flex items-center gap-1 border-b border-blue-border bg-[#111a2d] px-2 py-1">
+            <BreadcrumbItem label="Root" onClick={() => navigateTo(0)} active={groupStack.length === 0} />
+            {groupStack.map((entry, i) => (
+              <React.Fragment key={entry.id}>
+                <ChevronIcon />
+                <BreadcrumbItem
+                  label={entry.name}
+                  onClick={() => navigateTo(i + 1)}
+                  active={i === groupStack.length - 1}
+                />
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+        {editEnabled ? (
+          <ContextMenu.Root>
+            <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
+            <ContextMenu.Portal>
+              <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+                {BSB_ADDABLE_WIDGETS.map((w) => (
                   <ContextMenu.Item
+                    key={w.type}
                     className="editor-context-menu__item"
-                    onSelect={handleRemoveWidget}
+                    onSelect={() => {
+                      handleAddWidget(w.type, contextMenuPos.current.x, contextMenuPos.current.y);
+                    }}
                   >
-                    Remove
+                    Add {w.label}
                   </ContextMenu.Item>
-                </>
-              )}
-            </ContextMenu.Content>
-          </ContextMenu.Portal>
-        </ContextMenu.Root>
-      ) : (
-        <ContextMenu.Root>
-          <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
-          <ContextMenu.Portal>
-            <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
-              <ContextMenu.Item
-                className="editor-context-menu__item"
-                onSelect={() => onBsbInterfacePatch({ type: 'randomize' })}
-              >
-                Randomize
-              </ContextMenu.Item>
-            </ContextMenu.Content>
-          </ContextMenu.Portal>
-        </ContextMenu.Root>
-      )}
-    </div>
+                ))}
+                {selectedWidgetId && (
+                  <>
+                    <ContextMenu.Separator className="editor-context-menu__separator" />
+                    <ContextMenu.Item
+                      className="editor-context-menu__item"
+                      onSelect={handleRemoveWidget}
+                    >
+                      Remove
+                    </ContextMenu.Item>
+                  </>
+                )}
+              </ContextMenu.Content>
+            </ContextMenu.Portal>
+          </ContextMenu.Root>
+        ) : (
+          <ContextMenu.Root>
+            <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
+            <ContextMenu.Portal>
+              <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+                <ContextMenu.Item
+                  className="editor-context-menu__item"
+                  onSelect={() => onBsbInterfacePatch({ type: 'randomize' })}
+                >
+                  Randomize
+                </ContextMenu.Item>
+              </ContextMenu.Content>
+            </ContextMenu.Portal>
+          </ContextMenu.Root>
+        )}
+      </div>
+    </Tooltip.Provider>
   );
 }
 

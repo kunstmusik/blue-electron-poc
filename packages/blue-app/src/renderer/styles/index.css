@@ -222,6 +222,39 @@
     background: rgba(94, 119, 168, 0.24);
   }
 
+  .bsb-tooltip-content {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(84, 108, 155, 0.28);
+    background:
+      linear-gradient(180deg, rgba(45, 63, 102, 0.98), rgba(24, 36, 63, 0.98)),
+      linear-gradient(180deg, #243455, #16223f);
+    box-shadow:
+      0 14px 28px rgba(3, 7, 18, 0.3),
+      inset 0 0 0 1px rgba(188, 207, 255, 0.04);
+    color: #eef4ff;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 240px;
+    z-index: 130;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .bsb-tooltip-content[data-state="delayed-open"],
+  .bsb-tooltip-content[data-state="instant-open"] {
+    animation: bsbTooltipFadeIn 100ms ease-out;
+  }
+
+  @keyframes bsbTooltipFadeIn {
+    from { opacity: 0; transform: translateY(2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .bsb-tooltip-arrow {
+    fill: rgba(45, 63, 102, 0.98);
+  }
+
   .workbench-context-menu__item-indicator {
     @apply inline-flex h-3 w-3 items-center justify-center flex-none;
   }

@@ -205,9 +205,9 @@
 
 ---
 
-## Phase 7: Tooltip Improvement (Deferred)
+## Phase 7: Tooltip Improvement
 
-- [ ] T096 [US1] Replace native HTML `title` tooltip with Radix `Tooltip` component for faster show time and consistent styling with the rest of the app. Wrap WidgetWrapper's comment display in `Tooltip.Root`/`Tooltip.Trigger`/`Tooltip.Content`.
+- [x] T096 [US1] Replace native HTML `title` tooltip with Radix `Tooltip` component for faster show time (~100ms delay) and consistent styling with the rest of the app. WidgetWrapper wraps in `Tooltip.Root`/`Tooltip.Trigger`/`Tooltip.Content` with `Tooltip.Portal` and `Tooltip.Arrow`. `Tooltip.Provider` placed at `BSBInterfaceCanvas` level with `delayDuration={100}`. Styled with `.bsb-tooltip-content` matching the editor context menu dark theme.
 
 ---
 

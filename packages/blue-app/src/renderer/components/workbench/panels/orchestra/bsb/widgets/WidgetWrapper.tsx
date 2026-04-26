@@ -1,4 +1,5 @@
 import React, { useCallback, useRef, useEffect } from 'react';
+import * as Tooltip from '@radix-ui/react-tooltip';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
 import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 
@@ -82,7 +83,14 @@ export default function WidgetWrapper({
   const showHandles = editEnabled && isSelected && resizeMeta && onBsbInterfacePatch &&
     (resizeMeta.canResizeWidth || resizeMeta.canResizeHeight);
 
-  return (
+  const tooltipText =
+    !editEnabled && (node.properties?.comment as string)
+      ? (node.properties.comment as string)
+      : node.preservedOnly
+        ? `[Preserved] ${node.objectName || node.type}`
+        : undefined;
+
+  const widgetDiv = (
     <div
       key={node.id}
       data-widget-id={node.id}
@@ -112,13 +120,6 @@ export default function WidgetWrapper({
         e.stopPropagation();
         onDoubleClick?.();
       }}
-      title={
-        !editEnabled && (node.properties?.comment as string)
-          ? (node.properties.comment as string)
-          : node.preservedOnly
-            ? `[Preserved] ${node.objectName || node.type}`
-            : undefined
-      }
     >
       {children}
       {showHandles && resizeMeta!.canResizeWidth && (
@@ -134,6 +135,27 @@ export default function WidgetWrapper({
         </>
       )}
     </div>
+  );
+
+  if (!tooltipText) return widgetDiv;
+
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        {widgetDiv}
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          className="bsb-tooltip-content"
+          sideOffset={4}
+          side="top"
+          align="center"
+        >
+          {tooltipText}
+          <Tooltip.Arrow className="bsb-tooltip-arrow" width={10} height={5} />
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   );
 }
 
