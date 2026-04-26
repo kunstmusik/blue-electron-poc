@@ -228,13 +228,6 @@ export default function BSBInterfaceCanvas({
     onBsbInterfacePatch({ type: 'addWidget', widgetType, x: snapX, y: snapY, parentGroupId });
   }, [instrument.gridSettings, groupStack, onBsbInterfacePatch]);
 
-  const handleRemoveWidget = useCallback(() => {
-    for (const widgetId of selectedWidgetIds) {
-      onBsbInterfacePatch({ type: 'removeWidget', widgetId });
-    }
-    onWidgetSelect(null);
-  }, [selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect]);
-
   const contextMenuPos = useRef({ x: 0, y: 0 });
 
   // Marquee selection handlers
@@ -398,17 +391,6 @@ export default function BSBInterfaceCanvas({
                     Add {w.label}
                   </ContextMenu.Item>
                 ))}
-                {selectedWidgetIds.size > 0 && (
-                  <>
-                    <ContextMenu.Separator className="editor-context-menu__separator" />
-                    <ContextMenu.Item
-                      className="editor-context-menu__item"
-                      onSelect={handleRemoveWidget}
-                    >
-                      Remove{selectedWidgetIds.size > 1 ? ` (${selectedWidgetIds.size})` : ''}
-                    </ContextMenu.Item>
-                  </>
-                )}
               </ContextMenu.Content>
             </ContextMenu.Portal>
           </ContextMenu.Root>

@@ -1,5 +1,6 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
 import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 
@@ -52,6 +53,7 @@ export default function WidgetWrapper({
   };
 
   const moveDragRef = useRef<MoveDragState | null>(null);
+  const hasDraggedRef = useRef(false);
   const moveParamsRef = useRef({ gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch });
   moveParamsRef.current = { gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch };
 
@@ -61,6 +63,7 @@ export default function WidgetWrapper({
     const onMove = (e: MouseEvent) => {
       const md = moveDragRef.current;
       if (!md) return;
+      hasDraggedRef.current = true;
       e.preventDefault();
       cancelAnimationFrame(moveRafRef.current);
       moveRafRef.current = requestAnimationFrame(() => {
@@ -72,9 +75,19 @@ export default function WidgetWrapper({
         if (snap && gw) dx = Math.round(dx / gw) * gw;
         if (snap && gh) dy = Math.round(dy / gh) * gh;
 
+        // Clamp delta so no widget goes below 0
+        let minNx = Infinity;
+        let minNy = Infinity;
+        for (const [, startPos] of md2.positions) {
+          minNx = Math.min(minNx, startPos.x + dx);
+          minNy = Math.min(minNy, startPos.y + dy);
+        }
+        if (minNx < 0) dx -= minNx;
+        if (minNy < 0) dy -= minNy;
+
         for (const [id, startPos] of md2.positions) {
-          const nx = Math.max(0, startPos.x + dx);
-          const ny = Math.max(0, startPos.y + dy);
+          const nx = startPos.x + dx;
+          const ny = startPos.y + dy;
           patch?.({ type: 'updateWidgetProperties', widgetId: id, properties: { x: nx, y: ny } });
         }
       });
@@ -82,6 +95,8 @@ export default function WidgetWrapper({
     const onUp = () => {
       cancelAnimationFrame(moveRafRef.current);
       moveDragRef.current = null;
+      // Clear hasDragged after a short delay so click handler can read it
+      setTimeout(() => { hasDraggedRef.current = false; }, 0);
     };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -94,7 +109,7 @@ export default function WidgetWrapper({
 
   const sizeStyle = autoSize ? {} : { width: w, height: h };
 
-  const showHandles = editEnabled && isSelected && resizeMeta && onBsbInterfacePatch &&
+  const showHandles = editEnabled && isSelected && (selectedWidgetIds?.size ?? 0) <= 1 && resizeMeta && onBsbInterfacePatch &&
     (resizeMeta.canResizeWidth || resizeMeta.canResizeHeight);
 
   const tooltipText =
@@ -103,6 +118,15 @@ export default function WidgetWrapper({
       : node.preservedOnly
         ? `[Preserved] ${node.objectName || node.type}`
         : undefined;
+
+  const handleRemove = () => {
+    if (isSelected) {
+      for (const id of selectedWidgetIds ?? new Set()) {
+        onBsbInterfacePatch?.({ type: 'removeWidget', widgetId: id });
+      }
+      onWidgetSelect(null);
+    }
+  };
 
   const widgetDiv = (
     <div
@@ -123,11 +147,13 @@ export default function WidgetWrapper({
       }}
       onClick={(e) => {
         e.stopPropagation();
+        if (hasDraggedRef.current) return;
         if (editEnabled) onWidgetSelect(node.id, e.shiftKey);
       }}
       onMouseDown={(e) => {
         if (!editEnabled || !isSelected || e.button !== 0) return;
         e.stopPropagation();
+        hasDraggedRef.current = false;
         const positions = new Map<string, { x: number; y: number }>();
         if (selectedWidgetIds && selectedWidgetIds.size > 1 && getWidgetPosition) {
           for (const id of selectedWidgetIds) {
@@ -161,9 +187,7 @@ export default function WidgetWrapper({
     </div>
   );
 
-  if (!tooltipText) return widgetDiv;
-
-  return (
+  const wrapped = tooltipText ? (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
         {widgetDiv}
@@ -180,6 +204,28 @@ export default function WidgetWrapper({
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
+  ) : widgetDiv;
+
+  if (!editEnabled) return wrapped;
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>
+        {wrapped}
+      </ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+          {isSelected && selectedWidgetIds && selectedWidgetIds.size > 0 && (
+            <ContextMenu.Item
+              className="editor-context-menu__item"
+              onSelect={handleRemove}
+            >
+              Remove{selectedWidgetIds.size > 1 ? ` (${selectedWidgetIds.size})` : ''}
+            </ContextMenu.Item>
+          )}
+        </ContextMenu.Content>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   );
 }
 
