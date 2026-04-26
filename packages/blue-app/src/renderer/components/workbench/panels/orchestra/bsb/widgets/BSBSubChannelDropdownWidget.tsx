@@ -9,12 +9,14 @@ interface BSBSubChannelDropdownWidgetProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string) => void;
+  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
   onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
   resizeMeta?: BSBWidgetResizeMeta;
   gridSnapEnabled?: boolean;
   gridSnapWidth?: number;
   gridSnapHeight?: number;
+  selectedWidgetIds?: Set<string>;
+  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
 }
 
 export default function BSBSubChannelDropdownWidget({
@@ -27,6 +29,8 @@ export default function BSBSubChannelDropdownWidget({
   gridSnapEnabled,
   gridSnapWidth,
   gridSnapHeight,
+  selectedWidgetIds,
+  getWidgetPosition,
 }: BSBSubChannelDropdownWidgetProps): React.ReactElement {
   const channelOutput = typeof node.properties.channelOutput === 'string' ? node.properties.channelOutput : '';
   const displayText = channelOutput || node.objectName || 'Sub Channel';
@@ -34,7 +38,7 @@ export default function BSBSubChannelDropdownWidget({
   const calculatedWidth = getDropdownDisplayWidth(node);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
       <button
         type="button"
         disabled

@@ -7,12 +7,14 @@ interface BSBKnobWidgetProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string) => void;
+  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
   resizeMeta?: BSBWidgetResizeMeta;
   gridSnapEnabled?: boolean;
   gridSnapWidth?: number;
   gridSnapHeight?: number;
+  selectedWidgetIds?: Set<string>;
+  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
 }
 
 const VALUE_HEIGHT = 14;
@@ -30,6 +32,8 @@ export default function BSBKnobWidget({
   gridSnapEnabled,
   gridSnapWidth,
   gridSnapHeight,
+  selectedWidgetIds,
+  getWidgetPosition,
 }: BSBKnobWidgetProps): React.ReactElement {
   const value = node.value;
   const minimum = node.minimum;
@@ -53,7 +57,7 @@ export default function BSBKnobWidget({
   const totalH = knobSize + labelH + valueH;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
       <div className="flex flex-col items-center" style={{ width: knobSize, height: totalH }}>
         {showLabel && (
           <div

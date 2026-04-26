@@ -11,7 +11,7 @@ Spec `023-bsb-widget-ui` is in progress. Phases 0–6 and 3.6 are complete.
 - Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/spec.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/plan.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/research.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/contracts/bsb-widget-ui-surface.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/quickstart.md`
 - Completed scope: 15 widget renderers (non-edit and edit mode), generic dynamic property sheet with BeanInfo filtering, resize handles, drag-to-move, canvas context menu (add/remove widgets), CSS grid overlay optimization, preset application fixes with widget-specific `getPresetValue`/`setPresetValue`, runtime value setting with parameter sync, randomize support, engine-client request queueing, and project-store patch batching
 - Known scope: `BSBEnvelopeGenerator` and `BSBTabbedPane` remain deferred
-- Deferred to future specs: multi-select/marquee selection (Phase 8), per-widget edit context menu (Phase 9), Radix Tooltip replacement (Phase 7)
+- Deferred to future specs: per-widget edit context menu (Phase 9)
 - Validation: `pnpm --filter @blue/data test` PASS (471 tests); `pnpm --filter @blue/app test` PASS (128 tests, 2 skipped); `pnpm --filter @blue/app build` and `git diff --check` pending final close-out
 - Immediate next step: complete Phase 10 validation (manual verification, XML round-trip, STATUS.md close-out) or proceed to the next spec
 

@@ -7,7 +7,7 @@ interface BSBGroupWidgetProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string) => void;
+  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
   renderWidget: (node: BsbWidgetNodeSnapshot) => React.ReactNode;
   onDoubleClick?: () => void;
@@ -15,6 +15,8 @@ interface BSBGroupWidgetProps {
   gridSnapEnabled?: boolean;
   gridSnapWidth?: number;
   gridSnapHeight?: number;
+  selectedWidgetIds?: Set<string>;
+  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
 }
 
 export default function BSBGroupWidget({
@@ -29,6 +31,8 @@ export default function BSBGroupWidget({
   gridSnapEnabled,
   gridSnapWidth,
   gridSnapHeight,
+  selectedWidgetIds,
+  getWidgetPosition,
 }: BSBGroupWidgetProps): React.ReactElement {
   const groupName = typeof node.properties.groupName === 'string' ? node.properties.groupName : '';
   const titleEnabled = node.properties.titleEnabled !== false;
@@ -71,6 +75,8 @@ export default function BSBGroupWidget({
       gridSnapWidth={gridSnapWidth}
       gridSnapHeight={gridSnapHeight}
       onBsbInterfacePatch={onBsbInterfacePatch}
+      selectedWidgetIds={selectedWidgetIds}
+      getWidgetPosition={getWidgetPosition}
     >
       <div
         className="flex h-full w-full flex-col"

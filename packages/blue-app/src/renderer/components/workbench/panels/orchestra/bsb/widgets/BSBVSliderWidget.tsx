@@ -8,12 +8,14 @@ interface BSBVSliderWidgetProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string) => void;
+  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
   resizeMeta?: BSBWidgetResizeMeta;
   gridSnapEnabled?: boolean;
   gridSnapWidth?: number;
   gridSnapHeight?: number;
+  selectedWidgetIds?: Set<string>;
+  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
 }
 
 const VALUE_PANEL_WIDTH = 50;
@@ -32,6 +34,8 @@ export default function BSBVSliderWidget({
   gridSnapEnabled,
   gridSnapWidth,
   gridSnapHeight,
+  selectedWidgetIds,
+  getWidgetPosition,
 }: BSBVSliderWidgetProps): React.ReactElement {
   const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
   const value = node.value;
@@ -104,7 +108,7 @@ export default function BSBVSliderWidget({
   const thumbCy = sliderHeight - THUMB_R - (sliderHeight - 2 * THUMB_R) * pct;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
       <div className="flex flex-col" style={{ width: SLIDER_WIDTH, height: totalHeight }}>
         <svg
           ref={svgRef}

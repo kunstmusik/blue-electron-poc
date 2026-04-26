@@ -6,6 +6,7 @@ import type {
 
 interface BSBPropertySheetProps {
   widget: BsbWidgetNodeSnapshot | null;
+  selectedCount?: number;
   editEnabled: boolean;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
 }
@@ -138,13 +139,16 @@ const BEANINFO_PROPERTIES: Record<string, string[]> = {
 
 export default function BSBPropertySheet({
   widget,
+  selectedCount,
   editEnabled,
   onBsbInterfacePatch,
 }: BSBPropertySheetProps): React.ReactElement {
   if (!widget) {
     return (
       <div className="p-3 text-xs text-blue-muted">
-        Select a widget to edit its properties.
+        {selectedCount && selectedCount > 1
+          ? `${selectedCount} widgets selected.`
+          : 'Select a widget to edit its properties.'}
       </div>
     );
   }

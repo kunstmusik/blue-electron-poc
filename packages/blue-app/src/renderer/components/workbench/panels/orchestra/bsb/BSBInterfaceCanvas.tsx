@@ -47,9 +47,9 @@ const BSB_ADDABLE_WIDGETS = [
 
 interface BSBInterfaceCanvasProps {
   instrument: BlueSynthBuilderInstrumentSnapshot;
-  selectedWidgetId: string | null;
+  selectedWidgetIds: Set<string>;
   editEnabled: boolean;
-  onWidgetSelect: (widgetId: string | null) => void;
+  onWidgetSelect: (widgetId: string | null, shiftKey?: boolean) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
   onInstrumentPatch: (patch: InstrumentPatch) => void | Promise<void>;
 }
@@ -59,14 +59,26 @@ interface GroupStackEntry {
   name: string;
 }
 
+interface MarqueeState {
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  active: boolean;
+}
+
 export default function BSBInterfaceCanvas({
   instrument,
-  selectedWidgetId,
+  selectedWidgetIds,
   editEnabled,
   onWidgetSelect,
   onBsbInterfacePatch,
 }: BSBInterfaceCanvasProps): React.ReactElement {
   const [groupStack, setGroupStack] = useState<GroupStackEntry[]>([]);
+  const [marquee, setMarquee] = useState<MarqueeState | null>(null);
+  const canvasInnerRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const marqueeDragged = useRef(false);
 
   if (!instrument.widgetTree) {
     return (
@@ -84,6 +96,44 @@ export default function BSBInterfaceCanvas({
   };
 
   const currentChildren = resolveCurrentChildren(instrument.widgetTree, groupStack);
+
+  const getWidgetPosition = useCallback((id: string) => {
+    const find = (nodes: BsbWidgetNodeSnapshot[]): { x: number; y: number } | undefined => {
+      for (const n of nodes) {
+        if (n.id === id) return { x: n.x, y: n.y };
+        if (n.children) {
+          const found = find(n.children);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    return find(currentChildren);
+  }, [currentChildren]);
+
+  // Arrow key movement for selected widgets
+  useEffect(() => {
+    if (!editEnabled) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+      if (selectedWidgetIds.size === 0) return;
+      e.preventDefault();
+      const step = (gridSettings?.snapEnabled && gridSettings?.enabled)
+        ? gridSettings.width
+        : 1;
+      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      for (const widgetId of selectedWidgetIds) {
+        const pos = getWidgetPosition(widgetId);
+        if (!pos) continue;
+        const nx = Math.max(0, pos.x + dx);
+        const ny = Math.max(0, pos.y + dy);
+        onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId, properties: { x: nx, y: ny } });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [editEnabled, selectedWidgetIds, gridSettings, onBsbInterfacePatch, getWidgetPosition]);
 
   const enterGroup = (node: BsbWidgetNodeSnapshot) => {
     const groupName = typeof node.properties.groupName === 'string' ? node.properties.groupName : node.type;
@@ -103,7 +153,7 @@ export default function BSBInterfaceCanvas({
   };
 
   const renderWidget = (node: BsbWidgetNodeSnapshot): React.ReactNode => {
-    const isSelected = node.id === selectedWidgetId;
+    const isSelected = selectedWidgetIds.has(node.id);
     const meta = BSB_WIDGET_RESIZE_META[node.type];
     const baseProps = {
       node,
@@ -115,6 +165,8 @@ export default function BSBInterfaceCanvas({
       gridSnapWidth: resizeCtx.gridSnapWidth,
       gridSnapHeight: resizeCtx.gridSnapHeight,
       onBsbInterfacePatch,
+      selectedWidgetIds,
+      getWidgetPosition,
     };
 
     if (node.preservedOnly) {
@@ -177,21 +229,115 @@ export default function BSBInterfaceCanvas({
   }, [instrument.gridSettings, groupStack, onBsbInterfacePatch]);
 
   const handleRemoveWidget = useCallback(() => {
-    if (selectedWidgetId) {
-      onBsbInterfacePatch({ type: 'removeWidget', widgetId: selectedWidgetId });
-      onWidgetSelect(null);
+    for (const widgetId of selectedWidgetIds) {
+      onBsbInterfacePatch({ type: 'removeWidget', widgetId });
     }
-  }, [selectedWidgetId, onBsbInterfacePatch, onWidgetSelect]);
+    onWidgetSelect(null);
+  }, [selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect]);
 
   const contextMenuPos = useRef({ x: 0, y: 0 });
 
-  const canvasRef = useRef<HTMLDivElement | null>(null);
+  // Marquee selection handlers
+  const onCanvasMouseDown = (e: React.MouseEvent) => {
+    if (!editEnabled || e.button !== 0) return;
+    // Don't start marquee if clicking on a widget (widgets stop propagation on mousedown when selected,
+    // but unselected widgets let it through; check target)
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-widget-id]')) return;
+
+    const rect = canvasInnerRef.current!.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMarquee({ startX: x, startY: y, currentX: x, currentY: y, active: false });
+  };
+
+  const onCanvasMouseMove = (e: React.MouseEvent) => {
+    if (!marquee) return;
+    const rect = canvasInnerRef.current!.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const dx = x - marquee.startX;
+    const dy = y - marquee.startY;
+    const active = marquee.active || Math.abs(dx) > 3 || Math.abs(dy) > 3;
+    setMarquee({ ...marquee, currentX: x, currentY: y, active });
+  };
+
+  const onCanvasMouseUp = (e: React.MouseEvent) => {
+    if (!marquee) return;
+    if (marquee.active) {
+      marqueeDragged.current = true;
+      const minX = Math.min(marquee.startX, marquee.currentX);
+      const minY = Math.min(marquee.startY, marquee.currentY);
+      const maxX = Math.max(marquee.startX, marquee.currentX);
+      const maxY = Math.max(marquee.startY, marquee.currentY);
+      const ids = new Set<string>();
+      for (const child of currentChildren) {
+        const cw = child.width ?? 60;
+        const ch = child.height ?? 24;
+        const intersects =
+          child.x < maxX &&
+          child.x + cw > minX &&
+          child.y < maxY &&
+          child.y + ch > minY;
+        if (intersects) {
+          ids.add(child.id);
+        }
+      }
+      if (e.shiftKey) {
+        // Toggle intersection set against current selection
+        const next = new Set(selectedWidgetIds);
+        for (const id of ids) {
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+        }
+        onWidgetSelect(null);
+        for (const id of next) {
+          if (!selectedWidgetIds.has(id)) {
+            onWidgetSelect(id, true);
+          }
+        }
+      } else {
+        onWidgetSelect(null);
+        for (const id of ids) {
+          onWidgetSelect(id, true);
+        }
+      }
+    } else {
+      // Simple click on background - clear selection (handled via click, see below)
+    }
+    setMarquee(null);
+  };
+
+  const onCanvasClick = (e: React.MouseEvent) => {
+    if (marqueeDragged.current) {
+      marqueeDragged.current = false;
+      return;
+    }
+    const target = e.target as HTMLElement;
+    if (!target.closest('[data-widget-id]')) {
+      onWidgetSelect(null);
+    }
+  };
+
+  const marqueeStyle: React.CSSProperties | undefined = marquee
+    ? {
+        position: 'absolute',
+        left: Math.min(marquee.startX, marquee.currentX),
+        top: Math.min(marquee.startY, marquee.currentY),
+        width: Math.abs(marquee.currentX - marquee.startX),
+        height: Math.abs(marquee.currentY - marquee.startY),
+        border: '1px dashed rgba(233, 69, 96, 0.8)',
+        background: 'rgba(233, 69, 96, 0.08)',
+        zIndex: 50,
+        pointerEvents: 'none',
+      }
+    : undefined;
 
   const canvasContent = (
     <div
       ref={canvasRef}
       className="relative flex-1 overflow-auto bg-[#26334c]"
-      onClick={() => onWidgetSelect(null)}
+      onClick={onCanvasClick}
       onContextMenu={(e) => {
         if (editEnabled && canvasRef.current) {
           const rect = canvasRef.current.getBoundingClientRect();
@@ -199,11 +345,21 @@ export default function BSBInterfaceCanvas({
         }
       }}
     >
-      <div className="relative" style={{ minHeight: 400, minWidth: 600 }}>
+      <div
+        ref={canvasInnerRef}
+        className="relative"
+        style={{ minHeight: 400, minWidth: 600 }}
+        onMouseDown={onCanvasMouseDown}
+        onMouseMove={onCanvasMouseMove}
+        onMouseUp={onCanvasMouseUp}
+      >
         {editEnabled && gridSettings?.gridStyle && gridSettings.gridStyle !== 'NONE' && (
           <GridOverlay gridSettings={gridSettings} canvasRef={canvasRef} />
         )}
         {currentChildren.map((child) => renderWidget(child))}
+        {marquee && marquee.active && (
+          <div style={marqueeStyle} />
+        )}
       </div>
     </div>
   );
@@ -242,14 +398,14 @@ export default function BSBInterfaceCanvas({
                     Add {w.label}
                   </ContextMenu.Item>
                 ))}
-                {selectedWidgetId && (
+                {selectedWidgetIds.size > 0 && (
                   <>
                     <ContextMenu.Separator className="editor-context-menu__separator" />
                     <ContextMenu.Item
                       className="editor-context-menu__item"
                       onSelect={handleRemoveWidget}
                     >
-                      Remove
+                      Remove{selectedWidgetIds.size > 1 ? ` (${selectedWidgetIds.size})` : ''}
                     </ContextMenu.Item>
                   </>
                 )}

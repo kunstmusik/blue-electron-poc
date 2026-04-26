@@ -22,12 +22,15 @@ export default function BSBInterfaceEditor({
   instrument,
   onInstrumentPatch,
 }: BSBInterfaceEditorProps) {
-  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
+  const [selectedWidgetIds, setSelectedWidgetIds] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState<RightPanelTab>('properties');
 
   const editEnabled = instrument.editEnabled;
 
-  const selectedWidget = findWidgetInTree(instrument.widgetTree, selectedWidgetId);
+  const selectedWidget =
+    selectedWidgetIds.size === 1
+      ? findWidgetInTree(instrument.widgetTree, Array.from(selectedWidgetIds)[0])
+      : null;
 
   const dispatchBsbPatch = useCallback(
     (patch: BsbInterfacePatch) => {
@@ -85,14 +88,30 @@ export default function BSBInterfaceEditor({
       {hasWidgets && (
         <div className="flex min-h-0 flex-1">
           <div className="min-w-0 flex-1">
-            <BSBInterfaceCanvas
-              instrument={instrument}
-              selectedWidgetId={selectedWidgetId}
-              editEnabled={editEnabled}
-              onWidgetSelect={setSelectedWidgetId}
-              onBsbInterfacePatch={dispatchBsbPatch}
-              onInstrumentPatch={onInstrumentPatch}
-            />
+          <BSBInterfaceCanvas
+            instrument={instrument}
+            selectedWidgetIds={selectedWidgetIds}
+            editEnabled={editEnabled}
+            onWidgetSelect={(id, shiftKey) => {
+              setSelectedWidgetIds((prev) => {
+                if (id === null) {
+                  return new Set();
+                }
+                if (shiftKey) {
+                  const next = new Set(prev);
+                  if (next.has(id)) {
+                    next.delete(id);
+                  } else {
+                    next.add(id);
+                  }
+                  return next;
+                }
+                return new Set([id]);
+              });
+            }}
+            onBsbInterfacePatch={dispatchBsbPatch}
+            onInstrumentPatch={onInstrumentPatch}
+          />
           </div>
 
           {editEnabled && (
@@ -129,6 +148,7 @@ export default function BSBInterfaceEditor({
                 {rightTab === 'properties' ? (
                   <BSBPropertySheet
                     widget={selectedWidget}
+                    selectedCount={selectedWidgetIds.size}
                     editEnabled={editEnabled}
                     onBsbInterfacePatch={dispatchBsbPatch}
                   />

@@ -211,13 +211,13 @@
 
 ---
 
-## Phase 8: Multi-Select and Keyboard (Deferred)
+## Phase 8: Multi-Select and Keyboard
 
 **Purpose**: Implement Java-parity multi-select, keyboard navigation, and marquee selection. These match Java `BSBObjectViewHolder` shift-click selection, arrow key movement, and `BSBEditPanel` marquee.
 
-- [ ] T097 [US3] Shift-click multi-select: clicking a widget while holding Shift toggles it in/out of the selection set. Requires changing `selectedWidgetId: string | null` to `selectedWidgetIds: Set<string>` throughout BSBInterfaceCanvas, WidgetWrapper, and BSBPropertySheet.
-- [ ] T098 [US3] Arrow key movement: when widgets are selected in edit mode, arrow keys move all selected widgets by 1px (or grid size if snap enabled). Requires `tabIndex` and `onKeyDown` on the canvas container.
-- [ ] T099 [US3] Marquee selection: click-drag on empty canvas draws a selection rectangle; all widgets within are selected. Requires `mousedown`/`mousemove`/`mouseup` on canvas background.
+- [x] T097 [US3] Shift-click multi-select: clicking a widget while holding Shift toggles it in/out of the selection set. Changed `selectedWidgetId: string | null` to `selectedWidgetIds: Set<string>` throughout BSBInterfaceEditor, BSBInterfaceCanvas, WidgetWrapper, and BSBPropertySheet. Property sheet shows "N widgets selected" when multiple are selected. Remove context menu removes all selected widgets.
+- [x] T098 [US3] Arrow key movement: when widgets are selected in edit mode, arrow keys move all selected widgets by grid size (or 1px if grid snap disabled). Implemented with window keydown listener in BSBInterfaceCanvas.
+- [x] T099 [US3] Marquee selection: click-drag on empty canvas draws a dashed selection rectangle with pink highlight; all widgets whose bounding box intersects the rectangle are selected on mouseup. Shift+marquee toggles intersection set. Click on background clears selection (unless marquee drag occurred).
 
 ---
 

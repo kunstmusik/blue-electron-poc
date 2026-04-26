@@ -9,7 +9,7 @@ interface WidgetWrapperProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string) => void;
+  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
   children: React.ReactNode;
   autoSize?: boolean;
   onDoubleClick?: () => void;
@@ -20,6 +20,8 @@ interface WidgetWrapperProps {
   gridSnapWidth?: number;
   gridSnapHeight?: number;
   onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
+  selectedWidgetIds?: Set<string>;
+  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
 }
 
 export default function WidgetWrapper({
@@ -37,12 +39,21 @@ export default function WidgetWrapper({
   gridSnapWidth,
   gridSnapHeight,
   onBsbInterfacePatch,
+  selectedWidgetIds,
+  getWidgetPosition,
 }: WidgetWrapperProps): React.ReactElement {
   const w = displayWidth ?? node.width ?? 60;
   const h = displayHeight ?? node.height ?? 24;
-  const moveDragRef = useRef<{ startX: number; startY: number; originClientX: number; originClientY: number } | null>(null);
-  const moveParamsRef = useRef({ nodeId: node.id, nodeX: node.x, nodeY: node.y, gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch });
-  moveParamsRef.current = { nodeId: node.id, nodeX: node.x, nodeY: node.y, gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch };
+
+  type MoveDragState = {
+    originClientX: number;
+    originClientY: number;
+    positions: Map<string, { x: number; y: number }>;
+  };
+
+  const moveDragRef = useRef<MoveDragState | null>(null);
+  const moveParamsRef = useRef({ gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch });
+  moveParamsRef.current = { gridSnapEnabled, gridSnapWidth, gridSnapHeight, onBsbInterfacePatch };
 
   const moveRafRef = useRef(0);
 
@@ -55,14 +66,17 @@ export default function WidgetWrapper({
       moveRafRef.current = requestAnimationFrame(() => {
         const md2 = moveDragRef.current;
         if (!md2) return;
-        const { nodeId: id, gridSnapEnabled: snap, gridSnapWidth: gw, gridSnapHeight: gh, onBsbInterfacePatch: patch } = moveParamsRef.current;
+        const { gridSnapEnabled: snap, gridSnapWidth: gw, gridSnapHeight: gh, onBsbInterfacePatch: patch } = moveParamsRef.current;
         let dx = e.clientX - md2.originClientX;
         let dy = e.clientY - md2.originClientY;
         if (snap && gw) dx = Math.round(dx / gw) * gw;
         if (snap && gh) dy = Math.round(dy / gh) * gh;
-        const nx = Math.max(0, md2.startX + dx);
-        const ny = Math.max(0, md2.startY + dy);
-        patch?.({ type: 'updateWidgetProperties', widgetId: id, properties: { x: nx, y: ny } });
+
+        for (const [id, startPos] of md2.positions) {
+          const nx = Math.max(0, startPos.x + dx);
+          const ny = Math.max(0, startPos.y + dy);
+          patch?.({ type: 'updateWidgetProperties', widgetId: id, properties: { x: nx, y: ny } });
+        }
       });
     };
     const onUp = () => {
@@ -109,12 +123,22 @@ export default function WidgetWrapper({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        if (editEnabled) onWidgetSelect(node.id);
+        if (editEnabled) onWidgetSelect(node.id, e.shiftKey);
       }}
       onMouseDown={(e) => {
         if (!editEnabled || !isSelected || e.button !== 0) return;
         e.stopPropagation();
-        moveDragRef.current = { startX: node.x, startY: node.y, originClientX: e.clientX, originClientY: e.clientY };
+        const positions = new Map<string, { x: number; y: number }>();
+        if (selectedWidgetIds && selectedWidgetIds.size > 1 && getWidgetPosition) {
+          for (const id of selectedWidgetIds) {
+            const pos = getWidgetPosition(id);
+            if (pos) positions.set(id, { ...pos });
+          }
+        }
+        if (positions.size === 0) {
+          positions.set(node.id, { x: node.x, y: node.y });
+        }
+        moveDragRef.current = { originClientX: e.clientX, originClientY: e.clientY, positions };
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();
@@ -259,5 +283,3 @@ function ResizeHandle({
     />
   );
 }
-
-
