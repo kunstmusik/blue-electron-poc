@@ -37,6 +37,7 @@ export function useKeyboardShortcuts(): void {
   const saveProjectAs = useProjectStore((s) => s.saveProjectAs);
   const togglePlay = usePlaybackStore((s) => s.togglePlay);
   const stop = usePlaybackStore((s) => s.stop);
+  const flushPatches = useProjectStore((s) => s.flushPendingPatches);
   const hasProject = useProjectStore((s) => s.filePath !== null);
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export function useKeyboardShortcuts(): void {
       // Space = toggle play (only if project loaded)
       if (e.code === 'Space' && !meta && !e.repeat && hasProject && !editingText) {
         e.preventDefault();
+        await flushPatches();
         await togglePlay();
       }
 
@@ -75,5 +77,5 @@ export function useKeyboardShortcuts(): void {
 
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [hasProject, loadProject, saveProject, saveProjectAs, togglePlay, stop]);
+  }, [hasProject, loadProject, saveProject, saveProjectAs, togglePlay, stop, flushPatches]);
 }

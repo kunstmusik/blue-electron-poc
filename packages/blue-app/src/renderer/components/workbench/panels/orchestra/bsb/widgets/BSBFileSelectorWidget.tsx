@@ -1,5 +1,6 @@
 import React from 'react';
-import type { BsbWidgetNodeSnapshot } from '../../../../../../../shared/project-editor';
+import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBFileSelectorWidgetProps {
@@ -7,6 +8,11 @@ interface BSBFileSelectorWidgetProps {
   isSelected: boolean;
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
+  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBFileSelectorWidget({
@@ -14,11 +20,16 @@ export default function BSBFileSelectorWidget({
   isSelected,
   editEnabled,
   onWidgetSelect,
+  onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBFileSelectorWidgetProps): React.ReactElement {
   const fileName = typeof node.properties.fileName === 'string' ? node.properties.fileName : '';
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div className="flex h-full w-full items-stretch overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
         <div className="flex h-full flex-1 items-center overflow-hidden bg-[#0a0f1a] px-1.5 text-[11px] text-gray-200">
           <span className="truncate">{fileName || '(none)'}</span>

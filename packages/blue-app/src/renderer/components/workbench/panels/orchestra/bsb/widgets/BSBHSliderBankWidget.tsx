@@ -1,5 +1,6 @@
 import React from 'react';
-import type { BsbWidgetNodeSnapshot } from '../../../../../../../shared/project-editor';
+import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBHSliderBankWidgetProps {
@@ -7,6 +8,11 @@ interface BSBHSliderBankWidgetProps {
   isSelected: boolean;
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
+  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBHSliderBankWidget({
@@ -14,6 +20,11 @@ export default function BSBHSliderBankWidget({
   isSelected,
   editEnabled,
   onWidgetSelect,
+  onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBHSliderBankWidgetProps): React.ReactElement {
   const sliders: Array<{ value?: number }> = Array.isArray(node.properties.sliders)
     ? (node.properties.sliders as Array<{ value?: number }>)
@@ -26,7 +37,7 @@ export default function BSBHSliderBankWidget({
   const range = maximum - minimum || 1;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div
         className="flex h-full w-full flex-col overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30"
         style={{ gap }}

@@ -61,4 +61,9 @@ export class BSBHSliderBank extends BSBWidget {
       this.sliders.push(new BSBHSlider());
     }
   }
+
+  randomize(): void {
+    if (!this.randomizable) return;
+    for (const s of this.sliders) s.randomize();
+  }
 }

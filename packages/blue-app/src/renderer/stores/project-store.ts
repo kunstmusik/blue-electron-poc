@@ -53,9 +53,95 @@ interface ProjectActions {
     patch: Partial<ProjectPropertiesSnapshot>,
   ) => Promise<void>;
   setLoopRendering: (loopRendering: boolean) => Promise<void>;
+  flushPendingPatches: () => Promise<void>;
 }
 
 let latestProjectPatchRequestId = 0;
+let pendingPatches: ProjectDocumentPatch[] = [];
+let pendingPatchTimer: ReturnType<typeof setTimeout> | null = null;
+const PATCH_FLUSH_DELAY_MS = 100;
+
+let storeGet: (() => ProjectState & ProjectActions) | null = null;
+let storeSet: ((partial: Partial<ProjectState> | ((state: ProjectState) => Partial<ProjectState>) | ProjectState) => void) | null = null;
+
+function scheduleFlush() {
+  if (pendingPatchTimer !== null) {
+    clearTimeout(pendingPatchTimer);
+  }
+  pendingPatchTimer = setTimeout(doFlush, PATCH_FLUSH_DELAY_MS);
+}
+
+function doFlush() {
+  const patches = pendingPatches.slice();
+  pendingPatches = [];
+  pendingPatchTimer = null;
+  if (patches.length === 0) return;
+
+  const requestId = ++latestProjectPatchRequestId;
+
+  const sendAll = async (): Promise<void> => {
+    let lastSnapshot: ProjectLoadedPayload | null = null;
+    for (const p of patches) {
+      lastSnapshot = await window.blueAPI.updateProjectDocument(p);
+    }
+    if (lastSnapshot && requestId === latestProjectPatchRequestId && storeGet && storeSet) {
+      storeGet().setProjectInfo(lastSnapshot);
+      storeSet({ isDirty: true });
+    }
+  };
+
+  sendAll().catch((err: unknown) => {
+    toast.error(`Project update failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
+}
+
+function doFlushAsync(): Promise<void> {
+  const patches = pendingPatches.slice();
+  pendingPatches = [];
+  if (pendingPatchTimer !== null) {
+    clearTimeout(pendingPatchTimer);
+    pendingPatchTimer = null;
+  }
+  if (patches.length === 0) return Promise.resolve();
+
+  const requestId = ++latestProjectPatchRequestId;
+
+  let lastSnapshot: ProjectLoadedPayload | null = null;
+  let chain: Promise<void> = Promise.resolve();
+  for (const p of patches) {
+    chain = chain.then(() => window.blueAPI.updateProjectDocument(p).then((s) => { lastSnapshot = s; }));
+  }
+
+  return chain.then(() => {
+    if (lastSnapshot && requestId === latestProjectPatchRequestId && storeGet && storeSet) {
+      storeGet().setProjectInfo(lastSnapshot);
+      storeSet({ isDirty: true });
+    }
+  }).catch((err: unknown) => {
+    toast.error(`Project update failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
+}
+
+export function __testFlushPendingPatches(): void {
+  if (pendingPatchTimer !== null) {
+    clearTimeout(pendingPatchTimer);
+  }
+  doFlush();
+}
+
+export async function __testAwaitPendingPatches(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+export function __testClearPendingPatches(): void {
+  pendingPatches.length = 0;
+  if (pendingPatchTimer !== null) {
+    clearTimeout(pendingPatchTimer);
+    pendingPatchTimer = null;
+  }
+}
 
 function buildInitialState(): ProjectState {
   const snapshot = createEmptyProjectEditorSnapshot();
@@ -280,6 +366,30 @@ function applyBsbInterfacePatchToSnapshot(
               case 'value': node.value = value as number; break;
               case 'minimum': node.minimum = value as number; break;
               case 'maximum': node.maximum = value as number; break;
+              case 'sliderWidth':
+                node.properties.sliderWidth = value as number;
+                node.width = (value as number) + (node.properties.valueDisplayEnabled ? 50 : 0);
+                break;
+              case 'sliderHeight':
+                node.properties.sliderHeight = value as number;
+                node.height = (value as number) + (node.properties.valueDisplayEnabled ? 30 : 0);
+                break;
+              case 'knobWidth':
+                node.properties.knobWidth = value as number;
+                node.width = value as number;
+                break;
+              case 'canvasWidth':
+                node.properties.canvasWidth = value as number;
+                node.width = value as number;
+                break;
+              case 'canvasHeight':
+                node.properties.canvasHeight = value as number;
+                node.height = value as number;
+                break;
+              case 'textFieldWidth':
+                node.properties.textFieldWidth = value as number;
+                node.width = value as number;
+                break;
               default: node.properties[key] = value; break;
             }
           }
@@ -344,6 +454,72 @@ function applyBsbInterfacePatchToSnapshot(
       if (instrument.presetGroup) {
         instrument.presetGroup.currentPresetUniqueId = patch.presetUniqueId;
         instrument.presetGroup.currentPresetModified = false;
+        const preset = findPresetById(instrument.presetGroup, patch.presetUniqueId);
+        if (preset?.values) {
+          const valuesMap = preset.values;
+          const updateWidgetValue = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+            if (node.objectName && node.objectName in valuesMap) {
+              const raw = valuesMap[node.objectName];
+              if (raw !== undefined) {
+                if (node.widgetType === 'BSBCheckBox') {
+                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
+                  if (Number.isFinite(parsed)) {
+                    node.properties = { ...node.properties, selected: parsed > 0 };
+                    node.value = parsed;
+                  }
+                } else if (node.widgetType === 'BSBDropdown') {
+                  const parsed = parseInt(raw.replace(/^ver2:/, ''), 10);
+                  if (Number.isFinite(parsed)) {
+                    node.properties = { ...node.properties, selectedIndex: parsed };
+                  }
+                } else if (node.widgetType === 'BSBSubChannelDropdown') {
+                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
+                  node.properties = { ...node.properties, channelOutput: parsed };
+                } else if (node.widgetType === 'BSBTextField') {
+                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
+                  node.properties = { ...node.properties, textValue: parsed };
+                } else if (node.widgetType === 'BSBValue') {
+                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
+                  if (Number.isFinite(parsed)) {
+                    node.properties = { ...node.properties, defaultValue: parsed };
+                    node.value = parsed;
+                  }
+                } else if (node.widgetType === 'BSBXYController') {
+                  const parsed = raw.replace(/^ver2:/, '').split(',');
+                  if (parsed.length === 2) {
+                    const x = parseFloat(parsed[0]);
+                    const y = parseFloat(parsed[1]);
+                    if (Number.isFinite(x) && Number.isFinite(y)) {
+                      node.properties = { ...node.properties, xValue: x, yValue: y };
+                    }
+                  }
+                } else if (node.widgetType === 'BSBFileSelector') {
+                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
+                  node.properties = { ...node.properties, fileName: parsed };
+                } else {
+                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
+                  if (Number.isFinite(parsed)) {
+                    node.value = parsed;
+                  }
+                }
+              }
+            }
+            if (node.children) node.children.forEach(updateWidgetValue);
+          };
+          if (instrument.widgetTree?.children) {
+            instrument.widgetTree.children.forEach(updateWidgetValue);
+          }
+          instrument.widgets = instrument.widgets.map((w) => {
+            if (w.objectName in valuesMap) {
+              const raw = valuesMap[w.objectName];
+              const parsed = parseFloat(raw.replace(/^ver2:/, ''));
+              if (Number.isFinite(parsed)) {
+                return { ...w, value: parsed };
+              }
+            }
+            return w;
+          });
+        }
       }
       break;
     case 'updatePreset':
@@ -366,6 +542,67 @@ function applyBsbInterfacePatchToSnapshot(
     case 'updateEmbeddedOpcodeList':
       instrument.opcodeListText = patch.opcodeList;
       break;
+    case 'addWidget': {
+      if (!instrument.widgetTree) break;
+      const newId = `w${Date.now()}`;
+      const newNode: import('../../shared/project-editor').BsbWidgetNodeSnapshot = {
+        id: newId,
+        type: patch.widgetType,
+        objectName: '',
+        x: patch.x,
+        y: patch.y,
+        width: 60,
+        height: 24,
+        value: 0,
+        minimum: 0,
+        maximum: 1,
+        properties: {},
+        children: patch.widgetType === 'BSBGroup' ? [] : undefined,
+      };
+      const targetId = patch.parentGroupId;
+      if (targetId) {
+        const findGroup = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+          if (node.id === targetId && node.type === 'BSBGroup') {
+            if (!node.children) node.children = [];
+            node.children.push(newNode);
+            return true;
+          }
+          if (node.children) {
+            for (const child of node.children) {
+              if (findGroup(child)) return true;
+            }
+          }
+          return false;
+        };
+        findGroup(instrument.widgetTree);
+      } else {
+        instrument.widgetTree.children = instrument.widgetTree.children ?? [];
+        instrument.widgetTree.children.push(newNode);
+      }
+      instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
+      break;
+    }
+    case 'removeWidget': {
+      if (!instrument.widgetTree) break;
+      const removeFrom = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+        if (node.children) {
+          const idx = node.children.findIndex((c) => c.id === patch.widgetId);
+          if (idx >= 0) {
+            node.children.splice(idx, 1);
+            return true;
+          }
+          for (const child of node.children) {
+            if (removeFrom(child)) return true;
+          }
+        }
+        return false;
+      };
+      removeFrom(instrument.widgetTree);
+      instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
+      break;
+    }
+    case 'randomize':
+      break;
   }
 }
 
@@ -377,6 +614,21 @@ function collectObjectNamesFromTree(node: import('../../shared/project-editor').
   };
   if (node.children) node.children.forEach(visit);
   return names.sort();
+}
+
+function findPresetById(
+  group: import('../../shared/project-editor').PresetGroupSnapshot | undefined,
+  uniqueId: string,
+): import('../../shared/project-editor').PresetSnapshot | undefined {
+  if (!group) return undefined;
+  for (const p of group.presets) {
+    if (p.uniqueId === uniqueId) return p;
+  }
+  for (const sub of group.subGroups) {
+    const found = findPresetById(sub, uniqueId);
+    if (found) return found;
+  }
+  return undefined;
 }
 
 function applyOrchestraPatchSnapshot(
@@ -542,7 +794,10 @@ function applyOrchestraPatchSnapshot(
   return next;
 }
 
-export const useProjectStore = create<ProjectState & ProjectActions>()((set, get) => ({
+export const useProjectStore = create<ProjectState & ProjectActions>()((set, get) => {
+  storeGet = get;
+  storeSet = set;
+  return {
   ...buildInitialState(),
 
   loadProject: async () => {
@@ -658,8 +913,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       return;
     }
 
-    const requestId = ++latestProjectPatchRequestId;
-
     set((state) => {
       const next: ProjectState = {
         ...state,
@@ -706,15 +959,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       return next;
     });
 
-    try {
-      const snapshot = await window.blueAPI.updateProjectDocument(patch);
-      if (snapshot && requestId === latestProjectPatchRequestId) {
-        get().setProjectInfo(snapshot);
-        set({ isDirty: true });
-      }
-    } catch (err: unknown) {
-      toast.error(`Project update failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
+    pendingPatches.push(patch);
+
+    scheduleFlush();
   },
 
   updateGlobalOrc: async (globalOrc) => {
@@ -738,4 +985,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       transport: { loopRendering },
     });
   },
-}));
+
+  flushPendingPatches: async () => {
+    await doFlushAsync();
+  },
+};
+});

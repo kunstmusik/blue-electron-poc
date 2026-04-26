@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { BsbWidgetNodeSnapshot } from '../../../../../../../shared/project-editor';
+import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import { getDropdownDisplayWidth } from './utils';
 import WidgetWrapper from './WidgetWrapper';
 
@@ -9,6 +10,11 @@ interface BSBSubChannelDropdownWidgetProps {
   isSelected: boolean;
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
+  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBSubChannelDropdownWidget({
@@ -16,6 +22,11 @@ export default function BSBSubChannelDropdownWidget({
   isSelected,
   editEnabled,
   onWidgetSelect,
+  onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBSubChannelDropdownWidgetProps): React.ReactElement {
   const channelOutput = typeof node.properties.channelOutput === 'string' ? node.properties.channelOutput : '';
   const displayText = channelOutput || node.objectName || 'Sub Channel';
@@ -23,7 +34,7 @@ export default function BSBSubChannelDropdownWidget({
   const calculatedWidth = getDropdownDisplayWidth(node);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <button
         type="button"
         disabled

@@ -65,6 +65,7 @@ export class EngineClient {
   private subscriptionLoop: Promise<void> | null = null;
   private subscriptionClosed = false;
   private subscriptionError: Error | null = null;
+  private requestQueue: Promise<any> = Promise.resolve();
 
   constructor(options: EngineClientOptions = {}) {
     this.endpoint = options.endpoint ?? 'tcp://localhost:5555';
@@ -139,35 +140,46 @@ export class EngineClient {
    * All requests must use the 5-byte header format, even with no payload.
    */
   private async sendRaw(cmd: number, payload?: Buffer): Promise<{ ok: boolean; message: string; payload: Buffer }> {
-    if (!this.socket) {
-      throw new Error('EngineClient not connected. Call connect() first.');
-    }
+    return (this.requestQueue = this.requestQueue
+      .then(async () => {
+        if (!this.socket) {
+          throw new Error('EngineClient not connected. Call connect() first.');
+        }
 
-    let data: Buffer;
-    if (payload) {
-      data = payload;
-    } else {
-      // Always use 5-byte header format, even for no-payload commands
-      data = Buffer.alloc(5);
-      data.writeUInt8(cmd, 0);
-      data.writeUInt32LE(0, 1);
-    }
+        let data: Buffer;
+        if (payload) {
+          data = payload;
+        } else {
+          // Always use 5-byte header format, even for no-payload commands
+          data = Buffer.alloc(5);
+          data.writeUInt8(cmd, 0);
+          data.writeUInt32LE(0, 1);
+        }
 
-    await this.socket.send(data);
+        await this.socket.send(data);
 
-    const [response] = await this.socket.receive();
-    const respBuf = response as Buffer;
+        const [response] = await this.socket.receive();
+        const respBuf = response as Buffer;
 
-    if (respBuf.length < 5) {
-      return { ok: false, message: 'Invalid response (too short)', payload: Buffer.alloc(0) };
-    }
+        if (respBuf.length < 5) {
+          return { ok: false, message: 'Invalid response (too short)', payload: Buffer.alloc(0) };
+        }
 
-    const status = respBuf.readUInt8(0);
-    const msgLen = respBuf.readUInt32LE(1);
-    const message = respBuf.slice(5, 5 + msgLen).toString('utf-8');
-    const rawPayload = respBuf.slice(5, 5 + msgLen);
+        const status = respBuf.readUInt8(0);
+        const msgLen = respBuf.readUInt32LE(1);
+        const message = respBuf.slice(5, 5 + msgLen).toString('utf-8');
+        const rawPayload = respBuf.slice(5, 5 + msgLen);
 
-    return { ok: status === STATUS_OK, message, payload: rawPayload };
+        return { ok: status === STATUS_OK, message, payload: rawPayload };
+      })
+      .catch((error: unknown) => {
+        // Ensure the queue remains functional even after an error
+        return {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+          payload: Buffer.alloc(0),
+        };
+      }));
   }
 
   /**

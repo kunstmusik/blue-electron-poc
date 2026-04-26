@@ -11,6 +11,18 @@ export class BSBTextField extends BSBWidget {
   textValue = '';
   textFieldWidth = 100;
 
+  override getPresetValue(): string {
+    return this.textValue;
+  }
+
+  override setPresetValue(val: string): void {
+    if (val.startsWith('ver2:')) {
+      this.textValue = val.substring(5);
+    } else {
+      this.textValue = val;
+    }
+  }
+
   override collectReplacements(unit: BSBCompilationUnit): void {
     unit.addReplacementValue(this.objectName, this.textValue);
   }

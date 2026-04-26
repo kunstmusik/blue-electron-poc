@@ -85,6 +85,14 @@ export class BSBGroup extends BSBWidget {
     this._children.push(widget);
   }
 
+  randomize(): void {
+    for (const child of this._children) {
+      if ('randomize' in child && typeof (child as any).randomize === 'function') {
+        (child as any).randomize();
+      }
+    }
+  }
+
   override collectReplacements(
     unit: BSBCompilationUnit,
     parameters?: Parameter[],

@@ -19,6 +19,22 @@ export class BSBXYController extends BSBWidget {
   valueDisplayEnabled = true;
   randomizable = true;
 
+  override getPresetValue(): string {
+    return `ver2:${this.xValue},${this.yValue}`;
+  }
+
+  override setPresetValue(val: string): void {
+    const parsed = val.replace(/^ver2:/, "").split(',');
+    if (parsed.length === 2) {
+      const x = parseFloat(parsed[0]);
+      const y = parseFloat(parsed[1]);
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        this.xValue = x;
+        this.yValue = y;
+      }
+    }
+  }
+
   override collectReplacements(unit: BSBCompilationUnit): void {
     const xName = `${this.objectName}X`;
     const yName = `${this.objectName}Y`;
@@ -48,5 +64,11 @@ export class BSBXYController extends BSBWidget {
     if (vde) this.valueDisplayEnabled = vde.getTextString() === 'true';
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
+  }
+
+  randomize(): void {
+    if (!this.randomizable) return;
+    this.xValue = this.xMin + Math.random() * (this.xMax - this.xMin);
+    this.yValue = this.yMin + Math.random() * (this.yMax - this.yMin);
   }
 }

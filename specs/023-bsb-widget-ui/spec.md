@@ -2,7 +2,7 @@
 
 **Feature Branch**: `023-bsb-widget-ui`
 **Created**: 2026-04-24
-**Status**: Planning
+**Status**: In Progress
 **Input**: User description: "Implement BSB Widget UI elements for edit and non-edit mode. Implementation should be based on original Java code (/Users/stevenyi/work/nbprojects/blue/blue-core/src/main/java/blue/orchestra/blueSynthBuilder). Review that all properties exposed in BSB widget properties panel matches those exposed in Java."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -14,6 +14,7 @@
 - The property sheet shows a fixed layout block (objectName, x, y, width, height) plus a blind dump of `widget.properties` rather than typed, Java-parity per-widget fields.
 - Several TypeScript `@blue/data` widget model classes are missing properties that are exposed in Java's `*BeanInfo.java` descriptors. These gaps mean the property sheet, even if re-wired, would omit important fields.
 - This spec closes out those three areas: data-model parity, non-edit rendering, and edit-mode affordances.
+- Additional fixes delivered in this slice: preset application now correctly restores widget-specific state via `getPresetValue`/`setPresetValue` ( Checkbox, Dropdown, FileSelector, SubChannelDropdown, TextField, Value, XYController ) and syncs parameters after preset apply; runtime widget value changes now use `setValue()` and propagate to linked automation parameters; randomize support added to all randomizable widget types; engine-client request queueing prevents interleaved ZeroMQ messages.
 
 ---
 
@@ -111,3 +112,63 @@ As a developer maintaining `@blue/data`, I need the TypeScript BSB widget classe
 11. **Given** a `BSBTextField` is parsed from Java XML, **When** serialized and re-parsed, **Then** `comment` survives round-trip; the field holding the text value uses the Java canonical name `value`.
 12. **Given** a `BSBSubChannelDropdown` is parsed from Java XML, **When** serialized and re-parsed, **Then** `comment` survives round-trip.
 13. **Given** a `BSBLineObject` is parsed from Java XML, **When** serialized and re-parsed, **Then** `canvasWidth`, `canvasHeight`, `XMax`, `separatorType`, `leadingZero`, `relativeXValues`, `locked`, and `comment` survive round-trip.
+
+---
+
+### User Story 5 – Canvas context menu for add/remove widgets (Priority: P1)
+
+As a composer editing a BSB interface in edit mode, I need a right-click context menu on the canvas to add new widgets at the click position and remove selected widgets, matching Java Blue's `BSBEditPanelPopup` behavior.
+
+**Why this priority**: Adding and removing widgets is a core editing operation. Without it, the BSB interface editor is read-only in terms of structure.
+
+**Independent Test**: Enter edit mode, right-click on the canvas, select "Add Knob" from the context menu, confirm a new knob widget appears at the click position. Select it, right-click, choose "Remove", confirm it is removed.
+
+**Acceptance Scenarios**:
+
+1. **Given** edit mode is active, **When** the user right-clicks on the canvas background, **Then** a context menu appears with "Add" items for all 15 widget types (Group, Knob, Horizontal Slider, Horizontal Slider Bank, Vertical Slider, Vertical Slider Bank, CheckBox, Label, Dropdown List, SubChannel Dropdown List, File Selector, XY Controller, Line Object, Text Field, Value).
+2. **Given** edit mode is active, **When** the user selects "Add Knob" from the context menu, **Then** a new BSBKnob widget is created at the right-click position with grid snapping applied if snap is enabled, and the widget appears in the canvas.
+3. **Given** edit mode is active and a widget is selected, **When** the user right-clicks on the canvas, **Then** the context menu includes a "Remove" item.
+4. **Given** edit mode is active and the user selects "Remove" from the context menu, **When** a widget is selected, **Then** the widget is removed from the canvas.
+5. **Given** the user is inside a nested group, **When** a widget is added via context menu, **Then** it is added as a child of the current group.
+
+---
+
+### User Story 6 – Drag-to-move widgets in edit mode (Priority: P1)
+
+As a composer editing a BSB interface in edit mode, I need to drag selected widgets to reposition them, matching Java Blue's `BSBObjectViewHolder` mouse-drag behavior.
+
+**Why this priority**: Positioning widgets is a fundamental editing operation. Without drag-to-move, the only way to reposition widgets is by editing x/y in the property sheet.
+
+**Independent Test**: Enter edit mode, select a widget, click and drag it to a new position. Confirm the widget follows the mouse, grid snap is applied if enabled, and the position is persisted.
+
+**Acceptance Scenarios**:
+
+1. **Given** edit mode is active and a widget is selected, **When** the user clicks and drags the widget, **Then** the widget moves to follow the mouse.
+2. **Given** grid snap is enabled, **When** the user drags a widget, **Then** the position snaps to the grid.
+3. **Given** the user drags a widget, **When** the position would go below zero, **Then** the widget is clamped at x=0 or y=0.
+
+---
+
+### User Story 7 – Radix Tooltip for widget comments (Priority: P3)
+
+As a composer viewing a BSB interface in non-edit mode, I need widget comments to appear quickly as tooltips when hovering, matching Java Blue's tooltip behavior (near-instant show).
+
+**Why deferred**: The native HTML `title` attribute works but has a ~500ms show delay. Radix Tooltip would provide instant-on-hover behavior. Functional but lower priority.
+
+**Acceptance Scenarios**:
+
+1. **Given** a widget has a `comment` property set, **When** the user hovers over the widget in non-edit mode, **Then** a tooltip appears within ~100ms showing the comment text.
+
+---
+
+### User Story 8 – Multi-select, keyboard movement, and marquee selection (Priority: P3)
+
+As a composer editing a BSB interface, I need to select multiple widgets, move them with arrow keys, and use marquee (rubber-band) selection, matching Java Blue's `BSBObjectViewHolder` shift-click and `BSBEditPanel` marquee behavior.
+
+**Why deferred**: Multi-select requires changing `selectedWidgetId` (singular) to `selectedWidgetIds` (plural) across the entire BSB editing stack. This is a significant refactor that affects canvas, property sheet, and all widget wrappers.
+
+**Acceptance Scenarios**:
+
+1. **Given** edit mode is active, **When** the user Shift-clicks a widget, **Then** the widget is toggled in/out of the selection set without clearing other selections.
+2. **Given** multiple widgets are selected, **When** the user presses an arrow key, **Then** all selected widgets move by 1px (or grid size if snap enabled).
+3. **Given** edit mode is active, **When** the user clicks and drags on empty canvas, **Then** a selection rectangle is drawn and all widgets within are selected on mouse release.

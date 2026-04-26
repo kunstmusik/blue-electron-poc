@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
@@ -35,6 +35,17 @@ export default function BSBInterfaceEditor({
     },
     [onInstrumentPatch],
   );
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'e' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        dispatchBsbPatch({ type: 'setEditEnabled', value: !instrument.editEnabled });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [dispatchBsbPatch, instrument.editEnabled]);
 
   const hasWidgets = instrument.widgetTree?.children && instrument.widgetTree.children.length > 0;
 

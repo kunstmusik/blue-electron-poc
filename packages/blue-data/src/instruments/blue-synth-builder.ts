@@ -13,6 +13,7 @@ import { BSBGraphicInterface } from "./blue-synth-builder/bsb-graphic-interface"
 import { BSBGroup } from "./blue-synth-builder/bsb-group";
 import { BSBWidget } from "./blue-synth-builder/bsb-widget";
 import { Parameter, AutomationCurve } from "../automation/parameter";
+import { BSBXYController } from "./blue-synth-builder/bsb-xy-controller";
 import {
   StringChannel,
   BSBFileSelector,
@@ -76,6 +77,13 @@ export class BlueSynthBuilder extends Instrument {
         : null;
       // Deep copy graphic interface
       this._graphicInterface = new BSBGraphicInterface();
+      this._graphicInterface.loadFromXML(other._graphicInterface.saveAsXML());
+      // Deep copy parameters
+      this._parameters = other._parameters.map(p => p.deepCopy() as Parameter);
+      // Deep copy preset group
+      if (other._presetGroup) {
+        this._presetGroup = PresetGroup.loadFromXML(other._presetGroup.saveAsXML());
+      }
     }
   }
 
@@ -286,19 +294,45 @@ export class BlueSynthBuilder extends Instrument {
   }
 
   applyPreset(presetUniqueId: string): boolean {
+    console.log('applyPreset in BSB:', presetUniqueId);
     if (!this._presetGroup) return false;
     const preset = this._presetGroup.findPresetByUniqueId(presetUniqueId);
-    if (!preset) return false;
+    if (!preset) {
+      console.log('preset not found');
+      return false;
+    }
 
     const valuesMap = preset.getValuesMap();
+    console.log('valuesMap size:', valuesMap.size);
+    let updatedCount = 0;
     const visit = (widgets: BSBWidget[]): void => {
       for (const widget of widgets) {
         const val = valuesMap.get(widget.objectName);
         if (val !== undefined) {
-          const parsed = parseFloat(val.replace(/^ver2:/, ""));
-          if (Number.isFinite(parsed)) {
-            widget.value = parsed;
+          console.log(`Updating widget ${widget.objectName} to ${val}`);
+          if (typeof widget.setPresetValue === 'function') {
+            widget.setPresetValue(val);
+          } else {
+            const parsed = parseFloat(val.replace(/^ver2:/, ""));
+            if (Number.isFinite(parsed)) {
+              widget.value = parsed;
+            }
           }
+
+          // Sync with parameter(s) if they exist
+          if (widget instanceof BSBXYController) {
+            const px = this._parameters.find(p => p.getName() === `${widget.objectName}X`);
+            const py = this._parameters.find(p => p.getName() === `${widget.objectName}Y`);
+            if (px) px.setFixedValue(widget.xValue);
+            if (py) py.setFixedValue(widget.yValue);
+          } else {
+            const param = this._parameters.find(p => p.getName() === widget.objectName);
+            if (param) {
+              param.setFixedValue(widget.value);
+            }
+          }
+
+          updatedCount++;
         }
         if (widget instanceof BSBGroup) {
           visit(widget.getChildren());
@@ -306,6 +340,7 @@ export class BlueSynthBuilder extends Instrument {
       }
     };
     visit(this._graphicInterface.getRootGroup().getChildren());
+    console.log('updated widgets:', updatedCount);
     this._graphicInterfaceXML = null;
     this._presetGroup.setCurrentPresetUniqueId(presetUniqueId);
     this._presetGroup.setCurrentPresetModified(false);
@@ -331,7 +366,15 @@ export class BlueSynthBuilder extends Instrument {
           if (typeof value === "number") widget.y = value;
           break;
         case "value":
-          if (typeof value === "number") widget.value = value;
+          if (typeof value === "number") {
+            widget.setValue(value);
+            if (widget.objectName) {
+              const param = this._parameters.find(p => p.getName() === widget.objectName);
+              if (param) {
+                param.setFixedValue(value);
+              }
+            }
+          }
           break;
         case "minimum":
           if (typeof value === "number") widget.minimum = value;
@@ -348,6 +391,10 @@ export class BlueSynthBuilder extends Instrument {
     }
     this._graphicInterfaceXML = null;
     return true;
+  }
+
+  invalidateGraphicInterfaceCache(): void {
+    this._graphicInterfaceXML = null;
   }
 
   setBsbEditEnabled(enabled: boolean): void {
@@ -367,7 +414,14 @@ export class BlueSynthBuilder extends Instrument {
       return false;
     }
 
-    widget.value = value;
+    widget.setValue(value);
+
+    // Sync with parameter if it exists
+    const param = this._parameters.find(p => p.getName() === objectName);
+    if (param) {
+      param.setFixedValue(value);
+    }
+
     this._graphicInterfaceXML = null;
     return true;
   }

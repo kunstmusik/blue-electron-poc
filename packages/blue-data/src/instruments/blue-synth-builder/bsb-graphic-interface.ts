@@ -7,6 +7,20 @@
 import { Element } from "../../serialization/xml-reader";
 import { BSBCompilationUnit } from "./bsb-compilation-unit";
 import { BSBGroup, loadBsbWidgetFromXML } from "./bsb-group";
+import { BSBKnob } from "./bsb-knob";
+import { BSBCheckBox } from "./bsb-check-box";
+import { BSBHSlider } from "./bsb-hslider";
+import { BSBVSlider } from "./bsb-vslider";
+import { BSBHSliderBank } from "./bsb-hslider-bank";
+import { BSBVSliderBank } from "./bsb-vslider-bank";
+import { BSBValue } from "./bsb-value";
+import { BSBDropdown } from "./bsb-dropdown";
+import { BSBXYController } from "./bsb-xy-controller";
+import { BSBSubChannelDropdown } from "./bsb-subchannel-dropdown";
+import { BSBFileSelector } from "./bsb-file-selector";
+import { BSBTextField } from "./bsb-text-field";
+import { BSBLabel } from "./bsb-label";
+import { BSBLineObject } from "./bsb-line-object";
 import { BSBWidget } from "./bsb-widget";
 import { Parameter } from "../../automation/parameter";
 
@@ -19,6 +33,26 @@ export interface GridSettingsData {
   height: number;
   gridStyle: GridStyle;
 }
+
+type BSBWidgetCtor = new () => BSBWidget;
+
+const WIDGET_TYPE_REGISTRY: Record<string, BSBWidgetCtor> = {
+  BSBGroup: BSBGroup,
+  BSBKnob: BSBKnob,
+  BSBCheckBox: BSBCheckBox,
+  BSBHSlider: BSBHSlider,
+  BSBVSlider: BSBVSlider,
+  BSBHSliderBank: BSBHSliderBank,
+  BSBVSliderBank: BSBVSliderBank,
+  BSBValue: BSBValue,
+  BSBDropdown: BSBDropdown,
+  BSBXYController: BSBXYController,
+  BSBSubChannelDropdown: BSBSubChannelDropdown,
+  BSBFileSelector: BSBFileSelector,
+  BSBTextField: BSBTextField,
+  BSBLabel: BSBLabel,
+  BSBLineObject: BSBLineObject,
+};
 
 function createDefaultGridSettings(): GridSettingsData {
   return { enabled: false, snapEnabled: true, width: 10, height: 10, gridStyle: "DOT" };
@@ -145,5 +179,32 @@ export class BSBGraphicInterface {
       return null;
     };
     return visit(this.rootGroup.getChildren());
+  }
+
+  createWidgetByType(typeName: string): BSBWidget | null {
+    const Ctor = WIDGET_TYPE_REGISTRY[typeName];
+    if (!Ctor) return null;
+    const widget = new Ctor();
+    if (!widget.id) {
+      widget.id = `w${_nextWidgetId++}`;
+    }
+    return widget;
+  }
+
+  removeWidget(widgetId: string): boolean {
+    const remove = (parent: BSBGroup): boolean => {
+      const children = parent.getChildren();
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].id === widgetId) {
+          children.splice(i, 1);
+          return true;
+        }
+        if (children[i] instanceof BSBGroup) {
+          if (remove(children[i] as BSBGroup)) return true;
+        }
+      }
+      return false;
+    };
+    return remove(this.rootGroup);
   }
 }

@@ -8,6 +8,7 @@ export default function PlaybackControls(): React.ReactElement {
   const status = usePlaybackStore((s) => s.status);
   const togglePlay = usePlaybackStore((s) => s.togglePlay);
   const stop = usePlaybackStore((s) => s.stop);
+  const flushPatches = useProjectStore((s) => s.flushPendingPatches);
   const isStarting = status === 'starting';
   const isStopping = status === 'stopping';
   const isBusy = isStarting || isStopping;
@@ -20,6 +21,7 @@ export default function PlaybackControls(): React.ReactElement {
     if (isPlaying) {
       await stop();
     } else {
+      await flushPatches();
       await togglePlay();
     }
   };

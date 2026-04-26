@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBKnobWidgetProps {
@@ -8,6 +9,10 @@ interface BSBKnobWidgetProps {
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 const VALUE_HEIGHT = 14;
@@ -21,6 +26,10 @@ export default function BSBKnobWidget({
   editEnabled,
   onWidgetSelect,
   onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBKnobWidgetProps): React.ReactElement {
   const value = node.value;
   const minimum = node.minimum;
@@ -44,7 +53,7 @@ export default function BSBKnobWidget({
   const totalH = knobSize + labelH + valueH;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div className="flex flex-col items-center" style={{ width: knobSize, height: totalH }}>
         {showLabel && (
           <div

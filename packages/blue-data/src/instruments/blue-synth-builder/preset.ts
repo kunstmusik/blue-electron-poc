@@ -38,7 +38,9 @@ export class Preset {
     const visit = (widgets: any[]): void => {
       for (const widget of widgets) {
         if (widget.objectName) {
-          const value = widget.value !== undefined ? `ver2:${widget.value}` : "";
+          const value = typeof widget.getPresetValue === 'function' 
+            ? widget.getPresetValue() 
+            : (widget.value !== undefined ? `ver2:${widget.value}` : "");
           this._valuesMap.set(widget.objectName, value);
         }
         if (widget.getChildren && typeof widget.getChildren === 'function') {

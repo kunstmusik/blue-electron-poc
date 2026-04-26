@@ -174,7 +174,7 @@ describe('BSB Interface Parity contract', () => {
 
     expect(bsb.type).toBe('blueSynthBuilder');
     expect(bsb.editEnabled).toBe(true);
-    expect(bsb.gridSettings).toEqual({ enabled: true, snapEnabled: true, width: 10, height: 10 });
+    expect(bsb.gridSettings).toEqual({ enabled: true, snapEnabled: true, width: 10, height: 10, gridStyle: 'DOT' });
     expect(bsb.widgetTree).not.toBeNull();
     expect(bsb.widgetTree!.children).toHaveLength(1);
     expect(bsb.widgetTree!.children![0].objectName).toBe('amp');

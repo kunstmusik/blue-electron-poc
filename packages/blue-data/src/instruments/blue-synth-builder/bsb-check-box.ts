@@ -11,6 +11,27 @@ export class BSBCheckBox extends BSBWidget {
   selected = false;
   randomizable = true;
 
+  override getPresetValue(): string {
+    return `ver2:${this.selected ? 1 : 0}`;
+  }
+
+  override setPresetValue(val: string): void {
+    if (val.startsWith("ver2:")) {
+      const parsed = parseFloat(val.substring(5));
+      if (Number.isFinite(parsed)) {
+        this.setValue(parsed);
+      }
+    } else {
+      // Legacy Java Blue: "true" or "false"
+      this.setValue(val.toLowerCase() === "true" ? 1 : 0);
+    }
+  }
+
+  override setValue(val: number): void {
+    this.value = val;
+    this.selected = val > 0;
+  }
+
   override collectReplacements(unit: BSBCompilationUnit): void {
     unit.addReplacementValue(this.objectName, this.selected ? '1' : '0');
   }
@@ -23,5 +44,10 @@ export class BSBCheckBox extends BSBWidget {
     if (sel !== null) this.selected = sel === 'true';
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
+  }
+
+  randomize(): void {
+    if (!this.randomizable) return;
+    this.selected = Math.random() >= 0.5;
   }
 }

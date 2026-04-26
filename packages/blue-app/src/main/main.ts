@@ -14,7 +14,9 @@ import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
   isEmptyProjectDocumentPatch,
+  type ProjectDocumentPatch,
 } from '../shared/project-editor';
+import { BlueSynthBuilder } from '@blue/data';
 import {
   getPanelsByMode,
   type NativeMenuCommand,
@@ -431,6 +433,60 @@ ipcMain.handle('get-project-info', () => {
   };
 });
 
+/**
+ * Synchronize real-time parameter changes to the running engine.
+ */
+async function syncEngineWithProjectPatch(data: BlueData, patch: ProjectDocumentPatch) {
+  if (!engineBridge || !engineBridge.isCurrentlyPlaying()) return;
+
+  if (patch.orchestra) {
+    const arrangement = data.getArrangement();
+    const orchestraPatch = patch.orchestra;
+
+    if (orchestraPatch.type === 'updateInstrument') {
+      const instrument = arrangement.getInstrumentById(orchestraPatch.assignmentId);
+      if (instrument instanceof BlueSynthBuilder) {
+        // 1. Individual widget updates
+        if (orchestraPatch.patch.bsbWidgetValues) {
+          const params = instrument.getParameters();
+          for (const [objectName, value] of Object.entries(orchestraPatch.patch.bsbWidgetValues)) {
+            const param = params.find((p) => p.getName() === objectName);
+            if (param && param.getCompilationVarName()) {
+              await engineBridge.setChannel(param.getCompilationVarName()!, value);
+            }
+          }
+        }
+
+        // 2. BSB Interface patches (like presets)
+        if (orchestraPatch.patch.bsbInterface) {
+          const bsbPatch = orchestraPatch.patch.bsbInterface;
+          if (bsbPatch.type === 'applyPreset') {
+            // Preset applied: sync ALL parameters for this instrument to the engine
+            const params = instrument.getParameters();
+            for (const param of params) {
+              const varName = param.getCompilationVarName();
+              if (varName) {
+                await engineBridge.setChannel(varName, param.getFixedValue());
+              }
+            }
+          } else if (bsbPatch.type === 'updateWidgetProperties') {
+            // Single widget property update (common for slider/knob moves)
+            if (typeof bsbPatch.properties.value === 'number') {
+              const widget = instrument.getGraphicInterface().findWidgetById(bsbPatch.widgetId);
+              if (widget && widget.objectName) {
+                const param = instrument.getParameters().find(p => p.getName() === widget.objectName);
+                if (param && param.getCompilationVarName()) {
+                  await engineBridge.setChannel(param.getCompilationVarName()!, bsbPatch.properties.value);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 ipcMain.handle('get-project-document', () => {
   return getCurrentProjectDocument();
 });
@@ -445,6 +501,12 @@ ipcMain.handle('update-project-document', (_event, patch) => {
   }
 
   applyProjectDocumentPatch(currentData, patch);
+
+  // Sync with engine in real-time if playing
+  if (engineBridge && engineBridge.isCurrentlyPlaying()) {
+    void syncEngineWithProjectPatch(currentData, patch);
+  }
+
   return getCurrentProjectDocument();
 });
 

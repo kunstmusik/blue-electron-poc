@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 import { ValuePanel, formatValue } from './BSBHSliderWidget';
 
@@ -9,6 +10,10 @@ interface BSBVSliderWidgetProps {
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 const VALUE_PANEL_WIDTH = 50;
@@ -23,6 +28,10 @@ export default function BSBVSliderWidget({
   editEnabled,
   onWidgetSelect,
   onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBVSliderWidgetProps): React.ReactElement {
   const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
   const value = node.value;
@@ -95,7 +104,7 @@ export default function BSBVSliderWidget({
   const thumbCy = sliderHeight - THUMB_R - (sliderHeight - 2 * THUMB_R) * pct;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div className="flex flex-col" style={{ width: SLIDER_WIDTH, height: totalHeight }}>
         <svg
           ref={svgRef}

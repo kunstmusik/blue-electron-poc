@@ -25,6 +25,19 @@ export class BSBFileSelector extends BSBWidget {
     channelName: null,
   };
 
+  override getPresetValue(): string {
+    return this.fileName;
+  }
+
+  override setPresetValue(val: string): void {
+    if (val.startsWith('ver2:')) {
+      this.fileName = val.substring(5);
+    } else {
+      this.fileName = val;
+    }
+    this.syncStringChannels();
+  }
+
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
     const fn = data.getTextString('fileName');

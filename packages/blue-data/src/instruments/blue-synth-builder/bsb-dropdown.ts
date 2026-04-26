@@ -18,6 +18,30 @@ export class BSBDropdown extends BSBWidget {
   randomizable = true;
   dropdownItems: BSBDropdownItem[] = [];
 
+  override getPresetValue(): string {
+    return `ver2:${this.selectedIndex}`;
+  }
+
+  override setPresetValue(val: string): void {
+    if (val.startsWith("ver2:")) {
+      const parsed = parseInt(val.substring(5), 10);
+      if (Number.isFinite(parsed)) {
+        this.setValue(parsed);
+      }
+    } else {
+      // Legacy Java Blue: search for item by value
+      const idx = this.dropdownItems.findIndex(item => item.value === val);
+      if (idx !== -1) {
+        this.setValue(idx);
+      }
+    }
+  }
+
+  override setValue(val: number): void {
+    this.value = val;
+    this.selectedIndex = Math.floor(val);
+  }
+
   override collectReplacements(unit: BSBCompilationUnit): void {
     if (this.dropdownItems.length === 0) {
       unit.addReplacementValue(this.objectName, '0');
@@ -51,5 +75,10 @@ export class BSBDropdown extends BSBWidget {
         });
       }
     }
+  }
+
+  randomize(): void {
+    if (!this.randomizable || this.dropdownItems.length === 0) return;
+    this.selectedIndex = Math.floor(Math.random() * this.dropdownItems.length);
   }
 }

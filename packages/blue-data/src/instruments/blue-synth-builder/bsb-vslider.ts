@@ -22,4 +22,10 @@ export class BSBVSlider extends BSBWidget {
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
   }
+
+  randomize(): void {
+    if (!this.randomizable) return;
+    const steps = Math.max(1, Math.round((this.maximum - this.minimum) / this.resolution));
+    this.value = this.minimum + Math.round(Math.random() * steps) * this.resolution;
+  }
 }

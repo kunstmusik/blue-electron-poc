@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useProjectStore } from '../stores/project-store';
+import { useProjectStore, __testFlushPendingPatches, __testAwaitPendingPatches, __testClearPendingPatches } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
@@ -21,7 +21,7 @@ const mockBlueAPI = {
   saveFile: vi.fn(),
   saveFileAs: vi.fn(),
   getProjectDocument: vi.fn(),
-  updateProjectDocument: vi.fn(),
+  updateProjectDocument: vi.fn().mockResolvedValue(null),
   readClipboardText: vi.fn().mockResolvedValue(''),
   writeClipboardText: vi.fn().mockResolvedValue(undefined),
   togglePlay: vi.fn(),
@@ -58,6 +58,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  __testClearPendingPatches();
 });
 
 describe('Project Store', () => {
@@ -142,6 +143,9 @@ describe('Project Store', () => {
 
     await useProjectStore.getState().updateGlobalOrc('instr 1\nendin');
     await useProjectStore.getState().updateProjectProperties({ title: 'Edited Title' });
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
 
     expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
       globalOrc: 'instr 1\nendin',
@@ -329,6 +333,8 @@ describe('Project Store', () => {
   });
 
   it('T349: ignores stale orchestra snapshots from older patch responses', async () => {
+    vi.useFakeTimers();
+
     let resolveFirst:
       | ((value: ReturnType<typeof createEmptyProjectEditorSnapshot> & { title: string; author: string; sampleRate: string }) => void)
       | undefined;
@@ -396,12 +402,12 @@ describe('Project Store', () => {
 
     useProjectStore.getState().setProjectInfo(createLoadedSnapshot('aout oscili p4, p5'));
 
-    const first = useProjectStore.getState().updateOrchestra({
+    useProjectStore.getState().updateOrchestra({
       type: 'updateInstrument',
       assignmentId: '1',
       patch: { text: 'aout oscili p4, p6' },
     });
-    const second = useProjectStore.getState().updateOrchestra({
+    useProjectStore.getState().updateOrchestra({
       type: 'updateInstrument',
       assignmentId: '1',
       patch: { text: 'aout oscili p4, p7' },
@@ -411,15 +417,19 @@ describe('Project Store', () => {
       'aout oscili p4, p7',
     );
 
+    vi.advanceTimersByTime(200);
+
     resolveSecond?.(createLoadedSnapshot('aout oscili p4, p7'));
-    await second;
+    await vi.advanceTimersByTimeAsync(0);
 
     resolveFirst?.(createLoadedSnapshot('aout oscili p4, p6'));
-    await first;
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(useProjectStore.getState().orchestra.instruments[0]?.text).toBe(
       'aout oscili p4, p7',
     );
+
+    vi.useRealTimers();
   });
 });
 
@@ -463,6 +473,9 @@ describe('Playback Store', () => {
     });
 
     await useProjectStore.getState().setLoopRendering(true);
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
 
     expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
       transport: { loopRendering: true },

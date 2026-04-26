@@ -148,20 +148,93 @@
 
 ### Implementation for Phase 4
 
-- [ ] T057 [US3] Add resize handle overlay to the canvas widget wrapper in `BSBInterfaceCanvas.tsx`: read `BSB_WIDGET_RESIZE_META` from `bsb-widget-meta.ts`; render right-edge handle when `canResizeWidth && editEnabled`; render bottom-edge handle when `canResizeHeight && editEnabled`; dispatch `UpdateWidgetProperty` patch for the appropriate size field on drag-end
-- [ ] T058 [P] [US3] Wire resize snap-to-grid: when `gridSettings.snapEnabled` is true, snap dragged width/height to the nearest grid multiple during resize operations in `BSBInterfaceCanvas.tsx`
-- [ ] T059 [P] [US1] Implement `comment` tooltip: in each widget renderer, apply `title={node.comment}` to the root element when `!editEnabled && node.comment`
+- [x] T057 [US3] Add resize handle overlay to WidgetWrapper: 5x5 green handles at right/bottom edges of selected resizable widgets in edit mode, ref-based drag with `Math.max(minSize, ...)` clamping
+- [x] T058 [P] [US3] Wire resize snap-to-grid: `Math.round(pos / gridSize) * gridSize` applied to mouse position before computing new size
+- [x] T059 [P] [US1] Implement `comment` tooltip: already in WidgetWrapper `title` attribute when `!editEnabled && node.properties.comment`
 
 **Checkpoint**: Resize handles visible in edit mode on resizable types; `BSBValue` shows objectName label in edit mode; comment tooltips appear in non-edit mode.
 
 ---
 
-## Phase 5: Validation and Close-Out
+## Phase 3.6: Preset and Runtime Value Fixes
+
+**Purpose**: Fix preset application to use widget-specific serialization and ensure runtime value changes sync with automation parameters.
+
+- [x] T077 [US4] Add `getPresetValue()`/`setPresetValue()` to all widget types that need custom preset serialization: `BSBCheckBox`, `BSBDropdown`, `BSBFileSelector`, `BSBSubChannelDropdown`, `BSBTextField`, `BSBValue`, `BSBXYController`
+- [x] T078 [US4] Update `Preset.ts` `collectValues()` to use `widget.getPresetValue()` when available instead of generic `ver2:${widget.value}`
+- [x] T079 [US4] Fix `BlueSynthBuilder.applyPreset()` to call `widget.setPresetValue()` and sync linked `Parameter` instances after each widget update
+- [x] T080 [US4] Add `BSBWidget.setValue()` base method and override in subclasses (`BSBCheckBox`, `BSBDropdown`, `BSBValue`, `BSBHSlider`, `BSBVSlider`, `BSBKnob`, `BSBXYController`) so that internal state (e.g. `selected`, `selectedIndex`) stays consistent
+- [x] T081 [US4] Fix `BlueSynthBuilder.setWidgetValue()` and `updateWidgetProperty()` to call `widget.setValue()` and sync linked parameters
+- [x] T082 [US4] Add `randomize()` to all randomizable widget types and wire `randomize` patch through `BsbInterfacePatch`
+- [x] T083 [P] [US4] Add `values` map to `PresetSnapshot` and `buildPresetGroupSnapshot()` so preset contents are visible in the renderer
+- [x] T084 [P] [US4] Add engine-client request queueing in `blue-engine-client` to prevent interleaved ZeroMQ messages
+
+---
+
+## Phase 5: Canvas Interaction (Context Menu, Drag-to-Move, Remove)
+
+**Purpose**: Implement the BSB edit panel context menu (add/remove widgets), drag-to-move selected widgets, and keyboard delete. These match Java `BSBEditPanelPopup` and `BSBObjectViewHolder` mouse-drag behavior.
+
+### Data Model
+
+- [x] T090a Add `addWidget` and `removeWidget` patch types to `BsbInterfacePatch` in `project-editor.ts`
+- [x] T090b Add `createWidgetByType()` and `removeWidget()` methods to `BSBGraphicInterface` in `@blue/data`
+- [x] T090c Add optimistic snapshot handlers for `addWidget`/`removeWidget` in renderer store
+- [x] T090d Export `BSBGroup` from `@blue/data` package index
+
+### Context Menu
+
+- [x] T091 [US3] Add right-click context menu to BSB canvas area in edit mode using `@radix-ui/react-context-menu`. Menu items: "Add Group", "Add Knob", "Add Horizontal Slider", "Add Horizontal Slider Bank", "Add Vertical Slider", "Add Vertical Slider Bank", "Add CheckBox", "Add Label", "Add Dropdown List", "Add SubChannel Dropdown List", "Add File Selector", "Add XY Controller", "Add Line Object", "Add Text Field", "Add Value". If a widget is selected, also show "Remove" item. Widget is added at the right-click position with grid snapping applied. Items match Java `BSBObjectRegistry` entry list.
+
+### Drag-to-Move
+
+- [x] T092 [US3] Add drag-to-move for selected widgets in edit mode. On mousedown (left button) on a selected widget, record starting position and mouse origin. On mousemove, compute delta from origin, apply grid snap, clamp to >= 0. Send `updateWidgetProperties` patch with new x/y. Uses ref-based listeners (same pattern as slider drag) to avoid re-render loops.
+
+### Resize Handle Fix
+
+- [x] T093 [US3] Fix resize handles not showing: forward `onBsbInterfacePatch` prop from all 16 widget components to `WidgetWrapper`
+- [x] T094 [US3] Fix resize handle coordinate calculation: use delta-based approach (`startClient` + `startSize`) instead of comparing `clientX` against `node.x` (which are in different coordinate spaces)
+
+---
+
+## Phase 6: Grid Overlay Optimization
+
+**Purpose**: Replace the expensive SVG-based grid overlay (40k+ DOM nodes for 2000x2000 canvas with 10px grid) with a GPU-accelerated CSS approach.
+
+- [x] T095 [US1] Replace SVG-based `GridOverlay` with CSS `background-image` approach using `radial-gradient` for DOT style and `linear-gradient` for LINE style with `backgroundSize` = grid dimensions. Zero React children, purely CSS-driven.
+
+---
+
+## Phase 7: Tooltip Improvement (Deferred)
+
+- [ ] T096 [US1] Replace native HTML `title` tooltip with Radix `Tooltip` component for faster show time and consistent styling with the rest of the app. Wrap WidgetWrapper's comment display in `Tooltip.Root`/`Tooltip.Trigger`/`Tooltip.Content`.
+
+---
+
+## Phase 8: Multi-Select and Keyboard (Deferred)
+
+**Purpose**: Implement Java-parity multi-select, keyboard navigation, and marquee selection. These match Java `BSBObjectViewHolder` shift-click selection, arrow key movement, and `BSBEditPanel` marquee.
+
+- [ ] T097 [US3] Shift-click multi-select: clicking a widget while holding Shift toggles it in/out of the selection set. Requires changing `selectedWidgetId: string | null` to `selectedWidgetIds: Set<string>` throughout BSBInterfaceCanvas, WidgetWrapper, and BSBPropertySheet.
+- [ ] T098 [US3] Arrow key movement: when widgets are selected in edit mode, arrow keys move all selected widgets by 1px (or grid size if snap enabled). Requires `tabIndex` and `onKeyDown` on the canvas container.
+- [ ] T099 [US3] Marquee selection: click-drag on empty canvas draws a selection rectangle; all widgets within are selected. Requires `mousedown`/`mousemove`/`mouseup` on canvas background.
+
+---
+
+## Phase 9: Widget Object Edit Context Menu (Deferred)
+
+**Purpose**: Implement the per-widget context menu shown when right-clicking a selected widget in edit mode. Matches Java `BSBObjectEditPopup`.
+
+- [ ] T100 [US3] Per-widget context menu on right-click in edit mode: "Remove", "Cut", "Copy", "Make Group" (when multiple selected), "Break Group" (when single BSBGroup selected), "Align" submenu (Left, Right, Top, Bottom, Center H, Center V), "Distribute" submenu
+
+---
+
+## Phase 10: Validation and Close-Out
 
 - [x] T060 Run `pnpm --filter @blue/data test` — must pass
 - [x] T061 [P] Run `pnpm --filter @blue/app test` — must pass
-- [ ] T062 [P] Run `pnpm --filter @blue/app build` — must pass
-- [ ] T063 [P] Run `git diff --check` — must pass
+- [x] T062 [P] Run `pnpm --filter @blue/app build` — must pass
+- [x] T063 [P] Run `git diff --check` — must pass
 - [ ] T064 Manual verification: open `~/work/blue/demo2026/01.csd` in the Electron app; confirm each major widget type renders visually distinct; confirm property panels show all BeanInfo fields; confirm resize handles; confirm save/reopen round-trip preserves all widget data
 - [ ] T065 XML round-trip smoke test: parse a Java-generated `.blue` file, save from Electron, diff the output — no data loss on any widget type
 - [ ] T066 Update `STATUS.md` to mark Spec 023 complete with implementation summary and validation status

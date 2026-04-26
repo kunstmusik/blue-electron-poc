@@ -2,6 +2,7 @@ import {
   BlueData,
   BlueSynthBuilder,
   BlueX7,
+  BSBGroup,
   GenericInstrument,
   Instrument,
   JavaScriptInstrument,
@@ -215,6 +216,7 @@ export interface GridSettingsSnapshot {
   snapEnabled: boolean;
   width: number;
   height: number;
+  gridStyle: 'NONE' | 'DOT' | 'LINE';
 }
 
 export interface BsbWidgetNodeSnapshot {
@@ -245,6 +247,7 @@ export interface PresetGroupSnapshot {
 export interface PresetSnapshot {
   uniqueId: string;
   name: string;
+  values?: Record<string, string>;
 }
 
 export type BsbInterfacePatch =
@@ -253,6 +256,8 @@ export type BsbInterfacePatch =
   | { type: 'updateWidgetProperties'; widgetId: string; properties: Record<string, string | number | boolean | null> }
   | { type: 'moveWidget'; widgetId: string; x: number; y: number }
   | { type: 'resizeWidget'; widgetId: string; width: number; height: number }
+  | { type: 'addWidget'; widgetType: string; x: number; y: number; parentGroupId?: string }
+  | { type: 'removeWidget'; widgetId: string }
   | { type: 'updateGridSettings'; patch: Partial<GridSettingsSnapshot> }
   | { type: 'applyPreset'; presetUniqueId: string }
   | { type: 'updatePreset'; presetUniqueId: string }
@@ -263,7 +268,8 @@ export type BsbInterfacePatch =
   | { type: 'addUdo'; index?: number; definition?: UdoDefinitionSnapshot }
   | { type: 'removeUdo'; index: number }
   | { type: 'updateUdo'; index: number; patch: Partial<UdoDefinitionSnapshot> }
-  | { type: 'reorderUdo'; from: number; to: number };
+  | { type: 'reorderUdo'; from: number; to: number }
+  | { type: 'randomize' };
 
 export interface UnknownInstrumentSnapshot extends InstrumentSnapshotBase {
   type: 'unknown';
@@ -758,6 +764,7 @@ function buildGridSettingsSnapshot(bsb: BlueSynthBuilder): GridSettingsSnapshot 
     snapEnabled: gs.snapEnabled,
     width: gs.width,
     height: gs.height,
+    gridStyle: gs.gridStyle,
   };
 }
 
@@ -770,10 +777,18 @@ function buildPresetGroupSnapshot(bsb: import('@blue/data').BlueSynthBuilder): P
     currentPresetUniqueId: group.getCurrentPresetUniqueId() || undefined,
     currentPresetModified: group.isCurrentPresetModified(),
     subGroups: group.getSubGroups().map(convert),
-    presets: group.getPresets().map((p) => ({
-      uniqueId: p.getUniqueId(),
-      name: p.getPresetName(),
-    })),
+    presets: group.getPresets().map((p) => {
+      const valuesMap = p.getValuesMap();
+      const values: Record<string, string> = {};
+      for (const [k, v] of valuesMap) {
+        values[k] = v;
+      }
+      return {
+        uniqueId: p.getUniqueId(),
+        name: p.getPresetName(),
+        values,
+      };
+    }),
   });
 
   return convert(pg);
@@ -981,11 +996,40 @@ function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfac
         width: patch.width,
         height: patch.height,
       });
+    case 'addWidget': {
+      const gi = instrument.getGraphicInterface();
+      const widget = gi.createWidgetByType(patch.widgetType);
+      if (!widget) return false;
+      widget.x = patch.x;
+      widget.y = patch.y;
+      if (patch.parentGroupId) {
+        const parent = gi.findWidgetById(patch.parentGroupId);
+        if (parent && parent instanceof BSBGroup) {
+          parent.addChild(widget);
+        } else {
+          gi.getRootGroup().addChild(widget);
+        }
+      } else {
+        gi.getRootGroup().addChild(widget);
+      }
+      instrument.invalidateGraphicInterfaceCache();
+      return true;
+    }
+    case 'removeWidget': {
+      const gi2 = instrument.getGraphicInterface();
+      const removed = gi2.removeWidget(patch.widgetId);
+      if (removed) instrument.invalidateGraphicInterfaceCache();
+      return removed;
+    }
     case 'updateGridSettings':
       instrument.setBsbGridSettings(patch.patch);
       return true;
-    case 'applyPreset':
-      return instrument.applyPreset(patch.presetUniqueId);
+    case 'applyPreset': {
+      console.log('applyPreset patch received:', patch);
+      const success = instrument.applyPreset(patch.presetUniqueId);
+      console.log('instrument.applyPreset returned:', success);
+      return success;
+    }
     case 'updatePreset': {
       const presetGroup = instrument.getPresetGroup();
       if (!presetGroup) return false;
@@ -1051,6 +1095,10 @@ function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfac
     }
     case 'reorderUdo':
       return instrument.reorderUdo(patch.from, patch.to);
+    case 'randomize':
+      instrument.getGraphicInterface().getRootGroup().randomize();
+      instrument.invalidateGraphicInterfaceCache();
+      return true;
   }
 }
 

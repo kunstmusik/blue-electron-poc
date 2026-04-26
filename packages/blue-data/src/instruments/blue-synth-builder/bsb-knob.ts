@@ -54,4 +54,9 @@ export class BSBKnob extends BSBWidget {
     const fontElem = data.getElement('font');
     if (fontElem) this.labelFont = loadFontFromXML(fontElem);
   }
+
+  randomize(): void {
+    if (!this.randomizable) return;
+    this.value = this.minimum + Math.random() * (this.maximum - this.minimum);
+  }
 }

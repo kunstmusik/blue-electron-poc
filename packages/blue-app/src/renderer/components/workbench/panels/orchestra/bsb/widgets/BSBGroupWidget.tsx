@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBGroupWidgetProps {
@@ -10,6 +11,10 @@ interface BSBGroupWidgetProps {
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
   renderWidget: (node: BsbWidgetNodeSnapshot) => React.ReactNode;
   onDoubleClick?: () => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBGroupWidget({
@@ -17,8 +22,13 @@ export default function BSBGroupWidget({
   isSelected,
   editEnabled,
   onWidgetSelect,
+  onBsbInterfacePatch,
   renderWidget,
   onDoubleClick,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBGroupWidgetProps): React.ReactElement {
   const groupName = typeof node.properties.groupName === 'string' ? node.properties.groupName : '';
   const titleEnabled = node.properties.titleEnabled !== false;
@@ -56,6 +66,11 @@ export default function BSBGroupWidget({
       onDoubleClick={onDoubleClick}
       displayWidth={displaySize.width}
       displayHeight={displaySize.height}
+      resizeMeta={resizeMeta}
+      gridSnapEnabled={gridSnapEnabled}
+      gridSnapWidth={gridSnapWidth}
+      gridSnapHeight={gridSnapHeight}
+      onBsbInterfacePatch={onBsbInterfacePatch}
     >
       <div
         className="flex h-full w-full flex-col"

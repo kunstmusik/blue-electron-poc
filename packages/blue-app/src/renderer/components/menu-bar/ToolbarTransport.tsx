@@ -38,6 +38,7 @@ export default function ToolbarTransport(): React.ReactElement {
   const isLoading = useProjectStore((s) => s.isLoading);
   const loopRendering = useProjectStore((s) => s.transport.loopRendering);
   const setLoopRendering = useProjectStore((s) => s.setLoopRendering);
+  const flushPatches = useProjectStore((s) => s.flushPendingPatches);
   const isPlaying = usePlaybackStore((s) => s.isPlaying);
   const status = usePlaybackStore((s) => s.status);
   const followPlayback = usePlaybackStore((s) => s.followPlayback);
@@ -48,6 +49,11 @@ export default function ToolbarTransport(): React.ReactElement {
   const isBusy = status === 'starting' || status === 'stopping';
   const canControl = hasProject && !isLoading;
   const showStop = isPlaying || status === 'stopping';
+
+  const handlePlay = async () => {
+    await flushPatches();
+    await togglePlay();
+  };
 
   return (
     <div className="toolbar-group" aria-label="Transport controls">
@@ -82,7 +88,7 @@ export default function ToolbarTransport(): React.ReactElement {
         <ToolbarIconButton
           title={status === 'starting' ? 'Starting playback...' : 'Play'}
           disabled={!canControl || isBusy}
-          onClick={togglePlay}
+          onClick={handlePlay}
         >
           <Play className="h-4 w-4" aria-hidden="true" />
         </ToolbarIconButton>

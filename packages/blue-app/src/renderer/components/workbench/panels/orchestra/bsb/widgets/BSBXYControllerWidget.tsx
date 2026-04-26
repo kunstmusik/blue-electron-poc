@@ -1,5 +1,6 @@
-import React from 'react';
-import type { BsbWidgetNodeSnapshot } from '../../../../../../../shared/project-editor';
+import React, { useCallback, useRef } from 'react';
+import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBXYControllerWidgetProps {
@@ -7,6 +8,11 @@ interface BSBXYControllerWidgetProps {
   isSelected: boolean;
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
+  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBXYControllerWidget({
@@ -14,6 +20,11 @@ export default function BSBXYControllerWidget({
   isSelected,
   editEnabled,
   onWidgetSelect,
+  onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBXYControllerWidgetProps): React.ReactElement {
   const xValue = typeof node.properties.xValue === 'number' ? node.properties.xValue : 0;
   const yValue = typeof node.properties.yValue === 'number' ? node.properties.yValue : 0;
@@ -28,10 +39,42 @@ export default function BSBXYControllerWidget({
   const xPct = Math.max(0, Math.min(1, (xValue - xMin) / xRange));
   const yPct = Math.max(0, Math.min(1, (yValue - yMin) / yRange));
 
+  const padRef = useRef<HTMLDivElement | null>(null);
+  const patchRef = useRef(onBsbInterfacePatch);
+  patchRef.current = onBsbInterfacePatch;
+  const paramsRef = useRef({ nodeId: node.id, xMin, xMax, yMin, yMax, xRange, yRange });
+  paramsRef.current = { nodeId: node.id, xMin, xMax, yMin, yMax, xRange, yRange };
+
+  const updateFromPointer = useCallback((clientX: number, clientY: number) => {
+    const pad = padRef.current;
+    if (!pad) return;
+    const rect = pad.getBoundingClientRect();
+    const px = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const py = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
+    const { nodeId, xMin: xn, xRange: xr, yMin: yn, yRange: yr } = paramsRef.current;
+    patchRef.current?.({
+      type: 'updateWidgetProperties',
+      widgetId: nodeId,
+      properties: { xValue: xn + px * xr, yValue: yn + py * yr },
+    });
+  }, []);
+
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div className="flex h-full w-full flex-col overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
-        <div className="relative flex-1 bg-[#0a0f1a]">
+        <div
+          ref={padRef}
+          className="relative flex-1 bg-[#0a0f1a]"
+          style={{ cursor: editEnabled ? 'default' : 'crosshair' }}
+          onMouseDown={editEnabled ? undefined : (e) => {
+            e.stopPropagation();
+            updateFromPointer(e.clientX, e.clientY);
+            const onMove = (ev: MouseEvent) => { ev.preventDefault(); updateFromPointer(ev.clientX, ev.clientY); };
+            const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+          }}
+        >
           <div
             className="absolute h-px w-full bg-blue-border/20"
             style={{ top: `${yPct * 100}%` }}

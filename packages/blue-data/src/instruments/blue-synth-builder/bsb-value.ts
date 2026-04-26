@@ -10,6 +10,22 @@ import { formatBlueNumber } from '../../utilities/number-format';
 export class BSBValue extends BSBWidget {
   defaultValue = 0;
 
+  override getPresetValue(): string {
+    return `ver2:${this.defaultValue}`;
+  }
+
+  override setPresetValue(val: string): void {
+    const parsed = parseFloat(val.replace(/^ver2:/, ""));
+    if (Number.isFinite(parsed)) {
+      this.setValue(parsed);
+    }
+  }
+
+  override setValue(val: number): void {
+    this.value = val;
+    this.defaultValue = val;
+  }
+
   override collectReplacements(
     unit: BSBCompilationUnit,
     parameters?: import('../../automation/parameter').Parameter[],

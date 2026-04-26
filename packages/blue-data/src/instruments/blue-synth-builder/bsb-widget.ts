@@ -22,6 +22,25 @@ export abstract class BSBWidget {
   parameterName: string | null = null;
   id = '';
 
+  getPresetValue(): string {
+    return `ver2:${this.value}`;
+  }
+
+  setPresetValue(val: string): void {
+    const parsed = parseFloat(val.replace(/^ver2:/, ""));
+    if (Number.isFinite(parsed)) {
+      this.setValue(parsed);
+    }
+  }
+
+  /**
+   * Set the numeric value of this widget. 
+   * Subclasses should override this to sync internal state (e.g. selected, selectedIndex).
+   */
+  setValue(val: number): void {
+    this.value = val;
+  }
+
   /**
    * Collect this widget's replacement value into the compilation unit.
    * Looks up the parameter by this widget's objectName in the parameters list.

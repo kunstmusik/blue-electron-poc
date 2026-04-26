@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
+import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
 
 interface BSBCheckBoxWidgetProps {
@@ -8,6 +9,10 @@ interface BSBCheckBoxWidgetProps {
   editEnabled: boolean;
   onWidgetSelect: (id: string) => void;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
+  resizeMeta?: BSBWidgetResizeMeta;
+  gridSnapEnabled?: boolean;
+  gridSnapWidth?: number;
+  gridSnapHeight?: number;
 }
 
 export default function BSBCheckBoxWidget({
@@ -16,6 +21,10 @@ export default function BSBCheckBoxWidget({
   editEnabled,
   onWidgetSelect,
   onBsbInterfacePatch,
+  resizeMeta,
+  gridSnapEnabled,
+  gridSnapWidth,
+  gridSnapHeight,
 }: BSBCheckBoxWidgetProps): React.ReactElement {
   const selected = node.properties.selected === true;
   const labelText = typeof node.properties.label === 'string' ? node.properties.label : node.objectName;
@@ -34,7 +43,7 @@ export default function BSBCheckBoxWidget({
   }, [editEnabled, selected, node.id, onWidgetSelect, onBsbInterfacePatch]);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch}>
       <div
         className="flex items-center gap-1.5 whitespace-nowrap"
         style={{ fontFamily: 'Roboto, sans-serif', fontSize: 12, cursor: editEnabled ? 'default' : 'pointer' }}

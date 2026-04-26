@@ -10,6 +10,18 @@ import { BSBCompilationUnit } from './bsb-compilation-unit';
 export class BSBSubChannelDropdown extends BSBWidget {
   channelOutput = 'Master';
 
+  override getPresetValue(): string {
+    return this.channelOutput;
+  }
+
+  override setPresetValue(val: string): void {
+    if (val.startsWith('ver2:')) {
+      this.channelOutput = val.substring(5);
+    } else {
+      this.channelOutput = val;
+    }
+  }
+
   override collectReplacements(unit: BSBCompilationUnit): void {
     unit.addReplacementValue(this.objectName, this.channelOutput);
   }
