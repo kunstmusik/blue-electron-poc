@@ -23,6 +23,7 @@ import { PresetGroup } from "./blue-synth-builder/preset-group";
 import { Preset } from "./blue-synth-builder/preset";
 import { OpcodeDefinition } from "../opcodes/opcode-definition";
 import { UDOStyle } from "../opcodes/udo-style";
+import { ParameterList } from "../automation/parameter-list";
 
 function parseUdoBlock(
   block: string,
@@ -475,20 +476,18 @@ export class BlueSynthBuilder extends Instrument {
     elem.setAttribute("editEnabled", this._editEnabled.toString());
     elem.addElement("name").setText(this._name);
     elem.addElement("comment").setText(this._comment);
-    if (this._instrumentText)
-      elem.addElement("instrumentText").setText(this._instrumentText);
-    if (this._alwaysOnInstrumentText) {
-      elem
-        .addElement("alwaysOnInstrumentText")
-        .setText(this._alwaysOnInstrumentText);
-    }
-    if (this._globalOrc) elem.addElement("globalOrc").setText(this._globalOrc);
-    if (this._globalSco) elem.addElement("globalSco").setText(this._globalSco);
+    elem.addElement("globalOrc").setText(this._globalOrc || "");
+    elem.addElement("globalSco").setText(this._globalSco || "");
+    elem.addElement("instrumentText").setText(this._instrumentText || "");
+    elem.addElement("alwaysOnInstrumentText").setText(this._alwaysOnInstrumentText || "");
     if (this._graphicInterfaceXML) {
       elem.addElement(Element.parse(this._graphicInterfaceXML.toXml()));
     } else {
       elem.addElement(this._graphicInterface.saveAsXML());
     }
+    const plist = new ParameterList();
+    plist.push(...this._parameters);
+    elem.addElement(plist.saveAsXML());
     if (this._presetGroup) {
       elem.addElement(this._presetGroup.saveAsXML());
     }

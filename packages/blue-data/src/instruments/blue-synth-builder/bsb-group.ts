@@ -159,7 +159,13 @@ export class BSBGroup extends BSBWidget {
   }
 }
 
-const COMMON_WIDGET_FIELDS = new Set([
+const SKIPPED_WIDGET_FIELDS = new Set([
+  '_children',
+  'stringChannel',
+  'id',
+  'labelFont',
+  'font',
+  'dropdownItems',
   'objectName',
   'x',
   'y',
@@ -171,19 +177,38 @@ const COMMON_WIDGET_FIELDS = new Set([
   'parameterName',
 ]);
 
-const SKIPPED_WIDGET_FIELDS = new Set([
-  '_children',
-  'stringChannel',
-  'id',
-  'labelFont',
-  'font',
-  'dropdownItems',
+const WIDGETS_WITH_VERSION_2 = new Set([
+  'BSBKnob',
+  'BSBHSlider',
+  'BSBVSlider',
+  'BSBDropdown',
+  'BSBLabel',
+  'BSBXYController',
 ]);
 
-function getWidgetXmlType(widget: BSBWidget): string {
-  const constructorName = widget.constructor.name;
-  return `blue.orchestra.blueSynthBuilder.${constructorName}`;
-}
+const WIDGETS_WITH_NUMERIC_RANGE = new Set([
+  'BSBKnob',
+  'BSBHSlider',
+  'BSBVSlider',
+  'BSBXYController',
+  'BSBValue',
+  'BSBHSliderBank',
+  'BSBVSliderBank',
+]);
+
+const WIDGETS_WITH_AUTOMATION_ALLOWED = new Set([
+  'BSBKnob',
+  'BSBHSlider',
+  'BSBVSlider',
+  'BSBCheckBox',
+  'BSBDropdown',
+  'BSBXYController',
+  'BSBHSliderBank',
+  'BSBVSliderBank',
+  'BSBValue',
+  'BSBSubChannelDropdown',
+  'BSBFileSelector',
+]);
 
 function addPrimitiveElement(parent: Element, key: string, value: unknown): void {
   if (value === null || value === undefined) return;
@@ -199,7 +224,12 @@ function addPrimitiveElement(parent: Element, key: string, value: unknown): void
 
 export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
   const elem = new Element('bsbObject');
-  elem.setAttribute('type', getWidgetXmlType(widget));
+  const ctorName = widget.constructor.name;
+  elem.setAttribute('type', `blue.orchestra.blueSynthBuilder.${ctorName}`);
+
+  if (WIDGETS_WITH_VERSION_2.has(ctorName)) {
+    elem.setAttribute('version', '2');
+  }
 
   addPrimitiveElement(elem, 'objectName', widget.objectName);
   addPrimitiveElement(elem, 'x', widget.x);
@@ -207,14 +237,20 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
   if (widget.comment) {
     elem.addElement('comment').setText(widget.comment);
   }
-  addPrimitiveElement(elem, 'automationAllowed', widget.automationAllowed);
-  addPrimitiveElement(elem, 'value', widget.value);
-  addPrimitiveElement(elem, 'minimum', widget.minimum);
-  addPrimitiveElement(elem, 'maximum', widget.maximum);
-  addPrimitiveElement(elem, 'parameterName', widget.parameterName);
+  if (WIDGETS_WITH_AUTOMATION_ALLOWED.has(ctorName)) {
+    addPrimitiveElement(elem, 'automationAllowed', widget.automationAllowed);
+  }
+  if (WIDGETS_WITH_NUMERIC_RANGE.has(ctorName)) {
+    addPrimitiveElement(elem, 'minimum', widget.minimum);
+    addPrimitiveElement(elem, 'maximum', widget.maximum);
+    addPrimitiveElement(elem, 'value', widget.value);
+  }
+  if (widget.parameterName) {
+    addPrimitiveElement(elem, 'parameterName', widget.parameterName);
+  }
 
   for (const [key, value] of Object.entries(widget as unknown as Record<string, unknown>)) {
-    if (COMMON_WIDGET_FIELDS.has(key) || SKIPPED_WIDGET_FIELDS.has(key)) {
+    if (SKIPPED_WIDGET_FIELDS.has(key)) {
       continue;
     }
     addPrimitiveElement(elem, key, value);
@@ -222,6 +258,9 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
 
   if (widget instanceof BSBKnob) {
     elem.addElement(saveFontToXML(widget.labelFont));
+  }
+  if (widget instanceof BSBLabel) {
+    elem.addElement(saveFontToXML(widget.font));
   }
   if (widget instanceof BSBGroup) {
     elem.addElement(saveFontToXML(widget.font));

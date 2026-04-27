@@ -57,9 +57,7 @@ export class PresetGroup {
     if (this.currentPresetUniqueId) {
       elem.setAttribute("currentPresetUniqueId", this.currentPresetUniqueId);
     }
-    if (this.currentPresetModified) {
-      elem.setAttribute("currentPresetModified", "true");
-    }
+    elem.setAttribute("currentPresetModified", this.currentPresetModified.toString());
     for (const preset of this.presets) {
       elem.addElement(preset.saveAsXML());
     }

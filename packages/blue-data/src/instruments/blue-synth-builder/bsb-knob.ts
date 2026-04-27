@@ -26,7 +26,7 @@ export function loadFontFromXML(data: Element | null): BSBFont {
 export function saveFontToXML(font: BSBFont): Element {
   const elem = new Element('font');
   elem.addElement('name').setText(font.name);
-  elem.addElement('size').setText(String(font.size));
+  elem.addElement('size').setText(font.size % 1 === 0 ? `${font.size}.0` : String(font.size));
   elem.addElement('style').setText(String(font.style));
   return elem;
 }
