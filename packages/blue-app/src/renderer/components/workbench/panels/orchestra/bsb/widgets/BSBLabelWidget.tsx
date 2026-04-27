@@ -15,6 +15,7 @@ interface BSBLabelWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBLabelWidget({
@@ -29,6 +30,7 @@ export default function BSBLabelWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBLabelWidgetProps): React.ReactElement {
   const labelText = typeof node.properties.label === 'string' ? node.properties.label : '';
   const fontName = typeof node.properties['font.name'] === 'string' ? node.properties['font.name'] : 'Roboto';
@@ -38,7 +40,7 @@ export default function BSBLabelWidget({
   const fontItalic = (fontStyle & 2) ? 'italic' : 'normal';
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div
         className="flex items-center whitespace-nowrap"
         style={{

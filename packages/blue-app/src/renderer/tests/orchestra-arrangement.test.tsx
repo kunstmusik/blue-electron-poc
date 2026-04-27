@@ -45,11 +45,11 @@ describe('Orchestra arrangement panel', () => {
     );
 
     expect(html).toContain('Arrangement');
-    expect(html).toContain('Instrument');
+    expect(html).toContain('Instr ID');
+    expect(html).toContain('Instr Name');
     expect(html).toContain('Lead');
     expect(html).toContain('Builder');
-    expect(html).toContain('Generic');
-    expect(html).toContain('BSB');
+    expect(html).toContain('+ Add');
   });
 });
 

@@ -52,6 +52,7 @@ function AddInstrumentSubmenu({
           alignOffset={-4}
         >
           <MenuItem onSelect={() => onAdd('generic')}>Generic Instrument</MenuItem>
+          <MenuItem onSelect={() => onAdd('python')}>Python Instrument</MenuItem>
           <MenuItem onSelect={() => onAdd('javascript')}>JavaScript Instrument</MenuItem>
           <MenuItem onSelect={() => onAdd('blueX7')}>BlueX7</MenuItem>
           <MenuItem onSelect={() => onAdd('blueSynthBuilder')}>

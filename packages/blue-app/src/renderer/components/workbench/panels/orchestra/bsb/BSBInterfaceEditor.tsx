@@ -8,7 +8,7 @@ import BSBInterfaceCanvas from './BSBInterfaceCanvas';
 import BSBPropertySheet from './BSBPropertySheet';
 import BSBGridSettingsPanel from './BSBGridSettingsPanel';
 import BSBPresetBar from './BSBPresetBar';
-import BSBWidgetEditor from './BSBWidgetEditor';
+import SplitPane from '../SplitPane';
 import type { BsbWidgetNodeSnapshot } from '../../../../../../shared/project-editor';
 
 interface BSBInterfaceEditorProps {
@@ -50,7 +50,24 @@ export default function BSBInterfaceEditor({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dispatchBsbPatch, instrument.editEnabled]);
 
-  const hasWidgets = instrument.widgetTree?.children && instrument.widgetTree.children.length > 0;
+  const canvasProps = {
+    instrument,
+    selectedWidgetIds,
+    editEnabled,
+    onWidgetSelect: (id: string | null, shiftKey: boolean) => {
+      setSelectedWidgetIds((prev) => {
+        if (id === null) return new Set();
+        if (shiftKey) {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id); else next.add(id);
+          return next;
+        }
+        return new Set([id]);
+      });
+    },
+    onBsbInterfacePatch: dispatchBsbPatch,
+    onInstrumentPatch,
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg">
@@ -69,100 +86,70 @@ export default function BSBInterfaceEditor({
         </label>
       </div>
 
-      {!hasWidgets && (
-        <div className="flex-1 p-4">
-          <div className="rounded-lg border border-blue-border bg-blue-surface/50 px-4 py-3">
-            <div className="text-sm font-medium text-gray-100">Interface</div>
-            <div className="mt-1 text-sm text-blue-muted">
-              No widgets found in this instrument's graphic interface.
-              Use the widget editor below to adjust existing widget values.
-            </div>
-          </div>
-          <BSBWidgetEditor
-            widgets={instrument.widgets}
-            onInstrumentPatch={onInstrumentPatch}
-          />
-        </div>
-      )}
-
-      {hasWidgets && (
-        <div className="flex min-h-0 flex-1">
-          <div className="min-w-0 flex-1">
-          <BSBInterfaceCanvas
-            instrument={instrument}
-            selectedWidgetIds={selectedWidgetIds}
-            editEnabled={editEnabled}
-            onWidgetSelect={(id, shiftKey) => {
-              setSelectedWidgetIds((prev) => {
-                if (id === null) {
-                  return new Set();
-                }
-                if (shiftKey) {
-                  const next = new Set(prev);
-                  if (next.has(id)) {
-                    next.delete(id);
-                  } else {
-                    next.add(id);
-                  }
-                  return next;
-                }
-                return new Set([id]);
-              });
-            }}
-            onBsbInterfacePatch={dispatchBsbPatch}
-            onInstrumentPatch={onInstrumentPatch}
-          />
-          </div>
-
-          {editEnabled && (
-            <div className="flex w-56 flex-col border-l border-blue-border bg-[#0d1524]">
-              <div className="border-b border-blue-border">
-                <div className="flex">
-                  <button
-                    type="button"
-                    className={[
-                      'flex-1 border-b-2 px-2 py-1.5 text-[10px] uppercase tracking-[0.12em]',
-                      rightTab === 'properties'
-                        ? 'border-blue-accent text-gray-100'
-                        : 'border-transparent text-blue-muted hover:text-gray-100',
-                    ].join(' ')}
-                    onClick={() => setRightTab('properties')}
-                  >
-                    Properties
-                  </button>
-                  <button
-                    type="button"
-                    className={[
-                      'flex-1 border-b-2 px-2 py-1.5 text-[10px] uppercase tracking-[0.12em]',
-                      rightTab === 'grid'
-                        ? 'border-blue-accent text-gray-100'
-                        : 'border-transparent text-blue-muted hover:text-gray-100',
-                    ].join(' ')}
-                    onClick={() => setRightTab('grid')}
-                  >
-                    Grid
-                  </button>
+      {editEnabled ? (
+        <SplitPane
+          orientation="horizontal"
+          ariaLabel="BSB Interface and Properties"
+          initialSplit={0.72}
+          minFirstSize={200}
+          minSecondSize={180}
+          firstClassName="flex flex-col"
+          secondClassName="flex flex-col bg-[#0d1524]"
+          first={<BSBInterfaceCanvas {...canvasProps} />}
+            second={
+              <>
+                <div className="border-b border-blue-border">
+                  <div className="flex">
+                    <button
+                      type="button"
+                      className={[
+                        'flex-1 border-b-2 px-2 py-1.5 text-[10px] uppercase tracking-[0.12em]',
+                        rightTab === 'properties'
+                          ? 'border-blue-accent text-gray-100'
+                          : 'border-transparent text-blue-muted hover:text-gray-100',
+                      ].join(' ')}
+                      onClick={() => setRightTab('properties')}
+                    >
+                      Properties
+                    </button>
+                    <button
+                      type="button"
+                      className={[
+                        'flex-1 border-b-2 px-2 py-1.5 text-[10px] uppercase tracking-[0.12em]',
+                        rightTab === 'grid'
+                          ? 'border-blue-accent text-gray-100'
+                          : 'border-transparent text-blue-muted hover:text-gray-100',
+                      ].join(' ')}
+                      onClick={() => setRightTab('grid')}
+                    >
+                      Grid
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                {rightTab === 'properties' ? (
-                  <BSBPropertySheet
-                    widget={selectedWidget}
-                    selectedCount={selectedWidgetIds.size}
-                    editEnabled={editEnabled}
-                    onBsbInterfacePatch={dispatchBsbPatch}
-                  />
-                ) : (
-                  <BSBGridSettingsPanel
-                    gridSettings={instrument.gridSettings}
-                    onBsbInterfacePatch={dispatchBsbPatch}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {rightTab === 'properties' ? (
+                    <BSBPropertySheet
+                      widget={selectedWidget}
+                      selectedCount={selectedWidgetIds.size}
+                      editEnabled={editEnabled}
+                      allObjectNames={collectObjectNames(instrument.widgetTree)}
+                      onBsbInterfacePatch={dispatchBsbPatch}
+                    />
+                  ) : (
+                    <BSBGridSettingsPanel
+                      gridSettings={instrument.gridSettings}
+                      onBsbInterfacePatch={dispatchBsbPatch}
+                    />
+                  )}
+                </div>
+              </>
+            }
+          />
+        ) : (
+          <div className="min-h-0 flex-1">
+            <BSBInterfaceCanvas {...canvasProps} />
+          </div>
+        )}
     </div>
   );
 }
@@ -191,4 +178,16 @@ function findWidgetInTree(
     }
   }
   return null;
+}
+
+function collectObjectNames(
+  tree: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot,
+): Set<string> {
+  const names = new Set<string>();
+  const visit = (node: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot) => {
+    if (node.objectName) names.add(node.objectName);
+    if (node.children) node.children.forEach(visit);
+  };
+  if (tree.children) tree.children.forEach(visit);
+  return names;
 }

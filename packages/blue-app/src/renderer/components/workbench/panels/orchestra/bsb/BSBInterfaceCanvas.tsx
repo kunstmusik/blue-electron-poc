@@ -8,6 +8,10 @@ import type {
   InstrumentPatch,
 } from '../../../../../../shared/project-editor';
 import { BSB_WIDGET_RESIZE_META } from './bsb-widget-meta';
+
+let _clipboard: BsbWidgetNodeSnapshot[] = [];
+let _clipboardOriginX = 0;
+let _clipboardOriginY = 0;
 import {
   BSBHSliderWidget,
   BSBVSliderWidget,
@@ -26,6 +30,7 @@ import {
   BSBVSliderBankWidget,
   PreservedWidget,
 } from './widgets';
+import { getCanvasDisplaySize } from './widgets/utils';
 
 const BSB_ADDABLE_WIDGETS = [
   { type: 'BSBGroup', label: 'Group' },
@@ -76,26 +81,157 @@ export default function BSBInterfaceCanvas({
 }: BSBInterfaceCanvasProps): React.ReactElement {
   const [groupStack, setGroupStack] = useState<GroupStackEntry[]>([]);
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const canvasInnerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const scrollMemory = useRef<Map<string, { scrollLeft: number; scrollTop: number }>>(new Map());
   const marqueeDragged = useRef(false);
-
-  if (!instrument.widgetTree) {
-    return (
-      <div className="flex h-full items-center justify-center text-sm text-blue-muted">
-        No interface widgets available.
-      </div>
-    );
-  }
 
   const gridSettings = instrument.gridSettings;
   const resizeCtx = {
-    gridSnapEnabled: gridSettings?.snapEnabled && gridSettings?.enabled,
+    gridSnapEnabled: gridSettings?.snapEnabled,
     gridSnapWidth: gridSettings?.width,
     gridSnapHeight: gridSettings?.height,
   };
 
   const currentChildren = resolveCurrentChildren(instrument.widgetTree, groupStack);
+  const canvasSize = getCanvasDisplaySize(currentChildren, viewportSize.width, viewportSize.height);
+
+  const parentGroupId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
+
+  useEffect(() => {
+    const element = canvasRef.current;
+    if (!element) return;
+
+    const measure = () => {
+      const width = Math.ceil(element.clientWidth);
+      const height = Math.ceil(element.clientHeight);
+      setViewportSize((previous) => (
+        previous.width === width && previous.height === height
+          ? previous
+          : { width, height }
+      ));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const handleWidgetAction = useCallback((action: string) => {
+    const selIds = selectedWidgetIds;
+    if (selIds.size === 0) return;
+    const selected = currentChildren.filter(c => selIds.has(c.id));
+    const ww = (s: BsbWidgetNodeSnapshot) => s.width ?? 60;
+    const wh = (s: BsbWidgetNodeSnapshot) => s.height ?? 24;
+
+    switch (action) {
+      case 'copy': {
+        _clipboard = selected.map(s => JSON.parse(JSON.stringify(s)));
+        _clipboardOriginX = Math.min(...selected.map(s => s.x));
+        _clipboardOriginY = Math.min(...selected.map(s => s.y));
+        break;
+      }
+      case 'cut': {
+        _clipboard = selected.map(s => JSON.parse(JSON.stringify(s)));
+        _clipboardOriginX = Math.min(...selected.map(s => s.x));
+        _clipboardOriginY = Math.min(...selected.map(s => s.y));
+        for (const id of selIds) {
+          onBsbInterfacePatch({ type: 'removeWidget', widgetId: id });
+        }
+        onWidgetSelect(null);
+        break;
+      }
+      case 'make-group': {
+        onBsbInterfacePatch({ type: 'makeGroup', widgetIds: [...selIds], parentGroupId });
+        break;
+      }
+      case 'break-group': {
+        const groupId = [...selIds][0];
+        if (groupId) onBsbInterfacePatch({ type: 'breakGroup', widgetId: groupId });
+        break;
+      }
+      case 'align-left': {
+        const target = Math.min(...selected.map(s => s.x));
+        for (const s of selected) {
+          if (s.x !== target) onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { x: target } });
+        }
+        break;
+      }
+      case 'align-right': {
+        const target = Math.max(...selected.map(s => s.x + ww(s)));
+        for (const s of selected) {
+          const nx = target - ww(s);
+          if (s.x !== nx) onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { x: nx } });
+        }
+        break;
+      }
+      case 'align-top': {
+        const target = Math.min(...selected.map(s => s.y));
+        for (const s of selected) {
+          if (s.y !== target) onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { y: target } });
+        }
+        break;
+      }
+      case 'align-bottom': {
+        const target = Math.max(...selected.map(s => s.y + wh(s)));
+        for (const s of selected) {
+          const ny = target - wh(s);
+          if (s.y !== ny) onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { y: ny } });
+        }
+        break;
+      }
+      case 'align-center-h': {
+        const left = Math.min(...selected.map(s => s.x));
+        const right = Math.max(...selected.map(s => s.x + ww(s)));
+        const center = (left + right) / 2;
+        for (const s of selected) {
+          onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { x: Math.round(center - ww(s) / 2) } });
+        }
+        break;
+      }
+      case 'align-center-v': {
+        const top = Math.min(...selected.map(s => s.y));
+        const bottom = Math.max(...selected.map(s => s.y + wh(s)));
+        const center = (top + bottom) / 2;
+        for (const s of selected) {
+          onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: s.id, properties: { y: Math.round(center - wh(s) / 2) } });
+        }
+        break;
+      }
+      case 'distribute-h': {
+        if (selected.length < 3) break;
+        const sorted = [...selected].sort((a, b) => (a.x + ww(a) / 2) - (b.x + ww(b) / 2));
+        const firstC = sorted[0].x + ww(sorted[0]) / 2;
+        const lastC = sorted[sorted.length - 1].x + ww(sorted[sorted.length - 1]) / 2;
+        const spacing = (lastC - firstC) / (sorted.length - 1);
+        for (let i = 1; i < sorted.length - 1; i++) {
+          const target = Math.round(firstC + spacing * i - ww(sorted[i]) / 2);
+          onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: sorted[i].id, properties: { x: Math.max(0, target) } });
+        }
+        break;
+      }
+      case 'distribute-v': {
+        if (selected.length < 3) break;
+        const sorted = [...selected].sort((a, b) => (a.y + wh(a) / 2) - (b.y + wh(b) / 2));
+        const firstC = sorted[0].y + wh(sorted[0]) / 2;
+        const lastC = sorted[sorted.length - 1].y + wh(sorted[sorted.length - 1]) / 2;
+        const spacing = (lastC - firstC) / (sorted.length - 1);
+        for (let i = 1; i < sorted.length - 1; i++) {
+          const target = Math.round(firstC + spacing * i - wh(sorted[i]) / 2);
+          onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId: sorted[i].id, properties: { y: Math.max(0, target) } });
+        }
+        break;
+      }
+    }
+  }, [currentChildren, selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect, parentGroupId]);
 
   const getWidgetPosition = useCallback((id: string) => {
     const find = (nodes: BsbWidgetNodeSnapshot[]): { x: number; y: number } | undefined => {
@@ -117,6 +253,8 @@ export default function BSBInterfaceCanvas({
     const onKeyDown = (e: KeyboardEvent) => {
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
       if (selectedWidgetIds.size === 0) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
       e.preventDefault();
       const step = (gridSettings?.snapEnabled && gridSettings?.enabled)
         ? gridSettings.width
@@ -136,14 +274,41 @@ export default function BSBInterfaceCanvas({
   }, [editEnabled, selectedWidgetIds, gridSettings, onBsbInterfacePatch, getWidgetPosition]);
 
   const enterGroup = (node: BsbWidgetNodeSnapshot) => {
+    if (canvasRef.current) {
+      const key = groupStack.map(e => e.id).join('/');
+      scrollMemory.current.set(key, { scrollLeft: canvasRef.current.scrollLeft, scrollTop: canvasRef.current.scrollTop });
+    }
     const groupName = typeof node.properties.groupName === 'string' ? node.properties.groupName : node.type;
     setGroupStack((prev) => [...prev, { id: node.id, name: groupName }]);
     onWidgetSelect(null);
+    requestAnimationFrame(() => {
+      if (canvasRef.current) {
+        canvasRef.current.scrollLeft = 0;
+        canvasRef.current.scrollTop = 0;
+      }
+    });
   };
 
   const navigateTo = (index: number) => {
+    if (canvasRef.current) {
+      const currentKey = groupStack.map(e => e.id).join('/');
+      scrollMemory.current.set(currentKey, { scrollLeft: canvasRef.current.scrollLeft, scrollTop: canvasRef.current.scrollTop });
+    }
+    const targetKey = groupStack.slice(0, index).map(e => e.id).join('/');
     setGroupStack((prev) => prev.slice(0, index));
     onWidgetSelect(null);
+    requestAnimationFrame(() => {
+      if (canvasRef.current) {
+        const saved = scrollMemory.current.get(targetKey);
+        if (saved) {
+          canvasRef.current.scrollLeft = saved.scrollLeft;
+          canvasRef.current.scrollTop = saved.scrollTop;
+        } else {
+          canvasRef.current.scrollLeft = 0;
+          canvasRef.current.scrollTop = 0;
+        }
+      }
+    });
   };
 
   const handleDoubleClick = (node: BsbWidgetNodeSnapshot) => {
@@ -167,6 +332,7 @@ export default function BSBInterfaceCanvas({
       onBsbInterfacePatch,
       selectedWidgetIds,
       getWidgetPosition,
+      onWidgetAction: handleWidgetAction,
     };
 
     if (node.preservedOnly) {
@@ -229,6 +395,30 @@ export default function BSBInterfaceCanvas({
   }, [instrument.gridSettings, groupStack, onBsbInterfacePatch]);
 
   const contextMenuPos = useRef({ x: 0, y: 0 });
+
+  const canPaste = _clipboard.length > 0;
+
+  const handlePaste = useCallback(() => {
+    if (_clipboard.length === 0) return;
+    let offsetX = contextMenuPos.current.x - _clipboardOriginX;
+    let offsetY = contextMenuPos.current.y - _clipboardOriginY;
+    const gs = instrument.gridSettings;
+    if (gs?.snapEnabled && gs?.enabled) {
+      const snapX = Math.floor(contextMenuPos.current.x / gs.width) * gs.width;
+      const snapY = Math.floor(contextMenuPos.current.y / gs.height) * gs.height;
+      offsetX = snapX - _clipboardOriginX;
+      offsetY = snapY - _clipboardOriginY;
+    }
+    const widgets = _clipboard.map(w => {
+      const clone = JSON.parse(JSON.stringify(w));
+      clone.x = (clone.x ?? 0) + offsetX;
+      clone.y = (clone.y ?? 0) + offsetY;
+      delete clone.id;
+      return clone;
+    });
+    const pgId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
+    onBsbInterfacePatch({ type: 'pasteWidgets', widgetData: JSON.stringify(widgets), parentGroupId: pgId });
+  }, [groupStack, onBsbInterfacePatch, instrument.gridSettings]);
 
   // Marquee selection handlers
   const onCanvasMouseDown = (e: React.MouseEvent) => {
@@ -341,13 +531,13 @@ export default function BSBInterfaceCanvas({
       <div
         ref={canvasInnerRef}
         className="relative"
-        style={{ minHeight: 400, minWidth: 600 }}
+        style={{ minHeight: 400, minWidth: 600, width: canvasSize.width, height: canvasSize.height }}
         onMouseDown={onCanvasMouseDown}
         onMouseMove={onCanvasMouseMove}
         onMouseUp={onCanvasMouseUp}
       >
         {editEnabled && gridSettings?.gridStyle && gridSettings.gridStyle !== 'NONE' && (
-          <GridOverlay gridSettings={gridSettings} canvasRef={canvasRef} />
+          <GridOverlay gridSettings={gridSettings} canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
         )}
         {currentChildren.map((child) => renderWidget(child))}
         {marquee && marquee.active && (
@@ -380,6 +570,10 @@ export default function BSBInterfaceCanvas({
             <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
             <ContextMenu.Portal>
               <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+                <ContextMenu.Item className="editor-context-menu__item" onSelect={handlePaste} disabled={!canPaste}>
+                  Paste
+                </ContextMenu.Item>
+                <ContextMenu.Separator className="editor-context-menu__separator" />
                 {BSB_ADDABLE_WIDGETS.map((w) => (
                   <ContextMenu.Item
                     key={w.type}
@@ -449,16 +643,22 @@ function ChevronIcon() {
   );
 }
 
-function GridOverlay({ gridSettings, canvasRef }: { gridSettings: { width: number; height: number; gridStyle: string }; canvasRef: React.RefObject<HTMLDivElement | null> }) {
+function GridOverlay({
+  gridSettings,
+  canvasWidth,
+  canvasHeight,
+}: {
+  gridSettings: { width: number; height: number; gridStyle: string };
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
   const w = Math.max(1, gridSettings.width);
   const h = Math.max(1, gridSettings.height);
   const style = gridSettings.gridStyle;
 
   const drawGrid = useCallback((canvas: HTMLCanvasElement) => {
-    const container = canvasRef.current;
-    if (!container) return;
-    const cw = Math.max(container.scrollWidth, 2000);
-    const ch = Math.max(container.scrollHeight, 2000);
+    const cw = Math.max(canvasWidth, 2000);
+    const ch = Math.max(canvasHeight, 2000);
     canvas.width = cw;
     canvas.height = ch;
     const ctx = canvas.getContext('2d');
@@ -487,7 +687,7 @@ function GridOverlay({ gridSettings, canvasRef }: { gridSettings: { width: numbe
       }
       ctx.stroke();
     }
-  }, [w, h, style, canvasRef]);
+  }, [w, h, style, canvasWidth, canvasHeight]);
 
   const canvasElRef = useRef<HTMLCanvasElement | null>(null);
 

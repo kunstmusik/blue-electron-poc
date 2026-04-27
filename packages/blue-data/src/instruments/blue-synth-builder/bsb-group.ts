@@ -85,6 +85,20 @@ export class BSBGroup extends BSBWidget {
     this._children.push(widget);
   }
 
+  removeChildById(id: string): boolean {
+    for (let i = 0; i < this._children.length; i++) {
+      if (this._children[i].id === id) {
+        this._children.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  clearChildren(): void {
+    this._children.length = 0;
+  }
+
   randomize(): void {
     for (const child of this._children) {
       if ('randomize' in child && typeof (child as any).randomize === 'function') {

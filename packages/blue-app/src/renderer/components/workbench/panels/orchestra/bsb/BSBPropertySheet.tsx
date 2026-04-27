@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type {
   BsbWidgetNodeSnapshot,
   BsbInterfacePatch,
 } from '../../../../../../shared/project-editor';
+import FontChooserDialog, { type FontChoice } from './FontChooserDialog';
 
 interface BSBPropertySheetProps {
   widget: BsbWidgetNodeSnapshot | null;
   selectedCount?: number;
   editEnabled: boolean;
+  allObjectNames: Set<string>;
   onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
 }
 
@@ -141,6 +143,7 @@ export default function BSBPropertySheet({
   widget,
   selectedCount,
   editEnabled,
+  allObjectNames,
   onBsbInterfacePatch,
 }: BSBPropertySheetProps): React.ReactElement {
   if (!widget) {
@@ -216,6 +219,54 @@ export default function BSBPropertySheet({
 
   const typeName = TYPE_DISPLAY_NAMES[widget.type] || widget.type;
 
+  const fontPrefixes = ['font.', 'labelFont.'];
+  const fontKeys = new Set<string>();
+  for (const [key] of sortedEntries) {
+    for (const prefix of fontPrefixes) {
+      if (key.startsWith(prefix)) {
+        if (key === `${prefix}name` || key === `${prefix}size` || key === `${prefix}style`) {
+          fontKeys.add(key);
+        }
+      }
+    }
+  }
+
+  const fontGroups = useMemo(() => {
+    const groups: Array<{ prefix: string; label: string; nameKey: string; font: FontChoice }> = [];
+    for (const prefix of fontPrefixes) {
+      if (fontKeys.has(`${prefix}name`)) {
+        groups.push({
+          prefix,
+          label: prefix === 'font.' ? 'Font' : 'Label Font',
+          nameKey: `${prefix}name`,
+          font: {
+            name: String(merged.get(`${prefix}name`) ?? 'Roboto'),
+            size: Number(merged.get(`${prefix}size`) ?? 12),
+            style: Number(merged.get(`${prefix}style`) ?? 0),
+          },
+        });
+      }
+    }
+    return groups;
+  }, [fontKeys, merged]);
+
+  const [fontDialog, setFontDialog] = useState<{ prefix: string; font: FontChoice } | null>(null);
+
+  const handleFontConfirm = (choice: FontChoice) => {
+    if (!fontDialog) return;
+    const p = fontDialog.prefix;
+    onBsbInterfacePatch({
+      type: 'updateWidgetProperties',
+      widgetId: widget.id,
+      properties: {
+        [`${p}name`]: choice.name,
+        [`${p}size`]: choice.size,
+        [`${p}style`]: choice.style,
+      },
+    });
+    setFontDialog(null);
+  };
+
   return (
     <div className="space-y-2 p-3">
       <div className="mb-2 border-b border-blue-border pb-1 text-[10px] uppercase tracking-[0.16em] text-blue-muted">
@@ -223,6 +274,8 @@ export default function BSBPropertySheet({
       </div>
 
       {sortedEntries.map(([key, rawVal]) => {
+        if (fontKeys.has(key)) return null;
+
         if (BOOLEAN_PROPS.has(key)) {
           return (
             <PropertyRow key={key} label={formatLabel(key)}>
@@ -237,26 +290,44 @@ export default function BSBPropertySheet({
         }
 
         const isNumber = NUMBER_PROPS.has(key) || typeof rawVal === 'number';
-        const displayVal = String(rawVal);
+        const isObjectName = key === 'objectName';
 
         return (
           <PropertyRow key={key} label={formatLabel(key)}>
-            <input
-              className="w-full rounded border border-blue-border bg-[#111a2d] px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-accent"
-              type={isNumber ? 'number' : 'text'}
-              value={displayVal}
-              onChange={(e) => {
-                const v = e.target.value;
+            <PropertyInput
+              inputType={isNumber ? 'number' : 'text'}
+              value={rawVal}
+              isObjectName={isObjectName}
+              widgetId={widget.id}
+              allObjectNames={allObjectNames}
+              validate={isNumber ? (v: string) => validateNumericProperty(key, v, widget) : undefined}
+              onCommit={(val) => {
                 if (isNumber) {
-                  updateProperty(key, v === '' ? 0 : parseFloat(v));
+                  updateProperty(key, val === '' ? 0 : parseFloat(val as string));
                 } else {
-                  updateProperty(key, v);
+                  updateProperty(key, val);
                 }
               }}
             />
           </PropertyRow>
         );
       })}
+
+      {fontGroups.map(g => (
+        <PropertyRow key={g.prefix} label={g.label}>
+          <div className="flex items-center gap-1">
+            <span className="flex-1 truncate rounded border border-blue-border bg-[#111a2d] px-2 py-1 text-xs text-gray-100">
+              {fontSummary(g.font)}
+            </span>
+            <button
+              className="rounded border border-blue-border px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
+              onClick={() => setFontDialog({ prefix: g.prefix, font: { ...g.font } })}
+            >
+              ...
+            </button>
+          </div>
+        </PropertyRow>
+      ))}
 
       {widget.properties?.dropdownItems != null && (
         <DropdownItemsEditor
@@ -268,6 +339,13 @@ export default function BSBPropertySheet({
       <div className="mt-2 border-t border-blue-border pt-2 text-[10px] text-blue-muted">
         Type: {widget.type}
       </div>
+
+      <FontChooserDialog
+        open={fontDialog !== null}
+        font={fontDialog?.font ?? { name: 'Roboto', size: 12, style: 0 }}
+        onConfirm={handleFontConfirm}
+        onCancel={() => setFontDialog(null)}
+      />
     </div>
   );
 }
@@ -279,6 +357,167 @@ function PropertyRow({ label, children }: { label: string; children: React.React
       {children}
     </div>
   );
+}
+
+function PropertyInput({
+  inputType,
+  value,
+  isObjectName,
+  widgetId,
+  allObjectNames,
+  validate,
+  onCommit,
+}: {
+  inputType: 'text' | 'number';
+  value: unknown;
+  isObjectName: boolean;
+  widgetId: string;
+  allObjectNames: Set<string>;
+  validate?: (proposed: string) => string | null;
+  onCommit: (val: string | number | boolean | null) => void;
+}): React.ReactElement {
+  const stringVal = String(value ?? '');
+  const [localValue, setLocalValue] = useState(stringVal);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focused) {
+      setLocalValue(stringVal);
+    }
+  }, [stringVal, focused]);
+
+  const commit = () => {
+    if (localValue === stringVal) return;
+    let accepted = localValue;
+
+    if (isObjectName) {
+      if (accepted.length > 0 && allObjectNames.has(accepted)) {
+        setLocalValue(stringVal);
+        return;
+      }
+    }
+
+    if (validate) {
+      const result = validate(accepted);
+      if (result === null) {
+        setLocalValue(stringVal);
+        return;
+      }
+      accepted = result;
+    }
+
+    if (accepted === stringVal) {
+      setLocalValue(stringVal);
+      return;
+    }
+    onCommit(accepted);
+  };
+
+  return (
+    <input
+      ref={inputRef}
+      className="w-full rounded border border-blue-border bg-[#111a2d] px-2 py-1 text-xs text-gray-100 outline-none focus:border-blue-accent"
+      type={inputType}
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => { setFocused(false); commit(); }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+          inputRef.current?.blur();
+        }
+        if (e.key === 'Escape') {
+          setLocalValue(stringVal);
+          inputRef.current?.blur();
+        }
+      }}
+    />
+  );
+}
+
+const POSITIVE_INT_PROPS = new Set(['numberOfSliders']);
+const INT_CLAMP_PROPS: Record<string, [number, number]> = {
+  fontSize: [8, 36],
+};
+
+export function validateNumericProperty(
+  key: string,
+  proposed: string,
+  widget: BsbWidgetNodeSnapshot,
+): string | null {
+  if (proposed === '' || proposed === '-') return null;
+  let num = parseFloat(proposed);
+  if (isNaN(num)) return null;
+
+  if (key === 'x' || key === 'y') {
+    return String(Math.max(0, num));
+  }
+
+  if (key === 'width' || key === 'height' || key === 'sliderWidth' ||
+      key === 'sliderHeight' || key === 'knobWidth' || key === 'canvasWidth' ||
+      key === 'canvasHeight') {
+    return String(Math.max(1, Math.round(num)));
+  }
+
+  if (key === 'textFieldWidth') {
+    return String(Math.max(5, Math.round(num)));
+  }
+
+  if (key === 'gap' || key === 'resolution' || key === 'selectedIndex') {
+    return String(Math.max(0, num));
+  }
+
+  if (POSITIVE_INT_PROPS.has(key)) {
+    return String(Math.max(1, Math.round(num)));
+  }
+
+  if (key in INT_CLAMP_PROPS) {
+    const [lo, hi] = INT_CLAMP_PROPS[key];
+    return String(Math.max(lo, Math.min(hi, Math.round(num))));
+  }
+
+  if (key === 'minimum') {
+    const max = widget.maximum;
+    if (max != null && num >= max) return null;
+    return proposed;
+  }
+  if (key === 'maximum') {
+    const min = widget.minimum;
+    if (min != null && num <= min) return null;
+    return proposed;
+  }
+  if (key === 'XMin') {
+    const xMax = widget.properties?.XMax;
+    if (xMax != null && num >= xMax) return null;
+    return proposed;
+  }
+  if (key === 'XMax') {
+    const xMin = widget.properties?.XMin;
+    if (xMin != null && num <= xMin) return null;
+    return proposed;
+  }
+  if (key === 'YMin') {
+    const yMax = widget.properties?.YMax;
+    if (yMax != null && num >= yMax) return null;
+    return proposed;
+  }
+  if (key === 'YMax') {
+    const yMin = widget.properties?.YMin;
+    if (yMin != null && num <= yMin) return null;
+    return proposed;
+  }
+
+  return proposed;
+}
+
+const STYLE_NAMES: Record<number, string> = { 0: 'Plain', 1: 'Bold', 2: 'Italic', 3: 'Bold Italic' };
+
+function fontSummary(font: FontChoice): string {
+  const styleName = STYLE_NAMES[font.style] ?? 'Plain';
+  return `${font.name} ${font.size} ${styleName}`;
 }
 
 function formatLabel(key: string): string {

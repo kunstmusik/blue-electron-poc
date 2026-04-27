@@ -440,4 +440,190 @@ describe('BSB Widget XML Round-Trip', () => {
       expect(w.xMax).toBe(5);
     });
   });
+
+  describe('deepCopy', () => {
+    function populateSlider(): BSBHSlider {
+      const w = new BSBHSlider();
+      w.id = 'test-id';
+      w.objectName = 'mySlider';
+      w.x = 42;
+      w.y = 99;
+      w.value = 0.75;
+      w.minimum = -1;
+      w.maximum = 1;
+      w.sliderWidth = 200;
+      w.valueDisplayEnabled = true;
+      w.comment = 'test comment';
+      return w;
+    }
+
+    it('copies all primitive properties of a slider', () => {
+      const orig = populateSlider();
+      const copy = orig.deepCopy();
+      expect(copy).not.toBe(orig);
+      expect(copy.id).toBe('');
+      expect(copy.objectName).toBe('mySlider');
+      expect(copy.x).toBe(42);
+      expect(copy.y).toBe(99);
+      expect(copy.value).toBe(0.75);
+      expect(copy.minimum).toBe(-1);
+      expect(copy.maximum).toBe(1);
+      expect(copy.sliderWidth).toBe(200);
+      expect(copy.valueDisplayEnabled).toBe(true);
+      expect(copy.comment).toBe('test comment');
+    });
+
+    it('modifying copy does not affect original', () => {
+      const orig = populateSlider();
+      const copy = orig.deepCopy();
+      copy.objectName = 'changed';
+      copy.value = 0;
+      copy.x = 0;
+      expect(orig.objectName).toBe('mySlider');
+      expect(orig.value).toBe(0.75);
+      expect(orig.x).toBe(42);
+    });
+
+    it('deep copies BSBKnob with labelFont', () => {
+      const orig = new BSBKnob();
+      orig.id = 'knob1';
+      orig.objectName = 'myKnob';
+      orig.x = 10;
+      orig.y = 20;
+      orig.value = 0.5;
+      orig.knobWidth = 80;
+      orig.labelEnabled = true;
+      orig.labelFont = { name: 'Courier', size: 14, style: 1 };
+      const copy = orig.deepCopy();
+      expect(copy.objectName).toBe('myKnob');
+      expect(copy.knobWidth).toBe(80);
+      expect(copy.labelFont).toEqual({ name: 'Courier', size: 14, style: 1 });
+      expect(copy.labelFont).not.toBe(orig.labelFont);
+      copy.labelFont.name = 'Arial';
+      expect(orig.labelFont.name).toBe('Courier');
+    });
+
+    it('deep copies BSBDropdown with dropdownItems', () => {
+      const orig = new BSBDropdown();
+      orig.id = 'dd1';
+      orig.objectName = 'mode';
+      orig.dropdownItems = [
+        { uniqueId: 'a', name: 'Chorus', value: '1' },
+        { uniqueId: 'b', name: 'Flange', value: '2' },
+      ];
+      const copy = orig.deepCopy();
+      expect(copy.objectName).toBe('mode');
+      expect(copy.dropdownItems).toHaveLength(2);
+      expect(copy.dropdownItems[0].name).toBe('Chorus');
+      expect(copy.dropdownItems).not.toBe(orig.dropdownItems);
+      copy.dropdownItems[0].name = 'Changed';
+      expect(orig.dropdownItems[0].name).toBe('Chorus');
+    });
+
+    it('deep copies BSBGroup with children recursively', () => {
+      const orig = new BSBGroup();
+      orig.id = 'grp1';
+      orig.objectName = '';
+      orig.x = 100;
+      orig.y = 50;
+      orig.width = 300;
+      orig.height = 200;
+      orig.groupName = 'Effects';
+      orig.borderColor = '#FF0000';
+      orig.font = { name: 'Verdana', size: 14, style: 0 };
+
+      const child = new BSBHSlider();
+      child.id = 'child1';
+      child.objectName = 'innerSlider';
+      child.x = 10;
+      child.y = 20;
+      child.value = 0.5;
+
+      const nestedGroup = new BSBGroup();
+      nestedGroup.id = 'nested1';
+      nestedGroup.objectName = '';
+      nestedGroup.x = 10;
+      nestedGroup.y = 60;
+      nestedGroup.width = 200;
+      nestedGroup.height = 100;
+      nestedGroup.groupName = 'Sub';
+
+      const deepChild = new BSBCheckBox();
+      deepChild.id = 'deep1';
+      deepChild.objectName = 'deepCheck';
+      deepChild.x = 5;
+      deepChild.y = 5;
+      deepChild.selected = true;
+
+      nestedGroup.addChild(deepChild);
+      orig.addChild(child);
+      orig.addChild(nestedGroup);
+
+      const copy = orig.deepCopy();
+      expect(copy.id).toBe('');
+      expect(copy.objectName).toBe('');
+      expect(copy.width).toBe(300);
+      expect(copy.height).toBe(200);
+      expect(copy.groupName).toBe('Effects');
+      expect(copy.borderColor).toBe('#FF0000');
+      expect(copy.font).toEqual({ name: 'Verdana', size: 14, style: 0 });
+      expect(copy.font).not.toBe(orig.font);
+
+      const copyChildren = copy.getChildren();
+      expect(copyChildren).toHaveLength(2);
+
+      const copiedSlider = copyChildren[0] as BSBHSlider;
+      expect(copiedSlider.objectName).toBe('innerSlider');
+      expect(copiedSlider.value).toBe(0.5);
+      expect(copiedSlider.id).toBe('');
+
+      const copiedNested = copyChildren[1] as BSBGroup;
+      expect(copiedNested.groupName).toBe('Sub');
+      expect(copiedNested.id).toBe('');
+      const nestedChildren = copiedNested.getChildren();
+      expect(nestedChildren).toHaveLength(1);
+      const copiedDeep = nestedChildren[0] as BSBCheckBox;
+      expect(copiedDeep.objectName).toBe('deepCheck');
+      expect(copiedDeep.selected).toBe(true);
+      expect(copiedDeep.id).toBe('');
+
+      copiedSlider.value = 0;
+      expect((orig.getChildren()[0] as BSBHSlider).value).toBe(0.5);
+    });
+
+    it('deep copies all 16 widget types', () => {
+      const types: [new () => any, string][] = [
+        [BSBHSlider, 'hslider'],
+        [BSBVSlider, 'vslider'],
+        [BSBKnob, 'knob'],
+        [BSBCheckBox, 'checkbox'],
+        [BSBLabel, 'label'],
+        [BSBTextField, 'textfield'],
+        [BSBDropdown, 'dropdown'],
+        [BSBSubChannelDropdown, 'subdropdown'],
+        [BSBValue, 'value'],
+        [BSBXYController, 'xy'],
+        [BSBGroup, 'group'],
+        [BSBFileSelector, 'fileselector'],
+        [BSBLineObject, 'lineobject'],
+        [BSBHSliderBank, 'hsliderbank'],
+        [BSBVSliderBank, 'vsliderbank'],
+      ];
+      for (const [Ctor, name] of types) {
+        const w = new Ctor();
+        w.id = `${name}-id`;
+        w.objectName = name;
+        w.x = 10;
+        w.y = 20;
+        w.value = 0.5;
+        const copy = w.deepCopy();
+        expect(copy.id).toBe('');
+        expect(copy.objectName).toBe(name);
+        expect(copy.x).toBe(10);
+        expect(copy.y).toBe(20);
+        expect(copy.value).toBe(0.5);
+        expect(copy).not.toBe(w);
+      }
+    });
+  });
 });

@@ -26,7 +26,7 @@ describe('Python instrument dummy panel', () => {
     );
 
     expect(html).toContain('Python editor deferred');
-    expect(html).toContain('PythonInstrument');
+    expect(html).toContain('Python instrument XML is preserved');
   });
 });
 

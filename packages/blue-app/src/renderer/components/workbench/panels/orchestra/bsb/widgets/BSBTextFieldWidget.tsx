@@ -15,6 +15,7 @@ interface BSBTextFieldWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBTextFieldWidget({
@@ -29,11 +30,12 @@ export default function BSBTextFieldWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBTextFieldWidgetProps): React.ReactElement {
   const textValue = typeof node.properties.textValue === 'string' ? node.properties.textValue : '';
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="flex h-full w-full items-center overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
         <div className="h-full flex-1 overflow-hidden bg-[#0a0f1a] text-[11px] text-gray-200">
           <span className="block truncate leading-6">{textValue}</span>

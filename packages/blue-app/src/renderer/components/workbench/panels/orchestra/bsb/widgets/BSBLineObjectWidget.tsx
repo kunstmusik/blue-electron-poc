@@ -15,6 +15,7 @@ interface BSBLineObjectWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 interface LinePoint {
@@ -39,6 +40,7 @@ export default function BSBLineObjectWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBLineObjectWidgetProps): React.ReactElement {
   const linesRaw = node.properties.lines;
   const lines: LineData[] = Array.isArray(linesRaw) ? linesRaw as LineData[] : [];
@@ -46,7 +48,7 @@ export default function BSBLineObjectWidget({
   const h = node.height || 100;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="h-full w-full overflow-hidden rounded border border-blue-border/40 bg-[#0a0f1a]">
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className="block">
           {lines.map((line, li) => {

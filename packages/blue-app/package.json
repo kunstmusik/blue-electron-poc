@@ -1,5 +1,6 @@
 {
   "name": "@blue/app",
+  "productName": "Blue",
   "version": "0.0.1",
   "description": "Electron application for Blue — loads .blue files and plays via blue-engine",
   "main": "dist/main/main.js",

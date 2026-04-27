@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import type { BlueSynthBuilderInstrumentSnapshot } from '../../../../../shared/project-editor';
-import InstrumentNameField from './InstrumentNameField';
 import BSBCodeEditor from './bsb/BSBCodeEditor';
 import BSBInterfaceEditor from './bsb/BSBInterfaceEditor';
 import BSBUDOPanel from './bsb/BSBUDOPanel';
@@ -19,12 +18,6 @@ export default function BlueSynthBuilderEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg">
-      <div className="border-b border-blue-border bg-[#10192a] px-3 py-2">
-        <InstrumentNameField
-          name={instrument.name}
-          onNameChange={(name) => onInstrumentPatch({ name })}
-        />
-      </div>
       <div className="border-b border-blue-border bg-[#10192a] px-2">
         <div className="flex items-end gap-1">
           <button

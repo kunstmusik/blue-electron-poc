@@ -23,6 +23,7 @@ interface WidgetWrapperProps {
   onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function WidgetWrapper({
@@ -42,6 +43,7 @@ export default function WidgetWrapper({
   onBsbInterfacePatch,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: WidgetWrapperProps): React.ReactElement {
   const w = displayWidth ?? node.width ?? 60;
   const h = displayHeight ?? node.height ?? 24;
@@ -208,20 +210,80 @@ export default function WidgetWrapper({
 
   if (!editEnabled) return wrapped;
 
+  const hasSelection = isSelected && selectedWidgetIds && selectedWidgetIds.size > 0;
+  const multiSelected = (selectedWidgetIds?.size ?? 0) >= 2;
+  const singleGroupSelected = selectedWidgetIds?.size === 1 && node.type === 'BSBGroup';
+  const canDistribute = (selectedWidgetIds?.size ?? 0) >= 3;
+
+  const action = (a: string) => () => onWidgetAction?.(a);
+
   return (
-    <ContextMenu.Root>
+    <ContextMenu.Root onOpenChange={(open) => { if (open && !isSelected) onWidgetSelect(node.id); }}>
       <ContextMenu.Trigger asChild>
         {wrapped}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
-          {isSelected && selectedWidgetIds && selectedWidgetIds.size > 0 && (
-            <ContextMenu.Item
-              className="editor-context-menu__item"
-              onSelect={handleRemove}
-            >
-              Remove{selectedWidgetIds.size > 1 ? ` (${selectedWidgetIds.size})` : ''}
+          {hasSelection && (
+            <>
+              <ContextMenu.Item className="editor-context-menu__item" onSelect={handleRemove}>
+                Remove{selectedWidgetIds!.size > 1 ? ` (${selectedWidgetIds!.size})` : ''}
+              </ContextMenu.Item>
+              <ContextMenu.Separator className="editor-context-menu__separator" />
+              <ContextMenu.Item className="editor-context-menu__item" onSelect={action('cut')}>
+                Cut
+              </ContextMenu.Item>
+              <ContextMenu.Item className="editor-context-menu__item" onSelect={action('copy')}>
+                Copy
+              </ContextMenu.Item>
+            </>
+          )}
+          {multiSelected && (
+            <>
+              <ContextMenu.Separator className="editor-context-menu__separator" />
+              <ContextMenu.Item className="editor-context-menu__item" onSelect={action('make-group')}>
+                Make Group
+              </ContextMenu.Item>
+            </>
+          )}
+          {singleGroupSelected && (
+            <ContextMenu.Item className="editor-context-menu__item" onSelect={action('break-group')}>
+              Break Group
             </ContextMenu.Item>
+          )}
+          {multiSelected && (
+            <>
+              <ContextMenu.Separator className="editor-context-menu__separator" />
+              <ContextMenu.Sub>
+                <ContextMenu.SubTrigger className="editor-context-menu__item editor-context-menu__subtrigger">
+                  Align
+                  <span className="editor-context-menu__arrow">▸</span>
+                </ContextMenu.SubTrigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-left')}>Left</ContextMenu.Item>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-right')}>Right</ContextMenu.Item>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-top')}>Top</ContextMenu.Item>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-bottom')}>Bottom</ContextMenu.Item>
+                    <ContextMenu.Separator className="editor-context-menu__separator" />
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-center-h')}>Center Horizontal</ContextMenu.Item>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-center-v')}>Center Vertical</ContextMenu.Item>
+                  </ContextMenu.SubContent>
+                </ContextMenu.Portal>
+              </ContextMenu.Sub>
+              <ContextMenu.Sub>
+                <ContextMenu.SubTrigger className="editor-context-menu__item editor-context-menu__subtrigger" disabled={!canDistribute}>
+                  Distribute
+                  <span className="editor-context-menu__arrow">▸</span>
+                </ContextMenu.SubTrigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('distribute-h')}>Horizontal</ContextMenu.Item>
+                    <ContextMenu.Item className="editor-context-menu__item" onSelect={action('distribute-v')}>Vertical</ContextMenu.Item>
+                  </ContextMenu.SubContent>
+                </ContextMenu.Portal>
+              </ContextMenu.Sub>
+            </>
           )}
         </ContextMenu.Content>
       </ContextMenu.Portal>

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
 import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
@@ -15,12 +15,14 @@ interface BSBKnobWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 const VALUE_HEIGHT = 14;
-const TRACK_BG = 'rgba(255,255,255,0.08)';
-const TRACK_FILL = 'rgb(63,102,150)';
-const TRACK_FILL_BRIGHT = 'rgb(96,142,192)';
+const ARC_START = 225;
+const ARC_LENGTH = 270;
+const TRACK_COLOR = 'rgb(63,102,150)';
+const TRACK_COLOR_BRIGHT = 'rgb(96,142,192)';
 
 export default function BSBKnobWidget({
   node,
@@ -34,6 +36,7 @@ export default function BSBKnobWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBKnobWidgetProps): React.ReactElement {
   const value = node.value;
   const minimum = node.minimum;
@@ -56,8 +59,66 @@ export default function BSBKnobWidget({
   const valueH = showValue ? VALUE_HEIGHT : 0;
   const totalH = knobSize + labelH + valueH;
 
+  const svgRef = useRef<SVGSVGElement>(null);
+  const paramsRef = useRef({ minimum, range, knobSize, nodeId: node.id });
+  paramsRef.current = { minimum, range, knobSize, nodeId: node.id };
+
+  const patchRef = useRef(onBsbInterfacePatch);
+  patchRef.current = onBsbInterfacePatch;
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (editEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const computeValue = (clientX: number, clientY: number): number => {
+      const rect = svg.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      let angle = Math.atan2(-(clientY - cy), clientX - cx) * 180 / Math.PI;
+      if (angle < 0) angle += 360;
+      let rel = ARC_START - angle;
+      if (rel < 0) rel += 360;
+      if (rel > ARC_LENGTH) return -1;
+      return rel / ARC_LENGTH;
+    };
+
+    const { minimum: min, range: r, nodeId } = paramsRef.current;
+
+    const newVal = computeValue(e.clientX, e.clientY);
+    if (newVal >= 0) {
+      patchRef.current({
+        type: 'updateWidgetProperties',
+        widgetId: nodeId,
+        properties: { value: min + newVal * r },
+      });
+    }
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const v = computeValue(moveEvent.clientX, moveEvent.clientY);
+      if (v >= 0) {
+        patchRef.current({
+          type: 'updateWidgetProperties',
+          widgetId: paramsRef.current.nodeId,
+          properties: { value: paramsRef.current.minimum + v * paramsRef.current.range },
+        });
+      }
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [editEnabled]);
+
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="flex flex-col items-center" style={{ width: knobSize, height: totalH }}>
         {showLabel && (
           <div
@@ -67,11 +128,19 @@ export default function BSBKnobWidget({
             <span className="truncate">{labelText}</span>
           </div>
         )}
-        <KnobSVG size={knobSize} value={knobVal} />
+        <KnobSVG ref={svgRef} size={knobSize} value={knobVal} interactive={!editEnabled} onMouseDown={handleMouseDown} />
         {showValue && (
           <div
             className="flex items-center justify-center"
-            style={{ height: valueH, width: knobSize, fontFamily: 'Roboto, sans-serif', fontSize: 11, color: 'rgb(240,240,255)' }}
+            style={{
+              height: valueH,
+              width: knobSize,
+              fontFamily: "'Roboto', sans-serif",
+              fontSize: 11,
+              color: 'rgb(240,240,255)',
+              background: 'rgb(20, 29, 45)',
+              borderRadius: 3,
+            }}
           >
             {displayVal}
           </div>
@@ -81,68 +150,78 @@ export default function BSBKnobWidget({
   );
 }
 
-function KnobSVG({ size, value }: { size: number; value: number }): React.ReactElement {
-  const trackWidth = Math.max(4, size / 10);
-  const trackR = size / 2 - trackWidth / 2;
-  const cx = size / 2;
-  const cy = size / 2;
+const KnobSVG = React.forwardRef<SVGSVGElement, {
+  size: number;
+  value: number;
+  interactive: boolean;
+  onMouseDown: (e: React.MouseEvent<SVGSVGElement>) => void;
+}>(({ size, value, interactive, onMouseDown }, ref) => {
+  const drawSize = size - 2;
+  const mid = drawSize / 2;
+  const cx = mid + 1;
+  const cy = mid + 1;
 
-  const startAngle = 135;
-  const totalSweep = 270;
-  const valueSweep = totalSweep * value;
+  const trackPath = describePieArc(cx, cy, mid, ARC_START, -ARC_LENGTH);
+  const valueSweep = ARC_LENGTH * value;
+  const valPath = value > 0.001 ? describePieArc(cx, cy, mid, ARC_START, -valueSweep) : '';
 
-  const knobR = size / 2 - trackWidth - 2;
+  const knobCenterSize = drawSize * 0.65;
+  const knobR = knobCenterSize / 2;
 
   const rotation = Math.PI * 2.0 * (-0.625 + value * 0.75);
-  const notchAdj = size / 18;
+  const notchAdj = drawSize / 18;
   const notchW = 2 * notchAdj;
-  const knobCenterSize = (size - 2) * 0.65;
   const notchLen = knobCenterSize / 2 + notchW;
-  const middle = (size - 2) / 2;
-
-  const cos = Math.cos(rotation);
-  const sin = Math.sin(rotation);
-  function rot(x: number, y: number): [number, number] {
-    return [cx + x * cos - y * sin, cy + x * sin + y * cos];
-  }
-
-  const [rx1, ry1] = rot(-notchAdj, -notchAdj);
-  const [rx2, ry2] = rot(-notchAdj + notchLen, -notchAdj);
-  const [rx3, ry3] = rot(-notchAdj + notchLen, -notchAdj + notchW);
-  const [rx4, ry4] = rot(-notchAdj, -notchAdj + notchW);
+  const lineStart = mid / 2;
+  const lineEnd = mid - 2;
+  const lineW = Math.max(1.5, drawSize / 30);
 
   return (
-    <svg width={size} height={size} className="block">
-      <circle cx={cx} cy={cy} r={trackR} fill="none" stroke={TRACK_BG} strokeWidth={trackWidth} />
-      <circle
-        cx={cx}
-        cy={cy}
-        r={trackR}
-        fill="none"
-        stroke={TRACK_FILL}
-        strokeWidth={trackWidth}
-        strokeDasharray={`${(2 * Math.PI * trackR)}`}
-        strokeDashoffset={`${2 * Math.PI * trackR * (1 - valueSweep / totalSweep)}`}
-        transform={`rotate(${startAngle + 90} ${cx} ${cy})`}
-        strokeLinecap="round"
-      />
-      <circle cx={cx} cy={cy} r={knobR} fill="rgb(30,40,60)" />
-      <circle cx={cx} cy={cy} r={knobR} fill="none" stroke="rgba(0,0,0,0.5)" strokeWidth={1} />
-      <polygon
-        points={`${rx1},${ry1} ${rx2},${ry2} ${rx3},${ry3} ${rx4},${ry4}`}
-        fill={TRACK_FILL}
-        stroke="rgb(16,16,16)"
-        strokeWidth={1}
-        strokeLinejoin="round"
-      />
-      <circle
-        cx={cx + (knobR - 4) * Math.sin(totalSweep * value * Math.PI / 180 + (startAngle - 90) * Math.PI / 180)}
-        cy={cy - (knobR - 4) * Math.cos(totalSweep * value * Math.PI / 180 + (startAngle - 90) * Math.PI / 180)}
-        r={3}
-        fill={TRACK_FILL_BRIGHT}
-      />
+    <svg
+      ref={ref}
+      width={size}
+      height={size}
+      className="block"
+      style={{ cursor: interactive ? 'pointer' : 'default' }}
+      onMouseDown={interactive ? onMouseDown : undefined}
+    >
+      <path d={trackPath} fill="rgba(0,0,0,0.25)" />
+      {valPath && <path d={valPath} fill={TRACK_COLOR} />}
+      <path d={trackPath} fill="none" stroke="black" strokeWidth={0.5} />
+      <circle cx={cx} cy={cy} r={knobR} fill="black" />
+      <g transform={`translate(${cx},${cy}) rotate(${rotation * 180 / Math.PI})`}>
+        <line
+          x1={lineStart} y1={0} x2={lineEnd} y2={0}
+          stroke={TRACK_COLOR_BRIGHT}
+          strokeWidth={lineW}
+          strokeLinecap="round"
+        />
+        <rect
+          x={-notchAdj} y={-notchAdj}
+          width={notchLen} height={notchW}
+          rx={notchW} ry={notchW}
+          fill={TRACK_COLOR}
+          stroke="rgb(16,16,16)"
+          strokeWidth={Math.max(0.5, drawSize / 40)}
+        />
+      </g>
     </svg>
   );
+});
+
+KnobSVG.displayName = 'KnobSVG';
+
+function polarToXY(cx: number, cy: number, r: number, angleDeg: number): { x: number; y: number } {
+  const rad = angleDeg * Math.PI / 180;
+  return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
+}
+
+function describePieArc(cx: number, cy: number, r: number, startDeg: number, sweepDeg: number): string {
+  const s = polarToXY(cx, cy, r, startDeg);
+  const e = polarToXY(cx, cy, r, startDeg + sweepDeg);
+  const large = Math.abs(sweepDeg) > 180 ? 1 : 0;
+  const sweep = sweepDeg < 0 ? 1 : 0;
+  return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} ${sweep} ${e.x} ${e.y} Z`;
 }
 
 function formatValue(v: number): string {

@@ -64,8 +64,8 @@ export const BSB_WIDGET_RESIZE_META: Record<string, BSBWidgetResizeMeta> = {
   BSBFileSelector: {
     canResizeWidth: true,
     canResizeHeight: false,
-    minWidth: 100,
-    minHeight: 24,
+    minWidth: 10,
+    minHeight: 30,
     widthProperty: 'textFieldWidth',
   },
   BSBLineObject: {

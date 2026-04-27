@@ -86,7 +86,18 @@ describe('Orchestra code instrument editors', () => {
       ],
       editEnabled: true,
       gridSettings: { enabled: false, snapEnabled: false, width: 10, height: 10 },
-      widgetTree: null,
+      widgetTree: {
+        id: 'root',
+        type: 'BSBRootGroup',
+        objectName: '',
+        x: 0, y: 0, width: 0, height: 0,
+        value: 0, minimum: 0, maximum: 0,
+        editable: true, properties: {},
+        children: [
+          { id: 'w1', type: 'BSBKnob', objectName: 'amp', x: 0, y: 0, width: 60, height: 60, value: 0.5, minimum: 0, maximum: 1, editable: true, properties: {} },
+          { id: 'w2', type: 'BSBValue', objectName: 'freq', x: 0, y: 0, width: 60, height: 24, value: 440, minimum: 20, maximum: 20000, editable: true, properties: {} },
+        ],
+      },
       udolist: [],
     };
 

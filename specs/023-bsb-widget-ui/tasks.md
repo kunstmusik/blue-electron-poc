@@ -225,7 +225,25 @@
 
 **Purpose**: Implement the per-widget context menu shown when right-clicking a selected widget in edit mode. Matches Java `BSBObjectEditPopup`.
 
-- [ ] T100 [US3] Per-widget context menu on right-click in edit mode: "Remove", "Cut", "Copy", "Make Group" (when multiple selected), "Break Group" (when single BSBGroup selected), "Align" submenu (Left, Right, Top, Bottom, Center H, Center V), "Distribute" submenu
+- [x] T100 [US3] Per-widget context menu on right-click in edit mode: "Remove", "Cut", "Copy", "Make Group" (when multiple selected), "Break Group" (when single BSBGroup selected), "Align" submenu (Left, Right, Top, Bottom, Center H, Center V), "Distribute" submenu
+
+---
+
+## Phase 10: Parity Fixes and Polish
+
+**Purpose**: Fix rendering and interaction parity issues found during manual review against Java Blue.
+
+- [x] T101 [US1] BSBKnob arc rendering: rewrite PIE arc geometry using correct Java angle convention (225° start, 270° sweep). Replace `polarToCartesian(angleDeg - 90)` with `polarToXY` using `cy - r * sin(rad)` y-flip for SVG. Replace `describeArc` with `describePieArc` taking sweep angle with correct SVG sweep direction flag. Notch indicator changed from `<polygon>` to `<rect rx/ry>` for pill shape (matching Java `fillRoundRect`). Value indicator line and notch rendered via SVG `<g transform="rotate()">` matching Java's `g2d.rotate()`. 1px margin applied (`drawSize = size - 2`) matching Java's `size = Math.min(w,h) - 2`.
+- [x] T102 [US1] BSBKnob value panel: dark navy background `rgb(20,29,45)` with `borderRadius: 3` (Java `arcWidth=6` is diameter, SVG `rx=3` is radius) matching Java `ValuePanel.paintComponent()`
+- [x] T103 [US1] BSBKnob mouse tracking: fix angle computation from `atan2(dx, -dy)` (compass convention) to `atan2(-dy, dx)` (standard math convention matching the arc drawing system)
+- [x] T104 [US2] Property sheet commit-on-enter/blur: `PropertyInput` component with local state, validates on blur/enter, Escape reverts, `objectName` uniqueness check, numeric validation via `validateNumericProperty()`
+- [x] T105 [US2] Font chooser dialog: modal with system fonts via `window.queryLocalFonts()`, filter input, per-font rendering, style/size selection, preview area. Property sheet groups `font.*`/`labelFont.*` into single row with `...` button. `local-fonts` permission auto-granted in main process.
+- [x] T106 [US1] Arrangement panel: 3-column resizable layout (Use/Instr ID/Instr Name), editable Instr Name column, `+Add` popup with all 5 Java instrument types (Generic, Python, JavaScript, BlueX7, BlueSynthBuilder). `InstrumentNameField` removed from all instrument editors.
+- [x] T107 [US1] Grid snap decoupled from grid visibility: `gridSnapEnabled` checks only `snapEnabled`, not `enabled`
+- [x] T108 [US1] Empty BSB canvas always interactive: `buildWidgetTreeSnapshot()` always returns root node (never null)
+- [x] T109 [US1] BSBFileSelector `textFieldWidth` fix: added `BSBFileSelector` case in `buildWidgetTreeNode` computing `width = textFieldWidth + 30`, `height = 30` (matching Java's `getPreferredSize()`). Fixed optimistic update in `project-store.ts` to also add `+30`. Updated resize meta `minWidth: 10`, `minHeight: 30`. Widget uses `textFieldWidth` from properties for text field div, 30px fixed button.
+- [ ] T110 BSB interface canvas scroll padding: need +10px bottom/right past widget bounds (see `BSB_PADDING_FIX.md`). Multiple CSS approaches attempted (padding, explicit width/height, inline-block, min-width) — none work because absolutely-positioned children don't contribute to parent content size. Likely needs ResizeObserver or invisible spacer element.
+- [ ] T111 BSBKnob mouse tracking verification: confirm angle convention matches arc rendering after T103 fix
 
 ---
 

@@ -193,14 +193,10 @@ export class BSBGraphicInterface {
 
   removeWidget(widgetId: string): boolean {
     const remove = (parent: BSBGroup): boolean => {
-      const children = parent.getChildren();
-      for (let i = 0; i < children.length; i++) {
-        if (children[i].id === widgetId) {
-          children.splice(i, 1);
-          return true;
-        }
-        if (children[i] instanceof BSBGroup) {
-          if (remove(children[i] as BSBGroup)) return true;
+      if (parent.removeChildById(widgetId)) return true;
+      for (const child of parent.getChildren()) {
+        if (child instanceof BSBGroup) {
+          if (remove(child as BSBGroup)) return true;
         }
       }
       return false;

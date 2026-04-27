@@ -5,7 +5,6 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, nativeImage } from 'electron
 import * as path from 'path';
 import * as fs from 'fs';
 
-app.setName('Blue');
 import { BlueData } from '@blue/data';
 import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
@@ -33,6 +32,14 @@ let isQuitting = false;
 let pendingQuit = false;
 let playbackStartPromise: Promise<boolean> | null = null;
 let javaScriptRuntimeReady: Promise<void> | null = null;
+
+// Set application name early (before ready) so macOS menu bar shows "Blue".
+// NOTE: In dev mode (running `electron` CLI directly), macOS may still show
+// "Electron" in some system UI until the app is packaged. A full dev server
+// restart (Ctrl+C then `pnpm run dev` again) is required for this to take
+// effect because it is read once at process startup.
+app.setName('Blue');
+console.log('[main] App name set to:', app.getName());
 
 function getCurrentProjectDocument() {
   if (!currentData) {
@@ -86,18 +93,30 @@ function ensureJavaScriptRuntime(): Promise<void> {
 }
 
 function getAppIcon(): Electron.NativeImage | undefined {
-  const iconPath = (() => {
-    if (process.platform === 'darwin') {
-      return path.join(__dirname, '..', '..', 'assets', 'blue.icns');
-    }
-    if (process.platform === 'win32') {
-      return path.join(__dirname, '..', '..', 'assets', 'blue.ico');
-    }
-    return path.join(__dirname, '..', '..', 'assets', 'blueIcon.png');
+  const iconFile = (() => {
+    if (process.platform === 'darwin') return 'blue.icns';
+    if (process.platform === 'win32') return 'blue.ico';
+    return 'blueIcon.png';
   })();
-  if (fs.existsSync(iconPath)) {
-    return nativeImage.createFromPath(iconPath);
+
+  // In dev mode vite-plugin-electron may place __dirname in a temp folder,
+  // so we try several candidate roots.
+  const candidates = [
+    path.join(__dirname, '..', '..', 'assets', iconFile),
+    path.join(__dirname, '..', 'assets', iconFile),
+    path.join(__dirname, 'assets', iconFile),
+    path.join(app.getAppPath(), 'assets', iconFile),
+    path.join(process.cwd(), 'assets', iconFile),
+  ];
+
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      console.log('[main] Using app icon:', p);
+      return nativeImage.createFromPath(p);
+    }
   }
+
+  console.warn(`[main] App icon not found. Tried:\n${candidates.map((c) => '  - ' + c).join('\n')}`);
   return undefined;
 }
 
@@ -114,6 +133,13 @@ function createWindow(): void {
       devTools: true,
     },
   });
+
+  mainWindow.webContents.session.setPermissionCheckHandler(
+    (_webContents, permission) => (permission as string) === 'local-fonts',
+  );
+  mainWindow.webContents.session.setPermissionRequestHandler(
+    (_webContents, permission, callback) => callback((permission as string) === 'local-fonts'),
+  );
 
   // During development, load from Vite dev server for HMR
   if (process.env.VITE_DEV_SERVER_URL) {

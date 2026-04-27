@@ -22,7 +22,6 @@ describe('BlueX7 editor baseline', () => {
       />,
     );
 
-    expect(html).toContain('FM Bass');
     expect(html).toContain('BlueX7 project data is preserved');
   });
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -12,25 +12,13 @@ import ArrangementContextMenu from './ArrangementContextMenu';
 import { createArrangementColumns } from './arrangement-table/arrangement-columns';
 import type { ArrangementPanelProps } from './types';
 
-function AddButton({
-  label,
-  instrumentType,
-  onAdd,
-}: {
-  label: string;
-  instrumentType: SupportedNewInstrumentType;
-  onAdd: (instrumentType: SupportedNewInstrumentType) => void;
-}): React.ReactElement {
-  return (
-    <button
-      type="button"
-      className="rounded border border-blue-border bg-[#182542] px-2 py-1 text-xs text-gray-100 transition-colors hover:border-blue-accent"
-      onClick={() => onAdd(instrumentType)}
-    >
-      {label}
-    </button>
-  );
-}
+const INSTRUMENT_TYPES: Array<{ type: SupportedNewInstrumentType; label: string }> = [
+  { type: 'generic', label: 'Generic Instrument' },
+  { type: 'python', label: 'Python Instrument' },
+  { type: 'javascript', label: 'JavaScript Instrument' },
+  { type: 'blueX7', label: 'BlueX7' },
+  { type: 'blueSynthBuilder', label: 'BlueSynthBuilder' },
+];
 
 export default function ArrangementPanel({
   orchestra,
@@ -39,6 +27,10 @@ export default function ArrangementPanel({
   onOrchestraPatch,
 }: ArrangementPanelProps): React.ReactElement {
   const [clipboardInstrument, setClipboardInstrument] = useState<InstrumentSnapshot | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
   const columns = useMemo(
     () =>
       createArrangementColumns({
@@ -57,15 +49,72 @@ export default function ArrangementPanel({
             nextAssignmentId,
           });
         },
+        onCommitInstrumentName: (row, name) => {
+          const trimmed = name.trim();
+          if (trimmed === (row.instrumentName || '')) return;
+          void onOrchestraPatch({
+            type: 'updateInstrument',
+            assignmentId: row.assignmentId,
+            patch: { name: trimmed },
+          });
+        },
       }),
     [onOrchestraPatch],
   );
+
+  const [columnSizing, setColumnSizing] = useState<Record<string, number>>({});
+  const [resizingCol, setResizingCol] = useState<string | null>(null);
+  const resizeStartX = useRef(0);
+  const resizeStartWidth = useRef(0);
+  const tableRef = useRef<HTMLTableElement>(null);
+
   const table = useReactTable({
     data: orchestra.arrangement.rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.assignmentId,
+    state: { columnSizing },
+    onColumnSizingChange: setColumnSizing,
+    columnResizeMode: 'onChange',
   });
+
+  const getColumnWidth = (colId: string) => {
+    const col = columns.find(c => ('id' in c ? c.id === colId : 'accessorKey' in c && c.accessorKey === colId));
+    const defaultSize = col && 'size' in col ? (col as any).size : 100;
+    return columnSizing[colId] ?? defaultSize;
+  };
+
+  const startResize = useCallback((colId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setResizingCol(colId);
+    resizeStartX.current = e.clientX;
+    resizeStartWidth.current = getColumnWidth(colId);
+
+    const minSize = (() => {
+      const col = columns.find(c => ('id' in c ? c.id === colId : false));
+      return col && 'minSize' in col ? (col as any).minSize : 30;
+    })();
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - resizeStartX.current;
+      const newWidth = Math.max(minSize, resizeStartWidth.current + delta);
+      setColumnSizing(prev => ({ ...prev, [colId]: newWidth }));
+    };
+
+    const onMouseUp = () => {
+      setResizingCol(null);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [columns, columnSizing]);
 
   const selectedRowStillExists = useMemo(
     () =>
@@ -77,6 +126,7 @@ export default function ArrangementPanel({
 
   const addInstrument = (instrumentType: SupportedNewInstrumentType) => {
     void onOrchestraPatch({ type: 'addInstrument', instrumentType });
+    setAddMenuOpen(false);
   };
 
   const copyAssignment = (assignmentId: string) => {
@@ -99,6 +149,18 @@ export default function ArrangementPanel({
     });
   };
 
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node) &&
+          addBtnRef.current && !addBtnRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [addMenuOpen]);
+
   return (
     <section
       className="flex h-full min-h-0 flex-col bg-[#111a2d]"
@@ -114,25 +176,58 @@ export default function ArrangementPanel({
             {selectedAssignmentId && !selectedRowStillExists ? ' · selection cleared' : ''}
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <AddButton label="Generic" instrumentType="generic" onAdd={addInstrument} />
-          <AddButton label="BSB" instrumentType="blueSynthBuilder" onAdd={addInstrument} />
+        <div className="relative">
+          <button
+            ref={addBtnRef}
+            type="button"
+            className="rounded border border-blue-border bg-[#182542] px-2.5 py-1 text-xs text-gray-100 transition-colors hover:border-blue-accent"
+            onClick={() => setAddMenuOpen(!addMenuOpen)}
+          >
+            + Add
+          </button>
+          {addMenuOpen && (
+            <div
+              ref={addMenuRef}
+              className="absolute right-0 top-full z-20 mt-1 min-w-[180px] rounded border border-blue-border bg-[#182542] py-1 shadow-lg"
+            >
+              {INSTRUMENT_TYPES.map(({ type, label }) => (
+                <button
+                  key={type}
+                  className="w-full px-3 py-1.5 text-left text-xs text-gray-100 hover:bg-blue-accent/20"
+                  onClick={() => addInstrument(type)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full table-fixed border-collapse text-left text-xs">
+        <table
+          ref={tableRef}
+          className="border-collapse text-left text-xs"
+          style={{ width: '100%' }}
+        >
           <thead className="sticky top-0 z-10 bg-[#15223a] text-blue-muted">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map((header, i, arr) => (
                   <th
                     key={header.id}
-                    className="border-b border-blue-border px-2 py-1.5 font-medium"
+                    className="relative border-b border-blue-border px-2 py-1.5 font-medium"
+                    style={{ width: getColumnWidth(header.id) }}
                   >
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
+                    {i < arr.length - 1 && (
+                      <div
+                        className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-blue-accent/30"
+                        onMouseDown={(e) => startResize(header.id, e)}
+                      />
+                    )}
                   </th>
                 ))}
               </tr>
@@ -159,7 +254,11 @@ export default function ArrangementPanel({
                     onClick={() => onSelectAssignment(row.original.assignmentId)}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="truncate px-2 py-1.5">
+                      <td
+                        key={cell.id}
+                        className="truncate px-2 py-1.5"
+                        style={{ width: getColumnWidth(cell.column.id) }}
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}

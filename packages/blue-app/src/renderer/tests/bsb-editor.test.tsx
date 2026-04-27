@@ -23,6 +23,18 @@ const BSB_INSTRUMENT: BlueSynthBuilderInstrumentSnapshot = {
     { objectName: 'amp', widgetType: 'BSBKnob', value: 0.5, minimum: 0, maximum: 1 },
     { objectName: 'freq', widgetType: 'BSBValue', value: 440, minimum: 20, maximum: 20000 },
   ],
+  editEnabled: false,
+  gridSettings: { enabled: false, snapEnabled: false, width: 10, height: 10 },
+  widgetTree: {
+    id: 'root', type: 'BSBRootGroup', objectName: '',
+    x: 0, y: 0, width: 0, height: 0,
+    value: 0, minimum: 0, maximum: 0,
+    editable: true, properties: {},
+    children: [
+      { id: 'w1', type: 'BSBKnob', objectName: 'amp', x: 0, y: 0, width: 60, height: 60, value: 0.5, minimum: 0, maximum: 1, editable: true, properties: {} },
+      { id: 'w2', type: 'BSBValue', objectName: 'freq', x: 70, y: 0, width: 60, height: 24, value: 440, minimum: 20, maximum: 20000, editable: true, properties: {} },
+    ],
+  },
 };
 
 describe('BlueSynthBuilder editor', () => {
@@ -64,14 +76,12 @@ describe('BlueSynthBuilder editor', () => {
     expect((html.match(/data-editor-language="csound-orc"/g) ?? []).length).toBe(4);
   });
 
-  it('renders BSB interface placeholder and replacement keys', () => {
+  it('renders BSB interface editor with preset bar and edit mode toggle', () => {
     const html = renderToStaticMarkup(
       <BSBInterfaceEditor instrument={BSB_INSTRUMENT} onInstrumentPatch={vi.fn()} />,
     );
 
-    expect(html).toContain('Interface');
-    expect(html).toContain('&lt;amp&gt;');
-    expect(html).toContain('&lt;freq&gt;');
-    expect(html).toContain('BSBKnob');
+    expect(html).toContain('Edit Mode');
+    expect(html).toContain('Presets');
   });
 });

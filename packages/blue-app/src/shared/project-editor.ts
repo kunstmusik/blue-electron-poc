@@ -3,6 +3,7 @@ import {
   BlueSynthBuilder,
   BlueX7,
   BSBGroup,
+  BSBWidget,
   GenericInstrument,
   Instrument,
   JavaScriptInstrument,
@@ -132,6 +133,7 @@ export interface ProjectDocumentPatch {
 
 export type SupportedNewInstrumentType =
   | 'generic'
+  | 'python'
   | 'javascript'
   | 'blueX7'
   | 'blueSynthBuilder';
@@ -187,7 +189,7 @@ export interface BlueSynthBuilderInstrumentSnapshot extends InstrumentSnapshotBa
   widgets: BsbWidgetSnapshot[];
   editEnabled: boolean;
   gridSettings: GridSettingsSnapshot;
-  widgetTree: BsbWidgetNodeSnapshot | null;
+  widgetTree: BsbWidgetNodeSnapshot;
   presetGroup?: PresetGroupSnapshot;
   opcodeListText?: string;
   udolist?: UdoDefinitionSnapshot[];
@@ -269,7 +271,10 @@ export type BsbInterfacePatch =
   | { type: 'removeUdo'; index: number }
   | { type: 'updateUdo'; index: number; patch: Partial<UdoDefinitionSnapshot> }
   | { type: 'reorderUdo'; from: number; to: number }
-  | { type: 'randomize' };
+  | { type: 'randomize' }
+  | { type: 'makeGroup'; widgetIds: string[]; parentGroupId?: string }
+  | { type: 'breakGroup'; widgetId: string }
+  | { type: 'pasteWidgets'; widgetData: string; parentGroupId?: string };
 
 export interface UnknownInstrumentSnapshot extends InstrumentSnapshotBase {
   type: 'unknown';
@@ -702,6 +707,10 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
     const fontSize = typeof record.fontSize === 'number' ? record.fontSize : 12;
     width = 0;
     height = typeof record.height === 'number' ? record.height : Math.max(24, fontSize + 8);
+  } else if (ctorName === 'BSBFileSelector') {
+    const tfw = typeof record.textFieldWidth === 'number' ? record.textFieldWidth : 100;
+    width = tfw + 30;
+    height = 30;
   } else {
     width = typeof record.sliderWidth === 'number' ? record.sliderWidth
       : typeof record.width === 'number' ? record.width
@@ -729,10 +738,9 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
   };
 }
 
-function buildWidgetTreeSnapshot(bsb: BlueSynthBuilder): BsbWidgetNodeSnapshot | null {
+function buildWidgetTreeSnapshot(bsb: BlueSynthBuilder): BsbWidgetNodeSnapshot {
   const rootGroup = bsb.getGraphicInterface().getRootGroup();
   const rootChildren = rootGroup.getChildren();
-  if (rootChildren.length === 0) return null;
 
   const children: BsbWidgetNodeSnapshot[] = [];
   for (const child of rootChildren) {
@@ -928,6 +936,8 @@ function createInstrumentForType(type: SupportedNewInstrumentType): Instrument {
   switch (type) {
     case 'generic':
       return new GenericInstrument();
+    case 'python':
+      return new PythonInstrument();
     case 'javascript':
       return new JavaScriptInstrument();
     case 'blueX7':
@@ -1099,6 +1109,249 @@ function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfac
       instrument.getGraphicInterface().getRootGroup().randomize();
       instrument.invalidateGraphicInterfaceCache();
       return true;
+    case 'makeGroup': {
+      const gi = instrument.getGraphicInterface();
+      const widgetsToGroup: BSBWidget[] = [];
+      const collect = (parent: BSBGroup): void => {
+        for (const child of parent.getChildren()) {
+          if (patch.widgetIds.includes(child.id)) {
+            widgetsToGroup.push(child);
+            parent.removeChildById(child.id);
+          } else if (child instanceof BSBGroup) {
+            collect(child as BSBGroup);
+          }
+        }
+      };
+      collect(gi.getRootGroup());
+      if (widgetsToGroup.length === 0) return false;
+
+      let minX = Infinity, minY = Infinity;
+      for (const w of widgetsToGroup) {
+        minX = Math.min(minX, w.x);
+        minY = Math.min(minY, w.y);
+      }
+
+      const group = new BSBGroup();
+      group.id = crypto.randomUUID();
+      group.x = minX;
+      group.y = minY;
+      group.groupName = 'Group';
+
+      for (const w of widgetsToGroup) {
+        w.x = w.x - minX + 10;
+        w.y = w.y - minY + 10;
+        group.addChild(w);
+      }
+
+      const targetParent = patch.parentGroupId
+        ? gi.findWidgetById(patch.parentGroupId)
+        : null;
+      if (targetParent instanceof BSBGroup) {
+        targetParent.addChild(group);
+      } else {
+        gi.getRootGroup().addChild(group);
+      }
+      instrument.invalidateGraphicInterfaceCache();
+      return true;
+    }
+    case 'breakGroup': {
+      const gi = instrument.getGraphicInterface();
+      const group = gi.findWidgetById(patch.widgetId);
+      if (!(group instanceof BSBGroup)) return false;
+
+      const findParent = (parent: BSBGroup, targetId: string): BSBGroup | null => {
+        for (const child of parent.getChildren()) {
+          if (child.id === targetId) return parent;
+          if (child instanceof BSBGroup) {
+            const found = findParent(child, targetId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+
+      const parentGroup = findParent(gi.getRootGroup(), patch.widgetId) ?? gi.getRootGroup();
+      const gx = group.x;
+      const gy = group.y;
+      const children = group.getChildren();
+      for (const child of children) {
+        child.x += gx;
+        child.y += gy;
+        parentGroup.addChild(child);
+      }
+      group.clearChildren();
+      gi.removeWidget(patch.widgetId);
+      instrument.invalidateGraphicInterfaceCache();
+      return true;
+    }
+    case 'pasteWidgets': {
+      const gi = instrument.getGraphicInterface();
+      let parsed: BsbWidgetNodeSnapshot[];
+      try {
+        parsed = JSON.parse(patch.widgetData);
+      } catch { return false; }
+      if (!Array.isArray(parsed) || parsed.length === 0) return false;
+
+      const existingNames = new Set<string>();
+      const collectNames = (group: BSBGroup): void => {
+        for (const child of group.getChildren()) {
+          if (child.objectName) {
+            existingNames.add(child.objectName);
+            for (const dk of getDerivedKeys(child)) existingNames.add(dk);
+          }
+          if (child instanceof BSBGroup) collectNames(child);
+        }
+      };
+      collectNames(gi.getRootGroup());
+
+      const targetParent = patch.parentGroupId
+        ? gi.findWidgetById(patch.parentGroupId)
+        : null;
+      const parent = targetParent instanceof BSBGroup ? targetParent : gi.getRootGroup();
+
+      for (const node of parsed) {
+        ensureUniqueName(node, existingNames);
+        const widget = createWidgetFromSnapshot(gi, node);
+        if (widget) parent.addChild(widget);
+      }
+      instrument.invalidateGraphicInterfaceCache();
+      return true;
+    }
+  }
+}
+
+function createWidgetFromSnapshot(gi: any, node: BsbWidgetNodeSnapshot): BSBWidget | null {
+  const bsbGi = gi as { createWidgetByType(t: string): BSBWidget | null };
+  const widget = bsbGi.createWidgetByType(node.type);
+  if (!widget) return null;
+
+  widget.objectName = node.objectName || '';
+  widget.x = node.x;
+  widget.y = node.y;
+
+  if (node.properties) {
+    for (const [key, val] of Object.entries(node.properties)) {
+      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
+        (widget as any)[key] = val;
+      } else if (key === 'dropdownItems' && Array.isArray(val)) {
+        (widget as any)[key] = val;
+      }
+    }
+  }
+
+  if (widget instanceof BSBGroup) {
+    widget.width = node.width ?? 20;
+    widget.height = node.height ?? 20;
+    const fn = node.properties?.['font.name'];
+    const fs = node.properties?.['font.size'];
+    const fst = node.properties?.['font.style'];
+    if (typeof fn === 'string' || typeof fs === 'number' || typeof fst === 'number') {
+      widget.font = {
+        name: typeof fn === 'string' ? fn : widget.font.name,
+        size: typeof fs === 'number' ? fs : widget.font.size,
+        style: typeof fst === 'number' ? fst : widget.font.style,
+      };
+    }
+    if (node.children) {
+      for (const childNode of node.children) {
+        const child = createWidgetFromSnapshot(gi, childNode);
+        if (child) widget.addChild(child);
+      }
+    }
+  }
+
+  return widget;
+}
+
+export function ensureUniqueName(node: BsbWidgetNodeSnapshot, existingNames: Set<string>): void {
+  const name = node.objectName;
+  if (name && hasCollision(name, node, existingNames)) {
+    const prefix = name.replace(/\d+$/, '');
+    let i = 1;
+    let candidate: string;
+    do {
+      candidate = `${prefix}${i++}`;
+    } while (hasCollision(candidate, node, existingNames));
+    node.objectName = candidate;
+    existingNames.add(candidate);
+    for (const dk of getDerivedKeysForSnapshot(node)) existingNames.add(dk);
+  } else if (name) {
+    existingNames.add(name);
+    for (const dk of getDerivedKeysForSnapshot(node)) existingNames.add(dk);
+  }
+  if (node.children) {
+    for (const child of node.children) ensureUniqueName(child, existingNames);
+  }
+}
+
+function hasCollision(candidate: string, node: BsbWidgetNodeSnapshot, existingNames: Set<string>): boolean {
+  if (existingNames.has(candidate)) return true;
+  const origName = node.objectName;
+  node.objectName = candidate;
+  const derived = getDerivedKeysForSnapshot(node);
+  node.objectName = origName;
+  for (const dk of derived) {
+    if (existingNames.has(dk)) return true;
+  }
+  return false;
+}
+
+function getDerivedKeysForSnapshot(node: BsbWidgetNodeSnapshot): string[] {
+  const name = node.objectName;
+  if (!name) return [];
+  switch (node.type) {
+    case 'BSBXYController':
+      return [name + 'X', name + 'Y'];
+    case 'BSBHSliderBank':
+    case 'BSBVSliderBank': {
+      const count = typeof node.properties?.['sliderBankCount'] === 'number'
+        ? node.properties.sliderBankCount : 0;
+      const keys: string[] = [];
+      for (let i = 0; i < count; i++) keys.push(`${name}.${i}`);
+      return keys;
+    }
+    case 'BSBLineObject': {
+      const lines = node.properties?.['lines'];
+      if (!Array.isArray(lines)) return [];
+      const keys: string[] = [];
+      for (const line of lines) {
+        if (line && typeof line === 'object' && typeof (line as any).varName === 'string') {
+          keys.push(`${name}_${(line as any).varName}`);
+        }
+      }
+      return keys;
+    }
+    default:
+      return [];
+  }
+}
+
+function getDerivedKeys(widget: BSBWidget): string[] {
+  const name = widget.objectName;
+  if (!name) return [];
+  const w = widget as any;
+  switch (widget.constructor.name) {
+    case 'BSBXYController':
+      return [name + 'X', name + 'Y'];
+    case 'BSBHSliderBank':
+    case 'BSBVSliderBank': {
+      const count = typeof w.sliderBankCount === 'number' ? w.sliderBankCount : 0;
+      const keys: string[] = [];
+      for (let i = 0; i < count; i++) keys.push(`${name}.${i}`);
+      return keys;
+    }
+    case 'BSBLineObject': {
+      const lines: unknown[] = Array.isArray(w.lines) ? w.lines : [];
+      const keys: string[] = [];
+      for (const line of lines) {
+        if (line && typeof line === 'object' && typeof (line as any).varName === 'string') {
+          keys.push(`${name}_${(line as any).varName}`);
+        }
+      }
+      return keys;
+    }
+    default:
+      return [];
   }
 }
 

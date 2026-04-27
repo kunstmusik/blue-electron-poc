@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
 import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 
 interface BSBGroupWidgetProps {
   node: BsbWidgetNodeSnapshot;
@@ -17,6 +18,7 @@ interface BSBGroupWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBGroupWidget({
@@ -33,6 +35,7 @@ export default function BSBGroupWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBGroupWidgetProps): React.ReactElement {
   const groupName = typeof node.properties.groupName === 'string' ? node.properties.groupName : '';
   const titleEnabled = node.properties.titleEnabled !== false;
@@ -43,23 +46,7 @@ export default function BSBGroupWidget({
   const fontName = typeof node.properties['font.name'] === 'string' ? node.properties['font.name'] : 'Roboto';
   const fontSize = typeof node.properties['font.size'] === 'number' ? node.properties['font.size'] : 12;
 
-  const labelH = titleEnabled && groupName ? 20 : 0;
-
-  const displaySize = useMemo(() => {
-    let childrenW = 10;
-    let childrenH = 10; // Keeping bottom padding at 10 as it looked better
-    if (node.children) {
-      for (const c of node.children) {
-        const cw = getChildDisplayWidth(c);
-        const ch = getChildDisplayHeight(c);
-        childrenW = Math.max(childrenW, c.x + cw + 10);
-        childrenH = Math.max(childrenH, c.y + ch + 10);
-      }
-    }
-    const w = Math.max(node.width, childrenW);
-    const h = labelH + Math.max(node.height, childrenH);
-    return { width: w, height: h };
-  }, [node.width, node.height, node.children, labelH]);
+  const displaySize = getWidgetDisplaySize(node);
 
   return (
     <WidgetWrapper
@@ -76,7 +63,8 @@ export default function BSBGroupWidget({
       gridSnapHeight={gridSnapHeight}
       onBsbInterfacePatch={onBsbInterfacePatch}
       selectedWidgetIds={selectedWidgetIds}
-      getWidgetPosition={getWidgetPosition}
+      getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}
+     
     >
       <div
         className="flex h-full w-full flex-col"
@@ -116,35 +104,6 @@ export default function BSBGroupWidget({
       </div>
     </WidgetWrapper>
   );
-}
-
-import { getDropdownDisplayWidth } from './utils';
-
-function getChildDisplayWidth(child: BsbWidgetNodeSnapshot): number {
-  if (child.type === 'BSBGroup' && child.children && child.children.length > 0) {
-    let maxW = 10;
-    for (const c of child.children) {
-      maxW = Math.max(maxW, c.x + getChildDisplayWidth(c) + 10);
-    }
-    return Math.max(child.width, maxW);
-  }
-  if (child.type === 'BSBDropdown' || child.type === 'BSBSubChannelDropdown') {
-    return getDropdownDisplayWidth(child);
-  }
-  return child.width ?? 60;
-}
-
-function getChildDisplayHeight(child: BsbWidgetNodeSnapshot): number {
-  if (child.type === 'BSBGroup' && child.children && child.children.length > 0) {
-    let maxH = 10;
-    for (const c of child.children) {
-      maxH = Math.max(maxH, c.y + getChildDisplayHeight(c) + 10);
-    }
-    const titleEnabled = child.properties.titleEnabled !== false;
-    const labelH = titleEnabled ? 20 : 0;
-    return labelH + Math.max(child.height, maxH);
-  }
-  return child.height ?? 24;
 }
 
 function parseBsbColor(raw: unknown, fallback: string): string {

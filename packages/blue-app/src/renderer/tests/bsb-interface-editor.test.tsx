@@ -10,6 +10,7 @@ import type {
 import WidgetWrapper from '../components/workbench/panels/orchestra/bsb/widgets/WidgetWrapper';
 import BSBValueWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBValueWidget';
 import { BSB_WIDGET_RESIZE_META } from '../components/workbench/panels/orchestra/bsb/bsb-widget-meta';
+import BSBInterfaceCanvas from '../components/workbench/panels/orchestra/bsb/BSBInterfaceCanvas';
 
 function makeWidgetNode(overrides: Partial<BsbWidgetNodeSnapshot> = {}): BsbWidgetNodeSnapshot {
   return {
@@ -20,6 +21,9 @@ function makeWidgetNode(overrides: Partial<BsbWidgetNodeSnapshot> = {}): BsbWidg
     y: 20,
     width: 60,
     height: 60,
+    value: 0.5,
+    minimum: 0,
+    maximum: 1,
     editable: true,
     properties: {},
     ...overrides,
@@ -80,9 +84,16 @@ describe('BSB Interface Editor', () => {
     expect(disabled.editEnabled).toBe(false);
   });
 
-  it('handles null widgetTree for empty interfaces', () => {
-    const instrument = makeInstrument({ widgetTree: null });
-    expect(instrument.widgetTree).toBeNull();
+  it('handles empty widgetTree for empty interfaces', () => {
+    const instrument = makeInstrument({
+      widgetTree: {
+        id: 'root', type: 'BSBRootGroup', objectName: '',
+        x: 0, y: 0, width: 0, height: 0,
+        value: 0, minimum: 0, maximum: 0,
+        editable: true, properties: {}, children: [],
+      },
+    });
+    expect(instrument.widgetTree.children).toHaveLength(0);
   });
 
   it('handles presetGroup snapshots', () => {
@@ -131,6 +142,85 @@ describe('BSB Interface Editor', () => {
     expect(instrument.widgetTree!.children).toHaveLength(2);
     expect(instrument.widgetTree!.children![1].children).toHaveLength(1);
     expect(instrument.widgetTree!.children![1].children![0].objectName).toBe('knob2');
+  });
+
+  it('sizes the canvas to the furthest widget bounds plus Java padding', () => {
+    const instrument = makeInstrument({
+      widgetTree: {
+        id: 'root',
+        type: 'BSBRootGroup',
+        objectName: '',
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        editable: true,
+        properties: {},
+        children: [
+          makeWidgetNode({ id: 'edge', x: 700, y: 420, width: 60, height: 24 }),
+        ],
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <BSBInterfaceCanvas
+        instrument={instrument}
+        selectedWidgetIds={new Set()}
+        editEnabled
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+        onInstrumentPatch={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('width:770px');
+    expect(html).toContain('height:454px');
+  });
+
+  it('uses expanded group bounds when sizing the canvas', () => {
+    const instrument = makeInstrument({
+      widgetTree: {
+        id: 'root',
+        type: 'BSBRootGroup',
+        objectName: '',
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        editable: true,
+        properties: {},
+        children: [
+          {
+            id: 'group-1',
+            type: 'BSBGroup',
+            objectName: '',
+            x: 50,
+            y: 20,
+            width: 20,
+            height: 20,
+            editable: true,
+            properties: {},
+            children: [
+              makeWidgetNode({ id: 'inner', x: 700, y: 410, width: 60, height: 24 }),
+            ],
+          },
+        ],
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <BSBInterfaceCanvas
+        instrument={instrument}
+        selectedWidgetIds={new Set()}
+        editEnabled
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+        onInstrumentPatch={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('width:830px');
+    expect(html).toContain('height:474px');
   });
 });
 

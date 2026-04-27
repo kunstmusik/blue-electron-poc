@@ -388,7 +388,7 @@ function applyBsbInterfacePatchToSnapshot(
                 break;
               case 'textFieldWidth':
                 node.properties.textFieldWidth = value as number;
-                node.width = value as number;
+                node.width = (value as number) + 30;
                 break;
               default: node.properties[key] = value; break;
             }

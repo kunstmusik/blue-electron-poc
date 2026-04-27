@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import type { JavaScriptInstrumentSnapshot } from '../../../../../shared/project-editor';
 import SelectedCodeEditor from '../editors/SelectedCodeEditor';
 import DeferredOpcodeListPanel from './DeferredOpcodeListPanel';
-import InstrumentNameField from './InstrumentNameField';
 import type { SelectedInstrumentEditorProps } from './types';
 
 type JavaScriptTab = 'instrument' | 'udo' | 'globalOrc' | 'globalSco';
@@ -24,12 +23,6 @@ export default function JavaScriptInstrumentEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg">
-      <div className="border-b border-blue-border bg-[#10192a] px-3 py-2">
-        <InstrumentNameField
-          name={instrument.name}
-          onNameChange={(name) => onInstrumentPatch({ name })}
-        />
-      </div>
       <div className="flex items-center gap-1 border-b border-blue-border bg-[#10192a] px-2">
         {JAVASCRIPT_TABS.map((tab) => (
           <button

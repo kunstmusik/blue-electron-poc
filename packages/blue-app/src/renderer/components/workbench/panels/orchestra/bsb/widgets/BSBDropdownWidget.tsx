@@ -18,6 +18,7 @@ interface BSBDropdownWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBDropdownWidget({
@@ -32,6 +33,7 @@ export default function BSBDropdownWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBDropdownWidgetProps): React.ReactElement {
   const selectedIndex = typeof node.properties.selectedIndex === 'number' ? node.properties.selectedIndex : 0;
   const fontSize = typeof node.properties.fontSize === 'number' ? node.properties.fontSize : 12;
@@ -58,7 +60,7 @@ export default function BSBDropdownWidget({
   const calculatedWidth = getDropdownDisplayWidth(node);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild disabled={items.length === 0}>
           <button

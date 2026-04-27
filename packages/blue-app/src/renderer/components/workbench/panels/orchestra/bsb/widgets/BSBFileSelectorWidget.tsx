@@ -15,6 +15,7 @@ interface BSBFileSelectorWidgetProps {
   gridSnapHeight?: number;
   selectedWidgetIds?: Set<string>;
   getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
+  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBFileSelectorWidget({
@@ -29,18 +30,23 @@ export default function BSBFileSelectorWidget({
   gridSnapHeight,
   selectedWidgetIds,
   getWidgetPosition,
+  onWidgetAction,
 }: BSBFileSelectorWidgetProps): React.ReactElement {
   const fileName = typeof node.properties.fileName === 'string' ? node.properties.fileName : '';
+  const textFieldWidth = Math.max(10, (typeof node.properties.textFieldWidth === 'number' ? node.properties.textFieldWidth : 100));
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition}>
-      <div className="flex h-full w-full items-stretch overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
-        <div className="flex h-full flex-1 items-center overflow-hidden bg-[#0a0f1a] px-1.5 text-[11px] text-gray-200">
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+      <div className="flex h-full items-stretch overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
+        <div
+          className="flex h-full items-center overflow-hidden bg-[#0a0f1a] px-1.5 text-[11px] text-gray-200"
+          style={{ width: textFieldWidth }}
+        >
           <span className="truncate">{fileName || '(none)'}</span>
         </div>
         <button
           type="button"
-          className="flex items-center border-l border-blue-border/40 px-2 text-[9px] text-blue-muted hover:text-gray-200"
+          className="flex w-[30px] shrink-0 items-center justify-center border-l border-blue-border/40 text-[9px] text-blue-muted hover:text-gray-200"
           onClick={(e) => e.stopPropagation()}
         >
           ...
