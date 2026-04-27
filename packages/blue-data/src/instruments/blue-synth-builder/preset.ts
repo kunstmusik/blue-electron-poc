@@ -40,8 +40,10 @@ export class Preset {
         if (widget.objectName) {
           const value = typeof widget.getPresetValue === 'function' 
             ? widget.getPresetValue() 
-            : (widget.value !== undefined ? `ver2:${widget.value}` : "");
-          this._valuesMap.set(widget.objectName, value);
+            : (widget.value !== undefined ? String(widget.value) : null);
+          if (value !== null && value !== undefined) {
+            this._valuesMap.set(widget.objectName, value);
+          }
         }
         if (widget.getChildren && typeof widget.getChildren === 'function') {
           visit(widget.getChildren());

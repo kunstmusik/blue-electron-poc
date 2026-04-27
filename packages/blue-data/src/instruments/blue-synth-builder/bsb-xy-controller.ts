@@ -5,6 +5,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 import { formatBlueNumber } from '../../utilities/number-format';
 
 export class BSBXYController extends BSBWidget {
@@ -20,30 +21,46 @@ export class BSBXYController extends BSBWidget {
   randomizable = true;
 
   override getPresetValue(): string {
-    return `ver2:${this.xValue},${this.yValue}`;
+    return `ver2:${this.xValue}:${this.yValue}`;
   }
 
   override setPresetValue(val: string): void {
-    const parsed = val.replace(/^ver2:/, "").split(',');
-    if (parsed.length === 2) {
-      const x = parseFloat(parsed[0]);
-      const y = parseFloat(parsed[1]);
-      if (Number.isFinite(x) && Number.isFinite(y)) {
-        this.xValue = x;
-        this.yValue = y;
+    const parts = val.split(':');
+
+    let nextX = Number.NaN;
+    let nextY = Number.NaN;
+
+    if (parts.length === 2) {
+      const relativeX = parseFloat(parts[0]);
+      const relativeY = parseFloat(parts[1]);
+      if (Number.isFinite(relativeX) && Number.isFinite(relativeY)) {
+        nextX = (relativeX * (this.xMax - this.xMin)) + this.xMin;
+        nextY = (relativeY * (this.yMax - this.yMin)) + this.yMin;
       }
+    } else if (parts.length >= 3) {
+      nextX = parseFloat(parts[1]);
+      nextY = parseFloat(parts[2]);
+    }
+
+    if (Number.isFinite(nextX) && Number.isFinite(nextY)) {
+      this.xValue = nextX;
+      this.yValue = nextY;
     }
   }
 
-  override collectReplacements(unit: BSBCompilationUnit): void {
+  override collectReplacements(
+    unit: BSBCompilationUnit,
+    parameters?: Parameter[],
+  ): void {
     const xName = `${this.objectName}X`;
     const yName = `${this.objectName}Y`;
-    unit.addReplacementValue(xName, formatBlueNumber(this.xValue));
-    unit.addReplacementValue(yName, formatBlueNumber(this.yValue));
+    this.addCompilationReplacement(unit, xName, formatBlueNumber(this.xValue), parameters);
+    this.addCompilationReplacement(unit, yName, formatBlueNumber(this.yValue), parameters);
   }
 
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
+    const versionAttribute = data.getAttribute('version');
     const xv = data.getTextString('xValue');
     if (xv) this.xValue = parseFloat(xv);
     const yv = data.getTextString('yValue');
@@ -64,6 +81,11 @@ export class BSBXYController extends BSBWidget {
     if (vde) this.valueDisplayEnabled = vde.getTextString() === 'true';
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
+
+    if (versionAttribute === '1') {
+      this.xValue = ((this.xMax - this.xMin) * this.xValue) + this.xMin;
+      this.yValue = ((this.yMax - this.yMin) * this.yValue) + this.yMin;
+    }
   }
 
   randomize(): void {

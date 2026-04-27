@@ -1,22 +1,8 @@
 import React from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
+import type { BSBWidgetComponentProps } from './widget-component-props';
 
-interface BSBValueWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBValueWidgetProps = BSBWidgetComponentProps;
 
 export default function BSBValueWidget({
   node,
@@ -42,7 +28,11 @@ export default function BSBValueWidget({
     );
   }
 
-  const value = typeof node.properties.value === 'number' ? node.properties.value : 0;
+  const value = typeof node.properties.defaultValue === 'number'
+    ? node.properties.defaultValue
+    : typeof node.properties.value === 'number'
+      ? node.properties.value
+      : node.value;
 
   return (
     <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>

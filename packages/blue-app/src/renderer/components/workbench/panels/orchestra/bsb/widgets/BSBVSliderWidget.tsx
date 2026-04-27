@@ -1,23 +1,9 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
-import { ValuePanel, formatValue } from './BSBHSliderWidget';
+import { ValuePanel, formatValue } from './ValuePanel';
+import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
-interface BSBVSliderWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBVSliderWidgetProps = BSBWidgetPatchComponentProps;
 
 const VALUE_PANEL_WIDTH = 50;
 const VALUE_PANEL_HEIGHT = 30;

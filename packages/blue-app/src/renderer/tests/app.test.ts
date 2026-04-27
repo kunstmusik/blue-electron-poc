@@ -18,6 +18,9 @@ import { isTextEditingTarget } from '../hooks/use-keyboard-shortcuts';
 // Mock window.blueAPI
 const mockBlueAPI = {
   openFile: vi.fn(),
+  openBsbFileSelector: vi.fn(),
+  setBsbFileSelectorPath: vi.fn(),
+  copyBsbFileSelectorToMediaFolder: vi.fn(),
   saveFile: vi.fn(),
   saveFileAs: vi.fn(),
   getProjectDocument: vi.fn(),

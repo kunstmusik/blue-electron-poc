@@ -181,32 +181,32 @@ describe('validateNumericProperty', () => {
 
   describe('XMin / XMax / YMin / YMax (XYController)', () => {
     it('rejects XMin >= XMax', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { XMin: 0, XMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { xMin: 0, xMax: 1 } });
       expect(validateNumericProperty('XMin', '2', w)).toBeNull();
     });
 
     it('accepts XMin < XMax', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { XMin: 0, XMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { xMin: 0, xMax: 1 } });
       expect(validateNumericProperty('XMin', '0.5', w)).toBe('0.5');
     });
 
     it('rejects XMax <= XMin', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { XMin: 0, XMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { xMin: 0, xMax: 1 } });
       expect(validateNumericProperty('XMax', '-1', w)).toBeNull();
     });
 
     it('accepts XMax > XMin', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { XMin: 0, XMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { xMin: 0, xMax: 1 } });
       expect(validateNumericProperty('XMax', '2', w)).toBe('2');
     });
 
     it('rejects YMin >= YMax', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { YMin: 0, YMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { yMin: 0, yMax: 1 } });
       expect(validateNumericProperty('YMin', '5', w)).toBeNull();
     });
 
     it('rejects YMax <= YMin', () => {
-      const w = makeWidget({ type: 'BSBXYController', properties: { YMin: 0, YMax: 1 } });
+      const w = makeWidget({ type: 'BSBXYController', properties: { yMin: 0, yMax: 1 } });
       expect(validateNumericProperty('YMax', '0', w)).toBeNull();
     });
   });

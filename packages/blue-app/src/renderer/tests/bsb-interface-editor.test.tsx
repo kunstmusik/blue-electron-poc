@@ -8,9 +8,18 @@ import type {
   GridSettingsSnapshot,
 } from '../../shared/project-editor';
 import WidgetWrapper from '../components/workbench/panels/orchestra/bsb/widgets/WidgetWrapper';
+import BSBHSliderBankWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBHSliderBankWidget';
+import BSBLineObjectWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBLineObjectWidget';
+import BSBTextFieldWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBTextFieldWidget';
 import BSBValueWidget from '../components/workbench/panels/orchestra/bsb/widgets/BSBValueWidget';
 import { BSB_WIDGET_RESIZE_META } from '../components/workbench/panels/orchestra/bsb/bsb-widget-meta';
-import BSBInterfaceCanvas from '../components/workbench/panels/orchestra/bsb/BSBInterfaceCanvas';
+import BSBInterfaceCanvas, {
+  buildPastedWidgets,
+  createCanvasClipboard,
+  getNextMarqueeSelection,
+  isGridSnapEnabled,
+} from '../components/workbench/panels/orchestra/bsb/BSBInterfaceCanvas';
+import { getCommittedTextFieldValue } from '../components/workbench/panels/orchestra/bsb/widgets/BSBTextFieldWidget';
 
 function makeWidgetNode(overrides: Partial<BsbWidgetNodeSnapshot> = {}): BsbWidgetNodeSnapshot {
   return {
@@ -222,6 +231,97 @@ describe('BSB Interface Editor', () => {
     expect(html).toContain('width:830px');
     expect(html).toContain('height:474px');
   });
+
+  it('renders BSBTextField as an input in runtime mode', () => {
+    const node = makeWidgetNode({
+      type: 'BSBTextField',
+      width: 130,
+      height: 24,
+      properties: { textValue: 'runtime text', textFieldWidth: 100 },
+    });
+
+    const html = renderToStaticMarkup(
+      <BSBTextFieldWidget
+        node={node}
+        isSelected={false}
+        editEnabled={false}
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('<input');
+    expect(html).toContain('value="runtime text"');
+  });
+
+  it('computes text field commits only when the value changed', () => {
+    expect(getCommittedTextFieldValue('same', 'same')).toBeNull();
+    expect(getCommittedTextFieldValue('before', 'after')).toBe('after');
+  });
+
+  it('renders BSBLineObject with a selector row and line geometry', () => {
+    const node = makeWidgetNode({
+      type: 'BSBLineObject',
+      width: 200,
+      height: 148,
+      properties: {
+        canvasWidth: 200,
+        canvasHeight: 120,
+        lines: [
+          {
+            varName: 'curveA',
+            min: 0,
+            max: 1,
+            color: '#ff0000',
+            points: [{ x: 0, y: 0.25 }, { x: 1, y: 0.75 }],
+          },
+        ],
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <BSBLineObjectWidget
+        node={node}
+        isSelected={false}
+        editEnabled
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+      />,
+    );
+
+    expect(html).toContain('curveA');
+    expect(html).toContain('<polyline');
+    expect(html).toContain('▶');
+  });
+
+  it('renders BSBHSliderBank value panels from snapshot slider values', () => {
+    const node = makeWidgetNode({
+      type: 'BSBHSliderBank',
+      width: 170,
+      height: 65,
+      minimum: 0,
+      maximum: 1,
+      properties: {
+        sliderWidth: 120,
+        gap: 5,
+        numberOfSliders: 2,
+        valueDisplayEnabled: true,
+        sliders: [{ value: 0.25 }, { value: 0.75 }],
+      },
+    });
+
+    const html = renderToStaticMarkup(
+      <BSBHSliderBankWidget
+        node={node}
+        isSelected={false}
+        editEnabled={false}
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+      />,
+    );
+
+    expect((html.match(/rgb\(20,29,45\)/g) ?? []).length).toBe(2);
+  });
 });
 
 describe('BSB Property Sheet', () => {
@@ -274,6 +374,39 @@ describe('BSB Grid Settings', () => {
     const base: GridSettingsSnapshot = { enabled: true, snapEnabled: true, width: 10, height: 10 };
     const updated = { ...base, ...{ width: 20 } };
     expect(updated).toEqual({ enabled: true, snapEnabled: true, width: 20, height: 10 });
+  });
+
+  it('keeps snapping enabled even when grid visibility is off', () => {
+    expect(isGridSnapEnabled({ enabled: false, snapEnabled: true, width: 10, height: 10 })).toBe(true);
+    expect(isGridSnapEnabled({ enabled: true, snapEnabled: false, width: 10, height: 10 })).toBe(false);
+  });
+
+  it('builds pasted widgets from an instance clipboard with snapped offsets', () => {
+    const clipboard = createCanvasClipboard([
+      makeWidgetNode({ id: 'a', x: 12, y: 19 }),
+      makeWidgetNode({ id: 'b', x: 32, y: 39 }),
+    ]);
+
+    const pasted = buildPastedWidgets(clipboard, 27, 34, true, 10, 10);
+
+    expect(pasted).toHaveLength(2);
+    expect(pasted[0].id).toBeUndefined();
+    expect(pasted[0].x).toBe(20);
+    expect(pasted[0].y).toBe(30);
+    expect(pasted[1].x).toBe(40);
+    expect(pasted[1].y).toBe(50);
+  });
+});
+
+describe('BSB Marquee Selection', () => {
+  it('toggles only intersecting widgets during shift-marquee selection', () => {
+    const next = getNextMarqueeSelection(new Set(['a', 'b']), ['b', 'c'], true);
+    expect(Array.from(next).sort()).toEqual(['a', 'c']);
+  });
+
+  it('replaces selection when shift is not held', () => {
+    const next = getNextMarqueeSelection(new Set(['a', 'b']), ['c'], false);
+    expect(Array.from(next)).toEqual(['c']);
   });
 });
 
@@ -362,7 +495,15 @@ describe('BSB Edit-Mode Affordances (T056)', () => {
   });
 
   it('renders BSBValue as interactive numeric display in non-edit mode', () => {
-    const node = makeWidgetNode({ id: 'w1', type: 'BSBValue', objectName: 'gain', width: 60, height: 24, properties: { value: 0.75 } });
+    const node = makeWidgetNode({
+      id: 'w1',
+      type: 'BSBValue',
+      objectName: 'gain',
+      width: 60,
+      height: 24,
+      value: 0,
+      properties: { defaultValue: 0.75 },
+    });
     const html = renderToStaticMarkup(
       createElement(BSBValueWidget, {
         node,
@@ -376,5 +517,29 @@ describe('BSB Edit-Mode Affordances (T056)', () => {
 
     expect(html).toContain('0.7500');
     expect(html).not.toContain('pointer-events-none');
+  });
+
+  it('falls back to the top-level widget value when defaultValue is absent', () => {
+    const node = makeWidgetNode({
+      id: 'w1',
+      type: 'BSBValue',
+      objectName: 'gain',
+      width: 60,
+      height: 24,
+      value: 0.5,
+      properties: {},
+    });
+    const html = renderToStaticMarkup(
+      createElement(BSBValueWidget, {
+        node,
+        isSelected: false,
+        editEnabled: false,
+        onWidgetSelect: vi.fn(),
+        resizeMeta: BSB_WIDGET_RESIZE_META['BSBValue'],
+        onBsbInterfacePatch: vi.fn(),
+      }),
+    );
+
+    expect(html).toContain('0.5000');
   });
 });

@@ -1,22 +1,9 @@
 import React, { useCallback, useRef } from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
+import { formatValue } from './ValuePanel';
+import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
-interface BSBKnobWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBKnobWidgetProps = BSBWidgetPatchComponentProps;
 
 const VALUE_HEIGHT = 14;
 const ARC_START = 225;
@@ -224,8 +211,3 @@ function describePieArc(cx: number, cy: number, r: number, startDeg: number, swe
   return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} ${sweep} ${e.x} ${e.y} Z`;
 }
 
-function formatValue(v: number): string {
-  const s = v.toFixed(4);
-  const trimmed = s.replace(/\.?0+$/, '');
-  return trimmed === '' ? '0' : trimmed;
-}

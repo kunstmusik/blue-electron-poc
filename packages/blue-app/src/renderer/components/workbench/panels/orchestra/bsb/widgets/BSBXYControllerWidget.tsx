@@ -1,22 +1,8 @@
 import React, { useCallback, useRef } from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import WidgetWrapper from './WidgetWrapper';
+import type { BSBWidgetComponentProps } from './widget-component-props';
 
-interface BSBXYControllerWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBXYControllerWidgetProps = BSBWidgetComponentProps;
 
 export default function BSBXYControllerWidget({
   node,

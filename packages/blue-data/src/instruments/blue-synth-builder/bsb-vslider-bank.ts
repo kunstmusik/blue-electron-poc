@@ -6,6 +6,7 @@ import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { BSBVSlider } from './bsb-vslider';
+import { Parameter } from '../../automation/parameter';
 import { formatBlueNumber } from '../../utilities/number-format';
 
 export class BSBVSliderBank extends BSBWidget {
@@ -29,10 +30,28 @@ export class BSBVSliderBank extends BSBWidget {
     }
   }
 
-  override collectReplacements(unit: BSBCompilationUnit): void {
+  override collectReplacements(
+    unit: BSBCompilationUnit,
+    parameters?: Parameter[],
+  ): void {
     for (let i = 0; i < this.sliders.length; i++) {
       const key = `${this.objectName}_${i}`;
-      unit.addReplacementValue(key, formatBlueNumber(this.sliders[i].value));
+      this.addCompilationReplacement(unit, key, formatBlueNumber(this.sliders[i].value), parameters);
+    }
+  }
+
+  override getPresetValue(): string {
+    return this.sliders.map((slider) => String(slider.value)).join(':');
+  }
+
+  override setPresetValue(val: string): void {
+    const values = val.split(':');
+    const size = Math.min(this.sliders.length, values.length);
+    for (let index = 0; index < size; index++) {
+      const parsed = parseFloat(values[index]);
+      if (Number.isFinite(parsed)) {
+        this.sliders[index].setValue(parsed);
+      }
     }
   }
 

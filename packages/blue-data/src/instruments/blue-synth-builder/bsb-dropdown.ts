@@ -5,6 +5,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 
 export interface BSBDropdownItem {
   name: string;
@@ -19,20 +20,34 @@ export class BSBDropdown extends BSBWidget {
   dropdownItems: BSBDropdownItem[] = [];
 
   override getPresetValue(): string {
-    return `ver2:${this.selectedIndex}`;
+    const item = this.dropdownItems[this.selectedIndex] ?? this.dropdownItems[0];
+    return item ? `id:${item.uniqueId}` : String(this.selectedIndex);
   }
 
   override setPresetValue(val: string): void {
-    if (val.startsWith("ver2:")) {
+    if (val.startsWith('id:')) {
+      const uniqueId = val.substring(3);
+      const index = this.dropdownItems.findIndex((item) => item.uniqueId === uniqueId);
+      if (index >= 0) {
+        this.setValue(index);
+      }
+      return;
+    }
+
+    if (val.startsWith('ver2:')) {
       const parsed = parseInt(val.substring(5), 10);
       if (Number.isFinite(parsed)) {
         this.setValue(parsed);
       }
     } else {
-      // Legacy Java Blue: search for item by value
-      const idx = this.dropdownItems.findIndex(item => item.value === val);
-      if (idx !== -1) {
-        this.setValue(idx);
+      const parsed = parseInt(val, 10);
+      if (Number.isFinite(parsed)) {
+        this.setValue(parsed);
+      } else {
+        const idx = this.dropdownItems.findIndex(item => item.value === val);
+        if (idx !== -1) {
+          this.setValue(idx);
+        }
       }
     }
   }
@@ -42,7 +57,16 @@ export class BSBDropdown extends BSBWidget {
     this.selectedIndex = Math.floor(val);
   }
 
-  override collectReplacements(unit: BSBCompilationUnit): void {
+  override collectReplacements(
+    unit: BSBCompilationUnit,
+    parameters?: Parameter[],
+  ): void {
+    const compilationVarName = this.getCompilationVarName(this.objectName, parameters);
+    if (compilationVarName) {
+      unit.addReplacementValue(this.objectName, compilationVarName);
+      return;
+    }
+
     if (this.dropdownItems.length === 0) {
       unit.addReplacementValue(this.objectName, '0');
       return;
@@ -79,6 +103,6 @@ export class BSBDropdown extends BSBWidget {
 
   randomize(): void {
     if (!this.randomizable || this.dropdownItems.length === 0) return;
-    this.selectedIndex = Math.floor(Math.random() * this.dropdownItems.length);
+    this.setValue(Math.floor(Math.random() * this.dropdownItems.length));
   }
 }

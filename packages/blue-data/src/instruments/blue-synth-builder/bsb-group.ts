@@ -116,6 +116,13 @@ export class BSBGroup extends BSBWidget {
     }
   }
 
+  override getPresetValue(): string | null {
+    return null;
+  }
+
+  override setPresetValue(_val: string): void {
+  }
+
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
     const gnAttr = data.getAttribute("groupName");
@@ -166,6 +173,9 @@ const SKIPPED_WIDGET_FIELDS = new Set([
   'labelFont',
   'font',
   'dropdownItems',
+  'textValue',
+  'defaultValue',
+  'resolution',
   'objectName',
   'x',
   'y',
@@ -190,10 +200,6 @@ const WIDGETS_WITH_NUMERIC_RANGE = new Set([
   'BSBKnob',
   'BSBHSlider',
   'BSBVSlider',
-  'BSBXYController',
-  'BSBValue',
-  'BSBHSliderBank',
-  'BSBVSliderBank',
 ]);
 
 const WIDGETS_WITH_AUTOMATION_ALLOWED = new Set([
@@ -206,8 +212,6 @@ const WIDGETS_WITH_AUTOMATION_ALLOWED = new Set([
   'BSBHSliderBank',
   'BSBVSliderBank',
   'BSBValue',
-  'BSBSubChannelDropdown',
-  'BSBFileSelector',
 ]);
 
 function addPrimitiveElement(parent: Element, key: string, value: unknown): void {
@@ -245,6 +249,22 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
     addPrimitiveElement(elem, 'maximum', widget.maximum);
     addPrimitiveElement(elem, 'value', widget.value);
   }
+  if (widget instanceof BSBHSlider || widget instanceof BSBVSlider) {
+    elem.addElement('bdresolution').setText(String(widget.resolution));
+  }
+  if (widget instanceof BSBTextField) {
+    addPrimitiveElement(elem, 'value', widget.textValue);
+  }
+  if (widget instanceof BSBValue) {
+    addPrimitiveElement(elem, 'minimum', widget.minimum);
+    addPrimitiveElement(elem, 'maximum', widget.maximum);
+    addPrimitiveElement(elem, 'defaultValue', widget.defaultValue);
+  }
+  if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+    addPrimitiveElement(elem, 'minimum', widget.minimum);
+    addPrimitiveElement(elem, 'maximum', widget.maximum);
+    elem.addElement('bdresolution').setText(String(widget.resolution));
+  }
   if (widget.parameterName) {
     addPrimitiveElement(elem, 'parameterName', widget.parameterName);
   }
@@ -266,6 +286,26 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
     elem.addElement(saveFontToXML(widget.font));
     for (const child of widget.getChildren()) {
       elem.addElement(saveBsbWidgetAsXML(child));
+    }
+  }
+  if (widget instanceof BSBLineObject) {
+    const linesElem = elem.addElement('lines');
+    for (const line of widget.lines) {
+      const lineElem = linesElem.addElement('line');
+      lineElem.setAttribute('varName', line.varName);
+      lineElem.setAttribute('min', String(line.min));
+      lineElem.setAttribute('max', String(line.max));
+      lineElem.setAttribute('color', line.color);
+      for (const point of line.points) {
+        const pointElem = lineElem.addElement('linePoint');
+        pointElem.setAttribute('x', String(point.x));
+        pointElem.setAttribute('y', String(point.y));
+      }
+    }
+  }
+  if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+    for (const slider of widget.sliders) {
+      elem.addElement(saveBsbWidgetAsXML(slider));
     }
   }
   if (widget instanceof BSBDropdown && widget.dropdownItems.length > 0) {

@@ -16,6 +16,9 @@ declare global {
   interface Window {
     blueAPI: {
       openFile: () => Promise<string | null>;
+      openBsbFileSelector: (currentValue?: string) => Promise<string | null>;
+      setBsbFileSelectorPath: (filePath: string) => Promise<string | null>;
+      copyBsbFileSelectorToMediaFolder: (currentValue?: string) => Promise<string | null>;
       saveFile: () => Promise<string | null>;
       saveFileAs: () => Promise<string | null>;
       getProjectDocument: () => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;

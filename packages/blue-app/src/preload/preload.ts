@@ -13,6 +13,9 @@ import type { NativeMenuCommand } from '../shared/workbench-menu';
 contextBridge.exposeInMainWorld('blueAPI', {
   // File operations
   openFile: () => ipcRenderer.invoke('open-file'),
+  openBsbFileSelector: (currentValue?: string) => ipcRenderer.invoke('open-bsb-file-selector', currentValue),
+  setBsbFileSelectorPath: (filePath: string) => ipcRenderer.invoke('set-bsb-file-selector-path', filePath),
+  copyBsbFileSelectorToMediaFolder: (currentValue?: string) => ipcRenderer.invoke('copy-bsb-file-selector-to-media-folder', currentValue),
   saveFile: () => ipcRenderer.invoke('save-file'),
   saveFileAs: () => ipcRenderer.invoke('save-file-as'),
 

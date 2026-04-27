@@ -24,6 +24,8 @@ import { Preset } from "./blue-synth-builder/preset";
 import { OpcodeDefinition } from "../opcodes/opcode-definition";
 import { UDOStyle } from "../opcodes/udo-style";
 import { ParameterList } from "../automation/parameter-list";
+import { BSBHSliderBank } from './blue-synth-builder/bsb-hslider-bank';
+import { BSBVSliderBank } from './blue-synth-builder/bsb-vslider-bank';
 
 function parseUdoBlock(
   block: string,
@@ -350,7 +352,7 @@ export class BlueSynthBuilder extends Instrument {
 
   updateWidgetProperties(
     widgetId: string,
-    properties: Record<string, string | number | boolean | null>,
+    properties: Record<string, unknown>,
   ): boolean {
     const widget = this._graphicInterface.findWidgetById(widgetId);
     if (!widget) return false;
@@ -399,6 +401,17 @@ export class BlueSynthBuilder extends Instrument {
             }
           }
           break;
+        case "defaultValue":
+          if (typeof value === "number") {
+            widget.setValue(value);
+            if (widget.objectName) {
+              const param = this._parameters.find(p => p.getName() === widget.objectName);
+              if (param) {
+                param.setFixedValue(value);
+              }
+            }
+          }
+          break;
         case "xValue":
           if (typeof value === "number") {
             (widget as unknown as Record<string, unknown>)["xValue"] = value;
@@ -428,6 +441,31 @@ export class BlueSynthBuilder extends Instrument {
           break;
       }
     }
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  updateSliderBankValue(widgetId: string, sliderIndex: number, value: number): boolean {
+    const widget = this._graphicInterface.findWidgetById(widgetId);
+    if (!(widget instanceof BSBHSliderBank) && !(widget instanceof BSBVSliderBank)) {
+      return false;
+    }
+
+    if (sliderIndex < 0 || sliderIndex >= widget.sliders.length) {
+      return false;
+    }
+
+    const clamped = Math.max(widget.minimum, Math.min(widget.maximum, value));
+    widget.sliders[sliderIndex].setValue(clamped);
+
+    if (widget.objectName) {
+      const paramName = `${widget.objectName}_${sliderIndex}`;
+      const param = this._parameters.find((candidate) => candidate.getName() === paramName);
+      if (param) {
+        param.setFixedValue(clamped);
+      }
+    }
+
     this._graphicInterfaceXML = null;
     return true;
   }

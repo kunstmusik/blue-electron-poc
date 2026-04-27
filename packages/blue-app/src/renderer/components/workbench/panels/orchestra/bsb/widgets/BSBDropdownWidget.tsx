@@ -1,25 +1,11 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronDown } from 'lucide-react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import { getDropdownDisplayWidth } from './utils';
 import WidgetWrapper from './WidgetWrapper';
+import type { BSBWidgetComponentProps } from './widget-component-props';
 
-interface BSBDropdownWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBDropdownWidgetProps = BSBWidgetComponentProps;
 
 export default function BSBDropdownWidget({
   node,
@@ -73,7 +59,7 @@ export default function BSBDropdownWidget({
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content className="z-50 min-w-[150px] rounded-md border border-blue-border bg-[#10192a] p-1 shadow-lg">
+          <DropdownMenu.Content className="z-50 min-w-37.5 rounded-md border border-blue-border bg-[#10192a] p-1 shadow-lg">
             {items.map((item, i) => (
               <DropdownMenu.Item
                 key={i}

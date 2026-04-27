@@ -139,6 +139,52 @@ const BEANINFO_PROPERTIES: Record<string, string[]> = {
   BSBSubChannelDropdown: ['objectName', 'x', 'y', 'comment'],
 };
 
+const TOP_LEVEL_PROPERTY_KEYS = new Set(['objectName', 'x', 'y', 'width', 'height', 'value', 'minimum', 'maximum']);
+const NON_RENDERED_PROPERTIES = new Set(['BSBDropdownItemList', 'font', 'labelFont', 'lines']);
+
+interface PropertyBinding {
+  source: 'top' | 'properties';
+  readKey?: string;
+  writeKey?: string;
+}
+
+const PROPERTY_BINDINGS: Record<string, Record<string, PropertyBinding>> = {
+  BSBTextField: {
+    value: { source: 'properties', readKey: 'textValue', writeKey: 'textValue' },
+  },
+  BSBXYController: {
+    XMin: { source: 'properties', readKey: 'xMin', writeKey: 'xMin' },
+    XMax: { source: 'properties', readKey: 'xMax', writeKey: 'xMax' },
+    YMin: { source: 'properties', readKey: 'yMin', writeKey: 'yMin' },
+    YMax: { source: 'properties', readKey: 'yMax', writeKey: 'yMax' },
+  },
+  BSBLineObject: {
+    XMax: { source: 'properties', readKey: 'xMax', writeKey: 'xMax' },
+  },
+};
+
+function getPropertyBinding(widgetType: string, key: string): PropertyBinding | undefined {
+  return PROPERTY_BINDINGS[widgetType]?.[key];
+}
+
+function getDisplayPropertyValue(widget: BsbWidgetNodeSnapshot, key: string): unknown {
+  const binding = getPropertyBinding(widget.type, key);
+  if (binding?.source === 'top') {
+    return (widget as Record<string, unknown>)[binding.readKey ?? key];
+  }
+  if (binding?.source === 'properties') {
+    return widget.properties?.[binding.readKey ?? key];
+  }
+  if (TOP_LEVEL_PROPERTY_KEYS.has(key)) {
+    return (widget as Record<string, unknown>)[key];
+  }
+  return widget.properties?.[key];
+}
+
+function getPatchPropertyKey(widgetType: string, key: string): string {
+  return getPropertyBinding(widgetType, key)?.writeKey ?? key;
+}
+
 export default function BSBPropertySheet({
   widget,
   selectedCount,
@@ -176,36 +222,36 @@ export default function BSBPropertySheet({
   const allowedSet = allowed ? new Set(allowed) : null;
 
   const updateProperty = (key: string, value: string | number | boolean | null) => {
+    const patchKey = getPatchPropertyKey(widget.type, key);
     onBsbInterfacePatch({
       type: 'updateWidgetProperties',
       widgetId: widget.id,
-      properties: { [key]: value },
+      properties: { [patchKey]: value },
     });
   };
 
   const merged: Map<string, unknown> = new Map();
 
-  const topFields: [string, unknown][] = [
-    ['objectName', widget.objectName],
-    ['x', widget.x],
-    ['y', widget.y],
-    ['width', widget.width],
-    ['height', widget.height],
-    ['value', widget.value],
-    ['minimum', widget.minimum],
-    ['maximum', widget.maximum],
-  ];
-  for (const [k, v] of topFields) {
-    if (allowedSet && !allowedSet.has(k)) continue;
-    merged.set(k, v);
+  if (allowed) {
+    for (const key of allowed) {
+      if (NON_RENDERED_PROPERTIES.has(key)) continue;
+      const value = getDisplayPropertyValue(widget, key);
+      if (value !== undefined && value !== null) {
+        merged.set(key, value);
+      }
+    }
   }
 
   if (widget.properties) {
-    for (const [k, v] of Object.entries(widget.properties)) {
-      if (k === 'dropdownItems') continue;
-      if (merged.has(k)) continue;
-      if (allowedSet && !allowedSet.has(k) && !k.startsWith('labelFont.') && !k.startsWith('font.')) continue;
-      if (v !== undefined && v !== null) merged.set(k, v);
+    for (const [key, value] of Object.entries(widget.properties)) {
+      if (key === 'dropdownItems') continue;
+      if (merged.has(key)) continue;
+      const isFontKey = key.startsWith('labelFont.') || key.startsWith('font.');
+      if (!isFontKey) continue;
+      if (allowedSet && !allowedSet.has(key.startsWith('labelFont.') ? 'labelFont' : 'font')) continue;
+      if (value !== undefined && value !== null) {
+        merged.set(key, value);
+      }
     }
   }
 
@@ -490,22 +536,22 @@ export function validateNumericProperty(
     return proposed;
   }
   if (key === 'XMin') {
-    const xMax = widget.properties?.XMax;
+    const xMax = getDisplayPropertyValue(widget, 'XMax');
     if (xMax != null && num >= xMax) return null;
     return proposed;
   }
   if (key === 'XMax') {
-    const xMin = widget.properties?.XMin;
+    const xMin = getDisplayPropertyValue(widget, 'XMin');
     if (xMin != null && num <= xMin) return null;
     return proposed;
   }
   if (key === 'YMin') {
-    const yMax = widget.properties?.YMax;
+    const yMax = getDisplayPropertyValue(widget, 'YMax');
     if (yMax != null && num >= yMax) return null;
     return proposed;
   }
   if (key === 'YMax') {
-    const yMin = widget.properties?.YMin;
+    const yMin = getDisplayPropertyValue(widget, 'YMin');
     if (yMin != null && num <= yMin) return null;
     return proposed;
   }

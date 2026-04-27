@@ -15,6 +15,11 @@ import {
   TempoMap,
   UDOStyle,
 } from '@blue/data';
+import {
+  getHSliderBankDisplaySize,
+  getVSliderBankDisplaySize,
+  BSB_LINE_SELECTOR_HEIGHT,
+} from './bsb-widget-layout';
 
 export type TempoCurveTypeSnapshot = 'constant' | 'linear';
 
@@ -255,7 +260,8 @@ export interface PresetSnapshot {
 export type BsbInterfacePatch =
   | { type: 'setEditEnabled'; value: boolean }
   | { type: 'selectWidget'; widgetId?: string }
-  | { type: 'updateWidgetProperties'; widgetId: string; properties: Record<string, string | number | boolean | null> }
+  | { type: 'updateWidgetProperties'; widgetId: string; properties: Record<string, unknown> }
+  | { type: 'updateSliderBankValue'; widgetId: string; sliderIndex: number; value: number }
   | { type: 'moveWidget'; widgetId: string; x: number; y: number }
   | { type: 'resizeWidget'; widgetId: string; width: number; height: number }
   | { type: 'addWidget'; widgetType: string; x: number; y: number; parentGroupId?: string }
@@ -669,6 +675,56 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
     properties['dropdownItems'] = dropdownItems;
   }
 
+  const lines = record.lines;
+  if (Array.isArray(lines)) {
+    properties.lines = lines.map((line) => {
+      if (!line || typeof line !== 'object') {
+        return {
+          varName: '',
+          min: 0,
+          max: 1,
+          color: '#000000',
+          points: [],
+        };
+      }
+
+      const lineRecord = line as Record<string, unknown>;
+      const points = Array.isArray(lineRecord.points)
+        ? lineRecord.points.map((point) => {
+            if (!point || typeof point !== 'object') {
+              return { x: 0, y: 0 };
+            }
+            const pointRecord = point as Record<string, unknown>;
+            return {
+              x: typeof pointRecord.x === 'number' ? pointRecord.x : 0,
+              y: typeof pointRecord.y === 'number' ? pointRecord.y : 0,
+            };
+          })
+        : [];
+
+      return {
+        varName: typeof lineRecord.varName === 'string' ? lineRecord.varName : '',
+        min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
+        max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
+        color: typeof lineRecord.color === 'string' ? lineRecord.color : '#000000',
+        points,
+      };
+    });
+  }
+
+  const sliders = record.sliders;
+  if (Array.isArray(sliders)) {
+    properties.sliders = sliders.map((slider) => {
+      if (!slider || typeof slider !== 'object') {
+        return { value: 0 };
+      }
+      const sliderRecord = slider as Record<string, unknown>;
+      return {
+        value: typeof sliderRecord.value === 'number' ? sliderRecord.value : 0,
+      };
+    });
+  }
+
   const getChildren = record.getChildren;
   const childArray = typeof getChildren === 'function' ? (getChildren as () => unknown[]).call(widget) : [];
   const children: BsbWidgetNodeSnapshot[] = [];
@@ -691,6 +747,24 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
   } else if (ctorName === 'BSBVSlider') {
     width = 50;
     height = (typeof record.sliderHeight === 'number' ? record.sliderHeight : 150) + (vde ? 30 : 0);
+  } else if (ctorName === 'BSBHSliderBank') {
+    const sliderCount = Array.isArray(sliders) && sliders.length > 0
+      ? sliders.length
+      : typeof record.numberOfSliders === 'number'
+        ? record.numberOfSliders
+        : 1;
+    const sliderWidth = typeof record.sliderWidth === 'number' ? record.sliderWidth : 100;
+    const gap = typeof record.gap === 'number' ? record.gap : 5;
+    ({ width, height } = getHSliderBankDisplaySize(sliderCount, sliderWidth, gap, vde));
+  } else if (ctorName === 'BSBVSliderBank') {
+    const sliderCount = Array.isArray(sliders) && sliders.length > 0
+      ? sliders.length
+      : typeof record.numberOfSliders === 'number'
+        ? record.numberOfSliders
+        : 1;
+    const sliderHeight = typeof record.sliderHeight === 'number' ? record.sliderHeight : 100;
+    const gap = typeof record.gap === 'number' ? record.gap : 5;
+    ({ width, height } = getVSliderBankDisplaySize(sliderCount, sliderHeight, gap, vde));
   } else if (ctorName === 'BSBKnob') {
     const kw = typeof record.knobWidth === 'number' ? record.knobWidth : 60;
     width = kw;
@@ -707,6 +781,12 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
     const fontSize = typeof record.fontSize === 'number' ? record.fontSize : 12;
     width = 0;
     height = typeof record.height === 'number' ? record.height : Math.max(24, fontSize + 8);
+  } else if (ctorName === 'BSBTextField') {
+    width = typeof record.textFieldWidth === 'number' ? record.textFieldWidth : 100;
+    height = 30;
+  } else if (ctorName === 'BSBLineObject') {
+    width = typeof record.canvasWidth === 'number' ? record.canvasWidth : 200;
+    height = (typeof record.canvasHeight === 'number' ? record.canvasHeight : 160) + BSB_LINE_SELECTOR_HEIGHT;
   } else if (ctorName === 'BSBFileSelector') {
     const tfw = typeof record.textFieldWidth === 'number' ? record.textFieldWidth : 100;
     width = tfw + 30;
@@ -996,6 +1076,8 @@ function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfac
       return false;
     case 'updateWidgetProperties':
       return instrument.updateWidgetProperties(patch.widgetId, patch.properties);
+    case 'updateSliderBankValue':
+      return instrument.updateSliderBankValue(patch.widgetId, patch.sliderIndex, patch.value);
     case 'moveWidget':
       return instrument.updateWidgetProperties(patch.widgetId, {
         x: patch.x,

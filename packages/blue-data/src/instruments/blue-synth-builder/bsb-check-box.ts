@@ -5,6 +5,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 
 export class BSBCheckBox extends BSBWidget {
   label = 'label';
@@ -12,7 +13,7 @@ export class BSBCheckBox extends BSBWidget {
   randomizable = true;
 
   override getPresetValue(): string {
-    return `ver2:${this.selected ? 1 : 0}`;
+    return this.selected ? 'true' : 'false';
   }
 
   override setPresetValue(val: string): void {
@@ -32,8 +33,11 @@ export class BSBCheckBox extends BSBWidget {
     this.selected = val > 0;
   }
 
-  override collectReplacements(unit: BSBCompilationUnit): void {
-    unit.addReplacementValue(this.objectName, this.selected ? '1' : '0');
+  override collectReplacements(
+    unit: BSBCompilationUnit,
+    parameters?: Parameter[],
+  ): void {
+    this.addCompilationReplacement(unit, this.objectName, this.selected ? '1' : '0', parameters);
   }
 
   loadFromXML(data: Element): void {
@@ -48,6 +52,6 @@ export class BSBCheckBox extends BSBWidget {
 
   randomize(): void {
     if (!this.randomizable) return;
-    this.selected = Math.random() >= 0.5;
+    this.setValue(Math.random() >= 0.5 ? 1 : 0);
   }
 }

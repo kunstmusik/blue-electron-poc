@@ -39,6 +39,51 @@ export class BSBLineObject extends BSBWidget {
     }
   }
 
+  override getPresetValue(): string {
+    const encodedLines = this.lines.map((line) => {
+      const parts = [line.varName];
+      for (const point of line.points) {
+        parts.push(String(point.x), String(point.y));
+      }
+      return parts.join(':');
+    });
+
+    return ['version=2', ...encodedLines].join('@_@');
+  }
+
+  override setPresetValue(val: string): void {
+    const parts = val.split('@_@');
+
+    let version = 1;
+    let startIndex = 0;
+    if (parts[0]?.startsWith('version=')) {
+      version = parseInt(parts[0].substring(8), 10) || 1;
+      startIndex = 1;
+    }
+
+    for (let index = startIndex; index < parts.length; index++) {
+      const lineStr = parts[index];
+      const values = lineStr.split(':');
+      const lineName = values[0];
+      const line = this.lines.find((candidate) => candidate.varName === lineName);
+      if (!line) continue;
+
+      line.points = [];
+      const range = line.max - line.min;
+
+      for (let valueIndex = 1; valueIndex < values.length; valueIndex += 2) {
+        const nextX = parseFloat(values[valueIndex]);
+        const nextY = parseFloat(values[valueIndex + 1]);
+        if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) continue;
+
+        line.points.push({
+          x: nextX,
+          y: version === 1 ? (nextY * range) + line.min : nextY,
+        });
+      }
+    }
+  }
+
   private getLineString(line: Line): string {
     if (line.points.length === 0) return '';
 

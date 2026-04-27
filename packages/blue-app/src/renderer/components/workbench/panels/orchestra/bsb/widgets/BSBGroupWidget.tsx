@@ -1,24 +1,12 @@
 import React from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
+import type { BsbWidgetNodeSnapshot } from '../../../../../../../shared/project-editor';
 import WidgetWrapper from './WidgetWrapper';
 import { getWidgetDisplaySize } from './utils';
+import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
-interface BSBGroupWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch: (patch: BsbInterfacePatch) => void;
+interface BSBGroupWidgetProps extends BSBWidgetPatchComponentProps {
   renderWidget: (node: BsbWidgetNodeSnapshot) => React.ReactNode;
   onDoubleClick?: () => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
 }
 
 export default function BSBGroupWidget({

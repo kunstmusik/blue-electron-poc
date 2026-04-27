@@ -1,19 +1,19 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-24
-**Branch**: `023-bsb-widget-ui`
+**Date**: 2026-04-27
+**Branch**: `022-bsb-interface-parity`
 
 ## Spec 023 Package
 
-Spec `023-bsb-widget-ui` is in progress. Phases 0–6 and 3.6 are complete.
+Spec `023-bsb-widget-ui` is complete. The implementation pass and final manual verification pass are done, and the remaining work in the repo is future-spec scope only. Recent follow-up work after the review synthesis restored the highest-value Java parity contracts and cleaned up the remaining editor-side behavior gaps without reopening the broader widget-rendering slice.
 
 - Goal: replace the generic placeholder widget boxes with Java Blue-parity widget-specific visual rendering for all 15 BSB widget types in both edit and non-edit mode; close out `@blue/data` model property gaps identified against Java `*BeanInfo.java` descriptors; deliver typed per-widget property sheet panels that expose the same fields as Java Blue's property sheet
 - Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/spec.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/plan.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/research.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/contracts/bsb-widget-ui-surface.md`, `/Users/stevenyi/work/blue-electron/specs/023-bsb-widget-ui/quickstart.md`
-- Completed scope: 15 widget renderers (non-edit and edit mode), generic dynamic property sheet with BeanInfo filtering, resize handles, drag-to-move, canvas context menu (add/remove widgets), CSS grid overlay optimization, preset application fixes with widget-specific `getPresetValue`/`setPresetValue`, runtime value setting with parameter sync, randomize support, engine-client request queueing, and project-store patch batching
+- Completed scope: 15 widget renderers (non-edit and edit mode), generic dynamic property sheet with BeanInfo filtering plus BeanInfo-to-model key translation, resize handles, drag-to-move, canvas context menu (add/remove widgets), CSS grid overlay optimization, Java-compatible XML save/preset handling for BSB text/value/dropdown/checkbox/XY/slider-bank/line-object widgets, preset application fixes with widget-specific `getPresetValue`/`setPresetValue`, runtime value setting with parameter sync, randomize support, engine-client request queueing, project-store patch batching, instance-scoped BSB widget clipboard behavior, runtime `BSBTextField` commit-on-blur/Enter editing, `BSBFileSelector` browse/clear/copy-to-media/drop handling, slider-bank runtime editing with snapshot/XML persistence, `BSBLineObject` line serialization plus point-editing/line-selection behavior, and runtime compile-parity fixes for parameter-backed checkbox/dropdown/XY controller/H- and V-slider bank widgets
 - Known scope: `BSBEnvelopeGenerator` and `BSBTabbedPane` remain deferred
-- Deferred to future specs: per-widget edit context menu (Phase 9)
-- Validation: `pnpm --filter @blue/data test` PASS (471 tests); `pnpm --filter @blue/app test` PASS (128 tests, 2 skipped); `pnpm --filter @blue/app build` and `git diff --check` pending final close-out
-- Immediate next step: complete Phase 10 validation (manual verification, XML round-trip, STATUS.md close-out) or proceed to the next spec
+- Deferred to future specs: populated Java-style `BSBSubChannelDropdown` option sourcing until the renderer snapshot exposes mixer subchannel inventory; `BSBEnvelopeGenerator` and `BSBTabbedPane` remain deferred
+- Validation: `pnpm --filter @blue/data test -- --run src/instruments/blue-synth-builder.test.ts` PASS; `pnpm --filter @blue/app test -- --run src/renderer/tests/bsb-interface-editor.test.tsx src/renderer/tests/bsb-property-validation.test.ts` PASS; earlier package-wide `pnpm --filter @blue/data build`, `pnpm --filter @blue/app build`, and `git diff --check` validation from the main SPEC 023 pass still stand
+- Immediate next step: none for Spec 023; remaining work is deferred to future specs
 
 ## Spec 022 Package
 

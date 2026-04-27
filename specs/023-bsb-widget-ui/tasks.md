@@ -86,6 +86,7 @@
 - [x] T029 [P] [US1] Create `BSBTextFieldWidget.tsx` in `.../bsb/widgets/` rendering a text input at `textFieldWidth`; `comment` tooltip in non-edit mode
 - [x] T030 [P] [US1] Create `BSBDropdownWidget.tsx` in `.../bsb/widgets/` rendering a select control with `BSBDropdownItemList` items at `fontSize`; `comment` tooltip in non-edit mode
 - [x] T031 [P] [US1] Create `BSBSubChannelDropdownWidget.tsx` in `.../bsb/widgets/` rendering a dropdown for sub-channel selection; `comment` tooltip in non-edit mode
+	Runtime option-source parity remains deferred: the renderer snapshot does not yet expose mixer subchannel inventory, so the widget currently preserves and displays `channelOutput` but does not provide a Java-equivalent populated selection list.
 
 ### Value and XY Widgets (Priority Group C)
 
@@ -242,8 +243,8 @@
 - [x] T107 [US1] Grid snap decoupled from grid visibility: `gridSnapEnabled` checks only `snapEnabled`, not `enabled`
 - [x] T108 [US1] Empty BSB canvas always interactive: `buildWidgetTreeSnapshot()` always returns root node (never null)
 - [x] T109 [US1] BSBFileSelector `textFieldWidth` fix: added `BSBFileSelector` case in `buildWidgetTreeNode` computing `width = textFieldWidth + 30`, `height = 30` (matching Java's `getPreferredSize()`). Fixed optimistic update in `project-store.ts` to also add `+30`. Updated resize meta `minWidth: 10`, `minHeight: 30`. Widget uses `textFieldWidth` from properties for text field div, 30px fixed button.
-- [ ] T110 BSB interface canvas scroll padding: need +10px bottom/right past widget bounds (see `BSB_PADDING_FIX.md`). Multiple CSS approaches attempted (padding, explicit width/height, inline-block, min-width) — none work because absolutely-positioned children don't contribute to parent content size. Likely needs ResizeObserver or invisible spacer element.
-- [ ] T111 BSBKnob mouse tracking verification: confirm angle convention matches arc rendering after T103 fix
+- [x] T110 BSB interface canvas scroll padding: handled by the explicit canvas sizing helpers in `widgets/utils.ts`. `getCanvasDisplaySize()` and recursive `getWidgetDisplaySize()` both add `BSB_CANVAS_SCROLL_PADDING = 10`, and renderer coverage in `bsb-interface-editor.test.tsx` asserts the padded root/group canvas bounds.
+- [x] T111 BSBKnob mouse tracking verification: confirmed `atan2(-dy, dx)` angle convention matches arc rendering (225° start, 270° sweep)
 
 ---
 
@@ -253,6 +254,6 @@
 - [x] T061 [P] Run `pnpm --filter @blue/app test` — must pass
 - [x] T062 [P] Run `pnpm --filter @blue/app build` — must pass
 - [x] T063 [P] Run `git diff --check` — must pass
-- [ ] T064 Manual verification: open `~/work/blue/demo2026/01.csd` in the Electron app; confirm each major widget type renders visually distinct; confirm property panels show all BeanInfo fields; confirm resize handles; confirm save/reopen round-trip preserves all widget data
-- [ ] T065 XML round-trip smoke test: parse a Java-generated `.blue` file, save from Electron, diff the output — no data loss on any widget type
-- [ ] T066 Update `STATUS.md` to mark Spec 023 complete with implementation summary and validation status
+- [x] T064 Manual verification: open `~/work/blue/demo2026/01.csd` in the Electron app; confirm each major widget type renders visually distinct; confirm property panels show all BeanInfo fields; confirm resize handles; confirm save/reopen round-trip preserves all widget data. Completed via smoke testing in the Electron app; no regressions observed.
+- [x] T065 XML round-trip smoke test: parse a Java-generated `.blue` file, save from Electron, diff the output — no data loss on any widget type. **Verified with `alphaV4.blue`: all structural data matches; remaining diffs are cosmetic only (attribute quoting `'` vs `"`, entity encoding `&apos;` vs literal, self-closing tag style, indentation).**
+- [x] T066 Update `STATUS.md` to mark Spec 023 close-out state with implementation summary and validation status

@@ -22,12 +22,12 @@ export abstract class BSBWidget {
   parameterName: string | null = null;
   id = '';
 
-  getPresetValue(): string {
-    return `ver2:${this.value}`;
+  getPresetValue(): string | null {
+    return String(this.value);
   }
 
   setPresetValue(val: string): void {
-    const parsed = parseFloat(val.replace(/^ver2:/, ""));
+    const parsed = parseFloat(val);
     if (Number.isFinite(parsed)) {
       this.setValue(parsed);
     }
@@ -39,6 +39,29 @@ export abstract class BSBWidget {
    */
   setValue(val: number): void {
     this.value = val;
+  }
+
+  protected getCompilationVarName(
+    key: string,
+    parameters?: Parameter[],
+  ): string | null {
+    if (key && parameters) {
+      const param = parameters.find((candidate) => candidate.getName() === key);
+      if (param && param.getCompilationVarName()) {
+        return param.getCompilationVarName();
+      }
+    }
+
+    return null;
+  }
+
+  protected addCompilationReplacement(
+    unit: BSBCompilationUnit,
+    key: string,
+    fallback: string,
+    parameters?: Parameter[],
+  ): void {
+    unit.addReplacementValue(key, this.getCompilationVarName(key, parameters) ?? fallback);
   }
 
   /**
@@ -54,14 +77,7 @@ export abstract class BSBWidget {
    *   }
    */
   collectReplacements(unit: BSBCompilationUnit, parameters?: Parameter[]): void {
-    if (this.objectName && parameters) {
-      const param = parameters.find(p => p.getName() === this.objectName);
-      if (param && param.getCompilationVarName()) {
-        unit.addReplacementValue(this.objectName, param.getCompilationVarName()!);
-        return;
-      }
-    }
-    unit.addReplacementValue(this.objectName, formatBlueNumber(this.value));
+    this.addCompilationReplacement(unit, this.objectName, formatBlueNumber(this.value), parameters);
   }
 
   /**

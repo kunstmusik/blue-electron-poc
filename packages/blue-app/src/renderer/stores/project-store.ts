@@ -19,6 +19,11 @@ import {
   type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
 } from '../../shared/project-editor';
+import {
+  getHSliderBankDisplaySize,
+  getVSliderBankDisplaySize,
+  BSB_LINE_SELECTOR_HEIGHT,
+} from '../../shared/bsb-widget-layout';
 
 interface ProjectState {
   title: string;
@@ -346,6 +351,263 @@ function applyBsbInterfacePatchToSnapshot(
   instrument: import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot,
   patch: import('../../shared/project-editor').BsbInterfacePatch,
 ): void {
+  const getSnapshotWidgetValue = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): number => {
+    if (node.type === 'BSBValue' && typeof node.properties.defaultValue === 'number') {
+      return node.properties.defaultValue;
+    }
+    if (node.type === 'BSBCheckBox') {
+      return node.properties.selected === true ? 1 : 0;
+    }
+    if (node.type === 'BSBDropdown' && typeof node.properties.selectedIndex === 'number') {
+      return node.properties.selectedIndex;
+    }
+    return typeof node.value === 'number' ? node.value : 0;
+  };
+
+  const syncWidgetListFromTree = (): void => {
+    if (!instrument.widgetTree?.children) {
+      instrument.widgets = [];
+      return;
+    }
+
+    const nextWidgets: typeof instrument.widgets = [];
+    const visit = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+      if (node.objectName) {
+        nextWidgets.push({
+          objectName: node.objectName,
+          widgetType: node.type,
+          value: getSnapshotWidgetValue(node),
+          minimum: node.minimum,
+          maximum: node.maximum,
+        });
+      }
+      if (node.children) {
+        node.children.forEach(visit);
+      }
+    };
+
+    instrument.widgetTree.children.forEach(visit);
+    instrument.widgets = nextWidgets.sort((left, right) => left.objectName.localeCompare(right.objectName));
+  };
+
+  const syncSliderBankLayout = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+    const sliderCount = Array.isArray(node.properties.sliders)
+      ? Math.max(1, node.properties.sliders.length)
+      : typeof node.properties.numberOfSliders === 'number'
+        ? Math.max(1, node.properties.numberOfSliders)
+        : 1;
+    const gap = typeof node.properties.gap === 'number' ? node.properties.gap : 5;
+    const showValue = node.properties.valueDisplayEnabled === true;
+
+    if (node.type === 'BSBHSliderBank') {
+      const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 100;
+      const size = getHSliderBankDisplaySize(sliderCount, sliderWidth, gap, showValue);
+      node.width = size.width;
+      node.height = size.height;
+    } else if (node.type === 'BSBVSliderBank') {
+      const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 100;
+      const size = getVSliderBankDisplaySize(sliderCount, sliderHeight, gap, showValue);
+      node.width = size.width;
+      node.height = size.height;
+    }
+  };
+
+  const parsePresetNumber = (raw: string): number | null => {
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const parseLegacyPresetNumber = (raw: string): number | null => {
+    return parsePresetNumber(raw.startsWith('ver2:') ? raw.substring(5) : raw);
+  };
+
+  const applyLineObjectPreset = (
+    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    raw: string,
+  ): void => {
+    const existingLines = Array.isArray(node.properties.lines)
+      ? (node.properties.lines as Array<{
+          varName?: string;
+          min?: number;
+          max?: number;
+          color?: string;
+          points?: Array<{ x: number; y: number }>;
+        }>).map((line) => ({
+          ...line,
+          points: Array.isArray(line.points) ? line.points.map((point) => ({ ...point })) : [],
+        }))
+      : [];
+
+    const parts = raw.split('@_@');
+    let version = 1;
+    let startIndex = 0;
+    if (parts[0]?.startsWith('version=')) {
+      version = parseInt(parts[0].substring(8), 10) || 1;
+      startIndex = 1;
+    }
+
+    for (let index = startIndex; index < parts.length; index++) {
+      const values = parts[index].split(':');
+      const lineName = values[0];
+      const lineIndex = existingLines.findIndex((candidate) => candidate.varName === lineName);
+      if (lineIndex < 0) continue;
+
+      const line = existingLines[lineIndex]!;
+      const min = typeof line.min === 'number' ? line.min : 0;
+      const max = typeof line.max === 'number' ? line.max : 1;
+      const range = max - min;
+      const points: Array<{ x: number; y: number }> = [];
+
+      for (let valueIndex = 1; valueIndex < values.length; valueIndex += 2) {
+        const nextX = parseFloat(values[valueIndex]);
+        const nextY = parseFloat(values[valueIndex + 1]);
+        if (!Number.isFinite(nextX) || !Number.isFinite(nextY)) continue;
+
+        points.push({
+          x: nextX,
+          y: version === 1 ? (nextY * range) + min : nextY,
+        });
+      }
+
+      existingLines[lineIndex] = { ...line, points };
+    }
+
+    node.properties = { ...node.properties, lines: existingLines };
+  };
+
+  const applyPresetValueToNode = (
+    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    raw: string,
+  ): void => {
+    if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+      const sliderValues = raw.split(':');
+      const sliderCount = typeof node.properties.numberOfSliders === 'number'
+        ? Math.max(1, node.properties.numberOfSliders)
+        : Array.isArray(node.properties.sliders)
+          ? Math.max(1, node.properties.sliders.length)
+          : 1;
+      const existingSliders = Array.isArray(node.properties.sliders)
+        ? (node.properties.sliders as Array<{ value?: number }>).map((slider) => ({ ...slider }))
+        : Array.from({ length: sliderCount }, () => ({ value: node.minimum ?? 0 }));
+      const nextSliders = existingSliders.slice(0, sliderCount);
+
+      for (let index = 0; index < Math.min(nextSliders.length, sliderValues.length); index++) {
+        const parsed = parsePresetNumber(sliderValues[index]);
+        if (parsed === null) continue;
+        nextSliders[index] = { ...nextSliders[index], value: parsed };
+      }
+
+      node.properties = { ...node.properties, sliders: nextSliders };
+      return;
+    }
+
+    if (node.type === 'BSBCheckBox') {
+      const selected = raw.startsWith('ver2:')
+        ? (parseLegacyPresetNumber(raw) ?? 0) > 0
+        : raw.toLowerCase() === 'true';
+      node.properties = { ...node.properties, selected };
+      node.value = selected ? 1 : 0;
+      return;
+    }
+
+    if (node.type === 'BSBDropdown') {
+      let selectedIndex: number | null = null;
+      if (raw.startsWith('id:')) {
+        const uniqueId = raw.substring(3);
+        const items = Array.isArray(node.properties.dropdownItems)
+          ? node.properties.dropdownItems as Array<{ uniqueId?: string }>
+          : [];
+        const index = items.findIndex((item) => item?.uniqueId === uniqueId);
+        selectedIndex = index >= 0 ? index : null;
+      } else {
+        selectedIndex = parseLegacyPresetNumber(raw);
+      }
+
+      if (selectedIndex !== null) {
+        node.properties = { ...node.properties, selectedIndex };
+        node.value = selectedIndex;
+      }
+      return;
+    }
+
+    if (node.type === 'BSBTextField') {
+      node.properties = { ...node.properties, textValue: raw };
+      return;
+    }
+
+    if (node.type === 'BSBValue') {
+      const parsed = parseLegacyPresetNumber(raw);
+      if (parsed !== null) {
+        node.properties = { ...node.properties, defaultValue: parsed };
+        node.value = parsed;
+      }
+      return;
+    }
+
+    if (node.type === 'BSBXYController') {
+      const parts = raw.split(':');
+      let nextX = Number.NaN;
+      let nextY = Number.NaN;
+
+      const xMin = typeof node.properties.xMin === 'number' ? node.properties.xMin : 0;
+      const xMax = typeof node.properties.xMax === 'number' ? node.properties.xMax : 1;
+      const yMin = typeof node.properties.yMin === 'number' ? node.properties.yMin : 0;
+      const yMax = typeof node.properties.yMax === 'number' ? node.properties.yMax : 1;
+
+      if (parts.length === 2) {
+        const relativeX = parsePresetNumber(parts[0]);
+        const relativeY = parsePresetNumber(parts[1]);
+        if (relativeX !== null && relativeY !== null) {
+          nextX = (relativeX * (xMax - xMin)) + xMin;
+          nextY = (relativeY * (yMax - yMin)) + yMin;
+        }
+      } else if (parts.length >= 3) {
+        nextX = parseFloat(parts[1]);
+        nextY = parseFloat(parts[2]);
+      }
+
+      if (Number.isFinite(nextX) && Number.isFinite(nextY)) {
+        node.properties = { ...node.properties, xValue: nextX, yValue: nextY };
+      }
+      return;
+    }
+
+    if (node.type === 'BSBFileSelector') {
+      node.properties = { ...node.properties, fileName: raw };
+      return;
+    }
+
+    if (node.type === 'BSBSubChannelDropdown') {
+      node.properties = { ...node.properties, channelOutput: raw };
+      return;
+    }
+
+    if (node.type === 'BSBLineObject') {
+      applyLineObjectPreset(node, raw);
+      return;
+    }
+
+    if (node.type === 'BSBKnob') {
+      if (raw.indexOf(':') < 0) {
+        const relative = parsePresetNumber(raw);
+        if (relative !== null) {
+          node.value = (relative * (node.maximum - node.minimum)) + node.minimum;
+        }
+      } else {
+        const parsed = parsePresetNumber(raw.substring(raw.indexOf(':') + 1));
+        if (parsed !== null) {
+          node.value = parsed;
+        }
+      }
+      return;
+    }
+
+    const parsed = parseLegacyPresetNumber(raw);
+    if (parsed !== null) {
+      node.value = parsed;
+    }
+  };
+
   switch (patch.type) {
     case 'setEditEnabled':
       instrument.editEnabled = patch.value;
@@ -364,15 +626,33 @@ function applyBsbInterfacePatchToSnapshot(
               case 'width': node.width = value as number; break;
               case 'height': node.height = value as number; break;
               case 'value': node.value = value as number; break;
+              case 'defaultValue':
+                node.properties.defaultValue = value as number;
+                if (node.type === 'BSBValue') {
+                  node.value = value as number;
+                }
+                break;
               case 'minimum': node.minimum = value as number; break;
               case 'maximum': node.maximum = value as number; break;
+              case 'selectedIndex':
+                node.properties.selectedIndex = value as number;
+                node.value = value as number;
+                break;
               case 'sliderWidth':
                 node.properties.sliderWidth = value as number;
-                node.width = (value as number) + (node.properties.valueDisplayEnabled ? 50 : 0);
+                if (node.type === 'BSBHSliderBank') {
+                  syncSliderBankLayout(node);
+                } else {
+                  node.width = (value as number) + (node.properties.valueDisplayEnabled ? 50 : 0);
+                }
                 break;
               case 'sliderHeight':
                 node.properties.sliderHeight = value as number;
-                node.height = (value as number) + (node.properties.valueDisplayEnabled ? 30 : 0);
+                if (node.type === 'BSBVSliderBank') {
+                  syncSliderBankLayout(node);
+                } else {
+                  node.height = (value as number) + (node.properties.valueDisplayEnabled ? 30 : 0);
+                }
                 break;
               case 'knobWidth':
                 node.properties.knobWidth = value as number;
@@ -384,20 +664,49 @@ function applyBsbInterfacePatchToSnapshot(
                 break;
               case 'canvasHeight':
                 node.properties.canvasHeight = value as number;
-                node.height = value as number;
+                node.height = node.type === 'BSBLineObject'
+                  ? (value as number) + BSB_LINE_SELECTOR_HEIGHT
+                  : (value as number);
                 break;
               case 'textFieldWidth':
                 node.properties.textFieldWidth = value as number;
-                node.width = (value as number) + 30;
+                node.width = node.type === 'BSBFileSelector'
+                  ? (value as number) + 30
+                  : (value as number);
+                break;
+              case 'numberOfSliders': {
+                const nextCount = Math.max(1, value as number);
+                const previous = Array.isArray(node.properties.sliders)
+                  ? node.properties.sliders as Array<{ value?: number }>
+                  : [];
+                node.properties.numberOfSliders = nextCount;
+                node.properties.sliders = Array.from(
+                  { length: nextCount },
+                  (_unused, index) => previous[index] ?? { value: node.minimum ?? 0 },
+                );
+                syncSliderBankLayout(node);
+                break;
+              }
+              case 'valueDisplayEnabled':
+                node.properties.valueDisplayEnabled = value;
+                if (node.type === 'BSBHSlider') {
+                  const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 150;
+                  node.width = sliderWidth + (value ? 50 : 0);
+                } else if (node.type === 'BSBVSlider') {
+                  const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
+                  node.height = sliderHeight + (value ? 30 : 0);
+                } else if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+                  syncSliderBankLayout(node);
+                }
+                break;
+              case 'gap':
+                node.properties.gap = value as number;
+                if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+                  syncSliderBankLayout(node);
+                }
                 break;
               default: node.properties[key] = value; break;
             }
-          }
-          if (patch.properties.objectName !== undefined) {
-            instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
-            instrument.widgets = instrument.widgets.map((w) =>
-              w.objectName === patch.properties.objectName ? { ...w, objectName: patch.properties.objectName as string } : w
-            );
           }
           return true;
         }
@@ -408,7 +717,44 @@ function applyBsbInterfacePatchToSnapshot(
         }
         return false;
       };
-      updateNode(instrument.widgetTree);
+      if (updateNode(instrument.widgetTree)) {
+        instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
+        syncWidgetListFromTree();
+      }
+      break;
+    }
+    case 'updateSliderBankValue': {
+      if (!instrument.widgetTree) break;
+      const updateNode = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): boolean => {
+        if (node.id === patch.widgetId) {
+          const sliderCount = typeof node.properties.numberOfSliders === 'number'
+            ? Math.max(1, node.properties.numberOfSliders)
+            : Array.isArray(node.properties.sliders)
+              ? Math.max(1, node.properties.sliders.length)
+              : 1;
+          const sliders = Array.isArray(node.properties.sliders)
+            ? [...(node.properties.sliders as Array<{ value?: number }>)]
+            : Array.from({ length: sliderCount }, () => ({ value: node.minimum ?? 0 }));
+          if (patch.sliderIndex < 0 || patch.sliderIndex >= sliders.length) {
+            return false;
+          }
+          sliders[patch.sliderIndex] = {
+            ...sliders[patch.sliderIndex],
+            value: patch.value,
+          };
+          node.properties.sliders = sliders;
+          return true;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            if (updateNode(child)) return true;
+          }
+        }
+        return false;
+      };
+      if (updateNode(instrument.widgetTree)) {
+        syncWidgetListFromTree();
+      }
       break;
     }
     case 'moveWidget': {
@@ -461,47 +807,7 @@ function applyBsbInterfacePatchToSnapshot(
             if (node.objectName && node.objectName in valuesMap) {
               const raw = valuesMap[node.objectName];
               if (raw !== undefined) {
-                if (node.widgetType === 'BSBCheckBox') {
-                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
-                  if (Number.isFinite(parsed)) {
-                    node.properties = { ...node.properties, selected: parsed > 0 };
-                    node.value = parsed;
-                  }
-                } else if (node.widgetType === 'BSBDropdown') {
-                  const parsed = parseInt(raw.replace(/^ver2:/, ''), 10);
-                  if (Number.isFinite(parsed)) {
-                    node.properties = { ...node.properties, selectedIndex: parsed };
-                  }
-                } else if (node.widgetType === 'BSBSubChannelDropdown') {
-                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
-                  node.properties = { ...node.properties, channelOutput: parsed };
-                } else if (node.widgetType === 'BSBTextField') {
-                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
-                  node.properties = { ...node.properties, textValue: parsed };
-                } else if (node.widgetType === 'BSBValue') {
-                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
-                  if (Number.isFinite(parsed)) {
-                    node.properties = { ...node.properties, defaultValue: parsed };
-                    node.value = parsed;
-                  }
-                } else if (node.widgetType === 'BSBXYController') {
-                  const parsed = raw.replace(/^ver2:/, '').split(',');
-                  if (parsed.length === 2) {
-                    const x = parseFloat(parsed[0]);
-                    const y = parseFloat(parsed[1]);
-                    if (Number.isFinite(x) && Number.isFinite(y)) {
-                      node.properties = { ...node.properties, xValue: x, yValue: y };
-                    }
-                  }
-                } else if (node.widgetType === 'BSBFileSelector') {
-                  const parsed = raw.startsWith('ver2:') ? raw.substring(5) : raw;
-                  node.properties = { ...node.properties, fileName: parsed };
-                } else {
-                  const parsed = parseFloat(raw.replace(/^ver2:/, ''));
-                  if (Number.isFinite(parsed)) {
-                    node.value = parsed;
-                  }
-                }
+                applyPresetValueToNode(node, raw);
               }
             }
             if (node.children) node.children.forEach(updateWidgetValue);
@@ -509,16 +815,7 @@ function applyBsbInterfacePatchToSnapshot(
           if (instrument.widgetTree?.children) {
             instrument.widgetTree.children.forEach(updateWidgetValue);
           }
-          instrument.widgets = instrument.widgets.map((w) => {
-            if (w.objectName in valuesMap) {
-              const raw = valuesMap[w.objectName];
-              const parsed = parseFloat(raw.replace(/^ver2:/, ''));
-              if (Number.isFinite(parsed)) {
-                return { ...w, value: parsed };
-              }
-            }
-            return w;
-          });
+          syncWidgetListFromTree();
         }
       }
       break;

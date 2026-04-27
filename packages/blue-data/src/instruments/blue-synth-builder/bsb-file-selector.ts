@@ -30,11 +30,7 @@ export class BSBFileSelector extends BSBWidget {
   }
 
   override setPresetValue(val: string): void {
-    if (val.startsWith('ver2:')) {
-      this.fileName = val.substring(5);
-    } else {
-      this.fileName = val;
-    }
+    this.fileName = val;
     this.syncStringChannels();
   }
 

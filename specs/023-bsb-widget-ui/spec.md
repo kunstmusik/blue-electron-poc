@@ -2,7 +2,7 @@
 
 **Feature Branch**: `023-bsb-widget-ui`
 **Created**: 2026-04-24
-**Status**: In Progress
+**Status**: Complete
 **Input**: User description: "Implement BSB Widget UI elements for edit and non-edit mode. Implementation should be based on original Java code (/Users/stevenyi/work/nbprojects/blue/blue-core/src/main/java/blue/orchestra/blueSynthBuilder). Review that all properties exposed in BSB widget properties panel matches those exposed in Java."
 
 ## User Scenarios & Testing *(mandatory)*

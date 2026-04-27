@@ -381,7 +381,7 @@ function ResizeHandle({
     <div
       className="bsb-resize-handle"
       data-resize-edge={edge}
-      style={{ ...handleStyle, backgroundColor: '#00ff00' }}
+      style={{ ...handleStyle, backgroundColor: 'rgb(102,177,253)' }}
       onMouseDown={(e) => {
         e.stopPropagation();
         e.preventDefault();

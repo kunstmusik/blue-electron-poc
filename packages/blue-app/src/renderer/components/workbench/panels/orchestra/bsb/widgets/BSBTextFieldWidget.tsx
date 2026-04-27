@@ -1,22 +1,12 @@
-import React from 'react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
+import React, { useEffect, useRef, useState } from 'react';
 import WidgetWrapper from './WidgetWrapper';
+import type { BSBWidgetComponentProps } from './widget-component-props';
 
-interface BSBTextFieldWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
+export function getCommittedTextFieldValue(currentValue: string, draftValue: string): string | null {
+  return draftValue === currentValue ? null : draftValue;
 }
+
+type BSBTextFieldWidgetProps = BSBWidgetComponentProps;
 
 export default function BSBTextFieldWidget({
   node,
@@ -33,13 +23,61 @@ export default function BSBTextFieldWidget({
   onWidgetAction,
 }: BSBTextFieldWidgetProps): React.ReactElement {
   const textValue = typeof node.properties.textValue === 'string' ? node.properties.textValue : '';
+  const [localValue, setLocalValue] = useState(textValue);
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!focused) {
+      setLocalValue(textValue);
+    }
+  }, [textValue, focused]);
+
+  const commit = () => {
+    const nextValue = getCommittedTextFieldValue(textValue, localValue);
+    if (nextValue === null) {
+      setLocalValue(textValue);
+      return;
+    }
+
+    onBsbInterfacePatch?.({
+      type: 'updateWidgetProperties',
+      widgetId: node.id,
+      properties: { textValue: nextValue },
+    });
+  };
 
   return (
     <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="flex h-full w-full items-center overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
-        <div className="h-full flex-1 overflow-hidden bg-[#0a0f1a] text-[11px] text-gray-200">
-          <span className="block truncate leading-6">{textValue}</span>
-        </div>
+        <input
+          ref={inputRef}
+          className="h-full w-full overflow-hidden bg-[#0a0f1a] px-2 text-[11px] leading-6 text-gray-200 outline-none"
+          value={localValue}
+          readOnly={editEnabled}
+          onChange={(event) => setLocalValue(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            commit();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commit();
+              inputRef.current?.blur();
+            }
+
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              setLocalValue(textValue);
+              inputRef.current?.blur();
+            }
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          style={{ pointerEvents: editEnabled ? 'none' : undefined }}
+        />
       </div>
     </WidgetWrapper>
   );

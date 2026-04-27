@@ -11,6 +11,13 @@ export class BSBLabel extends BSBWidget {
   label = '';
   font: BSBFont = { name: 'Roboto', size: 12, style: 0 };
 
+  override getPresetValue(): string | null {
+    return null;
+  }
+
+  override setPresetValue(_val: string): void {
+  }
+
   override collectReplacements(_unit: BSBCompilationUnit): void {
   }
 

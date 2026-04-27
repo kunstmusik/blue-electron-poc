@@ -203,6 +203,190 @@ describe('BlueSynthBuilder', () => {
     expect(savedXml).toContain('ver2:0.8');
   });
 
+  it('updates text field and file selector properties through widget patches', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>String Widgets</name>
+      <instrumentText>Smsg sprintf \"%s %s\", \"&lt;textField&gt;\", \"&lt;fileSelect&gt;\"</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBTextField">
+          <objectName>textField</objectName>
+          <x>0</x><y>0</y>
+          <value>hello</value>
+          <textFieldWidth>120</textFieldWidth>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBFileSelector">
+          <objectName>fileSelect</objectName>
+          <x>0</x><y>40</y>
+          <fileName>audio/test.wav</fileName>
+          <textFieldWidth>150</textFieldWidth>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widgets = instrument.getGraphicInterface().getRootGroup().getChildren();
+    const textField = widgets[0]!;
+    const fileSelector = widgets[1]!;
+
+    expect(instrument.updateWidgetProperties(textField.id, { textValue: 'updated text' })).toBe(true);
+    expect(instrument.updateWidgetProperties(fileSelector.id, { fileName: 'samples/new.wav' })).toBe(true);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<value>updated text</value>');
+    expect(savedXml).not.toContain('<textValue>updated text</textValue>');
+    expect(savedXml).toContain('<fileName>samples/new.wav</fileName>');
+  });
+
+  it('serializes BSBValue defaultValue tags and applies raw preset values', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Value Preset</name>
+      <instrumentText>kval = &lt;meter&gt;</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBValue">
+          <objectName>meter</objectName>
+          <x>0</x><y>0</y>
+          <minimum>0</minimum>
+          <maximum>1</maximum>
+          <defaultValue>0.25</defaultValue>
+        </bsbObject>
+      </graphicInterface>
+      <presetGroup name="Value Presets">
+        <preset name="Hot" uniqueId="hot">
+          <setting name="meter">0.75</setting>
+        </preset>
+      </presetGroup>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    expect(instrument.applyPreset('hot')).toBe(true);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<defaultValue>0.75</defaultValue>');
+    expect(savedXml).not.toContain('<value>0.75</value>');
+  });
+
+  it('applies colon-separated slider bank presets to child slider values', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Bank Preset</name>
+      <instrumentText>kout = &lt;bank_0&gt; + &lt;bank_1&gt;</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+          <objectName>bank</objectName>
+          <x>0</x><y>0</y>
+          <minimum>0</minimum>
+          <maximum>1</maximum>
+          <sliderWidth>120</sliderWidth>
+          <gap>5</gap>
+          <bdresolution>-1</bdresolution>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+            <objectName>bank_0</objectName>
+            <value>0.2</value>
+          </bsbObject>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+            <objectName>bank_1</objectName>
+            <value>0.7</value>
+          </bsbObject>
+        </bsbObject>
+      </graphicInterface>
+      <presetGroup name="Bank Presets">
+        <preset name="Alt" uniqueId="alt">
+          <setting name="bank">0.15:0.85</setting>
+        </preset>
+      </presetGroup>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    expect(instrument.applyPreset('alt')).toBe(true);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<value>0.15</value>');
+    expect(savedXml).toContain('<value>0.85</value>');
+  });
+
+  it('updates line object line data through widget patches', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Line Object</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBLineObject">
+          <objectName>curve</objectName>
+          <x>0</x><y>0</y>
+          <canvasWidth>200</canvasWidth>
+          <canvasHeight>120</canvasHeight>
+          <lines>
+            <line varName="curveA" min="0" max="1" color="#ff0000">
+              <linePoint x="0" y="0.25"/>
+              <linePoint x="1" y="0.75"/>
+            </line>
+          </lines>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0]!;
+
+    expect(
+      instrument.updateWidgetProperties(widget.id, {
+        lines: [
+          {
+            varName: 'curveA',
+            min: 0,
+            max: 1,
+            color: '#00ff00',
+            points: [
+              { x: 0, y: 0.2 },
+              { x: 0.5, y: 0.5 },
+              { x: 1, y: 0.8 },
+            ],
+          },
+        ],
+      }),
+    ).toBe(true);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<lines>');
+    expect(savedXml).toContain('<linePoint x="0.5" y="0.5"/>');
+  });
+
+  it('updates slider bank child values through slider bank patches', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Slider Bank</name>
+      <instrumentText>aout = &lt;bank_0&gt; + &lt;bank_1&gt;</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+          <objectName>bank</objectName>
+          <x>0</x><y>0</y>
+          <minimum>0</minimum>
+          <maximum>1</maximum>
+          <sliderWidth>120</sliderWidth>
+          <gap>5</gap>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+            <objectName>bank_0</objectName>
+            <value>0.2</value>
+          </bsbObject>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+            <objectName>bank_1</objectName>
+            <value>0.7</value>
+          </bsbObject>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0]!;
+
+    expect(instrument.updateSliderBankValue(widget.id, 1, 0.42)).toBe(true);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<value>0.42</value>');
+  });
+
   it('round-trips opcode list text', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>UDO Test</name>

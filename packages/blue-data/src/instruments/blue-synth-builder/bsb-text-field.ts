@@ -16,11 +16,7 @@ export class BSBTextField extends BSBWidget {
   }
 
   override setPresetValue(val: string): void {
-    if (val.startsWith('ver2:')) {
-      this.textValue = val.substring(5);
-    } else {
-      this.textValue = val;
-    }
+    this.textValue = val;
   }
 
   override collectReplacements(unit: BSBCompilationUnit): void {

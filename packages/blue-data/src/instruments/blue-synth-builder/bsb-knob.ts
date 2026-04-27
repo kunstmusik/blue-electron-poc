@@ -4,6 +4,7 @@
  */
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
+import { formatBlueNumber } from '../../utilities/number-format';
 
 export interface BSBFont {
   name: string;
@@ -39,8 +40,30 @@ export class BSBKnob extends BSBWidget {
   labelEnabled = false;
   labelFont: BSBFont = { name: 'Roboto', size: 12, style: 0 };
 
+  override getPresetValue(): string {
+    return `ver2:${formatBlueNumber(this.value)}`;
+  }
+
+  override setPresetValue(val: string): void {
+    let nextValue = Number.NaN;
+
+    if (val.indexOf(':') < 0) {
+      const relative = parseFloat(val);
+      if (Number.isFinite(relative)) {
+        nextValue = (relative * (this.maximum - this.minimum)) + this.minimum;
+      }
+    } else {
+      nextValue = parseFloat(val.substring(val.indexOf(':') + 1));
+    }
+
+    if (Number.isFinite(nextValue)) {
+      this.setValue(nextValue);
+    }
+  }
+
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
+    const versionAttribute = data.getAttribute('version');
     const w = data.getTextString('knobWidth');
     if (w) this.knobWidth = parseInt(w, 10);
     const vde = data.getElement('valueDisplayEnabled');
@@ -53,6 +76,11 @@ export class BSBKnob extends BSBWidget {
     if (le) this.labelEnabled = le.getTextString() === 'true';
     const fontElem = data.getElement('font');
     if (fontElem) this.labelFont = loadFontFromXML(fontElem);
+
+    if (versionAttribute === '1') {
+      const range = this.maximum - this.minimum;
+      this.value = (this.value * range) + this.minimum;
+    }
   }
 
   randomize(): void {

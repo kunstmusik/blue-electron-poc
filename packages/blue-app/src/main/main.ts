@@ -344,6 +344,89 @@ async function saveFileAs(): Promise<void> {
   doSave(currentFilePath);
 }
 
+function normalizeBsbSelectedPath(filePath: string): string {
+  const normalized = filePath.replace(/\\/g, '/');
+  if (!currentFilePath) {
+    return normalized;
+  }
+
+  const projectDir = path.dirname(currentFilePath);
+  const relativePath = path.relative(projectDir, filePath);
+  if (!relativePath || path.isAbsolute(relativePath) || relativePath.startsWith('..')) {
+    return normalized;
+  }
+
+  return relativePath.replace(/\\/g, '/');
+}
+
+function resolveBsbDefaultPath(currentValue?: string): string | undefined {
+  if (!currentValue || currentValue.trim().length === 0) {
+    return currentFilePath ? path.dirname(currentFilePath) : undefined;
+  }
+
+  if (path.isAbsolute(currentValue)) {
+    return currentValue;
+  }
+
+  if (!currentFilePath) {
+    return currentValue;
+  }
+
+  return path.resolve(path.dirname(currentFilePath), currentValue);
+}
+
+async function openBsbFileSelector(currentValue?: string): Promise<string | null> {
+  if (!mainWindow) return null;
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select File',
+    properties: ['openFile'],
+    defaultPath: resolveBsbDefaultPath(currentValue),
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return normalizeBsbSelectedPath(result.filePaths[0]);
+}
+
+async function normalizeBsbFileSelectorPath(filePath: string): Promise<string | null> {
+  if (!filePath || filePath.trim().length === 0) {
+    return null;
+  }
+
+  return normalizeBsbSelectedPath(filePath);
+}
+
+async function copyBsbFileSelectorToMediaFolder(currentValue?: string): Promise<string | null> {
+  if (!currentData || !currentFilePath || !currentValue || currentValue.trim().length === 0) {
+    return null;
+  }
+
+  const projectDir = path.dirname(currentFilePath);
+  const sourceFile = path.isAbsolute(currentValue)
+    ? currentValue
+    : path.resolve(projectDir, currentValue);
+
+  if (!fs.existsSync(sourceFile) || !fs.statSync(sourceFile).isFile()) {
+    return null;
+  }
+
+  const mediaFolder = currentData.getProjectProperties().mediaFolder?.trim() ?? '';
+  const targetDir = path.isAbsolute(mediaFolder)
+    ? mediaFolder
+    : path.resolve(projectDir, mediaFolder.length > 0 ? mediaFolder : 'media');
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const targetFile = path.join(targetDir, path.basename(sourceFile));
+  if (path.resolve(targetFile) !== path.resolve(sourceFile)) {
+    fs.copyFileSync(sourceFile, targetFile);
+  }
+
+  return normalizeBsbSelectedPath(targetFile);
+}
+
 function doSave(filePath: string): void {
   if (!currentData) return;
   try {
@@ -448,6 +531,18 @@ ipcMain.handle('open-file', async () => {
   return currentFilePath;
 });
 
+ipcMain.handle('open-bsb-file-selector', async (_event, currentValue?: string) => {
+  return openBsbFileSelector(currentValue);
+});
+
+ipcMain.handle('set-bsb-file-selector-path', async (_event, filePath: string) => {
+  return normalizeBsbFileSelectorPath(filePath);
+});
+
+ipcMain.handle('copy-bsb-file-selector-to-media-folder', async (_event, currentValue?: string) => {
+  return copyBsbFileSelectorToMediaFolder(currentValue);
+});
+
 ipcMain.handle('save-file', async () => {
   await saveFile();
   return currentFilePath;
@@ -547,6 +642,16 @@ async function syncEngineWithProjectPatch(data: BlueData, patch: ProjectDocument
                 if (py && py.getCompilationVarName()) {
                   await engineBridge.setChannel(py.getCompilationVarName()!, props.yValue);
                 }
+              }
+            }
+          } else if (bsbPatch.type === 'updateSliderBankValue') {
+            const widget = instrument.getGraphicInterface().findWidgetById(bsbPatch.widgetId);
+            if (widget?.objectName) {
+              const param = instrument.getParameters().find(
+                (candidate) => candidate.getName() === `${widget.objectName}_${bsbPatch.sliderIndex}`,
+              );
+              if (param?.getCompilationVarName()) {
+                await engineBridge.setChannel(param.getCompilationVarName()!, bsbPatch.value);
               }
             }
           }

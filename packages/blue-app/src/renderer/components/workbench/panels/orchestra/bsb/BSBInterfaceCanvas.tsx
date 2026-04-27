@@ -5,13 +5,10 @@ import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
   BsbWidgetNodeSnapshot,
+  GridSettingsSnapshot,
   InstrumentPatch,
 } from '../../../../../../shared/project-editor';
 import { BSB_WIDGET_RESIZE_META } from './bsb-widget-meta';
-
-let _clipboard: BsbWidgetNodeSnapshot[] = [];
-let _clipboardOriginX = 0;
-let _clipboardOriginY = 0;
 import {
   BSBHSliderWidget,
   BSBVSliderWidget,
@@ -72,6 +69,79 @@ interface MarqueeState {
   active: boolean;
 }
 
+export interface BsbCanvasClipboard {
+  widgets: BsbWidgetNodeSnapshot[];
+  originX: number;
+  originY: number;
+}
+
+export function isGridSnapEnabled(gridSettings: Pick<GridSettingsSnapshot, 'snapEnabled'> | null | undefined): boolean {
+  return gridSettings?.snapEnabled === true;
+}
+
+export function getNextMarqueeSelection(
+  currentSelection: Set<string>,
+  intersectingIds: Iterable<string>,
+  shiftKey: boolean,
+): Set<string> {
+  if (!shiftKey) {
+    return new Set(intersectingIds);
+  }
+
+  const next = new Set(currentSelection);
+  for (const id of intersectingIds) {
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+  }
+  return next;
+}
+
+export function createCanvasClipboard(selectedWidgets: BsbWidgetNodeSnapshot[]): BsbCanvasClipboard | null {
+  if (selectedWidgets.length === 0) {
+    return null;
+  }
+
+  return {
+    widgets: selectedWidgets.map((widget) => JSON.parse(JSON.stringify(widget)) as BsbWidgetNodeSnapshot),
+    originX: Math.min(...selectedWidgets.map((widget) => widget.x)),
+    originY: Math.min(...selectedWidgets.map((widget) => widget.y)),
+  };
+}
+
+export function buildPastedWidgets(
+  clipboard: BsbCanvasClipboard | null,
+  targetX: number,
+  targetY: number,
+  snapEnabled: boolean,
+  gridWidth?: number,
+  gridHeight?: number,
+): BsbWidgetNodeSnapshot[] {
+  if (!clipboard) {
+    return [];
+  }
+
+  let offsetX = targetX - clipboard.originX;
+  let offsetY = targetY - clipboard.originY;
+
+  if (snapEnabled && gridWidth && gridHeight) {
+    const snapX = Math.floor(targetX / gridWidth) * gridWidth;
+    const snapY = Math.floor(targetY / gridHeight) * gridHeight;
+    offsetX = snapX - clipboard.originX;
+    offsetY = snapY - clipboard.originY;
+  }
+
+  return clipboard.widgets.map((widget) => {
+    const clone = JSON.parse(JSON.stringify(widget)) as BsbWidgetNodeSnapshot;
+    clone.x = (clone.x ?? 0) + offsetX;
+    clone.y = (clone.y ?? 0) + offsetY;
+    delete clone.id;
+    return clone;
+  });
+}
+
 export default function BSBInterfaceCanvas({
   instrument,
   selectedWidgetIds,
@@ -82,14 +152,16 @@ export default function BSBInterfaceCanvas({
   const [groupStack, setGroupStack] = useState<GroupStackEntry[]>([]);
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [clipboard, setClipboard] = useState<BsbCanvasClipboard | null>(null);
   const canvasInnerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const scrollMemory = useRef<Map<string, { scrollLeft: number; scrollTop: number }>>(new Map());
   const marqueeDragged = useRef(false);
 
   const gridSettings = instrument.gridSettings;
+  const snapToGrid = isGridSnapEnabled(gridSettings);
   const resizeCtx = {
-    gridSnapEnabled: gridSettings?.snapEnabled,
+    gridSnapEnabled: snapToGrid,
     gridSnapWidth: gridSettings?.width,
     gridSnapHeight: gridSettings?.height,
   };
@@ -134,15 +206,11 @@ export default function BSBInterfaceCanvas({
 
     switch (action) {
       case 'copy': {
-        _clipboard = selected.map(s => JSON.parse(JSON.stringify(s)));
-        _clipboardOriginX = Math.min(...selected.map(s => s.x));
-        _clipboardOriginY = Math.min(...selected.map(s => s.y));
+        setClipboard(createCanvasClipboard(selected));
         break;
       }
       case 'cut': {
-        _clipboard = selected.map(s => JSON.parse(JSON.stringify(s)));
-        _clipboardOriginX = Math.min(...selected.map(s => s.x));
-        _clipboardOriginY = Math.min(...selected.map(s => s.y));
+        setClipboard(createCanvasClipboard(selected));
         for (const id of selIds) {
           onBsbInterfacePatch({ type: 'removeWidget', widgetId: id });
         }
@@ -256,11 +324,10 @@ export default function BSBInterfaceCanvas({
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
       e.preventDefault();
-      const step = (gridSettings?.snapEnabled && gridSettings?.enabled)
-        ? gridSettings.width
-        : 1;
-      const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-      const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+      const stepX = snapToGrid ? gridSettings.width : 1;
+      const stepY = snapToGrid ? gridSettings.height : 1;
+      const dx = e.key === 'ArrowLeft' ? -stepX : e.key === 'ArrowRight' ? stepX : 0;
+      const dy = e.key === 'ArrowUp' ? -stepY : e.key === 'ArrowDown' ? stepY : 0;
       for (const widgetId of selectedWidgetIds) {
         const pos = getWidgetPosition(widgetId);
         if (!pos) continue;
@@ -271,7 +338,7 @@ export default function BSBInterfaceCanvas({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [editEnabled, selectedWidgetIds, gridSettings, onBsbInterfacePatch, getWidgetPosition]);
+  }, [editEnabled, selectedWidgetIds, snapToGrid, gridSettings, onBsbInterfacePatch, getWidgetPosition]);
 
   const enterGroup = (node: BsbWidgetNodeSnapshot) => {
     if (canvasRef.current) {
@@ -386,7 +453,7 @@ export default function BSBInterfaceCanvas({
     const gs = instrument.gridSettings;
     let snapX = x;
     let snapY = y;
-    if (gs?.snapEnabled && gs?.enabled) {
+    if (isGridSnapEnabled(gs)) {
       snapX = Math.floor(x / gs.width) * gs.width;
       snapY = Math.floor(y / gs.height) * gs.height;
     }
@@ -396,29 +463,22 @@ export default function BSBInterfaceCanvas({
 
   const contextMenuPos = useRef({ x: 0, y: 0 });
 
-  const canPaste = _clipboard.length > 0;
+  const canPaste = clipboard !== null && clipboard.widgets.length > 0;
 
   const handlePaste = useCallback(() => {
-    if (_clipboard.length === 0) return;
-    let offsetX = contextMenuPos.current.x - _clipboardOriginX;
-    let offsetY = contextMenuPos.current.y - _clipboardOriginY;
+    if (!clipboard) return;
     const gs = instrument.gridSettings;
-    if (gs?.snapEnabled && gs?.enabled) {
-      const snapX = Math.floor(contextMenuPos.current.x / gs.width) * gs.width;
-      const snapY = Math.floor(contextMenuPos.current.y / gs.height) * gs.height;
-      offsetX = snapX - _clipboardOriginX;
-      offsetY = snapY - _clipboardOriginY;
-    }
-    const widgets = _clipboard.map(w => {
-      const clone = JSON.parse(JSON.stringify(w));
-      clone.x = (clone.x ?? 0) + offsetX;
-      clone.y = (clone.y ?? 0) + offsetY;
-      delete clone.id;
-      return clone;
-    });
+    const widgets = buildPastedWidgets(
+      clipboard,
+      contextMenuPos.current.x,
+      contextMenuPos.current.y,
+      isGridSnapEnabled(gs),
+      gs?.width,
+      gs?.height,
+    );
     const pgId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
     onBsbInterfacePatch({ type: 'pasteWidgets', widgetData: JSON.stringify(widgets), parentGroupId: pgId });
-  }, [groupStack, onBsbInterfacePatch, instrument.gridSettings]);
+  }, [clipboard, groupStack, onBsbInterfacePatch, instrument.gridSettings]);
 
   // Marquee selection handlers
   const onCanvasMouseDown = (e: React.MouseEvent) => {
@@ -466,24 +526,10 @@ export default function BSBInterfaceCanvas({
           ids.add(child.id);
         }
       }
-      if (e.shiftKey) {
-        // Toggle intersection set against current selection
-        const next = new Set(selectedWidgetIds);
-        for (const id of ids) {
-          if (next.has(id)) next.delete(id);
-          else next.add(id);
-        }
-        onWidgetSelect(null);
-        for (const id of next) {
-          if (!selectedWidgetIds.has(id)) {
-            onWidgetSelect(id, true);
-          }
-        }
-      } else {
-        onWidgetSelect(null);
-        for (const id of ids) {
-          onWidgetSelect(id, true);
-        }
+      const nextSelection = getNextMarqueeSelection(selectedWidgetIds, ids, e.shiftKey);
+      onWidgetSelect(null);
+      for (const id of nextSelection) {
+        onWidgetSelect(id, true);
       }
     } else {
       // Simple click on background - clear selection (handled via click, see below)

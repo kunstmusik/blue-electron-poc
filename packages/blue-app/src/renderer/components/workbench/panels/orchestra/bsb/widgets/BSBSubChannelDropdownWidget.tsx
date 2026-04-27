@@ -1,24 +1,10 @@
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
-import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
-import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
 import { getDropdownDisplayWidth } from './utils';
 import WidgetWrapper from './WidgetWrapper';
+import type { BSBWidgetComponentProps } from './widget-component-props';
 
-interface BSBSubChannelDropdownWidgetProps {
-  node: BsbWidgetNodeSnapshot;
-  isSelected: boolean;
-  editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
-  onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
-  resizeMeta?: BSBWidgetResizeMeta;
-  gridSnapEnabled?: boolean;
-  gridSnapWidth?: number;
-  gridSnapHeight?: number;
-  selectedWidgetIds?: Set<string>;
-  getWidgetPosition?: (id: string) => { x: number; y: number } | undefined;
-  onWidgetAction?: (action: string) => void;
-}
+type BSBSubChannelDropdownWidgetProps = BSBWidgetComponentProps;
 
 export default function BSBSubChannelDropdownWidget({
   node,
