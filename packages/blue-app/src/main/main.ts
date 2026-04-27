@@ -76,6 +76,11 @@ function buildNativeWindowMenu() {
     { label: 'Editors', submenu: buildWorkbenchMenuItems('editor') },
     { label: 'Properties', submenu: buildWorkbenchMenuItems('properties') },
     { label: 'Output', submenu: buildWorkbenchMenuItems('output') },
+    {
+      label: 'Toggle Dev Tools',
+      accelerator: process.platform === 'darwin' ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',
+      click: () => mainWindow?.webContents.toggleDevTools(),
+    },
     { type: 'separator' as const },
     {
       label: 'Reset Default Layout',
@@ -147,7 +152,6 @@ function createWindow(): void {
   // During development, load from Vite dev server for HMR
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   }
