@@ -515,13 +515,37 @@ async function syncEngineWithProjectPatch(data: BlueData, patch: ProjectDocument
               }
             }
           } else if (bsbPatch.type === 'updateWidgetProperties') {
-            // Single widget property update (common for slider/knob moves)
-            if (typeof bsbPatch.properties.value === 'number') {
-              const widget = instrument.getGraphicInterface().findWidgetById(bsbPatch.widgetId);
-              if (widget && widget.objectName) {
+            const widget = instrument.getGraphicInterface().findWidgetById(bsbPatch.widgetId);
+            if (widget && widget.objectName) {
+              const props = bsbPatch.properties;
+              if (typeof props.value === 'number') {
                 const param = instrument.getParameters().find(p => p.getName() === widget.objectName);
                 if (param && param.getCompilationVarName()) {
-                  await engineBridge.setChannel(param.getCompilationVarName()!, bsbPatch.properties.value);
+                  await engineBridge.setChannel(param.getCompilationVarName()!, props.value);
+                }
+              }
+              if (typeof props.selected === 'boolean') {
+                const param = instrument.getParameters().find(p => p.getName() === widget.objectName);
+                if (param && param.getCompilationVarName()) {
+                  await engineBridge.setChannel(param.getCompilationVarName()!, props.selected ? 1 : 0);
+                }
+              }
+              if (typeof props.selectedIndex === 'number') {
+                const param = instrument.getParameters().find(p => p.getName() === widget.objectName);
+                if (param && param.getCompilationVarName()) {
+                  await engineBridge.setChannel(param.getCompilationVarName()!, props.selectedIndex);
+                }
+              }
+              if (typeof props.xValue === 'number') {
+                const px = instrument.getParameters().find(p => p.getName() === widget.objectName + 'X');
+                if (px && px.getCompilationVarName()) {
+                  await engineBridge.setChannel(px.getCompilationVarName()!, props.xValue);
+                }
+              }
+              if (typeof props.yValue === 'number') {
+                const py = instrument.getParameters().find(p => p.getName() === widget.objectName + 'Y');
+                if (py && py.getCompilationVarName()) {
+                  await engineBridge.setChannel(py.getCompilationVarName()!, props.yValue);
                 }
               }
             }

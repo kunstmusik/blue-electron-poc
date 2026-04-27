@@ -377,6 +377,44 @@ export class BlueSynthBuilder extends Instrument {
             }
           }
           break;
+        case "selected":
+          if (typeof value === "boolean") {
+            widget.setValue(value ? 1 : 0);
+            if (widget.objectName) {
+              const param = this._parameters.find(p => p.getName() === widget.objectName);
+              if (param) {
+                param.setFixedValue(value ? 1 : 0);
+              }
+            }
+          }
+          break;
+        case "selectedIndex":
+          if (typeof value === "number") {
+            widget.setValue(value);
+            if (widget.objectName) {
+              const param = this._parameters.find(p => p.getName() === widget.objectName);
+              if (param) {
+                param.setFixedValue(value);
+              }
+            }
+          }
+          break;
+        case "xValue":
+          if (typeof value === "number") {
+            (widget as unknown as Record<string, unknown>)["xValue"] = value;
+            const xName = widget.objectName + "X";
+            const px = this._parameters.find(p => p.getName() === xName);
+            if (px) px.setFixedValue(value);
+          }
+          break;
+        case "yValue":
+          if (typeof value === "number") {
+            (widget as unknown as Record<string, unknown>)["yValue"] = value;
+            const yName = widget.objectName + "Y";
+            const py = this._parameters.find(p => p.getName() === yName);
+            if (py) py.setFixedValue(value);
+          }
+          break;
         case "minimum":
           if (typeof value === "number") widget.minimum = value;
           break;
