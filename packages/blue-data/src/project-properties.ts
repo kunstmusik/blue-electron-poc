@@ -51,7 +51,7 @@ export class ProjectProperties {
   // Legacy compatibility fields retained for existing callers and file formats.
   commandLine = '';
   diskCommandLine = '';
-  oFormat = 'wav';
+  oFormat = '';
   audioOutput = '';
 
   constructor(other?: ProjectProperties) {
@@ -137,9 +137,9 @@ export class ProjectProperties {
   saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = new Element('projectProperties');
 
-    if (this.title) elem.addElement('title').setText(this.title);
-    if (this.author) elem.addElement('author').setText(this.author);
-    if (this.notes) elem.addElement('notes').setText(this.notes);
+    elem.addElement('title').setText(this.title);
+    elem.addElement('author').setText(this.author);
+    elem.addElement('notes').setText(this.notes);
     if (this.sampleRate) elem.addElement('sampleRate').setText(this.sampleRate);
     if (this.ksmps) elem.addElement('ksmps').setText(this.ksmps);
     if (this.channels) elem.addElement('channels').setText(this.channels);
@@ -160,20 +160,20 @@ export class ProjectProperties {
     elem.addElement('outOfRangeEnabled').setText(this.outOfRangeEnabled.toString());
     elem.addElement('warningsEnabled').setText(this.warningsEnabled.toString());
     elem.addElement('benchmarkEnabled').setText(this.benchmarkEnabled.toString());
-    if (this.advancedSettings) elem.addElement('advancedSettings').setText(this.advancedSettings);
+    elem.addElement('advancedSettings').setText(this.advancedSettings);
     elem.addElement('completeOverride').setText(this.completeOverride.toString());
 
-    if (this.fileName) elem.addElement('fileName').setText(this.fileName);
+    elem.addElement('fileName').setText(this.fileName);
     elem.addElement('askOnRender').setText(this.askOnRender.toString());
     elem.addElement('diskNoteAmpsEnabled').setText(this.diskNoteAmpsEnabled.toString());
     elem.addElement('diskOutOfRangeEnabled').setText(this.diskOutOfRangeEnabled.toString());
     elem.addElement('diskWarningsEnabled').setText(this.diskWarningsEnabled.toString());
     elem.addElement('diskBenchmarkEnabled').setText(this.diskBenchmarkEnabled.toString());
-    if (this.diskAdvancedSettings) elem.addElement('diskAdvancedSettings').setText(this.diskAdvancedSettings);
+    elem.addElement('diskAdvancedSettings').setText(this.diskAdvancedSettings);
     elem.addElement('diskCompleteOverride').setText(this.diskCompleteOverride.toString());
     elem.addElement('diskAlwaysRenderEntireProject').setText(this.diskAlwaysRenderEntireProject.toString());
 
-    if (this.mediaFolder) elem.addElement('mediaFolder').setText(this.mediaFolder);
+    elem.addElement('mediaFolder').setText(this.mediaFolder);
     elem.addElement('copyToMediaFileOnImport').setText(
       this.copyToMediaFileOnImport.toString(),
     );

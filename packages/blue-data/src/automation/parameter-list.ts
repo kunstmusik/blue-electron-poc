@@ -9,7 +9,7 @@ export class ParameterList extends Array<Parameter> {
   saveAsXML(): Element {
     const elem = new Element('parameterList');
     for (const param of this) {
-      elem.addElement(param.saveAsXML().setName('parameter'));
+      elem.addElement(param.saveAsXML());
     }
     return elem;
   }

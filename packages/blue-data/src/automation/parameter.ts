@@ -17,6 +17,7 @@ export enum AutomationCurve {
 }
 
 export class Parameter implements BlueDataObject {
+  private _uniqueId = Parameter.generateUniqueId();
   private _name = '';
   private _label = '';
   private _minimum = 0;
@@ -30,8 +31,21 @@ export class Parameter implements BlueDataObject {
   private _compilationVarName: string | null = null;
   private _fixedValue = 0;
 
+  private static generateUniqueId(): string {
+    return Math.abs(Math.floor(Math.random() * 2147483647)).toString();
+  }
+
+  private static formatDouble(v: number): string {
+    const s = v.toString();
+    if (s.includes('.') || s.includes('e') || s.includes('E')) return s;
+    return s + '.0';
+  }
+
   getName(): string { return this._name; }
   setName(name: string): void { this._name = name; }
+
+  getUniqueId(): string { return this._uniqueId; }
+  setUniqueId(id: string): void { this._uniqueId = id; }
 
   getLabel(): string { return this._label; }
   setLabel(label: string): void { this._label = label; }
@@ -135,18 +149,29 @@ export class Parameter implements BlueDataObject {
 
   saveAsXML(): Element {
     const elem = new Element('parameter');
+    elem.setAttribute('uniqueId', this._uniqueId);
     elem.setAttribute('name', this._name);
-    elem.setAttribute('curve', this._curve);
-    elem.setAttribute('enabled', this._enabled.toString());
-    elem.addElement('resolution').setText(this._resolution.toString());
-    elem.addElement('resolutionScale').setText(this._resolutionScale.toString());
-    elem.addElement('highPrecision').setText(this._highPrecision.toString());
+    elem.setAttribute('label', this._label);
+    elem.setAttribute('min', Parameter.formatDouble(this._minimum));
+    elem.setAttribute('max', Parameter.formatDouble(this._maximum));
+    elem.setAttribute('bdresolution', this._resolution.toString());
+    elem.setAttribute('automationEnabled', this._enabled.toString());
+    elem.setAttribute('value', Parameter.formatDouble(this._fixedValue));
 
-    const pointsElem = elem.addElement('points');
+    const lineElem = elem.addElement('line');
+    lineElem.setAttribute('name', '');
+    lineElem.setAttribute('version', '2');
+    lineElem.setAttribute('max', Parameter.formatDouble(this._maximum));
+    lineElem.setAttribute('min', Parameter.formatDouble(this._minimum));
+    lineElem.setAttribute('bdresolution', this._resolution.toString());
+    lineElem.setAttribute('color', '-8355712');
+    lineElem.setAttribute('rightBound', 'false');
+    lineElem.setAttribute('endPointsLinked', 'false');
+
     for (const pt of this._points) {
-      const ptElem = pointsElem.addElement('point');
-      ptElem.setAttribute('time', pt.time.toString());
-      ptElem.setAttribute('value', pt.value.toString());
+      const ptElem = lineElem.addElement('linePoint');
+      ptElem.setAttribute('x', Parameter.formatDouble(pt.time));
+      ptElem.setAttribute('y', Parameter.formatDouble(pt.value));
     }
 
     return elem;
@@ -154,6 +179,8 @@ export class Parameter implements BlueDataObject {
 
   static loadFromXML(data: Element): Parameter {
     const param = new Parameter();
+    const uid = data.getAttribute('uniqueId');
+    if (uid) param._uniqueId = uid;
     param._name = data.getAttribute('name') ?? '';
     param._label = data.getAttribute('label') ?? '';
 
@@ -245,6 +272,7 @@ export class Parameter implements BlueDataObject {
 
   deepCopy(): BlueDataObject {
     const copy = new Parameter();
+    copy._uniqueId = this._uniqueId;
     copy._name = this._name;
     copy._label = this._label;
     copy._minimum = this._minimum;
