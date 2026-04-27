@@ -11,7 +11,7 @@ const SLIDER_WIDTH = 50;
 const TRACK_W = 4;
 const THUMB_R = 7;
 
-export default function BSBVSliderWidget({
+function BSBVSliderWidget({
   node,
   isSelected,
   editEnabled,
@@ -158,3 +158,5 @@ export default function BSBVSliderWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBVSliderWidget);

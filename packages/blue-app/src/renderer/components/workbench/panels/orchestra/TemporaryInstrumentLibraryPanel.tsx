@@ -5,7 +5,7 @@ interface TemporaryInstrumentLibraryPanelProps {
   library: TemporaryInstrumentLibrarySnapshot;
 }
 
-export default function TemporaryInstrumentLibraryPanel({
+function TemporaryInstrumentLibraryPanel({
   library,
 }: TemporaryInstrumentLibraryPanelProps): React.ReactElement {
   return (
@@ -22,4 +22,6 @@ export default function TemporaryInstrumentLibraryPanel({
     </section>
   );
 }
+
+export default React.memo(TemporaryInstrumentLibraryPanel);
 

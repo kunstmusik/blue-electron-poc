@@ -142,3 +142,17 @@ Once the reducer and selectors preserve identity, memoization becomes worthwhile
 - Renderer render-count tests for arrangement isolation and widget isolation
 - Transport tests proving live-control edits bypass the trailing document debounce
 - Manual React Profiler pass on a BSB-heavy project to confirm the canonical-echo cascade is gone
+
+## 7. Validation Notes
+
+- The automated validation suite is passing after the Phase 4 refactor: `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, `pnpm --filter @blue/data test`, and `git diff --check` all completed successfully.
+- The renderer isolation test needed stable handler references and `IS_REACT_ACT_ENVIRONMENT = true` to avoid false prop-churn signals and React act warnings in jsdom.
+- `temporaryLibrary` must preserve reference identity across unrelated orchestra edits; cloning that branch causes the library panel to rerender and breaks the isolation goal.
+- The manual React Profiler quickstart still needs to run in an interactive Electron session on a BSB-heavy project.
+
+## 8. Close-Out Notes
+
+- The initial baseline observations above are now historical; the implementation in the repository has been updated to structural sharing, narrower selectors, live-control dispatch, and explicit failure recovery.
+- The new transport regression coverage lives in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/bsb-performance-transport.test.ts` and covers trailing batch commits, realtime updates, and canonical resync on commit failure.
+- Manual validation with dev tools closed was positive; the remaining jank reported earlier was no longer noticeable.
+- The Spec 024 close-out validation is complete, so the earlier note about needing an interactive profiler pass is superseded.

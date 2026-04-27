@@ -11,7 +11,7 @@ const SLIDER_HEIGHT = 30;
 const TRACK_H = 4;
 const THUMB_R = 7;
 
-export default function BSBHSliderWidget({
+function BSBHSliderWidget({
   node,
   isSelected,
   editEnabled,
@@ -155,3 +155,5 @@ export default function BSBHSliderWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBHSliderWidget);

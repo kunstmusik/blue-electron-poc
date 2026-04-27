@@ -3,6 +3,17 @@
 **Date**: 2026-04-27
 **Branch**: `022-bsb-interface-parity`
 
+## Spec 024 Package
+
+Spec `024-bsb-performance` is complete and closed out. The implementation slice reduced BSB render churn by preserving store identity for untouched orchestra state, narrowing renderer subscriptions, separating live BSB control from document commits, and memoizing the hot widget shells.
+
+- Goal: remove the remaining BlueSynthBuilder UI jank by separating live BSB control from document commits, preserving identity across single-widget edits, and narrowing renderer invalidation to the affected subtree only
+- Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/spec.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/plan.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/research.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/contracts/bsb-performance-surface.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/quickstart.md`, `/Users/stevenyi/work/blue-electron/specs/024-bsb-performance/tasks.md`
+- Completed scope: store identity regression coverage, batch document commit transport, realtime BSB control updates, explicit failure recovery via canonical project resync, structural-sharing orchestra and widget-tree updates, renderer boundary isolation, widget memo boundaries, jsdom-based render isolation tests, transport regression tests, and the related spec-task updates
+- Validation status: `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, `pnpm --filter @blue/data test`, and `git diff --check` pass
+- Manual validation: the app was checked with dev tools closed and the remaining jank was no longer noticeable
+- Immediate next step: none for Spec 024; remaining work is future-spec scope only
+
 ## Spec 023 Package
 
 Spec `023-bsb-widget-ui` is complete. The implementation pass and final manual verification pass are done, and the remaining work in the repo is future-spec scope only. Recent follow-up work after the review synthesis restored the highest-value Java parity contracts and cleaned up the remaining editor-side behavior gaps without reopening the broader widget-rendering slice.

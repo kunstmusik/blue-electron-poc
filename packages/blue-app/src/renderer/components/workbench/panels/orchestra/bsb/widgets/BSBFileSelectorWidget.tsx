@@ -5,7 +5,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBFileSelectorWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBFileSelectorWidget({
+function BSBFileSelectorWidget({
   node,
   isSelected,
   editEnabled,
@@ -129,3 +129,5 @@ export default function BSBFileSelectorWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBFileSelectorWidget);

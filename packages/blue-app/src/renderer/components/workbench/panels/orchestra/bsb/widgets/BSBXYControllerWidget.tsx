@@ -4,7 +4,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBXYControllerWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBXYControllerWidget({
+function BSBXYControllerWidget({
   node,
   isSelected,
   editEnabled,
@@ -90,3 +90,5 @@ export default function BSBXYControllerWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBXYControllerWidget);

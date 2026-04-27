@@ -6,7 +6,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBHSliderBankWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBHSliderBankWidget({
+function BSBHSliderBankWidget({
   node,
   isSelected,
   editEnabled,
@@ -128,3 +128,5 @@ export default function BSBHSliderBankWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBHSliderBankWidget);

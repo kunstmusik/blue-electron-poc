@@ -80,7 +80,7 @@ function movePoint(line: LineData, pointIndex: number, x: number, y: number): Li
   return nextLine;
 }
 
-export default function BSBLineObjectWidget({
+function BSBLineObjectWidget({
   node,
   isSelected,
   editEnabled,
@@ -340,3 +340,5 @@ export default function BSBLineObjectWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBLineObjectWidget);

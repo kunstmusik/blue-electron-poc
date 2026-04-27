@@ -37,7 +37,7 @@ describe('Orchestra arrangement panel', () => {
   it('renders TanStack-backed arrangement columns and rows', () => {
     const html = renderToStaticMarkup(
       <ArrangementPanel
-        orchestra={ORCHESTRA}
+        rows={ORCHESTRA.arrangement.rows}
         selectedAssignmentId="1"
         onSelectAssignment={vi.fn()}
         onOrchestraPatch={vi.fn()}

@@ -7,7 +7,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBDropdownWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBDropdownWidget({
+function BSBDropdownWidget({
   node,
   isSelected,
   editEnabled,
@@ -76,3 +76,5 @@ export default function BSBDropdownWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBDropdownWidget);

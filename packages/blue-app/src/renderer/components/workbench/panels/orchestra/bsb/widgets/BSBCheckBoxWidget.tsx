@@ -4,7 +4,7 @@ import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
 type BSBCheckBoxWidgetProps = BSBWidgetPatchComponentProps;
 
-export default function BSBCheckBoxWidget({
+function BSBCheckBoxWidget({
   node,
   isSelected,
   editEnabled,
@@ -52,3 +52,5 @@ export default function BSBCheckBoxWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBCheckBoxWidget);

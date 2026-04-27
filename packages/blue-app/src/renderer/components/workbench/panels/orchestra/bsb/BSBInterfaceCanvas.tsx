@@ -142,7 +142,7 @@ export function buildPastedWidgets(
   });
 }
 
-export default function BSBInterfaceCanvas({
+function BSBInterfaceCanvas({
   instrument,
   selectedWidgetIds,
   editEnabled,
@@ -397,9 +397,13 @@ export default function BSBInterfaceCanvas({
       gridSnapWidth: resizeCtx.gridSnapWidth,
       gridSnapHeight: resizeCtx.gridSnapHeight,
       onBsbInterfacePatch,
-      selectedWidgetIds,
-      getWidgetPosition,
-      onWidgetAction: handleWidgetAction,
+      ...(isSelected
+        ? {
+            selectedWidgetIds,
+            getWidgetPosition,
+            onWidgetAction: handleWidgetAction,
+          }
+        : {}),
     };
 
     if (node.preservedOnly) {
@@ -653,6 +657,8 @@ export default function BSBInterfaceCanvas({
     </Tooltip.Provider>
   );
 }
+
+export default React.memo(BSBInterfaceCanvas);
 
 function resolveCurrentChildren(root: BsbWidgetNodeSnapshot, stack: GroupStackEntry[]): BsbWidgetNodeSnapshot[] {
   if (stack.length === 0) return root.children ?? [];

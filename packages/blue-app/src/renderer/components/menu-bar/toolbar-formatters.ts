@@ -1,6 +1,4 @@
 import type {
-  PlaybackClockState,
-  PlaybackDisplayState,
   PlaybackStatus,
 } from '../../stores/playback-store';
 import type {
@@ -34,10 +32,25 @@ export interface ToolbarSelectionDisplayState {
   hasSelection: boolean;
 }
 
+export interface ToolbarPlayheadTransportSnapshot {
+  renderStartTime: number;
+  tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
+  smpteFrameRate: number;
+  sampleRate: number;
+}
+
+export interface ToolbarSelectionTransportSnapshot {
+  renderStartTime: number;
+  renderEndTime: number;
+  tempoMap: TempoMapSnapshot;
+}
+
 export interface ToolbarPlaybackSnapshot {
   status: PlaybackStatus;
-  clock: PlaybackClockState | null;
-  display: PlaybackDisplayState;
+  hasClock: boolean;
+  elapsedSeconds: number;
+  source: ToolbarDisplaySource;
 }
 
 export interface ToolbarPlayheadDisplayPreferences {
@@ -49,6 +62,9 @@ interface TempoMapAdapter {
   beatsToSeconds: (beat: number) => number;
   secondsToBeats: (seconds: number) => number;
 }
+
+const tempoMapAdapterCache = new WeakMap<TempoMapSnapshot, TempoMapAdapter>();
+const meterTimelineCache = new WeakMap<MeterMapSnapshot, MeterTimelineEntry[]>();
 
 interface MeterTimelineEntry {
   measure: number;
@@ -64,19 +80,28 @@ function normalizeTempoPoints(snapshot: TempoMapSnapshot) {
 }
 
 function createTempoMapAdapter(snapshot: TempoMapSnapshot): TempoMapAdapter {
+  const cachedAdapter = tempoMapAdapterCache.get(snapshot);
+  if (cachedAdapter) {
+    return cachedAdapter;
+  }
+
   if (!snapshot.enabled) {
-    return {
+    const adapter = {
       beatsToSeconds: (beat) => beat,
       secondsToBeats: (seconds) => seconds,
     };
+    tempoMapAdapterCache.set(snapshot, adapter);
+    return adapter;
   }
 
   const points = normalizeTempoPoints(snapshot);
   if (points.length === 0) {
-    return {
+    const adapter = {
       beatsToSeconds: (beat) => beat,
       secondsToBeats: (seconds) => seconds,
     };
+    tempoMapAdapterCache.set(snapshot, adapter);
+    return adapter;
   }
 
   const cumulativeSeconds: number[] = [0];
@@ -180,10 +205,17 @@ function createTempoMapAdapter(snapshot: TempoMapSnapshot): TempoMapAdapter {
     return current.beat + (Math.sqrt(Math.max(0, discriminant)) - factor1) / acceleration;
   };
 
-  return { beatsToSeconds, secondsToBeats };
+  const adapter = { beatsToSeconds, secondsToBeats };
+  tempoMapAdapterCache.set(snapshot, adapter);
+  return adapter;
 }
 
 function normalizeMeterEntries(snapshot: MeterMapSnapshot): Array<MeterTimelineEntry> {
+  const cachedTimeline = meterTimelineCache.get(snapshot);
+  if (cachedTimeline) {
+    return cachedTimeline;
+  }
+
   const entries = snapshot.entries.length > 0 ? snapshot.entries : [
     {
       measure: 1,
@@ -213,6 +245,7 @@ function normalizeMeterEntries(snapshot: MeterMapSnapshot): Array<MeterTimelineE
     });
   });
 
+  meterTimelineCache.set(snapshot, timeline);
   return timeline;
 }
 
@@ -400,7 +433,7 @@ export function formatClockText(seconds: number): string {
 }
 
 export function buildPlayheadDisplayState(
-  transport: ToolbarProjectTransportSnapshot,
+  transport: ToolbarPlayheadTransportSnapshot,
   playback: ToolbarPlaybackSnapshot,
   preferences: ToolbarPlayheadDisplayPreferences = {},
 ): ToolbarPlayheadDisplayState {
@@ -417,7 +450,7 @@ export function buildPlayheadDisplayState(
   const anchorSeconds = tempoMap.beatsToSeconds(anchorBeat);
   const hasLiveClock =
     (playback.status === 'playing' || playback.status === 'stopping') &&
-    playback.clock !== null;
+    playback.hasClock;
 
   if (!hasLiveClock) {
     return {
@@ -429,7 +462,7 @@ export function buildPlayheadDisplayState(
     };
   }
 
-  const displaySeconds = anchorSeconds + playback.display.elapsedSeconds;
+  const displaySeconds = anchorSeconds + playback.elapsedSeconds;
   const displayBeat = tempoMap.secondsToBeats(displaySeconds);
 
   return {
@@ -437,12 +470,12 @@ export function buildPlayheadDisplayState(
     secondaryText: secondaryFormat ? formatToolbarPosition(displayBeat, secondaryFormat, transport) : null,
     displayBeat,
     displaySeconds,
-    source: playback.display.source,
+    source: playback.source,
   };
 }
 
 export function buildSelectionDisplayState(
-  transport: ToolbarProjectTransportSnapshot,
+  transport: ToolbarSelectionTransportSnapshot,
 ): ToolbarSelectionDisplayState {
   if (transport.renderEndTime < 0 || transport.renderEndTime < transport.renderStartTime) {
     return {

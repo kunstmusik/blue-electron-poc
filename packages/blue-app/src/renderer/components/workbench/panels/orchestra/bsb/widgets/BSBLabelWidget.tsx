@@ -4,7 +4,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBLabelWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBLabelWidget({
+function BSBLabelWidget({
   node,
   isSelected,
   editEnabled,
@@ -42,3 +42,5 @@ export default function BSBLabelWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBLabelWidget);

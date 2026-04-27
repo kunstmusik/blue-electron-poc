@@ -6,7 +6,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBSubChannelDropdownWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBSubChannelDropdownWidget({
+function BSBSubChannelDropdownWidget({
   node,
   isSelected,
   editEnabled,
@@ -38,3 +38,5 @@ export default function BSBSubChannelDropdownWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBSubChannelDropdownWidget);

@@ -136,6 +136,19 @@ export interface ProjectDocumentPatch {
   transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>>;
 }
 
+export interface ProjectDocumentCommitReceipt {
+  revision: number;
+}
+
+export type BsbRealtimeControlKind = 'value' | 'selected' | 'selectedIndex' | 'xy' | 'sliderBank';
+
+export interface BsbRealtimeControlUpdate {
+  assignmentId: string;
+  widgetId: string;
+  kind: BsbRealtimeControlKind;
+  payload: Record<string, number | boolean>;
+}
+
 export type SupportedNewInstrumentType =
   | 'generic'
   | 'python'

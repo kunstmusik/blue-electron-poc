@@ -26,7 +26,7 @@ interface WidgetWrapperProps {
   onWidgetAction?: (action: string) => void;
 }
 
-export default function WidgetWrapper({
+function WidgetWrapper({
   node,
   isSelected,
   editEnabled,
@@ -290,6 +290,8 @@ export default function WidgetWrapper({
     </ContextMenu.Root>
   );
 }
+
+export default React.memo(WidgetWrapper);
 
 interface ResizeHandleProps {
   edge: 'right' | 'bottom' | 'left' | 'top';

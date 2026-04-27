@@ -3,6 +3,8 @@
  */
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import type {
+  BsbRealtimeControlUpdate,
+  ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
@@ -24,6 +26,10 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('get-project-document') as Promise<ProjectEditorSnapshot | null>,
   updateProjectDocument: (patch: ProjectDocumentPatch) =>
     ipcRenderer.invoke('update-project-document', patch) as Promise<ProjectEditorSnapshot | null>,
+  commitProjectDocumentPatches: (patches: ProjectDocumentPatch[]) =>
+    ipcRenderer.invoke('commit-project-document-patches', patches) as Promise<ProjectDocumentCommitReceipt>,
+  sendBsbRealtimeControlUpdate: (update: BsbRealtimeControlUpdate) =>
+    ipcRenderer.invoke('send-bsb-realtime-control-update', update) as Promise<void>,
 
   // Clipboard
   readClipboardText: () => Promise.resolve(clipboard.readText()),

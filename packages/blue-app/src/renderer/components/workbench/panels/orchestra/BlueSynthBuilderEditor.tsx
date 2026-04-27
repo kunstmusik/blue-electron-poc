@@ -7,7 +7,7 @@ import type { SelectedInstrumentEditorProps } from './types';
 
 type BsbEditorTab = 'interface' | 'code' | 'udo';
 
-export default function BlueSynthBuilderEditor({
+function BlueSynthBuilderEditor({
   instrument,
   onInstrumentPatch,
   onOrchestraPatch,
@@ -79,3 +79,5 @@ export default function BlueSynthBuilderEditor({
     </div>
   );
 }
+
+export default React.memo(BlueSynthBuilderEditor);

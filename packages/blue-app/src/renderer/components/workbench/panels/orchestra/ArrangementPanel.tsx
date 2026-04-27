@@ -8,6 +8,7 @@ import type {
   InstrumentSnapshot,
   SupportedNewInstrumentType,
 } from '../../../../../shared/project-editor';
+import { useProjectStore } from '../../../../stores/project-store';
 import ArrangementContextMenu from './ArrangementContextMenu';
 import { createArrangementColumns } from './arrangement-table/arrangement-columns';
 import type { ArrangementPanelProps } from './types';
@@ -20,8 +21,8 @@ const INSTRUMENT_TYPES: Array<{ type: SupportedNewInstrumentType; label: string 
   { type: 'blueSynthBuilder', label: 'BlueSynthBuilder' },
 ];
 
-export default function ArrangementPanel({
-  orchestra,
+function ArrangementPanel({
+  rows,
   selectedAssignmentId,
   onSelectAssignment,
   onOrchestraPatch,
@@ -69,7 +70,7 @@ export default function ArrangementPanel({
   const tableRef = useRef<HTMLTableElement>(null);
 
   const table = useReactTable({
-    data: orchestra.arrangement.rows,
+    data: rows,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.assignmentId,
@@ -119,9 +120,9 @@ export default function ArrangementPanel({
   const selectedRowStillExists = useMemo(
     () =>
       selectedAssignmentId
-        ? orchestra.arrangement.rows.some((row) => row.assignmentId === selectedAssignmentId)
+        ? rows.some((row) => row.assignmentId === selectedAssignmentId)
         : false,
-    [orchestra.arrangement.rows, selectedAssignmentId],
+    [rows, selectedAssignmentId],
   );
 
   const addInstrument = (instrumentType: SupportedNewInstrumentType) => {
@@ -130,7 +131,7 @@ export default function ArrangementPanel({
   };
 
   const copyAssignment = (assignmentId: string) => {
-    const instrument = orchestra.instruments.find(
+    const instrument = useProjectStore.getState().orchestra.instruments.find(
       (candidate) => candidate.assignmentId === assignmentId,
     );
     setClipboardInstrument(instrument ?? null);
@@ -172,7 +173,7 @@ export default function ArrangementPanel({
             Arrangement
           </div>
           <div className="text-[11px] text-blue-muted">
-            {orchestra.arrangement.rows.length} instruments
+            {rows.length} instruments
             {selectedAssignmentId && !selectedRowStillExists ? ' · selection cleared' : ''}
           </div>
         </div>
@@ -188,7 +189,7 @@ export default function ArrangementPanel({
           {addMenuOpen && (
             <div
               ref={addMenuRef}
-              className="absolute right-0 top-full z-20 mt-1 min-w-[180px] rounded border border-blue-border bg-[#182542] py-1 shadow-lg"
+              className="absolute right-0 top-full z-20 mt-1 min-w-45 rounded border border-blue-border bg-[#182542] py-1 shadow-lg"
             >
               {INSTRUMENT_TYPES.map(({ type, label }) => (
                 <button
@@ -269,7 +270,7 @@ export default function ArrangementPanel({
           </tbody>
         </table>
 
-        {orchestra.arrangement.rows.length === 0 ? (
+        {rows.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6 text-sm text-blue-muted">
             Add an instrument to start building the project arrangement.
           </div>
@@ -278,3 +279,5 @@ export default function ArrangementPanel({
     </section>
   );
 }
+
+export default React.memo(ArrangementPanel);

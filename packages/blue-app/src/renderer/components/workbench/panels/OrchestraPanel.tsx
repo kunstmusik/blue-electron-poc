@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import ArrangementPanel from './orchestra/ArrangementPanel';
 import InstrumentEditorPanel from './orchestra/InstrumentEditorPanel';
@@ -20,32 +20,31 @@ function EmptyOrchestraState(): React.ReactElement {
 
 export default function OrchestraPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
-  const orchestra = useProjectStore((state) => state.orchestra);
+  const rows = useProjectStore((state) => state.orchestra.arrangement.rows);
+  const temporaryLibrary = useProjectStore((state) => state.orchestra.temporaryLibrary);
   const updateOrchestra = useProjectStore((state) => state.updateOrchestra);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selectedAssignmentId && orchestra.arrangement.rows.length > 0) {
-      setSelectedAssignmentId(orchestra.arrangement.rows[0]!.assignmentId);
+    if (!selectedAssignmentId && rows.length > 0) {
+      setSelectedAssignmentId(rows[0]!.assignmentId);
       return;
     }
 
     if (
       selectedAssignmentId &&
-      !orchestra.arrangement.rows.some((row) => row.assignmentId === selectedAssignmentId)
+      !rows.some((row) => row.assignmentId === selectedAssignmentId)
     ) {
-      setSelectedAssignmentId(orchestra.arrangement.rows[0]?.assignmentId ?? null);
+      setSelectedAssignmentId(rows[0]?.assignmentId ?? null);
     }
-  }, [orchestra.arrangement.rows, selectedAssignmentId]);
+  }, [rows, selectedAssignmentId]);
 
-  const selectedInstrument = useMemo(
-    () =>
-      selectedAssignmentId
-        ? orchestra.instruments.find(
-            (instrument) => instrument.assignmentId === selectedAssignmentId,
-          )
-        : undefined,
-    [orchestra.instruments, selectedAssignmentId],
+  const selectedInstrument = useProjectStore((state) =>
+    selectedAssignmentId
+      ? state.orchestra.instruments.find(
+          (instrument) => instrument.assignmentId === selectedAssignmentId,
+        )
+      : undefined,
   );
 
   if (!loaded) {
@@ -75,13 +74,13 @@ export default function OrchestraPanel(): React.ReactElement {
             orientation="vertical"
             first={
               <ArrangementPanel
-                orchestra={orchestra}
+                rows={rows}
                 selectedAssignmentId={selectedAssignmentId}
                 onSelectAssignment={setSelectedAssignmentId}
                 onOrchestraPatch={updateOrchestra}
               />
             }
-            second={<TemporaryInstrumentLibraryPanel library={orchestra.temporaryLibrary} />}
+            second={<TemporaryInstrumentLibraryPanel library={temporaryLibrary} />}
           />
         }
         second={

@@ -1,8 +1,8 @@
 import type {
+  ArrangementRowSnapshot,
   InstrumentPatch,
   InstrumentSnapshot,
   OrchestraPatch,
-  OrchestraSnapshot,
 } from '../../../../../shared/project-editor';
 
 export interface OrchestraMutationProps {
@@ -15,7 +15,7 @@ export interface SelectedInstrumentEditorProps extends OrchestraMutationProps {
 }
 
 export interface ArrangementPanelProps extends OrchestraMutationProps {
-  orchestra: OrchestraSnapshot;
+  rows: ArrangementRowSnapshot[];
   selectedAssignmentId: string | null;
   onSelectAssignment: (assignmentId: string) => void;
 }

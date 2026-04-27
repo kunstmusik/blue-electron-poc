@@ -1,6 +1,8 @@
 export {};
 
 import type {
+  BsbRealtimeControlUpdate,
+  ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
@@ -21,6 +23,12 @@ declare global {
       updateProjectDocument: (
         patch: ProjectDocumentPatch,
       ) => Promise<ProjectEditorSnapshot | null>;
+      commitProjectDocumentPatches: (
+        patches: ProjectDocumentPatch[],
+      ) => Promise<ProjectDocumentCommitReceipt>;
+      sendBsbRealtimeControlUpdate: (
+        update: BsbRealtimeControlUpdate,
+      ) => Promise<void>;
       readClipboardText: () => Promise<string>;
       writeClipboardText: (text: string) => Promise<void>;
       togglePlay: () => Promise<boolean>;

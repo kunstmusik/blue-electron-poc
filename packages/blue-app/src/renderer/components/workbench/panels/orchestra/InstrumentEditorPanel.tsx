@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { InstrumentSnapshot } from '../../../../../shared/project-editor';
 import type { InstrumentPatch } from '../../../../../shared/project-editor';
 import BlueSynthBuilderEditor from './BlueSynthBuilderEditor';
@@ -13,18 +13,21 @@ interface InstrumentEditorPanelProps extends OrchestraMutationProps {
   instrument: InstrumentSnapshot | undefined;
 }
 
-function EditorSurface({
+const EditorSurface = React.memo(function EditorSurface({
   instrument,
   onOrchestraPatch,
 }: {
   instrument: InstrumentSnapshot;
 } & OrchestraMutationProps): React.ReactElement {
-  const dispatchInstrumentPatch = (patch: InstrumentPatch) =>
-    onOrchestraPatch({
-      type: 'updateInstrument',
-      assignmentId: instrument.assignmentId,
-      patch,
-    });
+  const dispatchInstrumentPatch = useCallback(
+    (patch: InstrumentPatch) =>
+      onOrchestraPatch({
+        type: 'updateInstrument',
+        assignmentId: instrument.assignmentId,
+        patch,
+      }),
+    [instrument.assignmentId, onOrchestraPatch],
+  );
 
   switch (instrument.type) {
     case 'generic':
@@ -80,13 +83,28 @@ function EditorSurface({
       Unsupported instrument.
     </div>
   );
-}
+});
 
-export default function InstrumentEditorPanel({
+function InstrumentEditorPanel({
   instrument,
   onOrchestraPatch,
 }: InstrumentEditorPanelProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<'editor' | 'comments'>('editor');
+  const assignmentId = instrument?.assignmentId;
+  const handleCommentChange = useCallback(
+    (comment: string) => {
+      if (!assignmentId) {
+        return;
+      }
+
+      onOrchestraPatch({
+        type: 'updateInstrumentComment',
+        assignmentId,
+        comment,
+      });
+    },
+    [assignmentId, onOrchestraPatch],
+  );
 
   if (!instrument) {
     return (
@@ -145,16 +163,12 @@ export default function InstrumentEditorPanel({
         >
           <InstrumentCommentsPanel
             comment={instrument.comment}
-            onCommentChange={(comment) =>
-              onOrchestraPatch({
-                type: 'updateInstrumentComment',
-                assignmentId: instrument.assignmentId,
-                comment,
-              })
-            }
+            onCommentChange={handleCommentChange}
           />
         </div>
       </div>
     </section>
   );
 }
+
+export default React.memo(InstrumentEditorPanel);

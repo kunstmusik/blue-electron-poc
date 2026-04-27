@@ -11,7 +11,7 @@ const ARC_LENGTH = 270;
 const TRACK_COLOR = 'rgb(63,102,150)';
 const TRACK_COLOR_BRIGHT = 'rgb(96,142,192)';
 
-export default function BSBKnobWidget({
+function BSBKnobWidget({
   node,
   isSelected,
   editEnabled,
@@ -136,6 +136,8 @@ export default function BSBKnobWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBKnobWidget);
 
 const KnobSVG = React.forwardRef<SVGSVGElement, {
   size: number;

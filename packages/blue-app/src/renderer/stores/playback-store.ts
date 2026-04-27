@@ -40,53 +40,33 @@ interface PlaybackActions {
   reset: () => void;
 }
 
-let displayTimer: ReturnType<typeof setInterval> | null = null;
+export const PLAYBACK_DISPLAY_TICK_MS = 33;
 
-function stopDisplayTimer(): void {
-  if (displayTimer) {
-    clearInterval(displayTimer);
-    displayTimer = null;
-  }
-}
-
-function startDisplayTimer(): void {
-  if (displayTimer) {
-    return;
-  }
-
-  displayTimer = setInterval(() => {
-    const state = usePlaybackStore.getState();
-    const clock = state.clock;
-    if (!clock || (state.status !== 'playing' && state.status !== 'stopping')) {
-      stopDisplayTimer();
-      return;
-    }
-
-    const sampleRate = clock.sampleRate && clock.sampleRate > 0 ? clock.sampleRate : null;
-    const elapsedMs = Math.max(0, Date.now() - clock.receivedAtMs);
-    const interpolatedFrames =
-      sampleRate !== null
-        ? clock.sampleFrames + (elapsedMs / 1000) * sampleRate
-        : clock.sampleFrames;
-    const elapsedSeconds =
-      sampleRate !== null ? interpolatedFrames / sampleRate : interpolatedFrames;
-
-    usePlaybackStore.setState((current) => ({
-      ...current,
-      display: {
-        sampleFrames: interpolatedFrames,
-        elapsedSeconds,
-        source: elapsedMs > 0 ? 'interpolated' : 'engine-authority',
-      },
-    }));
-  }, 33);
-}
-
-function createIdleDisplayState(): PlaybackDisplayState {
+export function createIdlePlaybackDisplayState(): PlaybackDisplayState {
   return {
     sampleFrames: 0,
     elapsedSeconds: 0,
     source: 'idle-anchor',
+  };
+}
+
+export function derivePlaybackDisplayState(
+  clock: PlaybackClockState,
+  nowMs: number,
+): PlaybackDisplayState {
+  const sampleRate = clock.sampleRate && clock.sampleRate > 0 ? clock.sampleRate : null;
+  const elapsedMs = Math.max(0, nowMs - clock.receivedAtMs);
+  const interpolatedFrames =
+    sampleRate !== null
+      ? clock.sampleFrames + (elapsedMs / 1000) * sampleRate
+      : clock.sampleFrames;
+  const elapsedSeconds =
+    sampleRate !== null ? interpolatedFrames / sampleRate : interpolatedFrames;
+
+  return {
+    sampleFrames: interpolatedFrames,
+    elapsedSeconds,
+    source: elapsedMs > 0 ? 'interpolated' : 'engine-authority',
   };
 }
 
@@ -96,7 +76,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
   message: '',
   followPlayback: true,
   clock: null,
-  display: createIdleDisplayState(),
+  display: createIdlePlaybackDisplayState(),
 
   togglePlay: async () => {
     if (get().status === 'starting' || get().status === 'stopping') {
@@ -114,7 +94,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
         status: 'starting',
         message: 'Preparing playback...',
         clock: null,
-        display: createIdleDisplayState(),
+        display: createIdlePlaybackDisplayState(),
       });
 
       const playing = await window.blueAPI.togglePlay();
@@ -163,29 +143,26 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
 
     if (normalizedStatus === 'starting') {
       nextState.clock = null;
-      nextState.display = createIdleDisplayState();
-      stopDisplayTimer();
-    } else if (normalizedStatus === 'playing' || normalizedStatus === 'stopping') {
-      if (get().clock) {
-        startDisplayTimer();
-      }
-    } else {
+      nextState.display = createIdlePlaybackDisplayState();
+    } else if (
+      normalizedStatus === 'idle' ||
+      normalizedStatus === 'stopped' ||
+      normalizedStatus === 'error'
+    ) {
       nextState.clock = null;
-      nextState.display = createIdleDisplayState();
-      stopDisplayTimer();
+      nextState.display = createIdlePlaybackDisplayState();
     }
 
     set(nextState);
   },
 
   setError: (error) => {
-    stopDisplayTimer();
     set({
       status: 'error',
       isPlaying: false,
       message: error,
       clock: null,
-      display: createIdleDisplayState(),
+      display: createIdlePlaybackDisplayState(),
     });
   },
 
@@ -206,30 +183,20 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
         null;
       const ksmps = snapshot.ksmps ?? currentClock?.ksmps ?? null;
       const receivedAtMs = Date.now();
-      const interpolatedSeconds = sampleRate && sampleRate > 0
-        ? snapshot.sampleFrames / sampleRate
-        : snapshot.sampleFrames;
+      const nextClock: PlaybackClockState = {
+        sessionId: snapshot.sessionId,
+        sampleFrames: snapshot.sampleFrames,
+        sequence: snapshot.sequence,
+        sampleRate,
+        ksmps,
+        receivedAtMs,
+      };
 
       const nextState: PlaybackState = {
         ...state,
-        clock: {
-          sessionId: snapshot.sessionId,
-          sampleFrames: snapshot.sampleFrames,
-          sequence: snapshot.sequence,
-          sampleRate,
-          ksmps,
-          receivedAtMs,
-        },
-        display: {
-          sampleFrames: snapshot.sampleFrames,
-          elapsedSeconds: interpolatedSeconds,
-          source: 'engine-authority',
-        },
+        clock: nextClock,
+        display: derivePlaybackDisplayState(nextClock, receivedAtMs),
       };
-
-      if (state.status === 'playing' || state.status === 'stopping') {
-        startDisplayTimer();
-      }
 
       return nextState;
     });
@@ -242,14 +209,13 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
   },
 
   reset: () => {
-    stopDisplayTimer();
     set({
       isPlaying: false,
       status: 'idle',
       message: '',
       followPlayback: true,
       clock: null,
-      display: createIdleDisplayState(),
+      display: createIdlePlaybackDisplayState(),
     });
   },
 }));

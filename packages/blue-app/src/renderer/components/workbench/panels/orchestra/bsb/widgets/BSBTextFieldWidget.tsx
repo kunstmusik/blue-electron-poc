@@ -8,7 +8,7 @@ export function getCommittedTextFieldValue(currentValue: string, draftValue: str
 
 type BSBTextFieldWidgetProps = BSBWidgetComponentProps;
 
-export default function BSBTextFieldWidget({
+function BSBTextFieldWidget({
   node,
   isSelected,
   editEnabled,
@@ -82,3 +82,5 @@ export default function BSBTextFieldWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(BSBTextFieldWidget);

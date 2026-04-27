@@ -25,6 +25,8 @@ const mockBlueAPI = {
   saveFileAs: vi.fn(),
   getProjectDocument: vi.fn(),
   updateProjectDocument: vi.fn().mockResolvedValue(null),
+  commitProjectDocumentPatches: vi.fn().mockResolvedValue({ revision: 1 }),
+  sendBsbRealtimeControlUpdate: vi.fn().mockResolvedValue(undefined),
   readClipboardText: vi.fn().mockResolvedValue(''),
   writeClipboardText: vi.fn().mockResolvedValue(undefined),
   togglePlay: vi.fn(),
@@ -124,8 +126,8 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().isDirty).toBe(false);
   });
 
-  it('T349: updateProjectDocument patches the canonical document and marks it dirty', async () => {
-    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+  it('T349: commitProjectDocumentPatches batches local document patches and keeps state dirty', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
     const snapshot = createEmptyProjectEditorSnapshot();
 
     useProjectStore.getState().setProjectInfo({
@@ -150,14 +152,111 @@ describe('Project Store', () => {
     __testFlushPendingPatches();
     await __testAwaitPendingPatches();
 
-    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
-      globalOrc: 'instr 1\nendin',
-    });
-    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
-      projectProperties: { title: 'Edited Title' },
-    });
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        globalOrc: 'instr 1\nendin',
+      },
+      {
+        projectProperties: { title: 'Edited Title' },
+      },
+    ]);
+    expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
     expect(useProjectStore.getState().title).toBe('Edited Title');
     expect(useProjectStore.getState().isDirty).toBe(true);
+  });
+
+  it('T349: sends realtime updates for live BSB value changes', async () => {
+    mockBlueAPI.sendBsbRealtimeControlUpdate.mockResolvedValue(undefined);
+
+    const snapshot = createEmptyProjectEditorSnapshot();
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      orchestra: {
+        ...snapshot.orchestra,
+        loaded: true,
+      },
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: snapshot.transport,
+    });
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      orchestra: {
+        type: 'updateInstrument',
+        assignmentId: '1',
+        patch: {
+          bsbInterface: {
+            type: 'updateWidgetProperties',
+            widgetId: 'widget-1',
+            properties: { value: 0.75 },
+          },
+        },
+      },
+    });
+
+    expect(mockBlueAPI.sendBsbRealtimeControlUpdate).toHaveBeenCalledWith({
+      assignmentId: '1',
+      widgetId: 'widget-1',
+      kind: 'value',
+      payload: { value: 0.75 },
+    });
+  });
+
+  it('T349: sends realtime XY updates using the engine payload shape', async () => {
+    mockBlueAPI.sendBsbRealtimeControlUpdate.mockResolvedValue(undefined);
+
+    const snapshot = createEmptyProjectEditorSnapshot();
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      orchestra: {
+        ...snapshot.orchestra,
+        loaded: true,
+      },
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: snapshot.transport,
+    });
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      orchestra: {
+        type: 'updateInstrument',
+        assignmentId: '1',
+        patch: {
+          bsbInterface: {
+            type: 'updateWidgetProperties',
+            widgetId: 'widget-xy',
+            properties: { xValue: 0.25, yValue: 0.5 },
+          },
+        },
+      },
+    });
+
+    expect(mockBlueAPI.sendBsbRealtimeControlUpdate).toHaveBeenCalledWith({
+      assignmentId: '1',
+      widgetId: 'widget-xy',
+      kind: 'xy',
+      payload: { xValue: 0.25, yValue: 0.5 },
+    });
   });
 
   it('T349: updateOrchestra patches local orchestra text immediately', async () => {
@@ -335,25 +434,22 @@ describe('Project Store', () => {
     await pending;
   });
 
-  it('T349: ignores stale orchestra snapshots from older patch responses', async () => {
+  it('T349: batches multiple pending orchestra updates into one commit', async () => {
     vi.useFakeTimers();
 
-    let resolveFirst:
-      | ((value: ReturnType<typeof createEmptyProjectEditorSnapshot> & { title: string; author: string; sampleRate: string }) => void)
-      | undefined;
-    let resolveSecond:
-      | ((value: ReturnType<typeof createEmptyProjectEditorSnapshot> & { title: string; author: string; sampleRate: string }) => void)
-      | undefined;
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
 
     const baseSnapshot = createEmptyProjectEditorSnapshot();
-    const createLoadedSnapshot = (text: string) => ({
-      ...baseSnapshot,
+
+    useProjectStore.getState().setProjectInfo({
       title: 'Test Project',
       author: 'Test Author',
       sampleRate: '44100',
       version: '2.10.0',
       filePath: '/path/to/test.blue',
       loaded: true,
+      globalOrc: baseSnapshot.globalOrc,
+      globalSco: baseSnapshot.globalSco,
       orchestra: {
         ...baseSnapshot.orchestra,
         loaded: true,
@@ -376,7 +472,7 @@ describe('Project Store', () => {
             name: 'Lead',
             enabled: true,
             comment: 'lead comment',
-            text,
+            text: 'aout oscili p4, p5',
             globalOrc: '',
             globalSco: '',
           },
@@ -388,22 +484,6 @@ describe('Project Store', () => {
         author: 'Test Author',
       },
     });
-
-    mockBlueAPI.updateProjectDocument
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveFirst = resolve;
-          }),
-      )
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            resolveSecond = resolve;
-          }),
-      );
-
-    useProjectStore.getState().setProjectInfo(createLoadedSnapshot('aout oscili p4, p5'));
 
     useProjectStore.getState().updateOrchestra({
       type: 'updateInstrument',
@@ -422,15 +502,25 @@ describe('Project Store', () => {
 
     vi.advanceTimersByTime(200);
 
-    resolveSecond?.(createLoadedSnapshot('aout oscili p4, p7'));
-    await vi.advanceTimersByTimeAsync(0);
+    await __testAwaitPendingPatches();
 
-    resolveFirst?.(createLoadedSnapshot('aout oscili p4, p6'));
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(useProjectStore.getState().orchestra.instruments[0]?.text).toBe(
-      'aout oscili p4, p7',
-    );
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledOnce();
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        orchestra: {
+          type: 'updateInstrument',
+          assignmentId: '1',
+          patch: { text: 'aout oscili p4, p6' },
+        },
+      },
+      {
+        orchestra: {
+          type: 'updateInstrument',
+          assignmentId: '1',
+          patch: { text: 'aout oscili p4, p7' },
+        },
+      },
+    ]);
 
     vi.useRealTimers();
   });
@@ -459,7 +549,7 @@ describe('Playback Store', () => {
   });
 
   it('T350: setLoopRendering patches the project transport state', async () => {
-    mockBlueAPI.updateProjectDocument.mockResolvedValue(null);
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
 
     const snapshot = createEmptyProjectEditorSnapshot();
     useProjectStore.getState().setProjectInfo({
@@ -480,9 +570,12 @@ describe('Playback Store', () => {
     __testFlushPendingPatches();
     await __testAwaitPendingPatches();
 
-    expect(mockBlueAPI.updateProjectDocument).toHaveBeenCalledWith({
-      transport: { loopRendering: true },
-    });
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        transport: { loopRendering: true },
+      },
+    ]);
+    expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
     expect(useProjectStore.getState().transport.loopRendering).toBe(true);
   });
 
@@ -626,19 +719,9 @@ describe('Toolbar Shell', () => {
     };
     const playback = {
       status: 'playing' as const,
-      clock: {
-        sessionId: 1,
-        sampleFrames: 44100,
-        sequence: 1,
-        sampleRate: 44100,
-        ksmps: 64,
-        receivedAtMs: Date.now(),
-      },
-      display: {
-        sampleFrames: 44100,
-        elapsedSeconds: 1,
-        source: 'engine-authority' as const,
-      },
+      hasClock: true,
+      elapsedSeconds: 1,
+      source: 'engine-authority' as const,
     };
 
     const playhead = buildPlayheadDisplayState(transport, playback);
@@ -674,19 +757,9 @@ describe('Toolbar Shell', () => {
     };
     const playback = {
       status: 'playing' as const,
-      clock: {
-        sessionId: 1,
-        sampleFrames: 48000,
-        sequence: 1,
-        sampleRate: 48000,
-        ksmps: 64,
-        receivedAtMs: Date.now(),
-      },
-      display: {
-        sampleFrames: 48000,
-        elapsedSeconds: 1,
-        source: 'engine-authority' as const,
-      },
+      hasClock: true,
+      elapsedSeconds: 1,
+      source: 'engine-authority' as const,
     };
 
     const playhead = buildPlayheadDisplayState(transport, playback, {

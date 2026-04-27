@@ -15,6 +15,8 @@ import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
   isEmptyProjectDocumentPatch,
+  type BsbRealtimeControlUpdate,
+  type ProjectDocumentCommitReceipt,
   type ProjectDocumentPatch,
 } from '../shared/project-editor';
 import { BlueSynthBuilder } from '@blue/data';
@@ -27,6 +29,7 @@ import {
 let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
 let currentFilePath: string | null = null;
+let currentProjectRevision = 0;
 let engineBridge: EngineBridge | null = null;
 let isQuitting = false;
 let pendingQuit = false;
@@ -267,6 +270,7 @@ async function doQuit(): Promise<void> {
 
   currentData = null;
   currentFilePath = null;
+  currentProjectRevision = 0;
 
   app.quit();
 }
@@ -290,6 +294,7 @@ async function openFile(): Promise<void> {
     const data = await BlueData.loadFromString(xml);
     currentData = data;
     currentFilePath = filePath;
+    currentProjectRevision = 0;
     updateWindowTitle();
 
     // Debug: log arrangement IDs and UDOs
@@ -661,8 +666,116 @@ async function syncEngineWithProjectPatch(data: BlueData, patch: ProjectDocument
   }
 }
 
+async function syncEngineWithRealtimeControlUpdate(
+  data: BlueData,
+  update: BsbRealtimeControlUpdate,
+) {
+  if (!engineBridge || !engineBridge.isCurrentlyPlaying()) return;
+
+  const arrangement = data.getArrangement();
+  const instrument = arrangement.getInstrumentById(update.assignmentId);
+  if (!(instrument instanceof BlueSynthBuilder)) return;
+
+  const widget = instrument.getGraphicInterface().findWidgetById(update.widgetId);
+  if (!widget?.objectName) return;
+
+  const findParameter = (name: string) => {
+    return instrument.getParameters().find((candidate) => candidate.getName() === name);
+  };
+
+  switch (update.kind) {
+    case 'value': {
+      const value = typeof update.payload.value === 'number' ? update.payload.value : null;
+      if (value === null) break;
+      const param = findParameter(widget.objectName);
+      if (param?.getCompilationVarName()) {
+        await engineBridge.setChannel(param.getCompilationVarName()!, value);
+      }
+      break;
+    }
+    case 'selected': {
+      const selected = typeof update.payload.selected === 'boolean' ? update.payload.selected : null;
+      if (selected === null) break;
+      const param = findParameter(widget.objectName);
+      if (param?.getCompilationVarName()) {
+        await engineBridge.setChannel(param.getCompilationVarName()!, selected ? 1 : 0);
+      }
+      break;
+    }
+    case 'selectedIndex': {
+      const selectedIndex = typeof update.payload.selectedIndex === 'number' ? update.payload.selectedIndex : null;
+      if (selectedIndex === null) break;
+      const param = findParameter(widget.objectName);
+      if (param?.getCompilationVarName()) {
+        await engineBridge.setChannel(param.getCompilationVarName()!, selectedIndex);
+      }
+      break;
+    }
+    case 'xy': {
+      const nextX = typeof update.payload.xValue === 'number' ? update.payload.xValue : null;
+      const nextY = typeof update.payload.yValue === 'number' ? update.payload.yValue : null;
+      if (nextX !== null) {
+        const px = findParameter(`${widget.objectName}X`);
+        if (px?.getCompilationVarName()) {
+          await engineBridge.setChannel(px.getCompilationVarName()!, nextX);
+        }
+      }
+      if (nextY !== null) {
+        const py = findParameter(`${widget.objectName}Y`);
+        if (py?.getCompilationVarName()) {
+          await engineBridge.setChannel(py.getCompilationVarName()!, nextY);
+        }
+      }
+      break;
+    }
+    case 'sliderBank': {
+      const sliderIndex = typeof update.payload.sliderIndex === 'number' ? update.payload.sliderIndex : null;
+      const value = typeof update.payload.value === 'number' ? update.payload.value : null;
+      if (sliderIndex === null || value === null) break;
+      const param = findParameter(`${widget.objectName}_${sliderIndex}`);
+      if (param?.getCompilationVarName()) {
+        await engineBridge.setChannel(param.getCompilationVarName()!, value);
+      }
+      break;
+    }
+  }
+}
+
 ipcMain.handle('get-project-document', () => {
   return getCurrentProjectDocument();
+});
+
+ipcMain.handle('commit-project-document-patches', (_event, patches: ProjectDocumentPatch[]) => {
+  if (!currentData) {
+    throw new Error('No project loaded');
+  }
+
+  if (!Array.isArray(patches) || patches.length === 0) {
+    throw new Error('Empty project document patch batch');
+  }
+
+  for (const patch of patches) {
+    applyProjectDocumentPatch(currentData, patch);
+    if (engineBridge && engineBridge.isCurrentlyPlaying()) {
+      void syncEngineWithProjectPatch(currentData, patch).catch((error) => {
+        console.error('[main] Failed to sync engine with project patch:', error);
+      });
+    }
+  }
+
+  currentProjectRevision += 1;
+  const receipt: ProjectDocumentCommitReceipt = { revision: currentProjectRevision };
+  return receipt;
+});
+
+ipcMain.handle('send-bsb-realtime-control-update', (_event, update: BsbRealtimeControlUpdate) => {
+  if (!currentData) {
+    return;
+  }
+
+  void syncEngineWithRealtimeControlUpdate(currentData, update).catch((error) => {
+    console.error('[main] Failed to sync realtime BSB control update:', error);
+  });
 });
 
 ipcMain.handle('update-project-document', (_event, patch) => {

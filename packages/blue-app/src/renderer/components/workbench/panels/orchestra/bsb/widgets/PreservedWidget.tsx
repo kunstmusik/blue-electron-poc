@@ -4,7 +4,7 @@ import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type PreservedWidgetProps = BSBWidgetComponentProps;
 
-export default function PreservedWidget({
+function PreservedWidget({
   node,
   isSelected,
   editEnabled,
@@ -27,3 +27,5 @@ export default function PreservedWidget({
     </WidgetWrapper>
   );
 }
+
+export default React.memo(PreservedWidget);

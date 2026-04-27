@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
@@ -18,7 +18,7 @@ interface BSBInterfaceEditorProps {
 
 type RightPanelTab = 'properties' | 'grid';
 
-export default function BSBInterfaceEditor({
+function BSBInterfaceEditor({
   instrument,
   onInstrumentPatch,
 }: BSBInterfaceEditorProps) {
@@ -27,16 +27,48 @@ export default function BSBInterfaceEditor({
 
   const editEnabled = instrument.editEnabled;
 
-  const selectedWidget =
-    selectedWidgetIds.size === 1
-      ? findWidgetInTree(instrument.widgetTree, Array.from(selectedWidgetIds)[0])
-      : null;
+  const selectedWidget = useMemo(
+    () =>
+      selectedWidgetIds.size === 1
+        ? findWidgetInTree(instrument.widgetTree, Array.from(selectedWidgetIds)[0])
+        : null,
+    [instrument.widgetTree, selectedWidgetIds],
+  );
 
   const dispatchBsbPatch = useCallback(
     (patch: BsbInterfacePatch) => {
       void onInstrumentPatch({ bsbInterface: patch });
     },
     [onInstrumentPatch],
+  );
+
+  const handleWidgetSelect = useCallback((id: string | null, shiftKey: boolean) => {
+    setSelectedWidgetIds((prev) => {
+      if (id === null) return new Set();
+      if (shiftKey) {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+      }
+      return new Set([id]);
+    });
+  }, []);
+
+  const allObjectNames = useMemo(
+    () => collectObjectNames(instrument.widgetTree),
+    [instrument.widgetTree],
+  );
+
+  const canvasProps = useMemo(
+    () => ({
+      instrument,
+      selectedWidgetIds,
+      editEnabled,
+      onWidgetSelect: handleWidgetSelect,
+      onBsbInterfacePatch: dispatchBsbPatch,
+      onInstrumentPatch,
+    }),
+    [instrument, selectedWidgetIds, editEnabled, handleWidgetSelect, dispatchBsbPatch, onInstrumentPatch],
   );
 
   useEffect(() => {
@@ -49,25 +81,6 @@ export default function BSBInterfaceEditor({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dispatchBsbPatch, instrument.editEnabled]);
-
-  const canvasProps = {
-    instrument,
-    selectedWidgetIds,
-    editEnabled,
-    onWidgetSelect: (id: string | null, shiftKey: boolean) => {
-      setSelectedWidgetIds((prev) => {
-        if (id === null) return new Set();
-        if (shiftKey) {
-          const next = new Set(prev);
-          if (next.has(id)) next.delete(id); else next.add(id);
-          return next;
-        }
-        return new Set([id]);
-      });
-    },
-    onBsbInterfacePatch: dispatchBsbPatch,
-    onInstrumentPatch,
-  };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg">
@@ -132,7 +145,7 @@ export default function BSBInterfaceEditor({
                       widget={selectedWidget}
                       selectedCount={selectedWidgetIds.size}
                       editEnabled={editEnabled}
-                      allObjectNames={collectObjectNames(instrument.widgetTree)}
+                      allObjectNames={allObjectNames}
                       onBsbInterfacePatch={dispatchBsbPatch}
                     />
                   ) : (
@@ -153,6 +166,8 @@ export default function BSBInterfaceEditor({
     </div>
   );
 }
+
+export default React.memo(BSBInterfaceEditor);
 
 function findWidgetInTree(
   tree: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot | null,

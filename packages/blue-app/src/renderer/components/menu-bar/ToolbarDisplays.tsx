@@ -1,7 +1,24 @@
-import React, { forwardRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import React, {
+  forwardRef,
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Check, ChevronRight } from 'lucide-react';
-import { usePlaybackStore } from '../../stores/playback-store';
+import {
+  PLAYBACK_DISPLAY_TICK_MS,
+  createIdlePlaybackDisplayState,
+  derivePlaybackDisplayState,
+  usePlaybackStore,
+  type PlaybackClockState,
+  type PlaybackDisplayState,
+  type PlaybackStatus,
+} from '../../stores/playback-store';
 import { useProjectStore } from '../../stores/project-store';
 import {
   buildPlayheadDisplayState,
@@ -29,6 +46,166 @@ const ToolbarDisplayCard = forwardRef<HTMLElement, ComponentPropsWithoutRef<'sec
 );
 
 ToolbarDisplayCard.displayName = 'ToolbarDisplayCard';
+
+function isLivePlaybackStatus(status: PlaybackStatus): boolean {
+  return status === 'playing' || status === 'stopping';
+}
+
+function useInterpolatedPlaybackDisplay(
+  status: PlaybackStatus,
+  clock: PlaybackClockState | null,
+  authoritativeDisplay: PlaybackDisplayState,
+): PlaybackDisplayState {
+  const [display, setDisplay] = useState<PlaybackDisplayState>(() =>
+    clock && isLivePlaybackStatus(status)
+      ? authoritativeDisplay
+      : createIdlePlaybackDisplayState(),
+  );
+  const clockRef = useRef<PlaybackClockState | null>(clock);
+
+  useEffect(() => {
+    clockRef.current = clock;
+  }, [clock]);
+
+  useEffect(() => {
+    if (!clock || !isLivePlaybackStatus(status)) {
+      setDisplay(createIdlePlaybackDisplayState());
+      return;
+    }
+
+    setDisplay(authoritativeDisplay);
+  }, [authoritativeDisplay, clock, status]);
+
+  useEffect(() => {
+    if (!isLivePlaybackStatus(status)) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      const currentClock = clockRef.current;
+      if (!currentClock) {
+        return;
+      }
+
+      setDisplay((previous) => {
+        const next = derivePlaybackDisplayState(currentClock, Date.now());
+        if (
+          previous.source === next.source &&
+          Math.abs(previous.sampleFrames - next.sampleFrames) < 1 &&
+          Math.abs(previous.elapsedSeconds - next.elapsedSeconds) < 0.001
+        ) {
+          return previous;
+        }
+        return next;
+      });
+    }, PLAYBACK_DISPLAY_TICK_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [status]);
+
+  return display;
+}
+
+const PlayheadDisplayCard = memo(function PlayheadDisplayCard({
+  primaryMode,
+  secondaryMode,
+}: {
+  primaryMode: ToolbarDisplayMode;
+  secondaryMode: ToolbarDisplayMode;
+}): React.ReactElement {
+  const renderStartTime = useProjectStore((state) => state.transport.renderStartTime);
+  const tempoMap = useProjectStore((state) => state.transport.tempoMap);
+  const meterMap = useProjectStore((state) => state.transport.meterMap);
+  const smpteFrameRate = useProjectStore((state) => state.transport.smpteFrameRate);
+  const sampleRate = useProjectStore((state) => state.transport.sampleRate);
+  const status = usePlaybackStore((state) => state.status);
+  const clock = usePlaybackStore((state) => state.clock);
+  const authoritativeDisplay = usePlaybackStore((state) => state.display);
+  const display = useInterpolatedPlaybackDisplay(status, clock, authoritativeDisplay);
+
+  const playhead = useMemo(
+    () =>
+      buildPlayheadDisplayState(
+        {
+          renderStartTime,
+          tempoMap,
+          meterMap,
+          smpteFrameRate,
+          sampleRate,
+        },
+        {
+          status,
+          hasClock: clock !== null,
+          elapsedSeconds: display.elapsedSeconds,
+          source: display.source,
+        },
+        {
+          primaryMode,
+          secondaryMode,
+        },
+      ),
+    [
+      renderStartTime,
+      tempoMap,
+      meterMap,
+      smpteFrameRate,
+      sampleRate,
+      status,
+      clock,
+      display.elapsedSeconds,
+      display.source,
+      primaryMode,
+      secondaryMode,
+    ],
+  );
+
+  return (
+    <ToolbarDisplayCard title="Playhead" className="w-59">
+      <div className="toolbar-display-values toolbar-display-values--playhead">
+        <div className="toolbar-display-main toolbar-display-main--playhead">{playhead.primaryText}</div>
+        {playhead.secondaryText ? (
+          <div className="toolbar-display-secondary toolbar-display-secondary--playhead">
+            {playhead.secondaryText}
+          </div>
+        ) : null}
+      </div>
+    </ToolbarDisplayCard>
+  );
+});
+
+const SelectionDisplayCard = memo(function SelectionDisplayCard(): React.ReactElement {
+  const renderStartTime = useProjectStore((state) => state.transport.renderStartTime);
+  const renderEndTime = useProjectStore((state) => state.transport.renderEndTime);
+  const tempoMap = useProjectStore((state) => state.transport.tempoMap);
+
+  const selection = useMemo(
+    () =>
+      buildSelectionDisplayState({
+        renderStartTime,
+        renderEndTime,
+        tempoMap,
+      }),
+    [renderStartTime, renderEndTime, tempoMap],
+  );
+
+  return (
+    <ToolbarDisplayCard title="Selection" className="w-82">
+      <div className="toolbar-display-values toolbar-display-values--selection">
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+          {selection.startText}
+        </div>
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+          {selection.endText}
+        </div>
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+          {selection.durationText}
+        </div>
+      </div>
+    </ToolbarDisplayCard>
+  );
+});
 
 function ContextMenuCheckItem({
   checked,
@@ -166,35 +343,8 @@ function ToolbarPlayheadMenu({
 }
 
 export default function ToolbarDisplays(): React.ReactElement {
-  const transport = useProjectStore((s) => s.transport);
-  const status = usePlaybackStore((s) => s.status);
-  const clock = usePlaybackStore((s) => s.clock);
-  const display = usePlaybackStore((s) => s.display);
   const [primaryMode, setPrimaryMode] = useState<ToolbarDisplayMode>(DEFAULT_PLAYHEAD_PRIMARY_MODE);
   const [secondaryMode, setSecondaryMode] = useState<ToolbarDisplayMode>(DEFAULT_PLAYHEAD_SECONDARY_MODE);
-
-  const playhead = buildPlayheadDisplayState(transport, {
-    status,
-    clock,
-    display,
-  }, {
-    primaryMode,
-    secondaryMode,
-  });
-  const selection = buildSelectionDisplayState(transport);
-
-  const playheadCard = (
-    <ToolbarDisplayCard title="Playhead" className="w-[236px]">
-      <div className="toolbar-display-values toolbar-display-values--playhead">
-        <div className="toolbar-display-main toolbar-display-main--playhead">{playhead.primaryText}</div>
-        {playhead.secondaryText ? (
-          <div className="toolbar-display-secondary toolbar-display-secondary--playhead">
-            {playhead.secondaryText}
-          </div>
-        ) : null}
-      </div>
-    </ToolbarDisplayCard>
-  );
 
   return (
     <div className="toolbar-displays flex flex-1 min-w-0 items-center justify-center">
@@ -205,22 +355,10 @@ export default function ToolbarDisplays(): React.ReactElement {
           onPrimaryModeChange={setPrimaryMode}
           onSecondaryModeChange={setSecondaryMode}
         >
-          {playheadCard}
+          <PlayheadDisplayCard primaryMode={primaryMode} secondaryMode={secondaryMode} />
         </ToolbarPlayheadMenu>
 
-        <ToolbarDisplayCard title="Selection" className="w-[328px]">
-          <div className="toolbar-display-values toolbar-display-values--selection">
-            <div className="toolbar-display-secondary toolbar-display-secondary--selection">
-              {selection.startText}
-            </div>
-            <div className="toolbar-display-secondary toolbar-display-secondary--selection">
-              {selection.endText}
-            </div>
-            <div className="toolbar-display-secondary toolbar-display-secondary--selection">
-              {selection.durationText}
-            </div>
-          </div>
-        </ToolbarDisplayCard>
+        <SelectionDisplayCard />
       </div>
     </div>
   );
