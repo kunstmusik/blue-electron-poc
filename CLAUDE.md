@@ -1,10 +1,12 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-24
+Auto-generated from all feature plans. Last updated: 2026-04-27
 
 ## Active Technologies
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `PresetGroup`/`Preset` BSB preset model, Zustand 5.x project store with BSB interface/opcode-list patch support, Dockview 5.2.0, CodeMirror 6, `BsbInterfacePatch` union type for structured BSB mutations (022-bsb-interface-parity)
 - BSB Interface tab now renders an editable widget canvas with selection, property-sheet editing, grid settings, preset application, and Java-style split-view UDO editor (UDOTable + UDOEditor); snapshot contract extended with `widgetTree`, `gridSettings`, `editEnabled`, `presetGroup`, `opcodeListText`; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023 (022-bsb-interface-parity)
+- TypeScript 5.8.x, React 19.x, Electron 35.x + Zustand 5.x (output store), dockview 5.2.0 (panel registration), `@tanstack/react-virtual` (virtualized text rendering), existing IPC bridge (preload/main) (025-output-window)
+- Ephemeral — no persistence (matches Java Blue behavior) (025-output-window)
 
 - TypeScript 5.x, strict mode + `@rgrove/parse-xml` (XML parsing), `vitest` (testing), `esbuild` (bundling for Electron) 
 
@@ -32,4 +34,5 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 025-output-window: Added TypeScript 5.8.x, React 19.x, Electron 35.x + Zustand 5.x (output store), dockview 5.2.0 (panel registration), `@tanstack/react-virtual` (virtualized text rendering), existing IPC bridge (preload/main)
 - 022-bsb-interface-parity: Added BSB editing infrastructure including editable interface canvas with selection, property-sheet editing, grid settings panel, preset application bar, Java-style split-view UDO editor (UDOTable + UDOEditor), preset model (PresetGroup/Preset), BSB interface/opcode-list patch support, and snapshot contract extensions; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023
