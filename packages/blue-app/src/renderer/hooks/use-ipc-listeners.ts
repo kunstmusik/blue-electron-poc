@@ -5,11 +5,13 @@ import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useWorkbenchStore } from '../stores/workbench-store';
+import { useOutputStore } from '../stores/output-store';
 import type {
   PlaybackClockSnapshot,
   ProjectLoadedPayload,
 } from '../../shared/project-editor';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
+import type { EngineOutputPayload } from '../../shared/io-provider';
 
 // Declare the global blueAPI type
 declare global {
@@ -37,6 +39,9 @@ declare global {
       onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => void;
       onSaveComplete: (cb: (info: { filePath: string }) => void) => void;
       onSaveError: (cb: (error: string) => void) => void;
+      onEngineOutput: (cb: (payload: EngineOutputPayload) => void) => () => void;
+      onEngineOutputSelect: (cb: (payload: { tabName: string }) => void) => () => void;
+      onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;
     };
   }
 }
@@ -50,6 +55,10 @@ export function useIPCListeners(): void {
   const acceptPlaybackClock = usePlaybackStore((s) => s.acceptPlaybackClock);
   const resetPlayback = usePlaybackStore((s) => s.reset);
   const handleNativeMenuCommand = useWorkbenchStore((s) => s.handleNativeMenuCommand);
+  const appendToTab = useOutputStore((s) => s.appendToTab);
+  const selectTab = useOutputStore((s) => s.selectTab);
+  const getOrCreateTab = useOutputStore((s) => s.getOrCreateTab);
+  const resetTab = useOutputStore((s) => s.resetTab);
 
   useEffect(() => {
     if (!window.blueAPI) return;
@@ -87,11 +96,35 @@ export function useIPCListeners(): void {
     window.blueAPI.onSaveError((error) => {
       toast.error(`Save error: ${error}`);
     });
+
+    const unsubOutput = window.blueAPI.onEngineOutput((payload: EngineOutputPayload) => {
+      getOrCreateTab(payload.tabName);
+      appendToTab(payload.tabName, payload.text, payload.type);
+    });
+
+    const unsubSelect = window.blueAPI.onEngineOutputSelect((payload) => {
+      getOrCreateTab(payload.tabName);
+      selectTab(payload.tabName);
+    });
+
+    const unsubReset = window.blueAPI.onEngineOutputReset((payload) => {
+      resetTab(payload.tabName);
+    });
+
+    return () => {
+      unsubOutput();
+      unsubSelect();
+      unsubReset();
+    };
   }, [
     addRecentFile,
     acceptPlaybackClock,
+    appendToTab,
+    getOrCreateTab,
     handleNativeMenuCommand,
     resetPlayback,
+    resetTab,
+    selectTab,
     setError,
     setProjectInfo,
     setActivePanel,

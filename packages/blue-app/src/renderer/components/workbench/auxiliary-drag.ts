@@ -13,6 +13,19 @@ export interface AuxiliaryDragPoint {
 }
 
 export const AUXILIARY_EDGE_DRAG_THRESHOLD = 96;
+const AUXILIARY_EDGE_INFERENCE_THRESHOLD = 24;
+
+function isAuxiliaryEdge(value: string | undefined): value is AuxiliaryEdge {
+  return value === 'left' || value === 'right' || value === 'bottom';
+}
+
+function pickClosestAuxiliaryEdge(
+  candidates: Array<{ edge: AuxiliaryEdge; distance: number }>,
+  threshold: number,
+): AuxiliaryEdge | undefined {
+  candidates.sort((a, b) => a.distance - b.distance);
+  return candidates[0]?.distance <= threshold ? candidates[0].edge : undefined;
+}
 
 export function getAuxiliaryEdgeDropTarget(
   bounds: AuxiliaryDragBounds,
@@ -47,6 +60,40 @@ export function getAuxiliaryEdgeDropTarget(
     });
   }
 
-  candidates.sort((a, b) => a.distance - b.distance);
-  return candidates[0]?.edge;
+  return pickClosestAuxiliaryEdge(candidates, threshold);
+}
+
+export function getAuxiliaryEdgeFromBounds(
+  containerBounds: AuxiliaryDragBounds,
+  targetBounds: AuxiliaryDragBounds,
+  threshold = AUXILIARY_EDGE_INFERENCE_THRESHOLD,
+): AuxiliaryEdge | undefined {
+  return pickClosestAuxiliaryEdge(
+    [
+      {
+        edge: 'left',
+        distance: Math.abs(targetBounds.left - containerBounds.left),
+      },
+      {
+        edge: 'right',
+        distance: Math.abs(containerBounds.right - targetBounds.right),
+      },
+      {
+        edge: 'bottom',
+        distance: Math.abs(containerBounds.bottom - targetBounds.bottom),
+      },
+    ],
+    threshold,
+  );
+}
+
+export function getAuxiliaryEdgeFromGroupElement(
+  groupElement: HTMLElement | null | undefined,
+): AuxiliaryEdge | undefined {
+  if (!groupElement) {
+    return undefined;
+  }
+
+  const edge = groupElement.dataset.auxEdge;
+  return isAuxiliaryEdge(edge) ? edge : undefined;
 }

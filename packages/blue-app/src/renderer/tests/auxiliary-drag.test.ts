@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getAuxiliaryEdgeDropTarget } from '../components/workbench/auxiliary-drag';
+import {
+  getAuxiliaryEdgeDropTarget,
+  getAuxiliaryEdgeFromBounds,
+  getAuxiliaryEdgeFromGroupElement,
+} from '../components/workbench/auxiliary-drag';
 
 const bounds = {
   left: 0,
@@ -55,5 +59,71 @@ describe('getAuxiliaryEdgeDropTarget', () => {
         y: 200,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('getAuxiliaryEdgeFromBounds', () => {
+  const containerBounds = {
+    left: 100,
+    top: 40,
+    right: 1100,
+    bottom: 760,
+  };
+
+  it('detects docked left, right, and bottom groups', () => {
+    expect(
+      getAuxiliaryEdgeFromBounds(containerBounds, {
+        left: 100,
+        top: 40,
+        right: 332,
+        bottom: 760,
+      }),
+    ).toBe('left');
+
+    expect(
+      getAuxiliaryEdgeFromBounds(containerBounds, {
+        left: 868,
+        top: 40,
+        right: 1100,
+        bottom: 760,
+      }),
+    ).toBe('right');
+
+    expect(
+      getAuxiliaryEdgeFromBounds(containerBounds, {
+        left: 360,
+        top: 548,
+        right: 840,
+        bottom: 760,
+      }),
+    ).toBe('bottom');
+  });
+
+  it('returns undefined for centered groups', () => {
+    expect(
+      getAuxiliaryEdgeFromBounds(containerBounds, {
+        left: 380,
+        top: 220,
+        right: 820,
+        bottom: 520,
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('getAuxiliaryEdgeFromGroupElement', () => {
+  it('prefers the explicit auxiliary edge marker', () => {
+    const leftGroup = { dataset: { auxEdge: 'left' } } as HTMLElement;
+    const bottomGroup = { dataset: { auxEdge: 'bottom' } } as HTMLElement;
+
+    expect(getAuxiliaryEdgeFromGroupElement(leftGroup)).toBe('left');
+    expect(getAuxiliaryEdgeFromGroupElement(bottomGroup)).toBe('bottom');
+  });
+
+  it('returns undefined for non-auxiliary group elements', () => {
+    const group = { dataset: {} } as HTMLElement;
+
+    expect(getAuxiliaryEdgeFromGroupElement(group)).toBeUndefined();
+    expect(getAuxiliaryEdgeFromGroupElement(undefined)).toBeUndefined();
   });
 });

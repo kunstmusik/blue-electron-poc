@@ -3,6 +3,7 @@ import {
   applyAuxiliaryLayout,
   buildDefaultWorkbenchLayout,
   cloneAuxiliaryLayoutState,
+  captureAuxiliaryDockedSizesFromApi,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
   dockAuxiliaryPanel,
@@ -22,6 +23,7 @@ import {
   resetAuxiliaryLayout,
   resizeAuxiliarySlideout,
   syncAuxiliaryLayoutFromApi,
+  shouldPreventAuxiliaryPanelDrop,
   toggleMinimizedAuxiliaryPanel,
   type AuxiliaryGroupInstance,
   type AuxiliaryLayoutState,
@@ -47,12 +49,31 @@ function createDockviewApiStub() {
     const group = {
       id,
       size: 360,
+      bounds: { width: 360, height: 228 },
       panels: [] as any[],
       activePanel: undefined as any,
       focus: () => undefined,
       api: {
+        setSize: ({ width, height }: { width?: number; height?: number }) => {
+          if (Number.isFinite(width)) {
+            group.size = width as number;
+            group.bounds.width = width as number;
+          }
+          if (Number.isFinite(height)) {
+            group.size = height as number;
+            group.bounds.height = height as number;
+          }
+        },
+        isMaximized: () => false,
         setHeaderPosition: () => undefined,
         location: { type: 'grid' as const },
+      },
+      element: {
+        dataset: {},
+        getBoundingClientRect: () => ({
+          width: group.bounds.width,
+          height: group.bounds.height,
+        }),
       },
       location: { type: 'grid' as const },
       locked: true,
@@ -70,6 +91,9 @@ function createDockviewApiStub() {
 
   return {
     panels: [{ id: 'ScoreTopComponent' }],
+    get groups() {
+      return Array.from(groups.values());
+    },
     addGroup: ({ id }: { id?: string }) => getOrCreateGroup(id || `g-${Date.now()}`),
     addPanel: ({
       id,
@@ -365,6 +389,7 @@ describe('workbench auxiliary layout helpers', () => {
 
     const liveGroup = api.getPanel('SoundObjectPropertiesTopComponent')?.group;
     liveGroup.size = 472;
+    liveGroup.bounds.width = 472;
 
     const synced = syncAuxiliaryLayoutFromApi(api, applied);
 
@@ -726,6 +751,7 @@ describe('edge independence', () => {
     expect(outputGroup.panelIds).toEqual([
       'ScoreObjectEditorTopComponent',
       'MixerTopComponent',
+      'OutputTopComponent',
     ]);
   });
 
@@ -744,6 +770,104 @@ describe('edge independence', () => {
     expect(findDerived(moved, 'ScoreObjectEditorTopComponent')!.edge).toBe(
       'right',
     );
+  });
+
+  it('preserves docked widths and bottom height when reorganizing to the bottom edge', () => {
+    const api = createDockviewApiStub();
+    const leftState = movePanelToEdge(
+      createDefaultAuxiliaryLayoutState(),
+      'OutputTopComponent',
+      'left',
+    );
+    applyAuxiliaryLayout(api, leftState);
+
+    const propsGroup = findSeeded(leftState, 'properties-main')!;
+    const outputGroup = findSeeded(leftState, 'output-main')!;
+    propsGroup.dockedSize = 420;
+    outputGroup.dockedSize = 260;
+
+    const liveRightGroup = api.groups.find(
+      (group) => group.id === 'blue-aux-edge-right',
+    )!;
+    const liveBottomGroup = api.groups.find(
+      (group) => group.id === 'blue-aux-edge-bottom',
+    )!;
+    liveRightGroup.size = 512;
+    liveRightGroup.bounds.width = 512;
+    liveBottomGroup.size = 300;
+    liveBottomGroup.bounds.height = 300;
+
+    const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(
+      api,
+      leftState,
+    );
+
+    const moved = applyAuxiliaryLayout(
+      api,
+      movePanelToEdge(leftState, 'OutputTopComponent', 'bottom'),
+      { preserveDockedSizes: preservedDockedSizes },
+    );
+
+    expect(findSeeded(moved, 'properties-main')!.dockedSize).toBe(512);
+    expect(findSeeded(moved, 'output-main')!.dockedSize).toBe(300);
+    expect(findSeeded(moved, 'output-main')!.edge).toBe('bottom');
+  });
+
+  it('captures and syncs rendered edge bounds instead of Dockview axis size', () => {
+    const api = createDockviewApiStub();
+    const state = applyAuxiliaryLayout(api, createDefaultAuxiliaryLayoutState());
+
+    const rightGroup = api.groups.find(
+      (group: any) => group.id === 'blue-aux-edge-right',
+    )!;
+    const bottomGroup = api.groups.find(
+      (group: any) => group.id === 'blue-aux-edge-bottom',
+    )!;
+
+    rightGroup.size = 120;
+    rightGroup.bounds.width = 444;
+    bottomGroup.size = 900;
+    bottomGroup.bounds.height = 252;
+
+    const captured = captureAuxiliaryDockedSizesFromApi(api, state);
+    expect(captured.right).toBe(444);
+    expect(captured.bottom).toBe(252);
+
+    const synced = syncAuxiliaryLayoutFromApi(api, state);
+    expect(findSeeded(synced, 'properties-main')!.dockedSize).toBe(444);
+    expect(findSeeded(synced, 'output-main')!.dockedSize).toBe(252);
+  });
+});
+
+describe('auxiliary panel drop policy', () => {
+  it('allows edge drops for auxiliary panels', () => {
+    expect(
+      shouldPreventAuxiliaryPanelDrop(
+        'OutputTopComponent',
+        undefined,
+        'edge',
+      ),
+    ).toBe(false);
+  });
+
+  it('allows drops into auxiliary dockview groups', () => {
+    expect(
+      shouldPreventAuxiliaryPanelDrop(
+        'OutputTopComponent',
+        'blue-aux-edge-left',
+        'tab',
+      ),
+    ).toBe(false);
+  });
+
+  it('blocks drops into non-auxiliary center groups', () => {
+    expect(
+      shouldPreventAuxiliaryPanelDrop(
+        'OutputTopComponent',
+        'group-1',
+        'content',
+      ),
+    ).toBe(true);
   });
 });
 

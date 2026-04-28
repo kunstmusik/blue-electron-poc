@@ -6,6 +6,7 @@ import GlobalOrchestraPanel from './panels/GlobalOrchestraPanel';
 import GlobalScorePanel from './panels/GlobalScorePanel';
 import OrchestraPanel from './panels/OrchestraPanel';
 import ProjectPropertiesPanel from './panels/ProjectPropertiesPanel';
+import OutputPanel from './panels/output/OutputPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
   function DockviewPanel(props, ref) {
@@ -30,6 +31,8 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <GlobalScorePanel />
           ) : descriptor.id === 'ProjectPropertiesTopComponent' ? (
             <ProjectPropertiesPanel />
+          ) : descriptor.id === 'OutputTopComponent' ? (
+            <OutputPanel />
           ) : (
             <PlaceholderPanel descriptor={descriptor} showHeader={false} />
           )}

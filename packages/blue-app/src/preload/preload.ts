@@ -11,6 +11,7 @@ import type {
   PlaybackClockSnapshot,
 } from '../shared/project-editor';
 import type { NativeMenuCommand } from '../shared/workbench-menu';
+import type { EngineOutputPayload } from '../shared/io-provider';
 
 contextBridge.exposeInMainWorld('blueAPI', {
   // File operations
@@ -67,5 +68,21 @@ contextBridge.exposeInMainWorld('blueAPI', {
   },
   onSaveError: (callback: (error: string) => void) => {
     ipcRenderer.on('save-error', (_event, error) => callback(error));
+  },
+
+  onEngineOutput: (callback: (payload: EngineOutputPayload) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as EngineOutputPayload);
+    ipcRenderer.on('engine-output', handler);
+    return () => { ipcRenderer.removeListener('engine-output', handler); };
+  },
+  onEngineOutputSelect: (callback: (payload: { tabName: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as { tabName: string });
+    ipcRenderer.on('engine-output-select', handler);
+    return () => { ipcRenderer.removeListener('engine-output-select', handler); };
+  },
+  onEngineOutputReset: (callback: (payload: { tabName: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as { tabName: string });
+    ipcRenderer.on('engine-output-reset', handler);
+    return () => { ipcRenderer.removeListener('engine-output-reset', handler); };
   },
 });

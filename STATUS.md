@@ -1,7 +1,18 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-27
+**Date**: 2026-04-28
 **Branch**: `022-bsb-interface-parity`
+
+## Spec 025 Package
+
+Spec `025-output-window` is complete and closed out. The implementation slice adds the dockable Output window, the renderer-owned tabbed output store, the IPC bridge for engine stdout/stderr, and the virtualized output panel UI used to review playback output after a session ends.
+
+- Goal: mirror the Java Blue Output Window with a dockable bottom-edge output panel that shows realtime Csound stdout/stderr, preserves output per named tab, and remains usable for long engine sessions
+- Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/025-output-window/spec.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/plan.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/research.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/contracts/io-provider-api.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/quickstart.md`, `/Users/stevenyi/work/blue-electron/specs/025-output-window/tasks.md`
+- Completed scope: shared IOProvider and output-tab types, renderer output store, preload IPC listeners, engine output forwarding, bottom-edge workbench registration, OutputPanel rendering, slideout reuse, output-store tests, and auxiliary-layout validation for the output edge during reorganizations
+- Validation status: focused Vitest regressions for output store behavior, auxiliary drag/drop inference, slideout rendering, and workbench auxiliary layout passed during implementation
+- Manual validation: the user verified the output window and auxiliary layout behavior after the last fix pass, with no remaining visible jank
+- Immediate next step: none for Spec 025; remaining work is future-spec scope only
 
 ## Spec 024 Package
 

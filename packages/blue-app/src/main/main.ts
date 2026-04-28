@@ -159,6 +159,34 @@ function createWindow(): void {
   // Initialize engine bridge
   engineBridge = new EngineBridge(mainWindow);
 
+  let outputBatch: { text: string; type: 'stdout' | 'stderr' }[] = [];
+  let outputBatchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flushOutputBatch() {
+    if (outputBatch.length === 0) return;
+    const byType = new Map<string, string>();
+    for (const item of outputBatch) {
+      const key = item.type;
+      byType.set(key, (byType.get(key) ?? '') + item.text);
+    }
+    for (const [type, text] of byType) {
+      mainWindow.webContents.send('engine-output', {
+        tabName: 'Csound',
+        text,
+        type,
+      });
+    }
+    outputBatch = [];
+    outputBatchTimer = null;
+  }
+
+  engineBridge.setOutputCallback((text, type) => {
+    outputBatch.push({ text, type });
+    if (!outputBatchTimer) {
+      outputBatchTimer = setTimeout(flushOutputBatch, 50);
+    }
+  });
+
   // Build menu
   const menu = Menu.buildFromTemplate([
     {
@@ -491,6 +519,9 @@ async function startPlayback(): Promise<boolean> {
       status: 'starting',
       message: 'Preparing playback...',
     });
+
+    mainWindow.webContents.send('engine-output-reset', { tabName: 'Csound' });
+    mainWindow.webContents.send('engine-output-select', { tabName: 'Csound' });
 
     await ensureJavaScriptRuntime();
 

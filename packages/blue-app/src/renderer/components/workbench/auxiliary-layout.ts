@@ -65,6 +65,15 @@ export interface AuxiliarySlideoutView {
   size: number;
 }
 
+export type AuxiliaryDockedSizeSnapshot = Record<AuxiliaryEdge, number>;
+
+interface ApplyAuxiliaryLayoutOptions {
+  preserveDockedSizes?: AuxiliaryDockedSizeSnapshot;
+  debugLabel?: string;
+  debugMeta?: Record<string, unknown>;
+  debugState?: AuxiliaryLayoutState;
+}
+
 export interface AuxiliaryLayoutState {
   version: 5;
   groups: AuxiliaryGroupInstance[];
@@ -168,7 +177,7 @@ const AUXILIARY_SEED_DEFINITIONS: Record<
     seedGroupId: 'output-main',
     modeId: 'output',
     defaultEdge: 'bottom',
-    panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+    panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'OutputTopComponent'],
     defaultActivePanelId: 'ScoreObjectEditorTopComponent',
     defaultDockedSize: 228,
     defaultSlideoutSize: 228,
@@ -214,6 +223,230 @@ export function getGroupInstanceForPanel(
 
 export function isAuxiliaryPanelId(panelId: string): boolean {
   return getAuxiliarySeedGroupIdForPanel(panelId) !== undefined;
+}
+
+function getDefaultDockedSizeForEdge(edge: AuxiliaryEdge): number {
+  return edge === 'bottom'
+    ? AUXILIARY_SEED_DEFINITIONS['output-main'].defaultDockedSize
+    : AUXILIARY_SEED_DEFINITIONS['properties-main'].defaultDockedSize;
+}
+
+function getDockedSizeForEdge(
+  state: AuxiliaryLayoutState,
+  edge: AuxiliaryEdge,
+): number {
+  const representative = getInstancesOnEdge(state, edge).find(
+    (instance) => instance.dockedPanelIds.length > 0,
+  );
+
+  return representative && Number.isFinite(representative.dockedSize)
+    ? representative.dockedSize
+    : getDefaultDockedSizeForEdge(edge);
+}
+
+export function captureAuxiliaryDockedSizes(
+  state: AuxiliaryLayoutState,
+): AuxiliaryDockedSizeSnapshot {
+  return {
+    left: getDockedSizeForEdge(state, 'left'),
+    right: getDockedSizeForEdge(state, 'right'),
+    bottom: getDockedSizeForEdge(state, 'bottom'),
+  };
+}
+
+export function captureAuxiliaryDockedSizesFromApi(
+  api: DockviewApi,
+  fallbackState?: AuxiliaryLayoutState,
+): AuxiliaryDockedSizeSnapshot {
+  const fallbackSizes = fallbackState
+    ? captureAuxiliaryDockedSizes(fallbackState)
+    : {
+        left: getDefaultDockedSizeForEdge('left'),
+        right: getDefaultDockedSizeForEdge('right'),
+        bottom: getDefaultDockedSizeForEdge('bottom'),
+      };
+
+  return {
+    left: getLiveDockedSizeForEdge(api, 'left', fallbackSizes.left),
+    right: getLiveDockedSizeForEdge(api, 'right', fallbackSizes.right),
+    bottom: getLiveDockedSizeForEdge(api, 'bottom', fallbackSizes.bottom),
+  };
+}
+
+function shouldLogAuxiliaryDockedSizeDebug(): boolean {
+  return !(
+    typeof process !== 'undefined' &&
+    Boolean(process.env?.VITEST)
+  );
+}
+
+function getAuxiliaryDockedSizeDebugLiveState(api: DockviewApi) {
+  return {
+    left: getLiveAuxiliaryEdgeDebugEntry(api, 'left'),
+    right: getLiveAuxiliaryEdgeDebugEntry(api, 'right'),
+    bottom: getLiveAuxiliaryEdgeDebugEntry(api, 'bottom'),
+  };
+}
+
+function getLiveAuxiliaryEdgeDebugEntry(
+  api: DockviewApi,
+  edge: AuxiliaryEdge,
+) {
+  const group = getLiveAuxiliaryEdgeGroup(api, edge);
+  const element = getLiveAuxiliaryGroupElement(group);
+  const rect = element?.getBoundingClientRect();
+  return {
+    exists: Boolean(group),
+    size: group?.size,
+    renderedSize: getRenderedDockedSizeForGroup(group, edge),
+    boundsWidth: rect?.width,
+    boundsHeight: rect?.height,
+    panels: group?.panels.map((panel) => panel.id) ?? [],
+    activePanelId: group?.activePanel?.id,
+    isMaximized: group?.api.isMaximized() ?? false,
+  };
+}
+
+export function logAuxiliaryDockedSizeDebug(
+  context: string,
+  api: DockviewApi,
+  options?: {
+    snapshot?: AuxiliaryDockedSizeSnapshot;
+    state?: AuxiliaryLayoutState;
+    meta?: Record<string, unknown>;
+  },
+) {
+  if (!shouldLogAuxiliaryDockedSizeDebug()) {
+    return;
+  }
+
+  console.info('[AuxLayoutDebug]', context, {
+    snapshot: options?.snapshot,
+    stateSizes: options?.state
+      ? captureAuxiliaryDockedSizes(options.state)
+      : undefined,
+    live: getAuxiliaryDockedSizeDebugLiveState(api),
+    ...(options?.meta ?? {}),
+  });
+}
+
+function getLiveAuxiliaryEdgeGroup(
+  api: DockviewApi,
+  edge: AuxiliaryEdge,
+): DockviewGroupPanel | undefined {
+  return api.groups.find((group) => group.id === getDockviewGroupIdForEdge(edge));
+}
+
+function getLiveAuxiliaryGroupElement(
+  group: DockviewGroupPanel | undefined,
+): HTMLElement | undefined {
+  return (group as DockviewGroupPanel & { element?: HTMLElement } | undefined)
+    ?.element;
+}
+
+function getRenderedDockedSizeForGroup(
+  group: DockviewGroupPanel | undefined,
+  edge: AuxiliaryEdge,
+): number | undefined {
+  const rect = getLiveAuxiliaryGroupElement(group)?.getBoundingClientRect();
+  if (!rect) {
+    return undefined;
+  }
+
+  const size = edge === 'bottom' ? rect.height : rect.width;
+  return Number.isFinite(size) && size > 0 ? size : undefined;
+}
+
+function getLiveDockedSizeForEdge(
+  api: DockviewApi,
+  edge: AuxiliaryEdge,
+  fallbackSize: number,
+): number {
+  const group = getLiveAuxiliaryEdgeGroup(api, edge);
+  if (!group || group.api.isMaximized()) {
+    return fallbackSize;
+  }
+
+  const renderedSize = getRenderedDockedSizeForGroup(group, edge);
+  if (Number.isFinite(renderedSize)) {
+    return renderedSize;
+  }
+
+  return Number.isFinite(group.size) ? group.size : fallbackSize;
+}
+
+function restoreAuxiliaryDockedSizes(
+  api: DockviewApi,
+  sizes: AuxiliaryDockedSizeSnapshot,
+) {
+  for (const edge of AUXILIARY_EDGE_ORDER) {
+    const size = sizes[edge];
+    if (!Number.isFinite(size)) {
+      continue;
+    }
+
+    const group = getLiveAuxiliaryEdgeGroup(api, edge);
+    if (!group || group.api.isMaximized()) {
+      continue;
+    }
+
+    if (edge === 'bottom') {
+      group.api.setSize({ height: size });
+    } else {
+      group.api.setSize({ width: size });
+    }
+  }
+}
+
+function scheduleAuxiliaryDockedSizeRestore(
+  api: DockviewApi,
+  sizes: AuxiliaryDockedSizeSnapshot,
+  debugLabel?: string,
+  debugState?: AuxiliaryLayoutState,
+  debugMeta?: Record<string, unknown>,
+) {
+  const requestFrame = globalThis.requestAnimationFrame;
+  if (typeof requestFrame !== 'function') {
+    return;
+  }
+
+  requestFrame(() => {
+    if (debugLabel) {
+      logAuxiliaryDockedSizeDebug(`${debugLabel}: before deferred restore`, api, {
+        snapshot: sizes,
+        state: debugState,
+        meta: debugMeta,
+      });
+    }
+    restoreAuxiliaryDockedSizes(api, sizes);
+    if (debugLabel) {
+      logAuxiliaryDockedSizeDebug(`${debugLabel}: after deferred restore`, api, {
+        snapshot: sizes,
+        state: debugState,
+        meta: debugMeta,
+      });
+    }
+  });
+}
+
+function isAuxiliaryDockviewGroupId(groupId: string | undefined): boolean {
+  return typeof groupId === 'string' && groupId.startsWith('blue-aux-edge-');
+}
+
+export function shouldPreventAuxiliaryPanelDrop(
+  panelId: string | null | undefined,
+  targetGroupId: string | undefined,
+  dropKind: 'tab' | 'header_space' | 'content' | 'edge',
+): boolean {
+  if (!panelId || !isAuxiliaryPanelId(panelId)) {
+    return false;
+  }
+
+  if (dropKind === 'edge') {
+    return false;
+  }
+
+  return !isAuxiliaryDockviewGroupId(targetGroupId);
 }
 
 export function getAuxiliaryPanelPresentation(
@@ -421,9 +654,22 @@ export function buildDefaultWorkbenchLayout(
 export function applyAuxiliaryLayout(
   api: DockviewApi,
   state: AuxiliaryLayoutState,
+  options?: ApplyAuxiliaryLayoutOptions,
 ): AuxiliaryLayoutState {
   const next = normalizeAuxiliaryLayoutState(state);
   const maximizeQueue: string[] = [];
+
+  if (options?.preserveDockedSizes) {
+    logAuxiliaryDockedSizeDebug(
+      `${options.debugLabel ?? 'applyAuxiliaryLayout'}: before rebuild`,
+      api,
+      {
+        snapshot: options.preserveDockedSizes,
+        state: options.debugState ?? state,
+        meta: options.debugMeta,
+      },
+    );
+  }
 
   const allPanelIds = next.groups.flatMap((inst) => inst.panelIds);
   clearLiveAuxiliaryPanels(api, allPanelIds);
@@ -451,6 +697,35 @@ export function applyAuxiliaryLayout(
     api.getPanel(activeDockedPanelId)?.api.maximize();
   }
 
+  if (options?.preserveDockedSizes) {
+    logAuxiliaryDockedSizeDebug(
+      `${options.debugLabel ?? 'applyAuxiliaryLayout'}: before immediate restore`,
+      api,
+      {
+        snapshot: options.preserveDockedSizes,
+        state: options.debugState ?? state,
+        meta: options.debugMeta,
+      },
+    );
+    restoreAuxiliaryDockedSizes(api, options.preserveDockedSizes);
+    logAuxiliaryDockedSizeDebug(
+      `${options.debugLabel ?? 'applyAuxiliaryLayout'}: after immediate restore`,
+      api,
+      {
+        snapshot: options.preserveDockedSizes,
+        state: options.debugState ?? state,
+        meta: options.debugMeta,
+      },
+    );
+    scheduleAuxiliaryDockedSizeRestore(
+      api,
+      options.preserveDockedSizes,
+      options.debugLabel,
+      options.debugState ?? state,
+      options.debugMeta,
+    );
+  }
+
   syncDockviewPanelTitles(api);
 
   return syncAuxiliaryLayoutFromApi(api, next);
@@ -461,9 +736,37 @@ export function revealAuxiliaryPanel(
   state: AuxiliaryLayoutState,
   panelId: string,
 ): AuxiliaryLayoutState {
-  const instance = getGroupInstanceForPanel(state, panelId);
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
+  let instance = getGroupInstanceForPanel(state, panelId);
+
   if (!instance) {
-    return cloneAuxiliaryLayoutState(state);
+    const seedId = getAuxiliarySeedGroupIdForPanel(panelId);
+    if (!seedId) {
+      return cloneAuxiliaryLayoutState(state);
+    }
+
+    const next = cloneAuxiliaryLayoutState(state);
+    const target = next.groups.find(
+      (g) => g.kind === 'seeded' && g.seedGroupId === seedId,
+    );
+    if (!target) {
+      return next;
+    }
+
+    target.panelIds = [...target.panelIds, panelId];
+    if (!target.dockedPanelIds.includes(panelId)) {
+      target.dockedPanelIds = [...target.dockedPanelIds, panelId];
+    }
+    target.activePanelId = panelId;
+
+    const applied = applyAuxiliaryLayout(api, normalizeAuxiliaryLayoutState(next), {
+      preserveDockedSizes: preservedDockedSizes,
+      debugLabel: 'layout.revealAuxiliaryPanel.reseed',
+      debugMeta: { panelId },
+      debugState: state,
+    });
+    focusDockviewPanel(api, panelId);
+    return syncAuxiliaryLayoutFromApi(api, applied);
   }
 
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
@@ -476,7 +779,12 @@ export function revealAuxiliaryPanel(
     next.slideouts[target.edge].openPanelId = undefined;
 
     if (!api.getPanel(panelId)) {
-      const applied = applyAuxiliaryLayout(api, next);
+      const applied = applyAuxiliaryLayout(api, next, {
+        preserveDockedSizes: preservedDockedSizes,
+        debugLabel: 'layout.revealAuxiliaryPanel.remount',
+        debugMeta: { panelId },
+        debugState: state,
+      });
       focusDockviewPanel(api, panelId);
       return syncAuxiliaryLayoutFromApi(api, applied);
     }
@@ -540,6 +848,7 @@ export function dockAuxiliaryPanel(
   state: AuxiliaryLayoutState,
   panelId: string,
 ): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
   const instance = getGroupInstanceForPanel(state, panelId);
   if (!instance) {
     return cloneAuxiliaryLayoutState(state);
@@ -557,7 +866,12 @@ export function dockAuxiliaryPanel(
   );
   next.slideouts[target.edge].openPanelId = undefined;
 
-  const applied = applyAuxiliaryLayout(api, next);
+  const applied = applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.dockAuxiliaryPanel',
+    debugMeta: { panelId },
+    debugState: state,
+  });
   focusDockviewPanel(api, panelId);
   return syncAuxiliaryLayoutFromApi(api, applied);
 }
@@ -567,6 +881,7 @@ export function minimizeAuxiliaryPanelLayout(
   state: AuxiliaryLayoutState,
   panelId: string,
 ): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
   const instance = getGroupInstanceForPanel(state, panelId);
   if (!instance) {
     return cloneAuxiliaryLayoutState(state);
@@ -592,7 +907,12 @@ export function minimizeAuxiliaryPanelLayout(
     next.slideouts[target.edge].openPanelId = undefined;
   }
 
-  const applied = applyAuxiliaryLayout(api, next);
+  const applied = applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.minimizeAuxiliaryPanel',
+    debugMeta: { panelId },
+    debugState: state,
+  });
   const activeDockedPanelId = getActiveDockedPanelIdForEdge(
     getInstancesOnEdge(next, target.edge),
   );
@@ -625,6 +945,7 @@ export function minimizeAuxiliaryGroupLayout(
   state: AuxiliaryLayoutState,
   groupInstanceId: string,
 ): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const target = next.groups.find(
     (g) => g.groupInstanceId === groupInstanceId,
@@ -638,7 +959,12 @@ export function minimizeAuxiliaryGroupLayout(
 
   next.slideouts[target.edge].openPanelId = undefined;
 
-  return applyAuxiliaryLayout(api, next);
+  return applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.minimizeAuxiliaryGroup',
+    debugMeta: { groupInstanceId },
+    debugState: state,
+  });
 }
 
 export function maximizeAuxiliaryGroupLayout(
@@ -646,6 +972,7 @@ export function maximizeAuxiliaryGroupLayout(
   state: AuxiliaryLayoutState,
   groupInstanceId: string,
 ): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const target = next.groups.find(
     (g) => g.groupInstanceId === groupInstanceId,
@@ -656,7 +983,12 @@ export function maximizeAuxiliaryGroupLayout(
   target.isMaximized = true;
   next.slideouts[target.edge].openPanelId = undefined;
 
-  const applied = applyAuxiliaryLayout(api, next);
+  const applied = applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.maximizeAuxiliaryGroup',
+    debugMeta: { groupInstanceId },
+    debugState: state,
+  });
   const activeDockedPanelId = getActiveDockedPanelId(target);
   if (activeDockedPanelId) {
     focusDockviewPanel(api, activeDockedPanelId);
@@ -669,6 +1001,7 @@ export function restoreAuxiliaryGroupLayout(
   state: AuxiliaryLayoutState,
   groupInstanceId: string,
 ): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
   const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
   const target = next.groups.find(
     (g) => g.groupInstanceId === groupInstanceId,
@@ -682,7 +1015,12 @@ export function restoreAuxiliaryGroupLayout(
 
   next.slideouts[target.edge].openPanelId = undefined;
 
-  const applied = applyAuxiliaryLayout(api, next);
+  const applied = applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.restoreAuxiliaryGroup',
+    debugMeta: { groupInstanceId },
+    debugState: state,
+  });
   const activeDockedPanelId = getActiveDockedPanelIdForEdge(
     getInstancesOnEdge(next, target.edge),
   );
@@ -760,9 +1098,11 @@ export function syncAuxiliaryLayoutFromApi(
           : livePanelIds[0] ?? instance.activePanelId;
     }
 
-    if (Number.isFinite(liveGroup.size)) {
-      instance.dockedSize = liveGroup.size;
-    }
+    instance.dockedSize = getLiveDockedSizeForEdge(
+      api,
+      instance.edge,
+      instance.dockedSize,
+    );
 
     const activeDockedPanelId = getActiveDockedPanelId(instance);
     const activeDockedPanel = activeDockedPanelId
@@ -1032,13 +1372,13 @@ function normalizeSeededInstance(
   seedDef: AuxiliarySeedDefinition,
   displayOrder: number,
 ): AuxiliaryGroupInstance {
-  const panelIds = sortPanelIdsBySeedOrder(
+  const sortedExisting = sortPanelIdsBySeedOrder(
     seedDef.seedGroupId,
     asStringArray(candidate.panelIds),
   );
 
   const effectivePanelIds =
-    panelIds.length > 0 ? panelIds : [...seedDef.panelIds];
+    sortedExisting.length > 0 ? sortedExisting : [...seedDef.panelIds];
 
   const dockedPanelIds = Array.isArray(candidate.dockedPanelIds)
     ? sortPanelIdsBySeedOrder(
@@ -1105,7 +1445,7 @@ function createDockedPresentationForEdge(
     id: getDockviewGroupIdForEdge(edge),
     referencePanel: anchorPanel,
     direction: getDockDirection(edge),
-    locked: true,
+    locked: false,
     ...(edge === 'bottom'
       ? { initialHeight: representative.dockedSize }
       : { initialWidth: representative.dockedSize }),
@@ -1113,7 +1453,6 @@ function createDockedPresentationForEdge(
 
   const activeDockedPanelId = getActiveDockedPanelIdForEdge(instancesOnEdge);
 
-  group.locked = true;
   group.api.setHeaderPosition('top');
   markAuxiliaryGroupElement(group, edge, dockedEntries.length);
   mountDockedPanelsIntoGroup(api, group, dockedEntries, activeDockedPanelId);

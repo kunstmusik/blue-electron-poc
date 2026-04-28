@@ -17,8 +17,8 @@
 
 **Purpose**: Define shared types and interfaces that all phases depend on.
 
-- [ ] T001 Create IOProvider type definitions in `packages/blue-app/src/shared/io-provider.ts` — define `OutputType`, `OutputWriter`, `InputOutput`, `IOProvider`, `OutputLine`, `OutputTab`, `EngineOutputPayload` interfaces per contracts/io-provider-api.md
-- [ ] T002 Add `onEngineOutput` and `onEngineOutputSelect` listener type declarations in `packages/blue-app/src/renderer/types/global.d.ts` — extend `BlueAPI` with `(callback: (payload: EngineOutputPayload) => void) => () => void` and select variant
+- [x] T001 Create IOProvider type definitions in `packages/blue-app/src/shared/io-provider.ts` — define `OutputType`, `OutputWriter`, `InputOutput`, `IOProvider`, `OutputLine`, `OutputTab`, `EngineOutputPayload` interfaces per contracts/io-provider-api.md
+- [x] T002 Add `onEngineOutput` and `onEngineOutputSelect` listener type declarations in `packages/blue-app/src/renderer/types/global.d.ts` — extend `BlueAPI` with `(callback: (payload: EngineOutputPayload) => void) => () => void` and select variant
 
 ---
 
@@ -26,9 +26,9 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented — the Zustand output store and the IPC bridge.
 
-- [ ] T003 Create output Zustand store in `packages/blue-app/src/renderer/stores/output-store.ts` — implement `OutputWindowState` with `tabs`, `tabOrder`, `activeTabId` and actions: `getOrCreateTab`, `closeTab`, `appendToTab` (splits on `\n`), `resetTab`, `selectTab`, `setTabColor`
-- [ ] T004 Add `onEngineOutput` and `onEngineOutputSelect` IPC listeners in `packages/blue-app/src/preload/preload.ts` — expose `onEngineOutput(callback)` and `onEngineOutputSelect(callback)` via `contextBridge.exposeInMainWorld`
-- [ ] T005 Wire IPC events to output store in `packages/blue-app/src/renderer/hooks/use-ipc-listeners.ts` — add handlers for `engine-output` (calls `appendToTab`) and `engine-output-select` (calls `selectTab`)
+- [x] T003 Create output Zustand store in `packages/blue-app/src/renderer/stores/output-store.ts` — implement `OutputWindowState` with `tabs`, `tabOrder`, `activeTabId` and actions: `getOrCreateTab`, `closeTab`, `appendToTab` (splits on `\n`), `resetTab`, `selectTab`, `setTabColor`
+- [x] T004 Add `onEngineOutput` and `onEngineOutputSelect` IPC listeners in `packages/blue-app/src/preload/preload.ts` — expose `onEngineOutput(callback)` and `onEngineOutputSelect(callback)` via `contextBridge.exposeInMainWorld`
+- [x] T005 Wire IPC events to output store in `packages/blue-app/src/renderer/hooks/use-ipc-listeners.ts` — add handlers for `engine-output` (calls `appendToTab`) and `engine-output-select` (calls `selectTab`)
 
 **Checkpoint**: Foundation ready — output store exists, IPC bridge wired, user story implementation can begin.
 
@@ -42,12 +42,12 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [P] [US1] Create OutputPanel component in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — tabbed output panel with virtualized text rendering using `@tanstack/react-virtual`, reads from output store, renders tabs and lines, auto-scrolls to bottom, colors stderr distinctly (e.g., red-ish tint), toolbar with Clear button
-- [ ] T007 [P] [US1] Register OutputTopComponent in `packages/blue-app/src/shared/workbench-menu.ts` — add to `WORKBENCH_PANEL_REGISTRY` with `{ id: 'OutputTopComponent', title: 'Output', mode: 'output', auxiliaryGroupId: 'output-main', openAtStartup: true }`
-- [ ] T008 [P] [US1] Add OutputTopComponent render branch in `packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx` — map `'OutputTopComponent'` → `<OutputPanel />`
-- [ ] T009 [US1] Add "Output" entry to Window menu in `packages/blue-app/src/main/main.ts` `buildNativeWindowMenu()` — add menu item that sends `native-menu-command` `{ type: 'focus-panel', panelId: 'OutputTopComponent' }`
-- [ ] T010 [US1] Extend EngineBridge with output callbacks in `packages/blue-app/src/main/engine-bridge.ts` — add `onOutput` and `onError` callback hooks to the child process stdout/stderr handlers (currently lines 311-319 that only console.log), invoke callbacks with the text and tab name
-- [ ] T011 [US1] Wire main.ts to forward engine output via IPC in `packages/blue-app/src/main/main.ts` — subscribe to `engineBridge.onOutput` / `onError` callbacks, batch output, and send via `mainWindow.webContents.send('engine-output', { tabName: 'Csound', text, type })`; on playback start, send `engine-output-select` with tabName 'Csound'
+- [x] T006 [P] [US1] Create OutputPanel component in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — tabbed output panel with virtualized text rendering using `@tanstack/react-virtual`, reads from output store, renders tabs and lines, auto-scrolls to bottom, colors stderr distinctly (e.g., red-ish tint), toolbar with Clear button
+- [x] T007 [P] [US1] Register OutputTopComponent in `packages/blue-app/src/shared/workbench-menu.ts` — add to `WORKBENCH_PANEL_REGISTRY` with `{ id: 'OutputTopComponent', title: 'Output', mode: 'output', auxiliaryGroupId: 'output-main', openAtStartup: true }`
+- [x] T008 [P] [US1] Add OutputTopComponent render branch in `packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx` — map `'OutputTopComponent'` → `<OutputPanel />`
+- [x] T009 [US1] Add "Output" entry to Window menu in `packages/blue-app/src/main/main.ts` `buildNativeWindowMenu()` — add menu item that sends `native-menu-command` `{ type: 'focus-panel', panelId: 'OutputTopComponent' }`
+- [x] T010 [US1] Extend EngineBridge with output callbacks in `packages/blue-app/src/main/engine-bridge.ts` — add `onOutput` and `onError` callback hooks to the child process stdout/stderr handlers (currently lines 311-319 that only console.log), invoke callbacks with the text and tab name
+- [x] T011 [US1] Wire main.ts to forward engine output via IPC in `packages/blue-app/src/main/main.ts` — subscribe to `engineBridge.onOutput` / `onError` callbacks, batch output, and send via `mainWindow.webContents.send('engine-output', { tabName: 'Csound', text, type })`; on playback start, send `engine-output-select` with tabName 'Csound'
 
 **Checkpoint**: At this point, starting playback should show Csound output in the Output panel. The panel is accessible via Window menu. Output persists after playback stops.
 
@@ -61,8 +61,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T012 [US2] Add disk-render tab support in `packages/blue-app/src/main/main.ts` — when disk rendering starts, send `engine-output-select` with `tabName: 'Csound (Disk)'` and forward disk render output to that tab name
-- [ ] T013 [US2] Ensure OutputPanel tab switching works in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — verify tabs render correctly when multiple exist, clicking a tab switches content, active tab is highlighted
+- [x] T012 [US2] Add disk-render tab support in `packages/blue-app/src/main/main.ts` — when disk rendering starts, send `engine-output-select` with `tabName: 'Csound (Disk)'` and forward disk render output to that tab name
+- [x] T013 [US2] Ensure OutputPanel tab switching works in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — verify tabs render correctly when multiple exist, clicking a tab switches content, active tab is highlighted
 
 **Checkpoint**: Both "Csound" and "Csound (Disk)" tabs work independently. Switching between tabs shows correct content.
 
@@ -76,9 +76,9 @@
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] Add clear-before-render logic in `packages/blue-app/src/main/main.ts` — before starting playback, send `engine-output` reset signal (or add a dedicated `engine-output-reset` IPC event) that triggers `resetTab('Csound')` in the store
-- [ ] T015 [US3] Add render command header in `packages/blue-app/src/main/main.ts` — after clearing, write a header line like `Render Command (args...)` to the output tab before Csound output begins
-- [ ] T016 [US3] Add clear button to OutputPanel toolbar in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — button that calls `resetTab(activeTabId)` on the output store
+- [x] T014 [US3] Add clear-before-render logic in `packages/blue-app/src/main/main.ts` — before starting playback, send `engine-output` reset signal (or add a dedicated `engine-output-reset` IPC event) that triggers `resetTab('Csound')` in the store
+- [x] T015 [US3] Add render command header in `packages/blue-app/src/main/main.ts` — after clearing, write a header line like `Render Command (args...)` to the output tab before Csound output begins
+- [x] T016 [US3] Add clear button to OutputPanel toolbar in `packages/blue-app/src/renderer/components/workbench/panels/output/OutputPanel.tsx` — button that calls `resetTab(activeTabId)` on the output store
 
 **Checkpoint**: Starting playback clears and focuses the output tab with a fresh header. Manual clear button works.
 
@@ -88,9 +88,9 @@
 
 **Purpose**: Tests, cleanup, and edge case handling.
 
-- [ ] T017 [P] Create output store unit tests in `packages/blue-app/src/renderer/tests/output-store.test.ts` — test `getOrCreateTab`, `appendToTab` (line splitting), `resetTab`, `selectTab`, `setTabColor`, multi-tab isolation
-- [ ] T018 [P] Verify `@tanstack/react-virtual` is listed as dependency in `packages/blue-app/package.json` — add if missing
-- [ ] T019 Run lint and typecheck to verify all new code passes `npm test && npm run lint`
+- [x] T017 [P] Create output store unit tests in `packages/blue-app/src/renderer/tests/output-store.test.ts` — test `getOrCreateTab`, `appendToTab` (line splitting), `resetTab`, `selectTab`, `setTabColor`, multi-tab isolation
+- [x] T018 [P] Verify `@tanstack/react-virtual` is listed as dependency in `packages/blue-app/package.json` — add if missing
+- [x] T019 Run lint and typecheck to verify all new code passes `npm test && npm run lint`
 
 ---
 

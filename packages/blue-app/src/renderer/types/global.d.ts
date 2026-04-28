@@ -9,6 +9,7 @@ import type {
   PlaybackClockSnapshot,
 } from '../../shared/project-editor';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
+import type { EngineOutputPayload } from '../../shared/io-provider';
 
 declare global {
   interface Window {
@@ -41,6 +42,9 @@ declare global {
       onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => void;
       onSaveComplete: (cb: (info: { filePath: string }) => void) => void;
       onSaveError: (cb: (error: string) => void) => void;
+      onEngineOutput: (cb: (payload: EngineOutputPayload) => void) => () => void;
+      onEngineOutputSelect: (cb: (payload: { tabName: string }) => void) => () => void;
+      onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;
     };
   }
 }

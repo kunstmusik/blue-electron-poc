@@ -27,6 +27,8 @@ interface PendingTerminalStateCandidate {
   firstSeenAt: number;
 }
 
+export type EngineOutputCallback = (text: string, type: 'stdout' | 'stderr') => void;
+
 export class EngineBridge {
   private engineProcess: ChildProcess | null = null;
   private client: EngineClient | null = null;
@@ -40,6 +42,7 @@ export class EngineBridge {
   private playbackSessionId = 0;
   private statePollingTimer: ReturnType<typeof setInterval> | null = null;
   private engineStateUnsubscribe: (() => void) | null = null;
+  private outputCallback: EngineOutputCallback | null = null;
   private awaitingPlaybackTerminalState = false;
   private lastEngineStateSequence = 0;
   private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
@@ -50,6 +53,10 @@ export class EngineBridge {
     this.enginePath = enginePath || 'blue-engine';
     this.port = port || 5555;
     this.pubPort = pubPort || this.port + 1;
+  }
+
+  setOutputCallback(cb: EngineOutputCallback | null): void {
+    this.outputCallback = cb;
   }
 
   private sendPlaybackStatus(status: 'starting' | 'playing' | 'stopping' | 'stopped' | 'error', message?: string): void {
@@ -310,12 +317,15 @@ export class EngineBridge {
 
     // Capture stderr
     this.engineProcess.stderr?.on('data', (data: Buffer) => {
-      this.stderr += data.toString();
-      console.error(`[EngineBridge] stderr: ${data.toString().trim()}`);
+      const text = data.toString();
+      this.stderr += text;
+      console.error(`[EngineBridge] stderr: ${text.trim()}`);
+      this.outputCallback?.(text, 'stderr');
     });
 
     this.engineProcess.stdout?.on('data', (data: Buffer) => {
-      console.log(`[EngineBridge] stdout: ${data.toString().trim()}`);
+      const text = data.toString();
+      console.log(`[EngineBridge] stdout: ${text.trim()}`);
     });
 
     this.engineProcess.on('exit', (code, signal) => {

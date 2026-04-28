@@ -65,6 +65,14 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
   { id: 'JythonConsoleTopComponent', title: 'Jython Console', mode: 'output', openAtStartup: false },
   { id: 'ClojureConsoleTopComponent', title: 'Clojure Console', mode: 'output', openAtStartup: false },
   { id: 'BlueFileManagerTopComponent', title: 'File Manager', mode: 'output', openAtStartup: false },
+  {
+    id: 'OutputTopComponent',
+    title: 'Output',
+    mode: 'output',
+    openAtStartup: true,
+    auxiliaryGroupId: 'output-main',
+    auxiliaryRailLabel: 'Output',
+  },
 ];
 
 export const PANEL_MAP = new Map(WORKBENCH_PANEL_REGISTRY.map((panel) => [panel.id, panel]));

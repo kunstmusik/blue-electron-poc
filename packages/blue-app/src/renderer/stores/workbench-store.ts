@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import type { DockviewApi } from 'dockview';
 import {
   applyAuxiliaryLayout,
+  type AuxiliaryDockedSizeSnapshot,
   buildDefaultWorkbenchLayout,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
+  captureAuxiliaryDockedSizesFromApi,
   dockAuxiliaryPanel as dockAuxiliaryPanelLayout,
   getAuxiliarySeedGroupIdForPanel,
   hideAllAuxiliarySlideouts as hideAllAuxiliarySlideoutsLayout,
@@ -54,9 +56,17 @@ interface WorkbenchActions {
   hideAllAuxiliarySlideouts: () => void;
   resizeAuxiliarySlideout: (panelId: string, size: number) => void;
   getAuxiliaryGroupForPanel: (panelId: string) => string | undefined;
-  moveAuxiliaryEdge: (sourceEdge: AuxiliaryEdge, targetEdge: AuxiliaryEdge) => void;
+  moveAuxiliaryEdge: (
+    sourceEdge: AuxiliaryEdge,
+    targetEdge: AuxiliaryEdge,
+    preservedDockedSizes?: AuxiliaryDockedSizeSnapshot,
+  ) => void;
   moveGroupToEdge: (groupInstanceId: string, targetEdge: AuxiliaryEdge) => void;
-  movePanelToEdge: (panelId: string, targetEdge: AuxiliaryEdge) => void;
+  movePanelToEdge: (
+    panelId: string,
+    targetEdge: AuxiliaryEdge,
+    preservedDockedSizes?: AuxiliaryDockedSizeSnapshot,
+  ) => void;
   mergeBackToSeededGroup: (groupInstanceId: string) => void;
   resetLayout: () => void;
   handleNativeMenuCommand: (command: NativeMenuCommand) => void;
@@ -255,12 +265,21 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       }));
     },
 
-    moveAuxiliaryEdge: (sourceEdge, targetEdge) => {
+    moveAuxiliaryEdge: (sourceEdge, targetEdge, preservedDockedSizes) => {
       const { api, auxiliary } = get();
       if (!api) return;
 
       const next = moveAuxiliaryEdgeLayout(auxiliary, sourceEdge, targetEdge);
-      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+      const nextPreservedDockedSizes =
+        preservedDockedSizes ?? captureAuxiliaryDockedSizesFromApi(api, auxiliary);
+      set({
+        auxiliary: applyAuxiliaryLayout(api, next, {
+          preserveDockedSizes: nextPreservedDockedSizes,
+          debugLabel: 'store.moveAuxiliaryEdge',
+          debugMeta: { sourceEdge, targetEdge },
+          debugState: auxiliary,
+        }),
+      });
     },
 
     getAuxiliaryGroupForPanel: (panelId) => {
@@ -276,15 +295,32 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       if (!api) return;
 
       const next = moveGroupToEdgeLayout(auxiliary, groupInstanceId, targetEdge);
-      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+      const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, auxiliary);
+      set({
+        auxiliary: applyAuxiliaryLayout(api, next, {
+          preserveDockedSizes: preservedDockedSizes,
+          debugLabel: 'store.moveGroupToEdge',
+          debugMeta: { groupInstanceId, targetEdge },
+          debugState: auxiliary,
+        }),
+      });
     },
 
-    movePanelToEdge: (panelId, targetEdge) => {
+    movePanelToEdge: (panelId, targetEdge, preservedDockedSizes) => {
       const { api, auxiliary } = get();
       if (!api) return;
 
       const next = movePanelToEdgeLayout(auxiliary, panelId, targetEdge);
-      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+      const nextPreservedDockedSizes =
+        preservedDockedSizes ?? captureAuxiliaryDockedSizesFromApi(api, auxiliary);
+      set({
+        auxiliary: applyAuxiliaryLayout(api, next, {
+          preserveDockedSizes: nextPreservedDockedSizes,
+          debugLabel: 'store.movePanelToEdge',
+          debugMeta: { panelId, targetEdge },
+          debugState: auxiliary,
+        }),
+      });
     },
 
     mergeBackToSeededGroup: (groupInstanceId) => {
@@ -292,7 +328,15 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
       if (!api) return;
 
       const next = mergeBackToSeededGroupLayout(auxiliary, groupInstanceId);
-      set({ auxiliary: applyAuxiliaryLayout(api, next) });
+      const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, auxiliary);
+      set({
+        auxiliary: applyAuxiliaryLayout(api, next, {
+          preserveDockedSizes: preservedDockedSizes,
+          debugLabel: 'store.mergeBackToSeededGroup',
+          debugMeta: { groupInstanceId },
+          debugState: auxiliary,
+        }),
+      });
     },
 
     resetLayout: () => {

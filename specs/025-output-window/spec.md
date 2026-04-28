@@ -2,7 +2,7 @@
 
 **Feature Branch**: `025-output-window`
 **Created**: 2026-04-27
-**Status**: Draft
+**Status**: Complete
 **Input**: User description: "Implement an output window that mirrors the NetBeans Output Window used in Java Blue, providing a tabbed console for Csound engine stdout/stderr during realtime and disk rendering."
 
 ## User Scenarios & Testing *(mandatory)*
