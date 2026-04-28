@@ -35,6 +35,12 @@ declare global {
       togglePlay: () => Promise<boolean>;
       stopPlayback: () => Promise<void>;
       getProjectInfo: () => Promise<Record<string, string> | null>;
+      generateCsdToScreen: () => Promise<void>;
+      generateCsdToDisk: () => Promise<void>;
+      importBlueUdo: () => Promise<string | null>;
+      importCsoundUdo: () => Promise<string | null>;
+      exportBlueUdo: (xmlText: string) => Promise<void>;
+      exportCsoundUdo: (codeText: string, udoName: string) => Promise<void>;
       onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => void;
       onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;
       onPlaybackClock: (cb: (clock: PlaybackClockSnapshot) => void) => void;
@@ -45,6 +51,8 @@ declare global {
       onEngineOutput: (cb: (payload: EngineOutputPayload) => void) => () => void;
       onEngineOutputSelect: (cb: (payload: { tabName: string }) => void) => () => void;
       onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;
+      onGeneratedCsd: (cb: (csdText: string) => void) => () => void;
+      onGeneratedCsdError: (cb: (error: string) => void) => () => void;
     };
   }
 }

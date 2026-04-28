@@ -6,6 +6,8 @@ import GlobalOrchestraPanel from './panels/GlobalOrchestraPanel';
 import GlobalScorePanel from './panels/GlobalScorePanel';
 import OrchestraPanel from './panels/OrchestraPanel';
 import ProjectPropertiesPanel from './panels/ProjectPropertiesPanel';
+import TablesPanel from './panels/TablesPanel';
+import UserDefinedOpcodePanel from './panels/UserDefinedOpcodePanel';
 import OutputPanel from './panels/output/OutputPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
@@ -31,6 +33,10 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <GlobalScorePanel />
           ) : descriptor.id === 'ProjectPropertiesTopComponent' ? (
             <ProjectPropertiesPanel />
+          ) : descriptor.id === 'TablesTopComponent' ? (
+            <TablesPanel />
+          ) : descriptor.id === 'UserDefinedOpcodeTopComponent' ? (
+            <UserDefinedOpcodePanel />
           ) : descriptor.id === 'OutputTopComponent' ? (
             <OutputPanel />
           ) : (

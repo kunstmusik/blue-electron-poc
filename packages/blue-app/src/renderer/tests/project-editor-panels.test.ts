@@ -150,7 +150,6 @@ describe('Project editor panels', () => {
     const html = renderToStaticMarkup(createElement(GlobalOrchestraPanel));
 
     expect(html).toContain('No project loaded');
-    expect(html).toContain('Open a project to edit the global orchestra text.');
   });
 
   it('renders the global orchestra editor when loaded', () => {
@@ -246,8 +245,9 @@ describe('Project editor panels', () => {
       globalSco: 'e',
     });
 
-    expect(html).not.toContain('Global Score');
-    expect(html).toContain('textarea');
+    expect(html).toContain('data-editor-kind="codemirror"');
+    expect(html).toContain('aria-label="Global Score Csound editor"');
+    expect(html).not.toContain('textarea');
   });
 
   it('exposes Blue opcode completions from the panel-level Java Blue completion source', () => {

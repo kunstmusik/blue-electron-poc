@@ -171,7 +171,7 @@ describe('Node.js library API', () => {
     expect(data.getProjectProperties().ksmps).toBe('32');
     expect(data.getProjectProperties().useZeroDbFS).toBe(true);
     expect(data.getGlobalOrcSco().getGlobalOrc()).toBe('sr = 48000');
-    expect(data.getTableSet().getTable('f1')).toBe('f 1 0 1024 10 1');
+    expect(data.getTableSet().getTables()).toBe('f 1 0 1024 10 1');
   });
 
   it('saves to XML string and round-trips', async () => {
@@ -236,7 +236,7 @@ describe('Node.js library API', () => {
     data.setGlobalOrcSco(globalOrcSco);
 
     const tables = new Tables();
-    tables.addTable('f1', 'f 1 0 1024 10 1');
+    tables.setTables('f 1 0 1024 10 1');
     data.setTableSet(tables);
 
     // Pattern layer with score

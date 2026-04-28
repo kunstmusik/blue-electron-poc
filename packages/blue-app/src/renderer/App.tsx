@@ -5,6 +5,7 @@ import { useUIStore } from './stores/ui-store';
 import MainToolbar from './components/menu-bar/MainToolbar';
 import WelcomeScreen from './components/welcome/WelcomeScreen';
 import WorkbenchShell from './components/workbench/WorkbenchShell';
+import GeneratedCsdModal from './components/workbench/panels/GeneratedCsdModal';
 import ErrorBoundary from './components/notifications/ErrorBoundary';
 
 export default function App(): React.ReactElement {
@@ -32,6 +33,8 @@ export default function App(): React.ReactElement {
             </div>
           )}
         </main>
+
+        <GeneratedCsdModal />
       </div>
     </ErrorBoundary>
   );

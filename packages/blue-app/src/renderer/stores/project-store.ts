@@ -17,14 +17,22 @@ import {
   type ProjectPropertiesSnapshot,
   type OrchestraPatch,
   type OrchestraSnapshot,
+  type ProjectUdoPatch,
   type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
+  type UdoDefinitionSnapshot,
 } from '../../shared/project-editor';
 import {
   getHSliderBankDisplaySize,
   getVSliderBankDisplaySize,
   BSB_LINE_SELECTOR_HEIGHT,
 } from '../../shared/bsb-widget-layout';
+import {
+  EMPTY_UDO_SNAPSHOT,
+  cloneUdoSnapshot,
+  convertUdoSnapshotStyle,
+  formatUdoListAsOpcodeText,
+} from '../components/workbench/panels/udo/udo-snapshot-utils';
 
 interface ProjectState {
   title: string;
@@ -40,6 +48,9 @@ interface ProjectState {
   orchestra: OrchestraSnapshot;
   projectProperties: ProjectPropertiesSnapshot;
   transport: ToolbarProjectTransportSnapshot;
+  tablesText: string;
+  projectUdos: UdoDefinitionSnapshot[];
+  generatedCsd: { text: string; title: string } | null;
 }
 
 interface ProjectActions {
@@ -59,6 +70,11 @@ interface ProjectActions {
     patch: Partial<ProjectPropertiesSnapshot>,
   ) => Promise<void>;
   setLoopRendering: (loopRendering: boolean) => Promise<void>;
+  updateTablesText: (tablesText: string) => Promise<void>;
+  applyProjectUdoPatch: (patch: ProjectUdoPatch) => Promise<void>;
+  setGeneratedCsd: (csd: { text: string; title: string } | null) => void;
+  generateCsdToScreen: () => Promise<void>;
+  generateCsdToDisk: () => Promise<void>;
   flushPendingPatches: () => Promise<void>;
 }
 
@@ -553,6 +569,8 @@ function applyProjectInfoToState(
       orchestra: info.orchestra ?? state.orchestra,
       projectProperties: nextProjectProperties,
       transport: nextTransport,
+      tablesText: info.tablesText ?? state.tablesText,
+      projectUdos: info.projectUdos ?? state.projectUdos,
     };
   });
 }
@@ -583,11 +601,61 @@ function buildInitialState(): ProjectState {
     orchestra: snapshot.orchestra,
     projectProperties: snapshot.projectProperties,
     transport: snapshot.transport,
+    tablesText: snapshot.tablesText,
+    projectUdos: snapshot.projectUdos,
+    generatedCsd: null,
   };
 }
 
 function cloneInstrumentSnapshot(instrument: InstrumentSnapshot): InstrumentSnapshot {
   return structuredClone(instrument);
+}
+
+function applyProjectUdoPatchToSnapshot(
+  udos: UdoDefinitionSnapshot[],
+  patch: ProjectUdoPatch,
+): UdoDefinitionSnapshot[] {
+  const list = udos.map((udo) => cloneUdoSnapshot(udo));
+
+  switch (patch.type) {
+    case 'add': {
+      const def = patch.definition ?? EMPTY_UDO_SNAPSHOT;
+      const index = patch.index ?? list.length;
+      list.splice(index, 0, cloneUdoSnapshot(def));
+      break;
+    }
+    case 'remove': {
+      if (patch.index >= 0 && patch.index < list.length) {
+        list.splice(patch.index, 1);
+      }
+      break;
+    }
+    case 'update': {
+      if (patch.index >= 0 && patch.index < list.length) {
+        list[patch.index] = { ...list[patch.index], ...patch.patch };
+      }
+      break;
+    }
+    case 'reorder': {
+      if (
+        patch.from >= 0 && patch.from < list.length &&
+        patch.to >= 0 && patch.to < list.length &&
+        patch.from !== patch.to
+      ) {
+        const [moved] = list.splice(patch.from, 1);
+        list.splice(patch.to, 0, moved);
+      }
+      break;
+    }
+    case 'convertStyle': {
+      if (patch.index >= 0 && patch.index < list.length) {
+        list[patch.index] = convertUdoSnapshotStyle(list[patch.index]!, patch.style);
+      }
+      break;
+    }
+  }
+
+  return list;
 }
 
 function cloneInstrumentSnapshotForMutation<T extends InstrumentSnapshot>(instrument: T): T {
@@ -1441,6 +1509,64 @@ function applyBsbInterfacePatchToSnapshot(
       }
       break;
     }
+    case 'addUdo': {
+      const udolist = instrument.udolist ? [...instrument.udolist] : [];
+      const newUdo = patch.definition
+        ? cloneUdoSnapshot(patch.definition)
+        : cloneUdoSnapshot(EMPTY_UDO_SNAPSHOT);
+      if (patch.index !== undefined && patch.index >= 0 && patch.index <= udolist.length) {
+        udolist.splice(patch.index, 0, newUdo);
+      } else {
+        udolist.push(newUdo);
+      }
+      instrument.udolist = udolist;
+      instrument.opcodeListText = formatUdoListAsOpcodeText(udolist);
+      break;
+    }
+    case 'removeUdo': {
+      const removeUdolist = instrument.udolist ? [...instrument.udolist] : [];
+      if (patch.index >= 0 && patch.index < removeUdolist.length) {
+        removeUdolist.splice(patch.index, 1);
+      }
+      instrument.udolist = removeUdolist;
+      instrument.opcodeListText = formatUdoListAsOpcodeText(removeUdolist);
+      break;
+    }
+    case 'updateUdo': {
+      const updateUdolist = instrument.udolist
+        ? instrument.udolist.map((udo) => cloneUdoSnapshot(udo))
+        : [];
+      if (patch.index >= 0 && patch.index < updateUdolist.length) {
+        updateUdolist[patch.index] = { ...updateUdolist[patch.index], ...patch.patch };
+      }
+      instrument.udolist = updateUdolist;
+      instrument.opcodeListText = formatUdoListAsOpcodeText(updateUdolist);
+      break;
+    }
+    case 'convertUdoStyle': {
+      const convertedUdolist = instrument.udolist
+        ? instrument.udolist.map((udo) => cloneUdoSnapshot(udo))
+        : [];
+      if (patch.index >= 0 && patch.index < convertedUdolist.length) {
+        convertedUdolist[patch.index] = convertUdoSnapshotStyle(
+          convertedUdolist[patch.index]!,
+          patch.style,
+        );
+      }
+      instrument.udolist = convertedUdolist;
+      instrument.opcodeListText = formatUdoListAsOpcodeText(convertedUdolist);
+      break;
+    }
+    case 'reorderUdo': {
+      const reorderUdolist = instrument.udolist ? [...instrument.udolist] : [];
+      if (patch.from >= 0 && patch.from < reorderUdolist.length && patch.to >= 0 && patch.to < reorderUdolist.length) {
+        const [moved] = reorderUdolist.splice(patch.from, 1);
+        reorderUdolist.splice(patch.to, 0, moved);
+      }
+      instrument.udolist = reorderUdolist;
+      instrument.opcodeListText = formatUdoListAsOpcodeText(reorderUdolist);
+      break;
+    }
     case 'randomize':
       break;
   }
@@ -1731,6 +1857,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       patch.globalOrc === undefined &&
       patch.globalSco === undefined &&
       patch.orchestra === undefined &&
+      patch.tablesText === undefined &&
+      patch.projectUdo === undefined &&
       (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
       (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
@@ -1780,6 +1908,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         };
       }
 
+      if (patch.tablesText !== undefined) {
+        next.tablesText = patch.tablesText;
+      }
+
+      if (patch.projectUdo !== undefined) {
+        next.projectUdos = applyProjectUdoPatchToSnapshot(state.projectUdos, patch.projectUdo);
+      }
+
       return next;
     });
 
@@ -1815,6 +1951,27 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     await get().applyProjectDocumentPatch({
       transport: { loopRendering },
     });
+  },
+
+  updateTablesText: async (tablesText) => {
+    set({ tablesText });
+    await get().applyProjectDocumentPatch({ tablesText });
+  },
+
+  applyProjectUdoPatch: async (patch) => {
+    await get().applyProjectDocumentPatch({ projectUdo: patch });
+  },
+
+  setGeneratedCsd: (csd: { text: string; title: string } | null) => {
+    set({ generatedCsd: csd });
+  },
+
+  generateCsdToScreen: async () => {
+    await window.blueAPI.generateCsdToScreen();
+  },
+
+  generateCsdToDisk: async () => {
+    await window.blueAPI.generateCsdToDisk();
   },
 
   flushPendingPatches: async () => {

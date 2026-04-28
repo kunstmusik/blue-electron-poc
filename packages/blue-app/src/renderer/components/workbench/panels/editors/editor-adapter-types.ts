@@ -2,7 +2,7 @@ import type { Completion } from '@codemirror/autocomplete';
 
 export type SelectedEditorKind = 'codemirror';
 
-export type CsoundDocumentMode = 'orc';
+export type CsoundDocumentMode = 'orc' | 'sco' | 'csd' | 'text';
 
 export interface CsoundCompletionContext {
   text: string;
@@ -79,6 +79,7 @@ export interface SelectedCodeEditorProps {
   ariaLabel: string;
   active?: boolean;
   readOnly?: boolean;
+  mode?: CsoundDocumentMode;
   dynamicCompletionProviders?: DynamicCsoundCompletionProvider[];
   javaBlueCompletionOptions?: JavaBlueCsoundCompletionOptions;
   contextMenuItems?: CsoundEditorMenuItem[];

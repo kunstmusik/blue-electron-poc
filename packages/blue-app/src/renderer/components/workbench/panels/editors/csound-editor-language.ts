@@ -16,22 +16,45 @@ export const SELECTED_CSOUND_EDITOR: SelectedEditorMetadata = {
   mode: 'orc',
 };
 
+export function getSelectedEditorMetadata(
+  mode: 'orc' | 'sco' | 'csd' | 'text',
+): SelectedEditorMetadata {
+  return {
+    kind: 'codemirror',
+    languageId:
+      mode === 'text'
+        ? 'plain-text'
+        : mode === 'sco'
+          ? 'csound-sco'
+          : mode === 'csd'
+            ? 'csound-csd'
+            : 'csound-orc',
+    mode,
+  };
+}
+
 export function createCsoundEditorExtensions(
   dynamicCompletionProviders: DynamicCsoundCompletionProvider[] = [],
   javaBlueCompletionOptions: JavaBlueCsoundCompletionOptions = {},
+  mode: 'orc' | 'sco' | 'csd' | 'text' = 'orc',
 ): Extension[] {
-  const extensions: Extension[] = [csound({ mode: 'orc' })];
+  const extensions: Extension[] = [];
+  if (mode !== 'text') {
+    extensions.push(csound({ mode }));
+  }
   const completionSources = [createJavaBlueCsoundCompletionSource(javaBlueCompletionOptions)];
 
-  if (dynamicCompletionProviders.length > 0) {
+  if (mode !== 'text' && dynamicCompletionProviders.length > 0) {
     completionSources.push(createDynamicCsoundCompletionSource(dynamicCompletionProviders));
   }
 
-  extensions.push(
-    autocompletion({
-      override: completionSources,
-    }),
-  );
+  if (mode !== 'text') {
+    extensions.push(
+      autocompletion({
+        override: completionSources,
+      }),
+    );
+  }
 
   return extensions;
 }

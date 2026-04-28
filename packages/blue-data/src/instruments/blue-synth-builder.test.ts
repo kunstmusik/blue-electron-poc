@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Element } from '../serialization/xml-reader';
 import { BlueSynthBuilder } from './blue-synth-builder';
+import { UDOStyle } from '../opcodes/udo-style';
 
 describe('BlueSynthBuilder', () => {
   it('preserves loaded graphic interface XML and opcode lists', () => {
@@ -406,6 +407,41 @@ describe('BlueSynthBuilder', () => {
 
     const savedXml = instrument.saveAsXML().toXml();
     expect(savedXml).toContain('<opcodeList>');
+  });
+
+  it('converts instrument UDO styles using the shared utility semantics', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>UDO Convert</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface/>
+      <opcodeList>
+        <opcode>
+          <opcodeName>saturate</opcodeName>
+          <outTypes>a</outTypes>
+          <inTypes>ak</inTypes>
+          <style>CLASSIC</style>
+          <codeBody>aSig, kDrive	xin
+aOut = tanh(aSig * kDrive)
+xout aOut</codeBody>
+        </opcode>
+      </opcodeList>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+
+    expect(instrument.convertUdoStyle(0, UDOStyle.MODERN)).toBe(true);
+    let udo = instrument.getOpcodeList().getOpcode(0);
+    expect(udo?.getStyle()).toBe(UDOStyle.MODERN);
+    expect(udo?.getInputArguments()).toBe('aSig, kDrive');
+    expect(udo?.getInTypes()).toBe('');
+    expect(udo?.getCode()).not.toContain('xin');
+
+    expect(instrument.convertUdoStyle(0, UDOStyle.CLASSIC)).toBe(true);
+    udo = instrument.getOpcodeList().getOpcode(0);
+    expect(udo?.getStyle()).toBe(UDOStyle.CLASSIC);
+    expect(udo?.getInputArguments()).toBe('');
+    expect(udo?.getInTypes()).toBe('ak');
+    expect(udo?.getCode()).toContain('aSig, kDrive\txin');
   });
 
   it('preserves graphic interface XML through edit cycles', () => {

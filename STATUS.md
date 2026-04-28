@@ -1,7 +1,18 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-28
-**Branch**: `022-bsb-interface-parity`
+**Branch**: `026-tables-udo-csd`
+
+## Spec 026 Package
+
+Spec `026-tables-udo-csd` is complete and closed out.
+
+- Goal: add a project Tables editor, a shared project UDO workspace, and native Project menu CSD generation actions while keeping user UDO library support deferred
+- Planning / implementation artifacts: `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/spec.md`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/plan.md`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/research.md`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/data-model.md`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/contracts/`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/quickstart.md`, `/Users/stevenyi/work/blue-electron/specs/026-tables-udo-csd/tasks.md`
+- Completed scope: project-backed Tables editor, shared `UdoWorkspacePanel` with Java-style table/editor reuse and indexed row selection, UDO style conversion and generated-code preview, BSB and project UDO panel reuse, generated CSD screen/disk commands, and the renderer/main IPC bridges needed to wire them through the current project snapshot
+- Validation status: focused `pnpm --filter @blue/data test` and `pnpm --filter @blue/app test` passes were rerun for the wrapper-layer fixes, and the earlier Spec 026 `pnpm --filter @blue/data test`, `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build`, and `git diff --check` validation remains the closeout baseline
+- Deferred scope: user/global UDO library support, any richer Java Project menu parity beyond the generation actions already implemented, and any future tables/UDO enhancements beyond this slice
+- Immediate next step: none for Spec 026; remaining work is future-spec scope only
 
 ## Spec 025 Package
 

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import ProjectTextEditorPanel from './ProjectTextEditorPanel';
 import SelectedCodeEditor from './editors/SelectedCodeEditor';
 
 export default function GlobalOrchestraPanel(): React.ReactElement {
@@ -10,27 +9,20 @@ export default function GlobalOrchestraPanel(): React.ReactElement {
 
   if (!loaded) {
     return (
-      <ProjectTextEditorPanel
-        value={globalOrc}
-        placeholder="Enter global orchestra code"
-        emptyTitle="No project loaded"
-        emptyDescription="Open a project to edit the global orchestra text."
-        disabled
-        onChange={updateGlobalOrc}
-      />
+      <div className="flex h-full items-center justify-center text-gray-500 text-sm">
+        No project loaded
+      </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-blue-bg text-gray-100">
-      <div className="flex-1 min-h-0 p-4">
-        <SelectedCodeEditor
-          value={globalOrc}
-          placeholder="Enter global orchestra code"
-          ariaLabel="Global Orchestra Csound editor"
-          onChange={updateGlobalOrc}
-        />
-      </div>
+    <div className="h-full">
+      <SelectedCodeEditor
+        value={globalOrc}
+        placeholder="Enter global orchestra code"
+        ariaLabel="Global Orchestra Csound editor"
+        onChange={updateGlobalOrc}
+      />
     </div>
   );
 }

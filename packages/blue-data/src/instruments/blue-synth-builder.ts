@@ -23,6 +23,7 @@ import { PresetGroup } from "./blue-synth-builder/preset-group";
 import { Preset } from "./blue-synth-builder/preset";
 import { OpcodeDefinition } from "../opcodes/opcode-definition";
 import { UDOStyle } from "../opcodes/udo-style";
+import { convertToClassic, convertToModern } from "../opcodes/udo-utilities";
 import { ParameterList } from "../automation/parameter-list";
 import { BSBHSliderBank } from './blue-synth-builder/bsb-hslider-bank';
 import { BSBVSliderBank } from './blue-synth-builder/bsb-vslider-bank';
@@ -284,6 +285,20 @@ export class BlueSynthBuilder extends Instrument {
 
     this._opcodeList.removeOpcodeAt(fromIndex);
     this._opcodeList.addOpcodeAt(toIndex, udo);
+    this._graphicInterfaceXML = null;
+    return true;
+  }
+
+  convertUdoStyle(index: number, style: UDOStyle): boolean {
+    const udo = this._opcodeList.getOpcode(index);
+    if (!udo) return false;
+
+    if (style === UDOStyle.MODERN) {
+      convertToModern(udo);
+    } else {
+      convertToClassic(udo);
+    }
+
     this._graphicInterfaceXML = null;
     return true;
   }

@@ -4,8 +4,11 @@ import { EditorState, type Extension } from '@codemirror/state';
 import { placeholder as editorPlaceholder } from '@codemirror/view';
 
 import CsoundEditorContextMenu from './CsoundEditorContextMenu';
-import { createCsoundEditorExtensions, SELECTED_CSOUND_EDITOR } from './csound-editor-language';
-import { createJavaBlueCsoundEditorMenuItems } from './csound-editor-menu';
+import { createCsoundEditorExtensions, getSelectedEditorMetadata } from './csound-editor-language';
+import {
+  createBasicTextEditorMenuItems,
+  createJavaBlueCsoundEditorMenuItems,
+} from './csound-editor-menu';
 import type {
   DynamicCsoundCompletionProvider,
   JavaBlueCsoundCompletionOptions,
@@ -72,6 +75,7 @@ export default function SelectedCodeEditor({
   ariaLabel,
   active = true,
   readOnly = false,
+  mode = 'orc',
   dynamicCompletionProviders = EMPTY_DYNAMIC_COMPLETION_PROVIDERS,
   javaBlueCompletionOptions = EMPTY_JAVA_BLUE_COMPLETION_OPTIONS,
   contextMenuItems,
@@ -81,6 +85,7 @@ export default function SelectedCodeEditor({
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const syncingFromPropsRef = useRef(false);
+  const editorMetadata = getSelectedEditorMetadata(mode);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -104,7 +109,7 @@ export default function SelectedCodeEditor({
 
         void onChangeRef.current(update.state.doc.toString());
       }),
-      ...createCsoundEditorExtensions(dynamicCompletionProviders, javaBlueCompletionOptions),
+      ...createCsoundEditorExtensions(dynamicCompletionProviders, javaBlueCompletionOptions, mode),
     ];
 
     if (readOnly) {
@@ -124,7 +129,7 @@ export default function SelectedCodeEditor({
         viewRef.current = null;
       }
     };
-  }, [dynamicCompletionProviders, javaBlueCompletionOptions, readOnly]);
+  }, [dynamicCompletionProviders, javaBlueCompletionOptions, mode, placeholder, readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -159,14 +164,18 @@ export default function SelectedCodeEditor({
     viewRef.current?.requestMeasure();
   }, [active]);
 
-  const menuItems = contextMenuItems ?? createJavaBlueCsoundEditorMenuItems({ readOnly });
+  const menuItems =
+    contextMenuItems ??
+    (mode === 'text'
+      ? createBasicTextEditorMenuItems({ readOnly })
+      : createJavaBlueCsoundEditorMenuItems({ readOnly }));
 
   return (
     <CsoundEditorContextMenu editorViewRef={viewRef} menuItems={menuItems}>
       <div
         className="selected-code-editor selected-code-editor--codemirror"
-        data-editor-kind={SELECTED_CSOUND_EDITOR.kind}
-        data-editor-language={SELECTED_CSOUND_EDITOR.languageId}
+        data-editor-kind={editorMetadata.kind}
+        data-editor-language={editorMetadata.languageId}
         aria-label={ariaLabel}
       >
         <div ref={containerRef} className="selected-code-editor__mount" />

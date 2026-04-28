@@ -6,45 +6,7 @@ import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useWorkbenchStore } from '../stores/workbench-store';
 import { useOutputStore } from '../stores/output-store';
-import type {
-  PlaybackClockSnapshot,
-  ProjectLoadedPayload,
-} from '../../shared/project-editor';
-import type { NativeMenuCommand } from '../../shared/workbench-menu';
 import type { EngineOutputPayload } from '../../shared/io-provider';
-
-// Declare the global blueAPI type
-declare global {
-  interface Window {
-    blueAPI: {
-      openFile: () => Promise<string | null>;
-      openBsbFileSelector: (currentValue?: string) => Promise<string | null>;
-      setBsbFileSelectorPath: (filePath: string) => Promise<string | null>;
-      copyBsbFileSelectorToMediaFolder: (currentValue?: string) => Promise<string | null>;
-      saveFile: () => Promise<string | null>;
-      saveFileAs: () => Promise<string | null>;
-      getProjectDocument: () => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;
-      updateProjectDocument: (
-        patch: import('../../shared/project-editor').ProjectDocumentPatch,
-      ) => Promise<import('../../shared/project-editor').ProjectEditorSnapshot | null>;
-      readClipboardText: () => Promise<string>;
-      writeClipboardText: (text: string) => Promise<void>;
-      togglePlay: () => Promise<boolean>;
-      stopPlayback: () => Promise<void>;
-      getProjectInfo: () => Promise<Record<string, string> | null>;
-      onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => void;
-      onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;
-      onPlaybackClock: (cb: (clock: PlaybackClockSnapshot) => void) => void;
-      onPlaybackError: (cb: (error: string) => void) => void;
-      onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => void;
-      onSaveComplete: (cb: (info: { filePath: string }) => void) => void;
-      onSaveError: (cb: (error: string) => void) => void;
-      onEngineOutput: (cb: (payload: EngineOutputPayload) => void) => () => void;
-      onEngineOutputSelect: (cb: (payload: { tabName: string }) => void) => () => void;
-      onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;
-    };
-  }
-}
 
 export function useIPCListeners(): void {
   const setProjectInfo = useProjectStore((s) => s.setProjectInfo);
@@ -111,10 +73,20 @@ export function useIPCListeners(): void {
       resetTab(payload.tabName);
     });
 
+    const unsubCsd = window.blueAPI.onGeneratedCsd((csdText) => {
+      useProjectStore.getState().setGeneratedCsd({ text: csdText, title: 'Generated CSD' });
+    });
+
+    const unsubCsdErr = window.blueAPI.onGeneratedCsdError((error) => {
+      toast.error(`CSD generation failed: ${error}`);
+    });
+
     return () => {
       unsubOutput();
       unsubSelect();
       unsubReset();
+      unsubCsd();
+      unsubCsdErr();
     };
   }, [
     addRecentFile,

@@ -177,6 +177,7 @@ export { MidiVelocityMapping } from './midi/midi-velocity-mapping';
 export { OpcodeDefinition } from './opcodes/opcode-definition';
 export { OpcodeList } from './opcodes/opcode-list';
 export { UDOStyle } from './opcodes/udo-style';
+export { convertToModern, convertToClassic, parseUDOText } from './opcodes/udo-utilities';
 
 // ─── Serialization ───
 export { Element, Elements } from './serialization/xml-reader';

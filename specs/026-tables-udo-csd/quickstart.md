@@ -58,3 +58,7 @@ git diff --check
 - User UDO library behavior should be absent or explicitly marked deferred.
 - Full Java Project menu parity beyond CSD generation and moved playback/render actions is not required in this spec.
 - Realtime CSD-to-screen is optional unless implementation can support it safely without expanding scope.
+
+## Closeout Note
+
+- No additional manual-verification deltas were needed beyond the validation and manual scenarios above; the shipped implementation includes the shared UDO workspace, generated CSD modal, and Project menu closeout described in the spec.

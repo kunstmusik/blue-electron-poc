@@ -50,6 +50,27 @@ export class OpcodeList {
     this._counter = 0;
   }
 
+  /**
+   * Move an opcode from one index to another.
+   */
+  moveOpcode(fromIndex: number, toIndex: number): boolean {
+    if (fromIndex < 0 || fromIndex >= this._opcodes.length) return false;
+    if (toIndex < 0 || toIndex >= this._opcodes.length) return false;
+    if (fromIndex === toIndex) return true;
+    const [moved] = this._opcodes.splice(fromIndex, 1);
+    this._opcodes.splice(toIndex, 0, moved);
+    return true;
+  }
+
+  /**
+   * Add all opcodes from another OpcodeList.
+   */
+  addAll(other: OpcodeList): void {
+    for (const opcode of other.getOpcodes()) {
+      this._opcodes.push(opcode.deepCopy() as OpcodeDefinition);
+    }
+  }
+
   size(): number {
     return this._opcodes.length;
   }

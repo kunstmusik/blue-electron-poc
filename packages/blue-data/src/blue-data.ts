@@ -302,11 +302,13 @@ export class BlueData implements BlueDataObject {
 
     root.addElement(this.projectProperties.saveAsXML(objRefMap));
     root.addElement(this.arrangement.saveAsXML());
+    root.addElement(this.mixer.saveAsXML());
+    root.addElement(this.tableSet.saveAsXML());
     root.addElement(this.sObjLib.saveAsXML(objRefMap));
     root.addElement(this.globalOrcSco.saveAsXML());
-    root.addElement(this.tableSet.saveAsXML());
-    root.addElement(this.score.saveAsXML(objRefMap));
+    root.addElement(this.opcodeList.saveAsXML());
     root.addElement(this.liveData.saveAsXML(objRefMap));
+    root.addElement(this.score.saveAsXML(objRefMap));
     root.addElement(this.scratchData.saveAsXML());
     root.addElement(this.noteProcessorChainMap.saveAsXML());
     root.addElement("renderStartTime").setText(this.renderStartTime.toString());

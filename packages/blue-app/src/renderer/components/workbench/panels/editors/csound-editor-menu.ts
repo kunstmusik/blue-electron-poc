@@ -181,3 +181,34 @@ export function createJavaBlueCsoundEditorMenuItems(
     },
   ];
 }
+
+export function createBasicTextEditorMenuItems(
+  options: CsoundEditorMenuOptions = {},
+): CsoundEditorMenuItem[] {
+  const readOnly = Boolean(options.readOnly);
+
+  return [
+    {
+      kind: 'command',
+      id: 'cut',
+      label: 'Cut',
+      command: 'cut',
+      disabled: readOnly,
+      disabledReason: readOnly ? 'Editor is read-only' : undefined,
+    },
+    {
+      kind: 'command',
+      id: 'copy',
+      label: 'Copy',
+      command: 'copy',
+    },
+    {
+      kind: 'command',
+      id: 'paste',
+      label: 'Paste',
+      command: 'paste',
+      disabled: readOnly,
+      disabledReason: readOnly ? 'Editor is read-only' : undefined,
+    },
+  ];
+}

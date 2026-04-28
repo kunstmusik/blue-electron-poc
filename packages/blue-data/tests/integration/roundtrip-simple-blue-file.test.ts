@@ -51,7 +51,7 @@ function buildTestProject(): BlueData {
 
   // Tables
   const tables = new Tables();
-  tables.addTable('f1', 'f 1 0 1024 10 1');
+  tables.setTables('f 1 0 1024 10 1');
   data.setTableSet(tables);
 
   // Arrangement with an instrument
@@ -132,7 +132,7 @@ describe('Round-trip: simple project', () => {
     // Tables should match
     const t1 = elem1.getElement('tables');
     const t2 = elem2.getElement('tables');
-    expect(t1!.getElements('fTable').size).toBe(t2!.getElements('fTable').size);
+    expect(t1!.getTextString()).toBe(t2!.getTextString());
 
     // Arrangement should match
     const a1 = elem1.getElement('arrangement');
@@ -170,16 +170,12 @@ describe('Round-trip: individual types', () => {
 
   it('Tables round-trips', () => {
     const tables = new Tables();
-    tables.addTable('f1', 'f 1 0 1024 10 1');
-    tables.addTable('f2', 'f 2 0 2048 10 1 0.5 0.25');
-    tables.addTable('f3', 'f 3 0 512 -7 0 256 1 256 0');
+    tables.setTables('f 1 0 1024 10 1\nf 2 0 2048 10 1 0.5 0.25\nf 3 0 512 -7 0 256 1 256 0');
 
     const xml = tables.saveAsXML();
     const reloaded = Tables.loadFromXML(xml);
 
-    expect(reloaded.getTable('f1')).toBe('f 1 0 1024 10 1');
-    expect(reloaded.getTable('f2')).toBe('f 2 0 2048 10 1 0.5 0.25');
-    expect(reloaded.getTable('f3')).toBe('f 3 0 512 -7 0 256 1 256 0');
+    expect(reloaded.getTables()).toBe('f 1 0 1024 10 1\nf 2 0 2048 10 1 0.5 0.25\nf 3 0 512 -7 0 256 1 256 0');
   });
 
   it('GlobalOrcSco round-trips', () => {

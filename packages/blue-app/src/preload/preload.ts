@@ -47,6 +47,16 @@ contextBridge.exposeInMainWorld('blueAPI', {
   // Project info
   getProjectInfo: () => ipcRenderer.invoke('get-project-info'),
 
+  // CSD generation
+  generateCsdToScreen: () => ipcRenderer.invoke('generate-csd-to-screen'),
+  generateCsdToDisk: () => ipcRenderer.invoke('generate-csd-to-disk'),
+
+  // UDO import/export
+  importBlueUdo: () => ipcRenderer.invoke('import-blue-udo'),
+  importCsoundUdo: () => ipcRenderer.invoke('import-csound-udo'),
+  exportBlueUdo: (xmlText: string) => ipcRenderer.invoke('export-blue-udo', xmlText),
+  exportCsoundUdo: (codeText: string, udoName: string) => ipcRenderer.invoke('export-csound-udo', codeText, udoName),
+
   // Event listeners
   onProjectLoaded: (callback: (info: ProjectLoadedPayload) => void) => {
     ipcRenderer.on('project-loaded', (_event, info) => callback(info as ProjectLoadedPayload));
@@ -84,5 +94,15 @@ contextBridge.exposeInMainWorld('blueAPI', {
     const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => callback(payload as { tabName: string });
     ipcRenderer.on('engine-output-reset', handler);
     return () => { ipcRenderer.removeListener('engine-output-reset', handler); };
+  },
+  onGeneratedCsd: (callback: (csdText: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, csdText: unknown) => callback(csdText as string);
+    ipcRenderer.on('generated-csd', handler);
+    return () => { ipcRenderer.removeListener('generated-csd', handler); };
+  },
+  onGeneratedCsdError: (callback: (error: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, error: unknown) => callback(error as string);
+    ipcRenderer.on('generated-csd-error', handler);
+    return () => { ipcRenderer.removeListener('generated-csd-error', handler); };
   },
 });

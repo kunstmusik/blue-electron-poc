@@ -1,63 +1,70 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import type { UdoDefinitionSnapshot } from '../../../../../../shared/project-editor';
-import SelectedCodeEditor from '../../editors/SelectedCodeEditor';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Play } from 'lucide-react';
 
-interface UDOEditorProps {
+import type { UdoDefinitionSnapshot } from '../../../../../shared/project-editor';
+import SelectedCodeEditor from '../editors/SelectedCodeEditor';
+
+interface UdoEditorProps {
   udo: UdoDefinitionSnapshot | null;
   onUpdateUdo: (patch: Partial<UdoDefinitionSnapshot>) => void;
+  onConvertStyle: (style: 'CLASSIC' | 'MODERN') => void;
   onTestOpcode: () => void;
 }
 
 type EditorTab = 'code' | 'comments';
 
-export default function UDOEditor({
+export default function UdoEditor({
   udo,
   onUpdateUdo,
+  onConvertStyle,
   onTestOpcode,
-}: UDOEditorProps): React.ReactElement {
+}: UdoEditorProps): React.ReactElement {
   const [activeTab, setActiveTab] = useState<EditorTab>('code');
   const [localCode, setLocalCode] = useState('');
   const [localComments, setLocalComments] = useState('');
 
   useEffect(() => {
-    if (udo) {
-      setLocalCode(udo.code);
-      setLocalComments(udo.comments);
+    if (!udo) {
+      setLocalCode('');
+      setLocalComments('');
+      return;
     }
+
+    setLocalCode(udo.code);
+    setLocalComments(udo.comments);
   }, [udo]);
 
   const handleNameChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateUdo({ name: e.target.value });
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdateUdo({ name: event.target.value });
     },
     [onUpdateUdo],
   );
 
   const handleStyleChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onUpdateUdo({ style: e.target.value as 'CLASSIC' | 'MODERN' });
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      onConvertStyle(event.target.value as 'CLASSIC' | 'MODERN');
     },
-    [onUpdateUdo],
+    [onConvertStyle],
   );
 
   const handleOutTypesChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateUdo({ outTypes: e.target.value });
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdateUdo({ outTypes: event.target.value });
     },
     [onUpdateUdo],
   );
 
   const handleInTypesChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateUdo({ inTypes: e.target.value });
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdateUdo({ inTypes: event.target.value });
     },
     [onUpdateUdo],
   );
 
   const handleInputArgumentsChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      onUpdateUdo({ inputArguments: e.target.value });
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onUpdateUdo({ inputArguments: event.target.value });
     },
     [onUpdateUdo],
   );
@@ -81,7 +88,7 @@ export default function UDOEditor({
   if (!udo) {
     return (
       <div className="flex h-full items-center justify-center bg-[#0a0f1a] text-sm text-blue-muted">
-        Select a UDO from the table to edit its properties.
+        Select a single UDO to edit its properties.
       </div>
     );
   }
@@ -91,7 +98,7 @@ export default function UDOEditor({
   return (
     <div className="flex h-full flex-col bg-[#0a0f1a]">
       <div className="border-b border-blue-border bg-[#10192a] px-3 py-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-end gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-[10px] uppercase tracking-wider text-gray-400">
               Opcode Name
@@ -119,7 +126,7 @@ export default function UDOEditor({
           <button
             type="button"
             onClick={onTestOpcode}
-            className="flex items-center gap-1 rounded bg-blue-accent px-3 py-1.5 text-xs font-medium text-gray-100 hover:bg-blue-accent/80"
+            className="flex items-center gap-1 rounded bg-blue-accent px-3 py-1 text-xs font-medium text-gray-100 hover:bg-blue-accent/80"
           >
             <Play size={12} />
             Test Opcode
@@ -204,13 +211,15 @@ export default function UDOEditor({
             value={localCode}
             onChange={handleCodeChange}
             ariaLabel="UDO code editor"
+            mode="orc"
           />
         ) : (
-          <textarea
+          <SelectedCodeEditor
             value={localComments}
-            onChange={(e) => handleCommentsChange(e.target.value)}
+            onChange={handleCommentsChange}
+            ariaLabel="UDO comments editor"
+            mode="text"
             placeholder="Add comments about this UDO..."
-            className="h-full w-full resize-none bg-[#0a0f1a] p-3 text-sm text-gray-100 focus:outline-none"
           />
         )}
       </div>

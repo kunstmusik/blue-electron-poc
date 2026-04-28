@@ -1,7 +1,15 @@
 /**
  * Electron main process — manages app window, file dialogs, and engine lifecycle.
  */
-import { app, BrowserWindow, ipcMain, dialog, Menu, nativeImage } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Menu,
+  nativeImage,
+  type MenuItemConstructorOptions,
+} from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -89,6 +97,93 @@ function buildNativeWindowMenu() {
   ];
 }
 
+function hasLoadedProject(): boolean {
+  return Boolean(currentData);
+}
+
+function buildProjectMenuTemplate(): MenuItemConstructorOptions[] {
+  const enabled = hasLoadedProject();
+
+  return [
+    {
+      label: 'Play',
+      enabled,
+      click: () => {
+        void togglePlay();
+      },
+    },
+    {
+      label: 'Stop',
+      enabled,
+      click: () => {
+        void stopPlayback();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Generate CSD to Screen',
+      accelerator: process.platform === 'darwin' ? 'Cmd+Shift+G' : 'Ctrl+Shift+G',
+      enabled,
+      click: () => {
+        void generateCsdToScreen();
+      },
+    },
+    {
+      label: 'Generate CSD to Disk…',
+      accelerator: process.platform === 'darwin' ? 'Cmd+G' : 'Ctrl+G',
+      enabled,
+      click: () => {
+        void generateCsdToDisk();
+      },
+    },
+  ];
+}
+
+function rebuildApplicationMenu(): void {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'File',
+      submenu: [
+        { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => openFile() },
+        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => saveFile() },
+        { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => saveFileAs() },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : undefined,
+          click: () => requestQuit(),
+        },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'Project',
+      submenu: buildProjectMenuTemplate(),
+    },
+    {
+      label: 'Window',
+      submenu: buildNativeWindowMenu(),
+    },
+  ]);
+
+  Menu.setApplicationMenu(menu);
+}
+
+function notifyNoProjectLoaded(channel: 'playback-error' | 'generated-csd-error'): void {
+  mainWindow?.webContents.send(channel, 'No project is currently loaded.');
+}
+
 function ensureJavaScriptRuntime(): Promise<void> {
   if (!javaScriptRuntimeReady) {
     javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((error) => {
@@ -170,7 +265,7 @@ function createWindow(): void {
       byType.set(key, (byType.get(key) ?? '') + item.text);
     }
     for (const [type, text] of byType) {
-      mainWindow.webContents.send('engine-output', {
+      mainWindow?.webContents.send('engine-output', {
         tabName: 'Csound',
         text,
         type,
@@ -187,47 +282,7 @@ function createWindow(): void {
     }
   });
 
-  // Build menu
-  const menu = Menu.buildFromTemplate([
-    {
-      label: 'File',
-      submenu: [
-        { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => openFile() },
-        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => saveFile() },
-        { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => saveFileAs() },
-        { type: 'separator' },
-        {
-          label: 'Quit',
-          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : undefined,
-          click: () => requestQuit(),
-        },
-      ],
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
-    },
-    {
-      label: 'Window',
-      submenu: buildNativeWindowMenu(),
-    },
-    {
-      label: 'Playback',
-      submenu: [
-        { label: 'Play', click: () => { void togglePlay(); } },
-        { label: 'Stop', click: () => { void stopPlayback(); } },
-      ],
-    },
-  ]);
-  Menu.setApplicationMenu(menu);
+  rebuildApplicationMenu();
   updateWindowTitle();
 }
 
@@ -303,6 +358,7 @@ async function doQuit(): Promise<void> {
   currentData = null;
   currentFilePath = null;
   currentProjectRevision = 0;
+  rebuildApplicationMenu();
 
   app.quit();
 }
@@ -327,6 +383,7 @@ async function openFile(): Promise<void> {
     currentData = data;
     currentFilePath = filePath;
     currentProjectRevision = 0;
+    rebuildApplicationMenu();
     updateWindowTitle();
 
     // Debug: log arrangement IDs and UDOs
@@ -493,7 +550,11 @@ function doSave(filePath: string): void {
 // ─── Playback ───
 
 async function togglePlay(): Promise<boolean> {
-  if (!engineBridge || !currentData) return false;
+  if (!engineBridge) return false;
+  if (!currentData) {
+    notifyNoProjectLoaded('playback-error');
+    return false;
+  }
 
   if (playbackStartPromise) {
     return playbackStartPromise;
@@ -564,6 +625,53 @@ async function stopPlayback(): Promise<void> {
   await engineBridge.stopPlayback();
 }
 
+async function generateCsdToScreen(): Promise<void> {
+  if (!mainWindow) return;
+  if (!currentData) {
+    notifyNoProjectLoaded('generated-csd-error');
+    return;
+  }
+  try {
+    await ensureJavaScriptRuntime();
+    const csdText = currentData.toCSD();
+    mainWindow.webContents.send('generated-csd', csdText);
+  } catch (err) {
+    mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function generateCsdToDisk(): Promise<void> {
+  if (!mainWindow) return;
+  if (!currentData) {
+    notifyNoProjectLoaded('generated-csd-error');
+    return;
+  }
+  try {
+    await ensureJavaScriptRuntime();
+    const csdText = currentData.toCSD();
+    const projectBase = currentFilePath
+      ? require('path').basename(currentFilePath, '.blue')
+      : 'generated';
+    const projectDir = currentFilePath
+      ? require('path').dirname(currentFilePath)
+      : undefined;
+    const result = await dialog.showSaveDialog(mainWindow, {
+      defaultPath: projectDir ? require('path').join(projectDir, `${projectBase}.csd`) : `${projectBase}.csd`,
+      filters: [{ name: 'CSD Files', extensions: ['csd'] }],
+    });
+    if (result.canceled || !result.filePath) return;
+    let filePath = result.filePath;
+    if (!filePath.endsWith('.csd')) {
+      filePath += '.csd';
+    }
+    const { writeFile } = await import('fs/promises');
+    await writeFile(filePath, csdText, 'utf-8');
+    mainWindow.webContents.send('save-complete', { filePath });
+  } catch (err) {
+    mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
+  }
+}
+
 // ─── IPC Handlers ───
 
 ipcMain.handle('open-file', async () => {
@@ -601,6 +709,14 @@ ipcMain.handle('stop-playback', async () => {
   await stopPlayback();
 });
 
+ipcMain.handle('generate-csd-to-screen', async () => {
+  await generateCsdToScreen();
+});
+
+ipcMain.handle('generate-csd-to-disk', async () => {
+  await generateCsdToDisk();
+});
+
 ipcMain.handle('get-project-info', () => {
   if (!currentData) return null;
   return {
@@ -611,6 +727,53 @@ ipcMain.handle('get-project-info', () => {
     nchnls: currentData.getProjectProperties().nchnls,
     version: currentData.getVersion(),
   };
+});
+
+ipcMain.handle('import-blue-udo', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    filters: [{ name: 'Blue UDO File', extensions: ['blueUDO'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const { readFile } = await import('fs/promises');
+  const xml = await readFile(result.filePaths[0], 'utf-8');
+  return xml;
+});
+
+ipcMain.handle('import-csound-udo', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    filters: [{ name: 'Csound File', extensions: ['udo', 'orc', 'csd'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const { readFile } = await import('fs/promises');
+  const text = await readFile(result.filePaths[0], 'utf-8');
+  return text;
+});
+
+ipcMain.handle('export-blue-udo', async (_event, xmlText: string) => {
+  if (!mainWindow) return;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    filters: [{ name: 'Blue UDO File', extensions: ['blueUDO'] }],
+  });
+  if (result.canceled || !result.filePath) return;
+  let filePath = result.filePath;
+  if (!filePath.endsWith('.blueUDO')) filePath += '.blueUDO';
+  const { writeFile } = await import('fs/promises');
+  await writeFile(filePath, xmlText, 'utf-8');
+});
+
+ipcMain.handle('export-csound-udo', async (_event, codeText: string, udoName: string) => {
+  if (!mainWindow) return;
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: `${udoName}.udo`,
+    filters: [{ name: 'Csound UDO File', extensions: ['udo', 'inc'] }],
+  });
+  if (result.canceled || !result.filePath) return;
+  const { writeFile } = await import('fs/promises');
+  await writeFile(result.filePath, codeText, 'utf-8');
 });
 
 /**

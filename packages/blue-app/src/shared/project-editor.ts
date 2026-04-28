@@ -14,6 +14,8 @@ import {
   PythonInstrument,
   TempoMap,
   UDOStyle,
+  convertToModern,
+  convertToClassic,
 } from '@blue/data';
 import {
   getHSliderBankDisplaySize,
@@ -117,6 +119,8 @@ export interface ProjectEditorSnapshot {
   orchestra: OrchestraSnapshot;
   projectProperties: ProjectPropertiesSnapshot;
   transport: ToolbarProjectTransportSnapshot;
+  tablesText: string;
+  projectUdos: UdoDefinitionSnapshot[];
   loaded: boolean;
 }
 
@@ -134,6 +138,8 @@ export interface ProjectDocumentPatch {
   orchestra?: OrchestraPatch;
   projectProperties?: Partial<ProjectPropertiesSnapshot>;
   transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>>;
+  tablesText?: string;
+  projectUdo?: ProjectUdoPatch;
 }
 
 export interface ProjectDocumentCommitReceipt {
@@ -223,6 +229,13 @@ export interface UdoDefinitionSnapshot {
   comments: string;
 }
 
+export type ProjectUdoPatch =
+  | { type: 'add'; index?: number; definition?: UdoDefinitionSnapshot }
+  | { type: 'remove'; index: number }
+  | { type: 'update'; index: number; patch: Partial<UdoDefinitionSnapshot> }
+  | { type: 'reorder'; from: number; to: number }
+  | { type: 'convertStyle'; index: number; style: 'CLASSIC' | 'MODERN' };
+
 export interface BsbWidgetSnapshot {
   objectName: string;
   widgetType: string;
@@ -289,6 +302,7 @@ export type BsbInterfacePatch =
   | { type: 'addUdo'; index?: number; definition?: UdoDefinitionSnapshot }
   | { type: 'removeUdo'; index: number }
   | { type: 'updateUdo'; index: number; patch: Partial<UdoDefinitionSnapshot> }
+  | { type: 'convertUdoStyle'; index: number; style: 'CLASSIC' | 'MODERN' }
   | { type: 'reorderUdo'; from: number; to: number }
   | { type: 'randomize' }
   | { type: 'makeGroup'; widgetIds: string[]; parentGroupId?: string }
@@ -386,6 +400,8 @@ export type ProjectLoadedPayload = ProjectSummarySnapshot &
       | 'orchestra'
       | 'projectProperties'
       | 'transport'
+      | 'tablesText'
+      | 'projectUdos'
       | 'loaded'
     >
   >;
@@ -442,6 +458,8 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
     orchestra: createEmptyOrchestraSnapshot(false),
     projectProperties: createDefaultProjectPropertiesSnapshot(),
     transport: createEmptyToolbarProjectTransportSnapshot(),
+    tablesText: '',
+    projectUdos: [],
     loaded: false,
   };
 }
@@ -588,6 +606,8 @@ export function createProjectEditorSnapshot(
       data.getProjectProperties(),
     ),
     transport: createToolbarProjectTransportSnapshot(data),
+    tablesText: data.getTableSet().getTables(),
+    projectUdos: createProjectUdoListSnapshot(data),
     loaded: true,
   };
 }
@@ -908,6 +928,23 @@ function buildUdoListSnapshot(bsb: import('@blue/data').BlueSynthBuilder): UdoDe
   }));
 }
 
+function createProjectUdoListSnapshot(data: BlueData): UdoDefinitionSnapshot[] {
+  const opcodes = data.getOpcodeList().getOpcodes();
+  return opcodes.map((udo) => udoToSnapshot(udo));
+}
+
+export function udoToSnapshot(udo: import('@blue/data').OpcodeDefinition): UdoDefinitionSnapshot {
+  return {
+    name: udo.getName(),
+    style: udo.getStyle(),
+    outTypes: udo.getOutTypes(),
+    inTypes: udo.getInTypes(),
+    inputArguments: udo.getInputArguments(),
+    code: udo.getCode(),
+    comments: udo.getComments(),
+  };
+}
+
 export function createInstrumentSnapshot(
   assignmentId: string,
   instrument: Instrument | undefined,
@@ -1198,6 +1235,11 @@ function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfac
       }
       return instrument.updateUdo(patch.index, convertedPatch as Parameters<typeof instrument.updateUdo>[1]);
     }
+    case 'convertUdoStyle':
+      return instrument.convertUdoStyle(
+        patch.index,
+        UDOStyle[patch.style as keyof typeof UDOStyle],
+      );
     case 'reorderUdo':
       return instrument.reorderUdo(patch.from, patch.to);
     case 'randomize':
@@ -1618,6 +1660,15 @@ export function applyProjectDocumentPatch(
     changed = true;
   }
 
+  if (patch.tablesText !== undefined) {
+    data.getTableSet().setTables(patch.tablesText);
+    changed = true;
+  }
+
+  if (patch.projectUdo) {
+    changed = applyProjectUdoPatch(data, patch.projectUdo) || changed;
+  }
+
   if (patch.projectProperties) {
     changed =
       applyProjectPropertiesPatch(
@@ -1716,6 +1767,61 @@ export function applyProjectDocumentPatch(
   return changed;
 }
 
+function applyProjectUdoPatch(data: BlueData, patch: ProjectUdoPatch): boolean {
+  const opcodeList = data.getOpcodeList();
+
+  switch (patch.type) {
+    case 'add': {
+      const udo = patch.definition
+        ? snapshotToUdo(patch.definition)
+        : new OpcodeDefinition();
+      const index = patch.index ?? opcodeList.size();
+      opcodeList.addOpcodeAt(index, udo);
+      return true;
+    }
+    case 'remove': {
+      return opcodeList.removeOpcodeAt(patch.index);
+    }
+    case 'update': {
+      const existing = opcodeList.getOpcode(patch.index);
+      if (!existing) return false;
+      if (patch.patch.name !== undefined) existing.setName(patch.patch.name);
+      if (patch.patch.style !== undefined) existing.setStyle(patch.patch.style as UDOStyle);
+      if (patch.patch.outTypes !== undefined) existing.setOutTypes(patch.patch.outTypes);
+      if (patch.patch.inTypes !== undefined) existing.setInTypes(patch.patch.inTypes);
+      if (patch.patch.inputArguments !== undefined) existing.setInputArguments(patch.patch.inputArguments);
+      if (patch.patch.code !== undefined) existing.setCode(patch.patch.code);
+      if (patch.patch.comments !== undefined) existing.setComments(patch.patch.comments);
+      return true;
+    }
+    case 'reorder': {
+      return opcodeList.moveOpcode(patch.from, patch.to);
+    }
+    case 'convertStyle': {
+      const udo = opcodeList.getOpcode(patch.index);
+      if (!udo) return false;
+      if (patch.style === 'MODERN') {
+        convertToModern(udo);
+      } else {
+        convertToClassic(udo);
+      }
+      return true;
+    }
+  }
+}
+
+function snapshotToUdo(snapshot: UdoDefinitionSnapshot): OpcodeDefinition {
+  const udo = new OpcodeDefinition();
+  udo.setName(snapshot.name);
+  udo.setStyle(snapshot.style as UDOStyle);
+  udo.setOutTypes(snapshot.outTypes);
+  udo.setInTypes(snapshot.inTypes);
+  udo.setInputArguments(snapshot.inputArguments);
+  udo.setCode(snapshot.code);
+  udo.setComments(snapshot.comments);
+  return udo;
+}
+
 export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolean {
   const hasProjectProperties =
     patch.projectProperties !== undefined &&
@@ -1726,12 +1832,17 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
   const hasOrchestra =
     patch.orchestra !== undefined &&
     Object.keys(patch.orchestra).length > 0;
+  const hasProjectUdo =
+    patch.projectUdo !== undefined &&
+    Object.keys(patch.projectUdo).length > 0;
 
   return (
     patch.globalOrc === undefined &&
     patch.globalSco === undefined &&
+    patch.tablesText === undefined &&
     !hasProjectProperties &&
     !hasTransport &&
-    !hasOrchestra
+    !hasOrchestra &&
+    !hasProjectUdo
   );
 }
