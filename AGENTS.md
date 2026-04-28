@@ -1,6 +1,6 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-25
+Auto-generated from all feature plans. Last updated: 2026-04-28
 
 ## Active Technologies
 - React 19.x, Electron, dockview 5.2.0 + collapsed auxiliary-group planning for the workbench shell (013-collapsed-sidebar-research)
@@ -22,6 +22,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-25
 - Existing renderer Zustand stores plus project snapshot IPC; fixed-per-performance playback clock metadata cached in the renderer playback store; optional lightweight renderer preference persistence for toolbar-only toggles via existing local storage patterns (020-main-toolbar-parity)
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data`, Zustand 5.x project store, Dockview 5.2.0 workbench panel registry, CodeMirror 6 editor surface from specs 018/019, Radix Context Menu, proposed `@tanstack/react-table` for arrangement table behavior, existing `@tanstack/react-virtual` if large table virtualization becomes necessary (021-orchestra-editor)
 - Main-process in-memory `BlueData` remains canonical; renderer consumes serializable project/orchestra snapshots and sends explicit patch intents through the existing project document IPC bridge; `.blue` XML remains the persistence forma (021-orchestra-editor)
+- TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data` `Tables`/`OpcodeList`/`OpcodeDefinition`/`BlueData.toCSD()`, Zustand 5.x project store, Dockview 5.2.0 panel registry, existing CodeMirror 6 `SelectedCodeEditor`, existing Java Blue-style Csound context menu/completion helpers, Radix Context Menu for renderer menus, Electron `Menu`/`dialog`/`BrowserWindow` for native menu and save/modal flows, Spec 021 BSB UDO components as reuse source (026-tables-udo-csd)
+- Main-process in-memory `BlueData` remains canonical; renderer consumes serializable project snapshots and sends explicit project document patches; `.blue` XML remains persistence; generated `.csd` files are user-selected disk outputs only (026-tables-udo-csd)
 
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `PresetGroup`/`Preset` BSB preset model, Zustand 5.x project store with BSB interface/opcode-list patch support, Dockview 5.2.0, CodeMirror 6, `BsbInterfacePatch` union type for structured BSB mutations (022-bsb-interface-parity)
 - BSB Interface tab now renders an editable widget canvas with selection, property-sheet editing, grid settings, preset application, and Java-style split-view UDO editor (UDOTable + UDOEditor); snapshot contract extended with `widgetTree`, `gridSettings`, `editEnabled`, `presetGroup`, `opcodeListText`; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023 (022-bsb-interface-parity)
@@ -52,9 +54,6 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 026-tables-udo-csd: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data` `Tables`/`OpcodeList`/`OpcodeDefinition`/`BlueData.toCSD()`, Zustand 5.x project store, Dockview 5.2.0 panel registry, existing CodeMirror 6 `SelectedCodeEditor`, existing Java Blue-style Csound context menu/completion helpers, Radix Context Menu for renderer menus, Electron `Menu`/`dialog`/`BrowserWindow` for native menu and save/modal flows, Spec 021 BSB UDO components as reuse source
 - 023-bsb-widget-ui: BSBKnob rewritten with PIE arc track (correct Java 225°/270° geometry via `polarToXY` + `describePieArc`), pill-shaped notch indicator via SVG `<rect rx/ry>`, dark navy value panel (`rgb(20,29,45)` border-radius 3), drag interaction; follow-up parity sweep also verified the knob angle convention, restored Java-compatible XML/preset contracts, and kept the explicit 10px canvas padding sizing in the shared BSB layout helpers
 - 023-bsb-widget-ui: Added font chooser dialog (system fonts via `queryLocalFonts()`), property sheet font grouping, commit-on-enter/blur text inputs with validation, arrangement panel 3-column resizable layout, +Add popup with 5 instrument types, InstrumentNameField removed from all editors, empty BSB canvas always interactive, grid snap decoupled from grid visibility
-- 023-bsb-widget-ui: Phases 0-3 complete (data model parity + 15 widget renderers + generic dynamic property sheet with BeanInfo filtering + interaction fixes: slider drag, dropdown, group navigation/breadcrumb, value panel edit, group child blocking, color parsing, group sizing)
-- 022-bsb-interface-parity: Added BSB editable interface canvas, widget property sheet, grid settings panel, preset application bar, embedded opcode-list editor, preset model (PresetGroup/Preset), BsbInterfacePatch contract, widget tree snapshots, and optimistic patch handling for BSB interface mutations
-- 021-orchestra-editor: Added orchestra panel with arrangement table, instrument editors, Dockview 5.2.0 workbench integration
-- 020-main-toolbar-parity: Closed out the main toolbar parity slice after finalizing playhead/selection alignment and the toolbar/editor context-menu styles
