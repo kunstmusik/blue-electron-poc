@@ -152,6 +152,24 @@ describe('EngineClient', () => {
     await client.disconnect();
   });
 
+  it('connects to explicit ipc endpoints without deriving pub transport from tcp', async () => {
+    const client = new EngineClient({
+      endpoint: 'ipc:///tmp/blue-engine-control.ipc',
+      pubEndpoint: 'ipc:///tmp/blue-engine-pub.ipc',
+      timeout: 1234,
+    });
+
+    await client.connect();
+
+    const request = mockState.requestInstances[0];
+    const subscriber = mockState.subscriberInstances[0];
+    expect(request.connect).toHaveBeenCalledWith('ipc:///tmp/blue-engine-control.ipc');
+    expect(subscriber.connect).toHaveBeenCalledWith('ipc:///tmp/blue-engine-pub.ipc');
+
+    request.responses.push(encodeOkResponse());
+    await client.disconnect();
+  });
+
   it('polls engine state via GET_ENGINE_STATE', async () => {
     const client = new EngineClient({ endpoint: 'tcp://localhost:5555' });
     await client.connect();

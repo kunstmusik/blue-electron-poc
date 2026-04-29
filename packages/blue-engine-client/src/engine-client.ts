@@ -47,7 +47,7 @@ const STATUS_ERROR = 0x01;
 export interface EngineClientOptions {
   /** ZMQ endpoint (default: tcp://localhost:5555) */
   endpoint?: string;
-  /** ZMQ pub/sub endpoint for engine state events (default: endpoint port + 1) */
+  /** ZMQ pub/sub endpoint for engine state events (default: endpoint port + 1; supply explicitly for non-TCP transports) */
   pubEndpoint?: string;
   /** Connection timeout in ms (default: 5000) */
   timeout?: number;

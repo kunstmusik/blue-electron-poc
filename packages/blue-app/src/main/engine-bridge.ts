@@ -11,6 +11,7 @@ import { EngineClient, AutomationCurveCode, type EngineStateSnapshot } from '@bl
 import { BrowserWindow, dialog } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import type { Parameter, TempoMap } from '@blue/data';
 import { AutomationCurve, getEngineAutomationPoints } from '@blue/data';
 import type { PlaybackClockSnapshot } from '../shared/project-editor';
@@ -26,6 +27,51 @@ interface AutomationTimingContext {
 interface PendingTerminalStateCandidate {
   snapshot: EngineStateSnapshot;
   firstSeenAt: number;
+}
+
+type EngineTransport = 'tcp' | 'ipc';
+
+interface EngineEndpoints {
+  controlEndpoint: string;
+  pubEndpoint: string;
+}
+
+function resolveEngineTransport(): EngineTransport {
+  const requestedTransport = process.env.BLUE_ENGINE_TRANSPORT?.toLowerCase();
+
+  if (requestedTransport === 'ipc' || requestedTransport === 'tcp') {
+    if (requestedTransport === 'ipc' && process.platform === 'win32') {
+      console.warn('[EngineBridge] BLUE_ENGINE_TRANSPORT=ipc is not supported on Windows; falling back to tcp.');
+      return 'tcp';
+    }
+
+    return requestedTransport;
+  }
+
+  if (requestedTransport && requestedTransport !== 'tcp') {
+    console.warn(`[EngineBridge] Unknown BLUE_ENGINE_TRANSPORT=${requestedTransport}; falling back to tcp.`);
+  }
+
+  return process.platform === 'win32' ? 'tcp' : 'ipc';
+}
+
+function buildEngineEndpoints(transport: EngineTransport, port: number, pubPort: number, shmName: string): EngineEndpoints {
+  if (transport === 'ipc') {
+    const basePath = path.join(os.tmpdir(), shmName);
+    return {
+      controlEndpoint: `ipc://${basePath}-control.ipc`,
+      pubEndpoint: `ipc://${basePath}-pub.ipc`,
+    };
+  }
+
+  return {
+    controlEndpoint: `tcp://localhost:${port}`,
+    pubEndpoint: `tcp://localhost:${pubPort}`,
+  };
+}
+
+function isUnsupportedIpcEndpointError(stderr: string): boolean {
+  return stderr.includes('Unknown option: --control-endpoint') || stderr.includes('Unknown option: --pub-endpoint');
 }
 
 export type EngineOutputCallback = (text: string, type: 'stdout' | 'stderr') => void;
@@ -312,11 +358,46 @@ export class EngineBridge {
 
     // Use unique port and shm name per instance to avoid stale shm collisions
     const shmName = `blue-engine-${Date.now()}`;
+    const transport = resolveEngineTransport();
+    const transportsToTry: EngineTransport[] = transport === 'ipc' ? ['ipc', 'tcp'] : ['tcp'];
+    let lastError = '';
+
+    for (const currentTransport of transportsToTry) {
+      const result = await this.startEngineWithTransport(enginePath, shmName, currentTransport);
+      if (result.ok) {
+        return true;
+      }
+
+      lastError = result.errorMessage;
+      if (currentTransport === 'ipc' && result.fallbackToTcp) {
+        console.warn('[EngineBridge] Installed blue-engine does not support IPC endpoints yet; retrying with TCP.');
+        continue;
+      }
+
+      break;
+    }
+
+    await dialog.showErrorBox(
+      'blue-engine Failed',
+      `The blue-engine process exited immediately.\n\n` +
+      `Error output:\n${lastError || '(no output)'}`,
+    );
+    return false;
+  }
+
+  private async startEngineWithTransport(
+    enginePath: string,
+    shmName: string,
+    transport: EngineTransport,
+  ): Promise<{ ok: boolean; fallbackToTcp: boolean; errorMessage: string }> {
+    const endpoints = buildEngineEndpoints(transport, this.port, this.pubPort, shmName);
+    const spawnArgs = transport === 'ipc'
+      ? ['--control-endpoint', endpoints.controlEndpoint, '--pub-endpoint', endpoints.pubEndpoint, '--shm', shmName]
+      : ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName];
 
     this.stderr = '';
-    console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port} --pub-port ${this.pubPort} --shm ${shmName}`);
+    console.log(`[EngineBridge] Starting (${transport}): ${enginePath} ${spawnArgs.join(' ')}`);
 
-    // Spawn blue-engine with unique shm name
     const spawnWorkingDirectory =
       this.workingDirectory &&
       fs.existsSync(this.workingDirectory) &&
@@ -326,14 +407,13 @@ export class EngineBridge {
 
     this.engineProcess = spawn(
       enginePath,
-      ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName],
+      spawnArgs,
       {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: spawnWorkingDirectory,
       },
     );
 
-    // Capture stderr
     this.engineProcess.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       this.stderr += text;
@@ -376,41 +456,37 @@ export class EngineBridge {
       this.mainWindow.webContents.send('playback-error', `Engine error: ${err.message}`);
     });
 
-    // Wait for engine to start
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // Check if process exited (killed by us OR exited on its own)
     if (!this.engineProcess || this.engineProcess.killed || this.engineProcess.exitCode !== null) {
-      await dialog.showErrorBox(
-        'blue-engine Failed',
-        `The blue-engine process exited immediately.\n\n` +
-        `Error output:\n${this.stderr || '(no output)'}`,
-      );
-      return false;
+      const stderrMessage = this.stderr.trim();
+      const fallbackToTcp = transport === 'ipc' && isUnsupportedIpcEndpointError(stderrMessage);
+      const errorMessage = stderrMessage || 'The blue-engine process exited immediately.';
+      await this.killEngine();
+      return { ok: false, fallbackToTcp, errorMessage };
     }
 
-    // Connect ZMQ client
     try {
       this.client = new EngineClient({
-        endpoint: `tcp://localhost:${this.port}`,
-        pubEndpoint: `tcp://localhost:${this.pubPort}`,
+        endpoint: endpoints.controlEndpoint,
+        pubEndpoint: endpoints.pubEndpoint,
         timeout: 10000,
       });
       await this.client.connect();
       this.attachEngineStateListener(this.client);
     } catch (err: unknown) {
-      console.error(`[EngineBridge] ZMQ connect failed: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`[EngineBridge] ZMQ connect failed: ${errorMessage}`);
       await this.killEngine();
-      return false;
+      return { ok: false, fallbackToTcp: false, errorMessage };
     }
 
-    // Initialize engine
     try {
       const createResp = await this.client.createEngine();
       if (!createResp.ok) {
         console.error(`[EngineBridge] createEngine failed: ${createResp.message}`);
         await this.killEngine();
-        return false;
+        return { ok: false, fallbackToTcp: false, errorMessage: createResp.message };
       }
 
       const optResp = await this.client.setOption('-d');
@@ -418,13 +494,14 @@ export class EngineBridge {
         console.warn(`[EngineBridge] setOption(-d) warning: ${optResp.message}`);
       }
     } catch (err: unknown) {
-      console.error(`[EngineBridge] Engine init failed: ${err instanceof Error ? err.message : String(err)}`);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error(`[EngineBridge] Engine init failed: ${errorMessage}`);
       await this.killEngine();
-      return false;
+      return { ok: false, fallbackToTcp: false, errorMessage };
     }
 
     console.log('[EngineBridge] Engine started successfully');
-    return true;
+    return { ok: true, fallbackToTcp: false, errorMessage: '' };
   }
 
   /**
