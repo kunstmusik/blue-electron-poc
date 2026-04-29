@@ -1,6 +1,6 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-28
+Auto-generated from all feature plans. Last updated: 2026-04-29
 
 ## Active Technologies
 - React 19.x, Electron, dockview 5.2.0 + collapsed auxiliary-group planning for the workbench shell (013-collapsed-sidebar-research)
@@ -26,6 +26,16 @@ Auto-generated from all feature plans. Last updated: 2026-04-28
 - Main-process in-memory `BlueData` remains canonical; renderer consumes serializable project snapshots and sends explicit project document patches; `.blue` XML remains persistence; generated `.csd` files are user-selected disk outputs only (026-tables-udo-csd)
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data` `BlueData`/`LiveData`/`LiveObject*`/CSD generation, `@blue/engine-client` ZMQ protocol, existing `EngineBridge`, Electron `Menu`/`BrowserWindow`/IPC, Zustand 5.x project/playback/workbench stores, Dockview 5.2.0 panel registry, CodeMirror 6 `SelectedCodeEditor`, existing Csound context menu/completion helpers, Radix Context Menu for renderer menus, existing Output window IPC (027-blue-live-part1)
 - Main-process in-memory `BlueData` remains canonical; renderer consumes serializable LiveData snapshots and sends explicit project document patches; `.blue` XML remains persistence; Settings window categories are placeholders in this part and do not require durable settings storage (027-blue-live-part1)
+- TypeScript 5.8.x, strict mode + `@rgrove/parse-xml`, existing `Element` wrapper utilities, Vitest, pure `@blue/data` classes (028-blue-data-xml-preservation)
+- In-memory project model plus `.blue` XML round-trip through `BlueData.loadFromString()` and `saveToString()` (028-blue-data-xml-preservation)
+- TypeScript 5.8.x, strict mode + existing `@blue/data` score, sound object, library, and XML utility classes; Vitest; pure XML parsing helpers (029-blue-data-score-library-parity)
+- In-memory score graph and `.blue` XML round-trip through `@blue/data` (029-blue-data-score-library-parity)
+- TypeScript 5.8.x, strict mode + existing `@blue/data` note, score utility, and note processor classes; Vitest; pure XML parsing helpers (030-blue-data-note-processing-parity)
+- In-memory note lists and `.blue` XML round-trip through `@blue/data` (030-blue-data-note-processing-parity)
+- TypeScript 5.8.x, strict mode + existing `@blue/data` render classes, arrangement models, mixer models, Vitest, pure XML/model helpers (031-blue-data-csd-render-parity)
+- In-memory project model and generated CSD text from `@blue/data` (031-blue-data-csd-render-parity)
+- TypeScript 5.8.x, strict mode + existing `@blue/data` instrument, mixer, automation, and time classes; Vitest; pure XML/model helpers (032-blue-data-runtime-model-parity)
+- In-memory project model, generated orchestra fragments, and `.blue` XML round-trip through `@blue/data` (032-blue-data-runtime-model-parity)
 
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `PresetGroup`/`Preset` BSB preset model, Zustand 5.x project store with BSB interface/opcode-list patch support, Dockview 5.2.0, CodeMirror 6, `BsbInterfacePatch` union type for structured BSB mutations (022-bsb-interface-parity)
 - BSB Interface tab now renders an editable widget canvas with selection, property-sheet editing, grid settings, preset application, and Java-style split-view UDO editor (UDOTable + UDOEditor); snapshot contract extended with `widgetTree`, `gridSettings`, `editEnabled`, `presetGroup`, `opcodeListText`; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023 (022-bsb-interface-parity)
@@ -56,7 +66,6 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
-- 027-blue-live-part1: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data` `BlueData`/`LiveData`/`LiveObject*`/CSD generation, `@blue/engine-client` ZMQ protocol, existing `EngineBridge`, Electron `Menu`/`BrowserWindow`/IPC, Zustand 5.x project/playback/workbench stores, Dockview 5.2.0 panel registry, CodeMirror 6 `SelectedCodeEditor`, existing Csound context menu/completion helpers, Radix Context Menu for renderer menus, existing Output window IPC
-- 026-tables-udo-csd: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `@blue/data` `Tables`/`OpcodeList`/`OpcodeDefinition`/`BlueData.toCSD()`, Zustand 5.x project store, Dockview 5.2.0 panel registry, existing CodeMirror 6 `SelectedCodeEditor`, existing Java Blue-style Csound context menu/completion helpers, Radix Context Menu for renderer menus, Electron `Menu`/`dialog`/`BrowserWindow` for native menu and save/modal flows, Spec 021 BSB UDO components as reuse source
-- 023-bsb-widget-ui: BSBKnob rewritten with PIE arc track (correct Java 225°/270° geometry via `polarToXY` + `describePieArc`), pill-shaped notch indicator via SVG `<rect rx/ry>`, dark navy value panel (`rgb(20,29,45)` border-radius 3), drag interaction; follow-up parity sweep also verified the knob angle convention, restored Java-compatible XML/preset contracts, and kept the explicit 10px canvas padding sizing in the shared BSB layout helpers
-- 023-bsb-widget-ui: Added font chooser dialog (system fonts via `queryLocalFonts()`), property sheet font grouping, commit-on-enter/blur text inputs with validation, arrangement panel 3-column resizable layout, +Add popup with 5 instrument types, InstrumentNameField removed from all editors, empty BSB canvas always interactive, grid snap decoupled from grid visibility
+- 032-blue-data-runtime-model-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` instrument, mixer, automation, and time classes; Vitest; pure XML/model helpers
+- 031-blue-data-csd-render-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` render classes, arrangement models, mixer models, Vitest, pure XML/model helpers
+- 030-blue-data-note-processing-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` note, score utility, and note processor classes; Vitest; pure XML parsing helpers
