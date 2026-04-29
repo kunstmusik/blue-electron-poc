@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import type { IDockviewPanelProps } from 'dockview';
 import { PANEL_MAP } from './panel-registry';
 import PlaceholderPanel from './panels/PlaceholderPanel';
+import BlueLivePanel from './panels/BlueLivePanel';
 import GlobalOrchestraPanel from './panels/GlobalOrchestraPanel';
 import GlobalScorePanel from './panels/GlobalScorePanel';
 import OrchestraPanel from './panels/OrchestraPanel';
@@ -37,6 +38,8 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <TablesPanel />
           ) : descriptor.id === 'UserDefinedOpcodeTopComponent' ? (
             <UserDefinedOpcodePanel />
+          ) : descriptor.id === 'BlueLiveTopComponent' ? (
+            <BlueLivePanel />
           ) : descriptor.id === 'OutputTopComponent' ? (
             <OutputPanel />
           ) : (

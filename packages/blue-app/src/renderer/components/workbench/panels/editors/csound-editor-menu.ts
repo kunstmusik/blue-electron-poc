@@ -7,6 +7,9 @@ import type {
 
 export interface CsoundEditorMenuOptions {
   readOnly?: boolean;
+  showEvaluateCode?: boolean;
+  evaluateCodeEnabled?: boolean;
+  onEvaluateCode?: () => void;
 }
 
 interface InsertionDefinition {
@@ -14,6 +17,14 @@ interface InsertionDefinition {
   label: string;
   insertText: string;
   detail: string;
+}
+
+function getEvaluateCodeShortcutLabel(): string {
+  if (typeof navigator !== 'undefined') {
+    return /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? 'Cmd-Enter' : 'Ctrl-Enter';
+  }
+
+  return 'Cmd/Ctrl-Enter';
 }
 
 const BLUE_VARIABLE_DEFINITIONS: InsertionDefinition[] = [
@@ -179,6 +190,21 @@ export function createJavaBlueCsoundEditorMenuItems(
       disabled: readOnly,
       disabledReason: readOnly ? 'Editor is read-only' : undefined,
     },
+    ...(options.showEvaluateCode ? [
+      {
+        kind: 'separator' as const,
+        id: 'evaluate-code-separator',
+      } satisfies CsoundEditorMenuItem,
+      {
+        kind: 'command' as const,
+        id: 'evaluate-code',
+        label: 'Evaluate Code',
+        shortcutLabel: getEvaluateCodeShortcutLabel(),
+        command: 'evaluate-code' as const,
+        disabled: !options.evaluateCodeEnabled,
+        disabledReason: !options.evaluateCodeEnabled ? 'Start Blue Live or realtime playback to evaluate code' : undefined,
+      } satisfies CsoundEditorMenuItem,
+    ] : []),
   ];
 }
 

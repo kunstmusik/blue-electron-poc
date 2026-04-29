@@ -14,7 +14,7 @@ export type DynamicCsoundCompletionProvider = (
   context: CsoundCompletionContext,
 ) => Completion[] | Promise<Completion[]>;
 
-export type CsoundEditorCommand = 'cut' | 'copy' | 'paste';
+export type CsoundEditorCommand = 'cut' | 'copy' | 'paste' | 'evaluate-code';
 
 export interface CsoundEditorSeparatorItem {
   kind: 'separator';
@@ -25,6 +25,7 @@ export interface CsoundEditorCommandItem {
   kind: 'command';
   id: string;
   label: string;
+  shortcutLabel?: string;
   command: CsoundEditorCommand;
   disabled?: boolean;
   disabledReason?: string;
@@ -83,6 +84,8 @@ export interface SelectedCodeEditorProps {
   dynamicCompletionProviders?: DynamicCsoundCompletionProvider[];
   javaBlueCompletionOptions?: JavaBlueCsoundCompletionOptions;
   contextMenuItems?: CsoundEditorMenuItem[];
+  evaluateCodeEnabled?: boolean;
+  onEvaluateCode?: (text: string) => void;
   onChange: (value: string) => void | Promise<void>;
 }
 

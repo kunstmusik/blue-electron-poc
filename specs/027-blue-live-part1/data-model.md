@@ -199,8 +199,8 @@
 
 ### Evaluate Code Flow
 
-1. Supported editor determines selected text and editor kind.
-2. Context menu and Cmd-Return are enabled only when selection and engine state allow evaluation.
+1. Supported editor determines selected text, or current code context when no selection exists, and editor kind.
+2. Context menu and Cmd-Return are enabled when engine state allows evaluation.
 3. Renderer sends `EvaluateCodeRequest`.
 4. Main routes to Blue Live if running, else realtime if playing.
 5. Main returns the route result for tests/status handling.

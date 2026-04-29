@@ -60,9 +60,10 @@ If engine-client protocol behavior changes, also run any package-level tests und
 5. Add, rename, reorder, apply, and remove a saved set where existing live objects are available.
 6. Insert and remove a row and column without reducing below one row/column.
 7. Confirm double-clicking a live object toggles enabled state and does not open a SoundObject editor.
-8. In Live Code, edit text and save/reopen the project.
-9. In Options, edit advanced flags, command line, and complete override, then save/reopen.
-10. Confirm all edited values persist.
+8. Press `Trigger` and confirm a `not yet implemented` alert appears instead of live note routing.
+9. In Live Code, edit text and save/reopen the project.
+10. In Options, edit advanced flags, command line, and complete override, then save/reopen.
+11. Confirm all edited values persist.
 
 ## Manual Settings Scenario
 
@@ -82,11 +83,13 @@ If engine-client protocol behavior changes, also run any package-level tests und
 3. Select non-empty orchestra text.
 4. Right-click and confirm `Evaluate Code` is enabled; invoke it or press Cmd-Return.
 5. Confirm the selected text routes to Blue Live.
-6. Stop Blue Live and start realtime playback.
-7. Repeat with selected text in Global Orchestra and confirm it routes to realtime.
-8. Repeat from Global Score with score text and confirm score routing.
-9. Stop all engines or clear the selection.
-10. Confirm `Evaluate Code` is disabled and Cmd-Return no-ops.
+6. Clear the selection and place the cursor inside an `instr` or `opcode` block in Global Orchestra.
+7. Invoke `Evaluate Code` or press Cmd-Return and confirm the enclosing block routes to Blue Live.
+8. Stop Blue Live and start realtime playback.
+9. Repeat with a cursor inside Global Orchestra and confirm it routes to realtime using the enclosing block.
+10. Repeat from Global Score with the cursor on a score line and confirm score routing uses the current line.
+11. Stop all engines or place the cursor on a blank line.
+12. Confirm `Evaluate Code` is disabled when no engine is running and Cmd-Return no-ops when there is no evaluable context.
 
 ## Deferred Checks
 

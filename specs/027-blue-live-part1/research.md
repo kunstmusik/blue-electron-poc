@@ -136,9 +136,9 @@ Java `BlueLiveToolBar.allNotesOffButtonActionPerformed()` sends `i "blueAllNotes
 
 ## Decision: Evaluate Code Routes To Blue Live First, Realtime Second
 
-The user specified that selected text goes to Blue Live if running, otherwise to realtime render if playing. The current TypeScript engine client has `compileOrc()` and `readScore()` commands; implementation must confirm they are safe while running or add the smallest needed engine-client protocol support.
+The user specified that selected text goes to Blue Live if running, otherwise to realtime render if playing, and later clarified that the current code context should be used when no selection exists. The current TypeScript engine client has `compileOrc()` and `readScore()` commands; implementation must confirm they are safe while running or add the smallest needed engine-client protocol support.
 
-**Decision**: Add a single main-process evaluation command accepting editor kind (`orc` or `sco`) and selected text. Route to Blue Live when running, otherwise realtime when running. Disable renderer menu action when there is no selection or no eligible engine.
+**Decision**: Add a single main-process evaluation command accepting editor kind (`orc` or `sco`) and selected or contextual text. Route to Blue Live when running, otherwise realtime when running. Disable the renderer menu action only when no eligible engine is active.
 
 **Rationale**: Routing in main process keeps engine state authoritative and avoids renderer guessing which engine is active.
 
@@ -165,6 +165,7 @@ The user requested a macOS-style `Settings...` menu item with Cmd-, and a modal 
 - MIDI Input toolbar runtime behavior and MIDI device management.
 - SCO Pad tab and keyboard/MIDI pad capture behavior.
 - Opening or editing nested SoundObjects from Live Space.
+- Live Space trigger-note routing; the Trigger control currently alerts `not yet implemented` until the Score implementation owns SoundObject note generation.
 - Complete About Blue dialog.
 - Real MIDI and OSC settings editors beyond placeholders.
 - Full OSC Blue Live action parity beyond making room for future OSC settings.

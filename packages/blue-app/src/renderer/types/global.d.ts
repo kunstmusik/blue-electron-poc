@@ -11,6 +11,28 @@ import type {
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
 import type { EngineOutputPayload } from '../../shared/io-provider';
 
+export type BlueLiveStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
+
+export interface BlueLiveStatusSnapshot {
+  status: BlueLiveStatus;
+  running: boolean;
+  message?: string;
+  sessionId: number;
+  projectRevision?: number | null;
+}
+
+export interface EvaluateCodeRequest {
+  editorKind: 'orc' | 'sco';
+  text: string;
+  sourcePanelId: string;
+}
+
+export interface EvaluateCodeResult {
+  routedTo: 'blueLive' | 'realtime' | 'none';
+  ok: boolean;
+  message?: string;
+}
+
 declare global {
   interface Window {
     blueAPI: {
@@ -53,6 +75,20 @@ declare global {
       onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;
       onGeneratedCsd: (cb: (csdText: string) => void) => () => void;
       onGeneratedCsdError: (cb: (error: string) => void) => () => void;
+
+      // Blue Live
+      toggleBlueLive: () => Promise<BlueLiveStatusSnapshot>;
+      stopBlueLive: () => Promise<BlueLiveStatusSnapshot>;
+      recompileBlueLive: () => Promise<BlueLiveStatusSnapshot>;
+      sendBlueLiveAllNotesOff: () => Promise<{ ok: boolean; message?: string }>;
+      getBlueLiveStatus: () => Promise<BlueLiveStatusSnapshot>;
+      onBlueLiveStatus: (cb: (snapshot: BlueLiveStatusSnapshot) => void) => () => void;
+
+      // Settings
+      openSettingsWindow: () => Promise<void>;
+
+      // Evaluate Code
+      evaluateCode: (request: EvaluateCodeRequest) => Promise<EvaluateCodeResult>;
     };
   }
 }

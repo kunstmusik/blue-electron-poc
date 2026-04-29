@@ -547,6 +547,209 @@ export class BlueData implements BlueDataObject {
     }
   }
 
+  toBlueLiveCSD(): { csdText: string; parameters?: Parameter[]; stringChannels?: Array<{ objectName: string; value: string; channelName: string }> } {
+    const compileData = new CompileData();
+    let generationError: unknown = null;
+
+    try {
+      const channelIdAssignments = this.assignChannelIds();
+      for (const [channel, id] of channelIdAssignments) {
+        compileData.getChannelIdAssignments().set(channel, id);
+      }
+
+      const orchestraHeader = this.buildOrchestraHeader();
+      const nchnls = this.getNchnls();
+
+      let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
+      let globalSco = this.globalOrcSco.getGlobalSco() || "";
+
+      const appendGlobalOrc = (section: string) => {
+        if (!section) return;
+        globalOrc += `\n${section}`;
+      };
+
+      if (this.mixer.isEnabled()) {
+        const mixerInits = this.mixer.getInitStatements(channelIdAssignments, nchnls);
+        if (mixerInits) {
+          appendGlobalOrc(`${mixerInits}\n\n`);
+        }
+      }
+
+      const udoSet = new Map<string, string>();
+      for (const udo of this.opcodeList.getOpcodes()) {
+        const text = udo.toCSD();
+        if (text && udo.getName()) udoSet.set(udo.getName(), text);
+      }
+
+      for (const ia of this.arrangement.getArrangement()) {
+        if (!ia.enabled || !ia.instr) continue;
+        const instr = ia.instr as any;
+        if (typeof instr.getOpcodeList === "function") {
+          for (const udo of instr.getOpcodeList().getOpcodes()) {
+            const text = udo.toCSD();
+            if (text && udo.getName() && !udoSet.has(udo.getName())) {
+              udoSet.set(udo.getName(), text);
+            }
+          }
+        }
+      }
+
+      const parameters = getAllParameters(this.arrangement, this.mixer);
+      assignParameterNames(parameters);
+      const stringChannels = this.collectStringChannels();
+      const stringInits = this.buildStringChannelInits(stringChannels);
+      const paramInits = this.buildParameterInits(parameters);
+      const runtimeInitStatements = [stringInits, paramInits]
+        .filter((section) => section.length > 0)
+        .join("\n");
+      if (runtimeInitStatements) {
+        appendGlobalOrc(`${runtimeInitStatements}\n`);
+      }
+
+      const ftables = this.tableSet.getAllTables();
+      const parameterMap = this.buildParameterMap();
+
+      let mixerEffectUDOs: string[] = [];
+      let mixerInstruments = "";
+      if (this.mixer.isEnabled()) {
+        const mixerOutput = this.generateMixerOrchestra(
+          channelIdAssignments,
+          nchnls,
+          parameterMap,
+          parameters,
+        );
+        mixerEffectUDOs = mixerOutput.effectUDOs;
+        mixerInstruments = mixerOutput.instrumentsText;
+      }
+
+      const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
+      const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
+      const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
+
+      const orc = this.arrangement.generateOrchestra(
+        compileData,
+        this.mixer,
+        nchnls,
+        parameterMap,
+      );
+
+      const totalDur = 36000;
+
+      const arrangementItems = this.arrangement
+        .getArrangement()
+        .filter((ia) => ia.enabled && ia.instr);
+
+      let blueLiveOrc = orc + mixerInstruments;
+
+      const instrIds = arrangementItems
+        .map((ia) => ia.arrangementId)
+        .filter((id): id is string => Boolean(id));
+
+      blueLiveOrc += "\n\n" + this.createAllNotesOffInstrument(instrIds);
+
+      let blueLiveSco = `${globalSco}\n`;
+
+      for (let i = 0; i < arrangementItems.length; i++) {
+        const ia = arrangementItems[i]!;
+        const instr = ia.instr as any;
+        if (
+          typeof instr?.getAlwaysOnInstrumentText === "function" &&
+          instr.getAlwaysOnInstrumentText()
+        ) {
+          const alwaysOnId = getBlueLiveAlwaysOnInstrumentId(
+            ia.arrangementId,
+            arrangementItems.length,
+            i,
+          );
+          if (/^\d+$/.test(alwaysOnId)) {
+            blueLiveSco += `i${alwaysOnId} 0 ${totalDur}\n`;
+          } else {
+            blueLiveSco += `i "${alwaysOnId}" 0 ${totalDur}\n`;
+          }
+        }
+      }
+
+      if (this.mixer.isEnabled()) {
+        blueLiveSco += `i "BlueMixer" 0 ${totalDur}\n`;
+      }
+
+      const projectInfo = this.buildProjectInfo();
+
+      const csdText =
+        projectInfo +
+        "<CsoundSynthesizer>\n\n" +
+        "<CsInstruments>\n" +
+        orchestraHeader +
+        "\n\n" +
+        globalOrc +
+        "\n\n" +
+        arrangementGlobalOrc +
+        "\n\n" +
+        udoText +
+        "\n\n" +
+        blueLiveOrc +
+        "\n\n</CsInstruments>\n\n" +
+        "<CsScore>\n\n" +
+        ftables +
+        "\n\n" +
+        blueLiveSco +
+        "e " + totalDur + "\n\n" +
+        "</CsScore>\n\n" +
+        "</CsoundSynthesizer>";
+
+      return {
+        csdText,
+        parameters,
+        stringChannels,
+      };
+    } catch (error) {
+      generationError = error;
+      throw error;
+    } finally {
+      try {
+        disposeJavaScriptCompileState(compileData);
+      } catch (cleanupError) {
+        if (generationError === null) {
+          throw cleanupError;
+        }
+        console.warn('[BlueData.toBlueLiveCSD] Failed to dispose JavaScript runtime state:', cleanupError);
+      }
+    }
+  }
+
+  private createAllNotesOffInstrument(instrIds: string[]): string {
+    const lines: string[] = [];
+    lines.push('\tinstr blueAllNotesOff');
+    lines.push('koff init 0');
+    lines.push('if (koff == 0) then');
+
+    for (let i = 0; i < instrIds.length; i++) {
+      const id = instrIds[i] ?? '';
+      const parts = id.split(',').map((part) => part.trim()).filter((part) => part.length > 0);
+
+      for (let j = 0; j < parts.length; j++) {
+        const part = parts[j] ?? '';
+        const numId = parseInt(part, 10);
+        if (!isNaN(numId)) {
+          lines.push(`turnoff2 ${numId}, 0, 1`);
+        } else {
+          lines.push(`insno${i}${j} nstrnum "${part}"`);
+          lines.push(`turnoff2 insno${i}${j}, 0, 1`);
+        }
+      }
+    }
+
+    lines.push('koff = 1');
+    lines.push('else');
+    lines.push('turnoff');
+    lines.push('endif');
+    lines.push('');
+    lines.push('\tendin');
+    lines.push('');
+
+    return lines.join('\n');
+  }
+
   /**
    * Build the orchestra header (sr/ksmps/nchnls/0dbfs).
    */
@@ -895,7 +1098,11 @@ export class BlueData implements BlueDataObject {
         );
       }
 
-      const alwaysOnId = nextInstrId + i;
+      const alwaysOnId = getBlueLiveAlwaysOnInstrumentId(
+        ia.arrangementId,
+        arrangementItems.length,
+        i,
+      );
       instrBuffer.push(`\tinstr ${alwaysOnId}\t;untitled`);
       instrBuffer.push(compiled);
       instrBuffer.push("");
@@ -1240,4 +1447,17 @@ export class BlueData implements BlueDataObject {
     copy.loopRendering = this.loopRendering;
     return copy;
   }
+}
+
+function getBlueLiveAlwaysOnInstrumentId(
+  arrangementId: string | null | undefined,
+  arrangementItemCount: number,
+  arrangementIndex: number,
+): string {
+  const trimmedId = arrangementId?.trim() ?? '';
+  if (/^\d+$/.test(trimmedId)) {
+    return String(arrangementItemCount + arrangementIndex + 1);
+  }
+
+  return `${trimmedId || 'unknown'}_alwaysOn`;
 }

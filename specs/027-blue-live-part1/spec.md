@@ -2,8 +2,8 @@
 
 **Feature Branch**: `027-blue-live-part1`  
 **Created**: 2026-04-28  
-**Status**: Draft  
-**Input**: User description: "Plan Blue Live Part 1: fix the toolbar Blue Live button so it toggles BlueLive instead of selecting the editor; implement BlueLive rendering in a parallel blue-engine; make Recompile restart BlueLive; implement All Notes Off; defer MIDI Input; implement the BlueLive editor Live Space UI, LiveCode tab, and Options tab while deferring SoundObject editor opening and SCO pad; add macOS Settings menu/window; add Evaluate Code context action with Cmd-Return for global orchestra and score editors."
+**Status**: Complete
+**Input**: User description: "Plan Blue Live Part 1: fix the toolbar Blue Live button so it toggles BlueLive instead of selecting the editor; implement BlueLive rendering in a parallel blue-engine; make Recompile restart BlueLive; implement All Notes Off; defer MIDI Input; implement the BlueLive editor Live Space UI, LiveCode tab, and Options tab while deferring SoundObject editor opening and SCO pad; add macOS Settings menu/window; add Evaluate Code context action with Cmd-Return for global orchestra and score editors, using current-context fallback when no selection exists."
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -57,6 +57,7 @@ As a composer preparing a live set, I need the Blue Live editor to expose the Ja
 3. **Given** the user opens the Live Code tab, **When** they edit text, **Then** the text is stored in the project's Blue Live data and restored on reopen.
 4. **Given** the user opens the Options tab, **When** they edit advanced flags, command line, or complete override state, **Then** the values are stored in the project's Blue Live data and influence the next Blue Live compile according to Java Blue behavior.
 5. **Given** a live object cell is double-clicked, **When** the cell contains a live object, **Then** only enabled/disabled state toggles in this part; opening a SoundObject editor is deferred.
+6. **Given** the user presses `Trigger`, **When** the action runs in this part, **Then** it shows a `not yet implemented` alert and does not yet route live note text; the actual trigger-note routing is deferred to the later Score implementation.
 
 ---
 
@@ -80,11 +81,11 @@ As a macOS user, I need the app menu to follow standard macOS conventions and ex
 
 ### User Story 5 - Evaluate Selected Code Into The Active Engine (Priority: P3)
 
-As a composer editing global orchestra or score text, I need an `Evaluate Code` context action and Cmd-Return shortcut so selected Csound code can be sent to the active live/realtime engine without restarting playback.
+As a composer editing global orchestra or score text, I need an `Evaluate Code` context action and Cmd-Return shortcut so selected Csound code or the current code context can be sent to the active live/realtime engine without restarting playback.
 
 **Why this priority**: This is useful once Blue Live and realtime engine sessions exist, but it depends on the engine lifecycle and editor selection plumbing.
 
-**Independent Test**: Start Blue Live, select code in the Global Orchestra or Global Score editor, invoke Evaluate Code from the context menu or Cmd-Return, and confirm the selected text is routed to Blue Live; repeat with only realtime playback running and confirm it routes to realtime playback.
+**Independent Test**: Start Blue Live, select code in the Global Orchestra or Global Score editor, invoke Evaluate Code from the context menu or Cmd-Return, and confirm the selected text is routed to Blue Live; repeat with the cursor inside an instrument/opcode in Global Orchestra or on a score line in Global Score and confirm the enclosing context or current line is routed correctly; repeat with only realtime playback running and confirm it routes to realtime playback.
 
 **Acceptance Scenarios**:
 
@@ -92,7 +93,7 @@ As a composer editing global orchestra or score text, I need an `Evaluate Code` 
 2. **Given** Blue Live is running and text is selected in the Global Score editor, **When** the user chooses `Evaluate Code`, **Then** the selected score text is sent to the Blue Live engine.
 3. **Given** Blue Live is stopped, realtime playback is running, and text is selected in a supported global editor, **When** the user chooses `Evaluate Code`, **Then** the selected text is sent to the realtime engine.
 4. **Given** both Blue Live and realtime playback are running, **When** the user chooses `Evaluate Code`, **Then** Blue Live receives the selected text because Blue Live has priority for this command.
-5. **Given** no supported engine is running or no text is selected, **When** the context menu opens, **Then** `Evaluate Code` is disabled and Cmd-Return is a no-op.
+5. **Given** no supported engine is running, **When** the context menu opens, **Then** `Evaluate Code` is disabled; **Given** a supported engine is running but the current code context is empty, **When** the user invokes Cmd-Return, **Then** it is a no-op.
 
 ### Edge Cases
 
@@ -126,15 +127,15 @@ As a composer editing global orchestra or score text, I need an `Evaluate Code` 
 - **FR-014**: The Blue Live editor MUST explicitly defer the `SCO Pad` tab for this part.
 - **FR-015**: Live Space MUST display a grid of live-object cells with Java-compatible columns/rows, enabled-state toggling, row/column insert/remove actions, and saved-set list operations.
 - **FR-016**: Live Space MUST defer opening or editing nested SoundObjects beyond the LiveObject cell-level operations planned in this part.
-- **FR-017**: Live Space trigger behavior MUST generate note text from enabled live objects and route it to the active Blue Live engine using the current live tempo.
-- **FR-018**: Live Code MUST store project live-code text and provide a selection-evaluation path to the active Blue Live engine when Blue Live is running.
+- **FR-017**: Live Space trigger behavior MUST visibly defer note generation/routing in this part by showing a `not yet implemented` alert; the actual enabled live-object trigger-note routing is deferred to the later Score implementation.
+- **FR-018**: Live Code MUST store project live-code text and provide a selection-or-context evaluation path to the active Blue Live engine when Blue Live is running.
 - **FR-019**: Options MUST edit Blue Live advanced flags, command line, and complete-override values and these values MUST affect subsequent Blue Live compiles.
 - **FR-020**: The native macOS application menu MUST be reworked to include a standard `Blue` application menu with `About Blue`, `Settings...`, Services, Hide/Show, and Quit items.
 - **FR-021**: `Settings...` MUST use Cmd-, on macOS and open a modal BrowserWindow.
 - **FR-022**: The Settings window MUST render a left category sidebar and right category editor area, with `MIDI` and `OSC` categories and placeholder editors in this part.
 - **FR-023**: The `About Blue` behavior MUST be deferred while still allowing the menu item to exist.
 - **FR-024**: Global Orchestra and Global Score editors MUST include an `Evaluate Code` context menu item and Cmd-Return shortcut.
-- **FR-025**: `Evaluate Code` MUST be enabled only when a non-empty selection exists and either Blue Live or realtime playback is running.
+- **FR-025**: `Evaluate Code` MUST evaluate the current selection when non-empty, otherwise the current editor context, using the enclosing instrument or opcode for Global Orchestra and the current line for Global Score, when Blue Live or realtime playback is running.
 - **FR-026**: `Evaluate Code` MUST route to Blue Live when Blue Live is running, otherwise to realtime playback if realtime playback is running.
 - **FR-027**: The implementation MUST include tests for Java-compatible Blue Live XML preservation, Blue Live CSD generation, Blue Live/realtime engine independence, toolbar behavior, Recompile, All Notes Off, Blue Live editor snapshot/patch behavior, Settings menu/window IPC, and Evaluate Code enablement/routing.
 
@@ -146,7 +147,7 @@ As a composer editing global orchestra or score text, I need an `Evaluate Code` 
 - **LiveObjectSetList**: Ordered list of named saved sets referencing live objects by stable unique id.
 - **LiveCodeText**: Csound orchestra text stored with the project and optionally evaluated into the running Blue Live engine.
 - **SettingsWindow**: Modal app-level window with category navigation and placeholder MIDI/OSC editors.
-- **EvaluateCodeCommand**: Editor command that validates selected code and routes it to Blue Live or realtime playback.
+- **EvaluateCodeCommand**: Editor command that validates selected or contextual code and routes it to Blue Live or realtime playback.
 
 ## Success Criteria *(mandatory)*
 
@@ -158,7 +159,7 @@ As a composer editing global orchestra or score text, I need an `Evaluate Code` 
 - **SC-004**: Existing `.blue` fixtures containing Java Blue Live data can load and save without losing LiveData XML fields covered by this part.
 - **SC-005**: The Blue Live editor restores Live Space, Live Code, and Options values after save/reopen in a manual scenario.
 - **SC-006**: The macOS application menu exposes `Settings...` with Cmd-, and opens exactly one modal settings window with MIDI and OSC categories.
-- **SC-007**: `Evaluate Code` is disabled when no text is selected or no engine is active, and routes to the expected engine in all Blue Live/realtime state combinations.
+- **SC-007**: `Evaluate Code` is disabled when no engine is active, no-ops when the current code context is empty, and routes to the expected engine in all Blue Live/realtime state combinations.
 - **SC-008**: Automated tests for the data, renderer, main-process IPC/menu, and engine-bridge contracts pass before implementation handoff is considered complete.
 
 ## Assumptions
@@ -167,4 +168,5 @@ As a composer editing global orchestra or score text, I need an `Evaluate Code` 
 - `blue-engine` can support live score/orchestra submission through the existing or planned TypeScript client protocol commands; if a missing protocol capability is found, the task must add or document the smallest required bridge change.
 - Main-process `BlueData` remains the canonical project document, and renderer edits flow through project snapshot/patch IPC.
 - Nested SoundObject editing from Live Space, SCO Pad, MIDI Input runtime behavior, OSC implementation beyond Settings placeholders, and About Blue are out of scope for this part.
+- Live Space trigger-note routing is deferred to the later Score implementation; in this part the Trigger control only surfaces a `not yet implemented` alert.
 - The Settings window is app-level preference UI, not project-level settings persistence, for this part.

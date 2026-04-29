@@ -14,6 +14,7 @@ export interface OutputTab {
   colorOverrides: Partial<Record<OutputType, string>>;
   isClosed: boolean;
   pendingText: string;
+  pendingType: 'stdout' | 'stderr' | null;
 }
 
 export interface OutputWriter {

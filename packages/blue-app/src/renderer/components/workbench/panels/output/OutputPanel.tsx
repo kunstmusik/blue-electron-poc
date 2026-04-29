@@ -12,9 +12,27 @@ export default function OutputPanel() {
   const activeTab = activeTabId ? tabs[activeTabId] : null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+  const lines = useMemo(() => {
+    if (!activeTab) {
+      return [];
+    }
+
+    if (!activeTab.pendingText) {
+      return activeTab.lines;
+    }
+
+    return [
+      ...activeTab.lines,
+      {
+        id: activeTab.lineCounter + 1,
+        text: activeTab.pendingText,
+        type: activeTab.pendingType ?? 'stdout',
+      },
+    ];
+  }, [activeTab]);
 
   const rowVirtualizer = useVirtualizer({
-    count: activeTab?.lines.length ?? 0,
+    count: lines.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 20,
     overscan: 200,
@@ -24,7 +42,7 @@ export default function OutputPanel() {
     if (autoScrollRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [activeTab?.lines.length]);
+  }, [lines.length, activeTab?.pendingText]);
 
   const handleScroll = useCallback(() => {
     if (!scrollRef.current) return;
@@ -34,8 +52,6 @@ export default function OutputPanel() {
 
   const errorColor = activeTab?.colorOverrides.error ?? '#ff6b6b';
   const outputColor = activeTab?.colorOverrides.output ?? '#d4d4d4';
-
-  const lines = activeTab?.lines ?? [];
 
   const tabEntries = useMemo(
     () => tabOrder.map((id) => tabs[id]).filter((t) => t && !t.isClosed),

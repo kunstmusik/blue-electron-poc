@@ -6,6 +6,7 @@ import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
 import { useWorkbenchStore } from '../stores/workbench-store';
 import { useOutputStore } from '../stores/output-store';
+import { useBlueLiveStore } from '../stores/blue-live-store';
 import type { EngineOutputPayload } from '../../shared/io-provider';
 
 export function useIPCListeners(): void {
@@ -21,12 +22,15 @@ export function useIPCListeners(): void {
   const selectTab = useOutputStore((s) => s.selectTab);
   const getOrCreateTab = useOutputStore((s) => s.getOrCreateTab);
   const resetTab = useOutputStore((s) => s.resetTab);
+  const setBlueLiveStatus = useBlueLiveStore((s) => s.setStatusFromSnapshot);
+  const resetBlueLive = useBlueLiveStore((s) => s.reset);
 
   useEffect(() => {
     if (!window.blueAPI) return;
 
     window.blueAPI.onProjectLoaded((info) => {
       resetPlayback();
+      resetBlueLive();
       setProjectInfo(info);
       setActivePanel('project');
       if (info.filePath) {
@@ -81,12 +85,25 @@ export function useIPCListeners(): void {
       toast.error(`CSD generation failed: ${error}`);
     });
 
+    const unsubBlueLiveStatus = window.blueAPI.onBlueLiveStatus((snapshot) => {
+      setBlueLiveStatus(snapshot);
+    });
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'blue-settings') {
+        useSettingsStore.getState().rehydrate();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
     return () => {
       unsubOutput();
       unsubSelect();
       unsubReset();
       unsubCsd();
       unsubCsdErr();
+      unsubBlueLiveStatus();
+      window.removeEventListener('storage', handleStorage);
     };
   }, [
     addRecentFile,
@@ -101,5 +118,7 @@ export function useIPCListeners(): void {
     setProjectInfo,
     setActivePanel,
     setStatus,
+    setBlueLiveStatus,
+    resetBlueLive,
   ]);
 }

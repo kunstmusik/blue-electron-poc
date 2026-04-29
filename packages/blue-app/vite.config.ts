@@ -44,6 +44,12 @@ export default defineConfig({
   build: {
     outDir: resolve(projectRoot, 'dist/renderer'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve(projectRoot, 'src/renderer/index.html'),
+        settings: resolve(projectRoot, 'src/renderer/settings.html'),
+      },
+    },
   },
   resolve: {
     alias: {

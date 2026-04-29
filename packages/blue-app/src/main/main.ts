@@ -8,7 +8,6 @@ import {
   dialog,
   Menu,
   nativeImage,
-  type MenuItemConstructorOptions,
 } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -18,6 +17,9 @@ import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
+import { BlueLiveEngineSession } from './blue-live-engine';
+import { buildApplicationMenuTemplate } from './application-menu';
+import { cleanupTempCsdSnapshots } from './render-command';
 import { getWindowTitle } from '../shared/window-title';
 import {
   applyProjectDocumentPatch,
@@ -28,17 +30,13 @@ import {
   type ProjectDocumentPatch,
 } from '../shared/project-editor';
 import { BlueSynthBuilder } from '@blue/data';
-import {
-  getPanelsByMode,
-  type NativeMenuCommand,
-  type PanelMode,
-} from '../shared/workbench-menu';
 
 let mainWindow: BrowserWindow | null = null;
 let currentData: BlueData | null = null;
 let currentFilePath: string | null = null;
 let currentProjectRevision = 0;
 let engineBridge: EngineBridge | null = null;
+let blueLiveSession: BlueLiveEngineSession | null = null;
 let isQuitting = false;
 let pendingQuit = false;
 let playbackStartPromise: Promise<boolean> | null = null;
@@ -66,133 +64,46 @@ function updateWindowTitle(): void {
   }
 }
 
-function sendNativeMenuCommand(command: NativeMenuCommand): void {
-  if (mainWindow) {
-    mainWindow.webContents.send('native-menu-command', command);
-  }
-}
-
-function buildWorkbenchMenuItems(mode: PanelMode) {
-  return getPanelsByMode(mode).map((panel) => ({
-    label: panel.title,
-    click: () => sendNativeMenuCommand({ type: 'focus-panel', panelId: panel.id }),
-  }));
-}
-
-function buildNativeWindowMenu() {
-  return [
-    { label: 'Editors', submenu: buildWorkbenchMenuItems('editor') },
-    { label: 'Properties', submenu: buildWorkbenchMenuItems('properties') },
-    { label: 'Output', submenu: buildWorkbenchMenuItems('output') },
-    {
-      label: 'Toggle Dev Tools',
-      accelerator: process.platform === 'darwin' ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',
-      click: () => mainWindow?.webContents.toggleDevTools(),
-    },
-    { type: 'separator' as const },
-    {
-      label: 'Reset Default Layout',
-      click: () => sendNativeMenuCommand({ type: 'reset-layout' }),
-    },
-  ];
+function getCurrentProjectDirectory(): string | null {
+  return currentFilePath ? path.dirname(currentFilePath) : null;
 }
 
 function hasLoadedProject(): boolean {
   return Boolean(currentData);
 }
 
-function buildProjectMenuTemplate(): MenuItemConstructorOptions[] {
-  const enabled = hasLoadedProject();
-
-  return [
-    {
-      label: 'Play',
-      enabled,
-      click: () => {
-        void togglePlay();
-      },
-    },
-    {
-      label: 'Stop',
-      enabled,
-      click: () => {
-        void stopPlayback();
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Generate CSD to Screen',
-      accelerator: process.platform === 'darwin' ? 'Cmd+Shift+G' : 'Ctrl+Shift+G',
-      enabled,
-      click: () => {
-        void generateCsdToScreen();
-      },
-    },
-    {
-      label: 'Generate CSD to Disk…',
-      accelerator: process.platform === 'darwin' ? 'Cmd+G' : 'Ctrl+G',
-      enabled,
-      click: () => {
-        void generateCsdToDisk();
-      },
-    },
-  ];
-}
-
 function rebuildApplicationMenu(): void {
-  const menu = Menu.buildFromTemplate([
-    {
-      label: 'File',
-      submenu: [
-        { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => openFile() },
-        { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => saveFile() },
-        { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => saveFileAs() },
-        { type: 'separator' },
-        {
-          label: 'Quit',
-          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : undefined,
-          click: () => requestQuit(),
-        },
-      ],
+  const menu = Menu.buildFromTemplate(buildApplicationMenuTemplate({
+    hasLoadedProject: hasLoadedProject(),
+    isDarwin: process.platform === 'darwin',
+    onOpenFile: () => { void openFile(); },
+    onSaveFile: () => { void saveFile(); },
+    onSaveFileAs: () => { void saveFileAs(); },
+    onRequestQuit: () => { void requestQuit(); },
+    onOpenSettings: () => {
+      if (mainWindow) {
+        const { openSettingsWindow } = require('./settings-window') as typeof import('./settings-window');
+        openSettingsWindow(mainWindow);
+      }
     },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
+    onFocusPanel: (panelId) => {
+      if (mainWindow) {
+        mainWindow.webContents.send('native-menu-command', { type: 'focus-panel', panelId });
+      }
     },
-    {
-      label: 'Project',
-      submenu: buildProjectMenuTemplate(),
+    onToggleDevTools: () => { mainWindow?.webContents.toggleDevTools(); },
+    onResetLayout: () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('native-menu-command', { type: 'reset-layout' });
+      }
     },
-    {
-      label: 'Window',
-      submenu: buildNativeWindowMenu(),
-    },
-  ]);
+    onPlay: () => { void togglePlay(); },
+    onStop: () => { void stopPlayback(); },
+    onGenerateCsdToScreen: () => { void generateCsdToScreen(); },
+    onGenerateCsdToDisk: () => { void generateCsdToDisk(); },
+  }));
 
   Menu.setApplicationMenu(menu);
-}
-
-function notifyNoProjectLoaded(channel: 'playback-error' | 'generated-csd-error'): void {
-  mainWindow?.webContents.send(channel, 'No project is currently loaded.');
-}
-
-function ensureJavaScriptRuntime(): Promise<void> {
-  if (!javaScriptRuntimeReady) {
-    javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((error) => {
-      javaScriptRuntimeReady = null;
-      throw error;
-    });
-  }
-
-  return javaScriptRuntimeReady;
 }
 
 function getAppIcon(): Electron.NativeImage | undefined {
@@ -259,19 +170,15 @@ function createWindow(): void {
 
   function flushOutputBatch() {
     if (outputBatch.length === 0) return;
-    const byType = new Map<string, string>();
-    for (const item of outputBatch) {
-      const key = item.type;
-      byType.set(key, (byType.get(key) ?? '') + item.text);
-    }
-    for (const [type, text] of byType) {
+    const batch = outputBatch;
+    outputBatch = [];
+    for (const item of batch) {
       mainWindow?.webContents.send('engine-output', {
         tabName: 'Csound',
-        text,
-        type,
+        text: item.text,
+        type: item.type,
       });
     }
-    outputBatch = [];
     outputBatchTimer = null;
   }
 
@@ -279,6 +186,32 @@ function createWindow(): void {
     outputBatch.push({ text, type });
     if (!outputBatchTimer) {
       outputBatchTimer = setTimeout(flushOutputBatch, 50);
+    }
+  });
+
+  // Initialize Blue Live engine session on separate port
+  blueLiveSession = new BlueLiveEngineSession(mainWindow, undefined, 5560, 5561);
+  let blueLiveOutputBatch: { text: string; type: 'stdout' | 'stderr' }[] = [];
+  let blueLiveOutputTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function flushBlueLiveOutputBatch() {
+    if (blueLiveOutputBatch.length === 0) return;
+    const batch = blueLiveOutputBatch;
+    blueLiveOutputBatch = [];
+    for (const item of batch) {
+      mainWindow?.webContents.send('engine-output', {
+        tabName: 'Csound (Blue Live)',
+        text: item.text,
+        type: item.type,
+      });
+    }
+    blueLiveOutputTimer = null;
+  }
+
+  blueLiveSession.setOutputCallback((text, type) => {
+    blueLiveOutputBatch.push({ text, type });
+    if (!blueLiveOutputTimer) {
+      blueLiveOutputTimer = setTimeout(flushBlueLiveOutputBatch, 50);
     }
   });
 
@@ -344,6 +277,14 @@ async function requestQuit(): Promise<void> {
 async function doQuit(): Promise<void> {
   isQuitting = true;
 
+  if (blueLiveSession) {
+    try {
+      await blueLiveSession.stop();
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
   // Gracefully stop engine
   if (engineBridge) {
     try {
@@ -359,6 +300,7 @@ async function doQuit(): Promise<void> {
   currentFilePath = null;
   currentProjectRevision = 0;
   rebuildApplicationMenu();
+  await cleanupTempCsdSnapshots();
 
   app.quit();
 }
@@ -380,6 +322,12 @@ async function openFile(): Promise<void> {
   try {
     const xml = fs.readFileSync(filePath, 'utf-8');
     const data = await BlueData.loadFromString(xml);
+
+    // Stop Blue Live when switching projects
+    if (blueLiveSession && blueLiveSession.isRunning()) {
+      await blueLiveSession.stop();
+    }
+
     currentData = data;
     currentFilePath = filePath;
     currentProjectRevision = 0;
@@ -547,6 +495,21 @@ function doSave(filePath: string): void {
   }
 }
 
+function notifyNoProjectLoaded(channel: 'playback-error' | 'generated-csd-error'): void {
+  mainWindow?.webContents.send(channel, 'No project loaded');
+}
+
+async function ensureJavaScriptRuntime(): Promise<void> {
+  if (!javaScriptRuntimeReady) {
+    javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((err: unknown) => {
+      javaScriptRuntimeReady = null;
+      throw err;
+    });
+  }
+
+  await javaScriptRuntimeReady;
+}
+
 // ─── Playback ───
 
 async function togglePlay(): Promise<boolean> {
@@ -603,7 +566,12 @@ async function startPlayback(): Promise<boolean> {
       ParameterHelper.assignParameterNames(parameters);
     }
 
-    const success = await engineBridge.playCSD(csd, parameters, automationTiming);
+    const success = await engineBridge.playCSD(
+      csd,
+      parameters,
+      automationTiming,
+      getCurrentProjectDirectory(),
+    );
 
     if (!success) {
       mainWindow.webContents.send('playback-status', {
@@ -774,6 +742,98 @@ ipcMain.handle('export-csound-udo', async (_event, codeText: string, udoName: st
   if (result.canceled || !result.filePath) return;
   const { writeFile } = await import('fs/promises');
   await writeFile(result.filePath, codeText, 'utf-8');
+});
+
+// ─── Blue Live IPC Handlers ───
+
+ipcMain.handle('blue-live:toggle', async () => {
+  if (!blueLiveSession || !currentData) {
+    return { status: 'idle', running: false, sessionId: 0, message: 'No project loaded' };
+  }
+  if (blueLiveSession.isRunning()) {
+    return blueLiveSession.stop();
+  }
+  currentProjectRevision++;
+  mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
+  mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
+  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory());
+});
+
+ipcMain.handle('blue-live:stop', async () => {
+  if (!blueLiveSession) {
+    return { status: 'idle', running: false, sessionId: 0 };
+  }
+  return blueLiveSession.stop();
+});
+
+ipcMain.handle('blue-live:recompile', async () => {
+  if (!blueLiveSession || !currentData) {
+    return { status: 'idle', running: false, sessionId: 0, message: 'No project loaded' };
+  }
+  currentProjectRevision++;
+  mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
+  mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
+  return blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory());
+});
+
+ipcMain.handle('blue-live:all-notes-off', async () => {
+  if (!blueLiveSession) {
+    return { ok: false, message: 'Blue Live not initialized' };
+  }
+  return blueLiveSession.sendAllNotesOff();
+});
+
+ipcMain.handle('blue-live:get-status', async () => {
+  if (!blueLiveSession) {
+    return { status: 'idle', running: false, sessionId: 0 };
+  }
+  return blueLiveSession.getStatus();
+});
+
+// ─── Settings IPC Handler ───
+
+ipcMain.handle('settings:open', async () => {
+  if (!mainWindow) return;
+
+  const { openSettingsWindow } = await import('./settings-window');
+  openSettingsWindow(mainWindow);
+});
+
+// ─── Evaluate Code IPC Handler ───
+
+ipcMain.handle('engine:evaluate-code', async (_event, request: { editorKind: string; text: string; sourcePanelId: string }) => {
+  const trimmed = request.text?.trim();
+  if (!trimmed) {
+    return { routedTo: 'none', ok: false, message: 'No text selected' };
+  }
+
+  if (blueLiveSession?.isRunning()) {
+    if (request.editorKind === 'orc') {
+      return { ...await blueLiveSession.evaluateOrchestra(trimmed), routedTo: 'blueLive' as const };
+    } else {
+      return { ...await blueLiveSession.sendScore(trimmed), routedTo: 'blueLive' as const };
+    }
+  }
+
+  if (engineBridge?.isCurrentlyPlaying()) {
+    const client = (engineBridge as any).client;
+    if (!client) {
+      return { routedTo: 'none', ok: false, message: 'Realtime engine not connected' };
+    }
+    try {
+      if (request.editorKind === 'orc') {
+        const resp = await client.compileOrc(trimmed);
+        return { routedTo: 'realtime', ok: resp.ok, message: resp.ok ? undefined : resp.message };
+      } else {
+        const resp = await client.readScore(trimmed);
+        return { routedTo: 'realtime', ok: resp.ok, message: resp.ok ? undefined : resp.message };
+      }
+    } catch (err) {
+      return { routedTo: 'realtime', ok: false, message: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  return { routedTo: 'none', ok: false, message: 'No engine running' };
 });
 
 /**

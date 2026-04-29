@@ -24,6 +24,7 @@ interface CsoundEditorContextMenuProps {
   editorViewRef: MutableRefObject<EditorView | null>;
   menuItems: CsoundEditorMenuItem[];
   clipboardBridge?: CsoundEditorClipboardBridge;
+  onEvaluateCode?: () => void;
 }
 
 function getPortalContainer(): HTMLElement | undefined {
@@ -64,6 +65,7 @@ function renderMenuItem(
   item: CsoundEditorMenuItem,
   editorViewRef: MutableRefObject<EditorView | null>,
   clipboardBridge: CsoundEditorClipboardBridge | undefined,
+  onEvaluateCode?: () => void,
 ): ReactNode {
   if (isSeparatorItem(item)) {
     return <ContextMenu.Separator key={item.id} className="editor-context-menu__separator" />;
@@ -89,7 +91,7 @@ function renderMenuItem(
               sideOffset={6}
               alignOffset={-4}
             >
-              {item.items.map((childItem) => renderMenuItem(childItem, editorViewRef, clipboardBridge))}
+              {item.items.map((childItem) => renderMenuItem(childItem, editorViewRef, clipboardBridge, onEvaluateCode))}
             </ContextMenu.SubContent>
           </ContextMenu.Portal>
         ) : null}
@@ -150,6 +152,9 @@ function renderMenuItem(
         case 'paste':
           void pasteClipboardText(editorView, clipboardBridge);
           break;
+        case 'evaluate-code':
+          onEvaluateCode?.();
+          break;
       }
     };
 
@@ -161,7 +166,10 @@ function renderMenuItem(
         title={item.disabledReason}
         onSelect={handleSelect}
       >
-        {item.label}
+        <span>{item.label}</span>
+        {item.shortcutLabel ? (
+          <span className="editor-context-menu__shortcut">{item.shortcutLabel}</span>
+        ) : null}
       </ContextMenu.Item>
     );
   }
@@ -174,6 +182,7 @@ export default function CsoundEditorContextMenu({
   editorViewRef,
   menuItems,
   clipboardBridge,
+  onEvaluateCode,
 }: CsoundEditorContextMenuProps): React.ReactElement {
   const portalContainer = useMemo(() => getPortalContainer(), []);
 
@@ -186,9 +195,8 @@ export default function CsoundEditorContextMenu({
           <ContextMenu.Content
             className="editor-context-menu"
             sideOffset={6}
-            align="start"
           >
-            {menuItems.map((item) => renderMenuItem(item, editorViewRef, clipboardBridge))}
+            {menuItems.map((item) => renderMenuItem(item, editorViewRef, clipboardBridge, onEvaluateCode))}
           </ContextMenu.Content>
         </ContextMenu.Portal>
       ) : null}

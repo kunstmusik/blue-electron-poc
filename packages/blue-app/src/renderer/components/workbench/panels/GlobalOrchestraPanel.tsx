@@ -1,11 +1,28 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
+import { useBlueLiveStore } from '../../../stores/blue-live-store';
+import { usePlaybackStore } from '../../../stores/playback-store';
 import SelectedCodeEditor from './editors/SelectedCodeEditor';
 
 export default function GlobalOrchestraPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const globalOrc = useProjectStore((state) => state.globalOrc);
   const updateGlobalOrc = useProjectStore((state) => state.updateGlobalOrc);
+  const blueLiveRunning = useBlueLiveStore((s) => s.running);
+  const playbackStatus = usePlaybackStore((s) => s.status);
+
+  const evaluateEnabled = blueLiveRunning || playbackStatus === 'playing';
+
+  const handleEvaluateCode = useCallback(
+    (text: string) => {
+      window.blueAPI?.evaluateCode({
+        editorKind: 'orc',
+        text,
+        sourcePanelId: 'GlobalOrchestraTopComponent',
+      });
+    },
+    [],
+  );
 
   if (!loaded) {
     return (
@@ -22,6 +39,8 @@ export default function GlobalOrchestraPanel(): React.ReactElement {
         placeholder="Enter global orchestra code"
         ariaLabel="Global Orchestra Csound editor"
         onChange={updateGlobalOrc}
+        evaluateCodeEnabled={evaluateEnabled}
+        onEvaluateCode={handleEvaluateCode}
       />
     </div>
   );

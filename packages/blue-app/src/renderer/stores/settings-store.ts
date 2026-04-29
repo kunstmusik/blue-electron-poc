@@ -6,6 +6,11 @@ interface SettingsState {
   enginePath: string;
   recentFiles: string[];
   windowBounds: { x: number; y: number; width: number; height: number } | null;
+  midiInputDevice: string;
+  midiOutputDevice: string;
+  oscInputPort: number;
+  oscOutputPort: number;
+  oscOutputHost: string;
 }
 
 interface SettingsActions {
@@ -15,6 +20,12 @@ interface SettingsActions {
   addRecentFile: (path: string) => void;
   removeRecentFile: (path: string) => void;
   setWindowBounds: (bounds: SettingsState['windowBounds']) => void;
+  setMidiInputDevice: (device: string) => void;
+  setMidiOutputDevice: (device: string) => void;
+  setOscInputPort: (port: number) => void;
+  setOscOutputPort: (port: number) => void;
+  setOscOutputHost: (host: string) => void;
+  rehydrate: () => void;
 }
 
 // Dynamic storage: localStorage in browser, in-memory in tests
@@ -41,6 +52,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
       enginePath: 'blue-engine',
       recentFiles: [],
       windowBounds: null,
+      midiInputDevice: '',
+      midiOutputDevice: '',
+      oscInputPort: 0,
+      oscOutputPort: 0,
+      oscOutputHost: 'localhost',
 
       openFile: async () => {
         try {
@@ -74,6 +90,17 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         })),
 
       setWindowBounds: (windowBounds) => set({ windowBounds }),
+
+      setMidiInputDevice: (midiInputDevice) => set({ midiInputDevice }),
+      setMidiOutputDevice: (midiOutputDevice) => set({ midiOutputDevice }),
+      setOscInputPort: (oscInputPort) => set({ oscInputPort }),
+      setOscOutputPort: (oscOutputPort) => set({ oscOutputPort }),
+      setOscOutputHost: (oscOutputHost) => set({ oscOutputHost }),
+
+      rehydrate: () => {
+        const api = useSettingsStore.persist;
+        api.rehydrate();
+      },
     }),
     {
       name: 'blue-settings',
@@ -82,6 +109,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         recentFiles: state.recentFiles,
         windowBounds: state.windowBounds,
         enginePath: state.enginePath,
+        midiInputDevice: state.midiInputDevice,
+        midiOutputDevice: state.midiOutputDevice,
+        oscInputPort: state.oscInputPort,
+        oscOutputPort: state.oscOutputPort,
+        oscOutputHost: state.oscOutputHost,
       }),
     },
   ),

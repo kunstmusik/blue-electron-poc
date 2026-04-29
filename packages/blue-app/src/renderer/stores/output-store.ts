@@ -23,6 +23,7 @@ function ensureTab(state: OutputWindowState, name: string): OutputTab {
     colorOverrides: {},
     isClosed: false,
     pendingText: '',
+    pendingType: null,
   };
 }
 
@@ -47,6 +48,7 @@ export const useOutputStore = create<OutputWindowState>((set) => ({
         colorOverrides: existing?.colorOverrides ?? {},
         isClosed: false,
         pendingText: '',
+        pendingType: null,
       };
       const tabOrder = state.tabOrder.includes(name)
         ? state.tabOrder
@@ -76,7 +78,8 @@ export const useOutputStore = create<OutputWindowState>((set) => ({
   appendToTab(name, text, type = 'stdout') {
     set((state) => {
       const tab = ensureTab(state, name);
-      const combined = tab.pendingText + text;
+      const normalizedText = text.replace(/\r\n?/g, '\n');
+      const combined = tab.pendingText + normalizedText;
       const parts = combined.split('\n');
       const pendingText = parts.pop() ?? '';
       const newLines: OutputLine[] = [];
@@ -87,13 +90,24 @@ export const useOutputStore = create<OutputWindowState>((set) => ({
         newLines.push({ id: counter, text: line, type });
       }
       if (newLines.length === 0) {
-        return { ...state, tabs: { ...state.tabs, [name]: { ...tab, pendingText } } };
+        return {
+          ...state,
+          tabs: {
+            ...state.tabs,
+            [name]: {
+              ...tab,
+              pendingText,
+              pendingType: pendingText.length > 0 ? type : null,
+            },
+          },
+        };
       }
       const updated: OutputTab = {
         ...tab,
         lines: [...tab.lines, ...newLines],
         lineCounter: counter,
         pendingText,
+        pendingType: pendingText.length > 0 ? type : null,
       };
       const tabOrder = state.tabOrder.includes(name)
         ? state.tabOrder
@@ -113,7 +127,7 @@ export const useOutputStore = create<OutputWindowState>((set) => ({
       return {
         tabs: {
           ...state.tabs,
-          [name]: { ...tab, lines: [], lineCounter: 0, pendingText: '' },
+          [name]: { ...tab, lines: [], lineCounter: 0, pendingText: '', pendingType: null },
         },
       };
     });

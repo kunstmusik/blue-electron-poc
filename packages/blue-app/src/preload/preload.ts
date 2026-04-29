@@ -105,4 +105,23 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.on('generated-csd-error', handler);
     return () => { ipcRenderer.removeListener('generated-csd-error', handler); };
   },
+
+  // Blue Live
+  toggleBlueLive: () => ipcRenderer.invoke('blue-live:toggle'),
+  stopBlueLive: () => ipcRenderer.invoke('blue-live:stop'),
+  recompileBlueLive: () => ipcRenderer.invoke('blue-live:recompile'),
+  sendBlueLiveAllNotesOff: () => ipcRenderer.invoke('blue-live:all-notes-off'),
+  getBlueLiveStatus: () => ipcRenderer.invoke('blue-live:get-status'),
+  onBlueLiveStatus: (callback: (snapshot: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: unknown) => callback(snapshot);
+    ipcRenderer.on('blue-live-status', handler);
+    return () => { ipcRenderer.removeListener('blue-live-status', handler); };
+  },
+
+  // Settings
+  openSettingsWindow: () => ipcRenderer.invoke('settings:open'),
+
+  // Evaluate Code
+  evaluateCode: (request: { editorKind: string; text: string; sourcePanelId: string }) =>
+    ipcRenderer.invoke('engine:evaluate-code', request),
 });

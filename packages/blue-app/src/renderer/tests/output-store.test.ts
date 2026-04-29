@@ -79,11 +79,26 @@ describe('output-store', () => {
       store.appendToTab('Csound', 'partial');
       expect(useOutputStore.getState().tabs['Csound'].lines).toHaveLength(0);
       expect(useOutputStore.getState().tabs['Csound'].pendingText).toBe('partial');
+      expect(useOutputStore.getState().tabs['Csound'].pendingType).toBe('stdout');
 
       store.appendToTab('Csound', ' line\nrest');
       expect(useOutputStore.getState().tabs['Csound'].lines).toHaveLength(1);
       expect(useOutputStore.getState().tabs['Csound'].lines[0].text).toBe('partial line');
       expect(useOutputStore.getState().tabs['Csound'].pendingText).toBe('rest');
+      expect(useOutputStore.getState().tabs['Csound'].pendingType).toBe('stdout');
+    });
+
+    it('normalizes carriage-return-delimited output into visible lines', () => {
+      const store = useOutputStore.getState();
+      store.appendToTab('Csound', 'line1\rline2\r', 'stderr');
+
+      const tab = useOutputStore.getState().tabs['Csound'];
+      expect(tab.lines).toHaveLength(2);
+      expect(tab.lines[0].text).toBe('line1');
+      expect(tab.lines[1].text).toBe('line2');
+      expect(tab.lines[0].type).toBe('stderr');
+      expect(tab.pendingText).toBe('');
+      expect(tab.pendingType).toBeNull();
     });
   });
 
@@ -96,6 +111,7 @@ describe('output-store', () => {
 
       expect(useOutputStore.getState().tabs['Csound'].lines).toHaveLength(0);
       expect(useOutputStore.getState().tabs['Csound'].lineCounter).toBe(0);
+      expect(useOutputStore.getState().tabs['Csound'].pendingType).toBeNull();
     });
 
     it('does nothing for non-existent tab', () => {

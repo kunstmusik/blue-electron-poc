@@ -3,7 +3,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   test: {
-    include: ['src/renderer/tests/**/*.test.{ts,tsx}'],
+    include: ['src/main/**/*.test.ts', 'src/renderer/tests/**/*.test.{ts,tsx}'],
     globals: true,
   },
   resolve: {

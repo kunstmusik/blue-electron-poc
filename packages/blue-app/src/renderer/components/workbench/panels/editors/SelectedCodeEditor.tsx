@@ -1,10 +1,15 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { basicSetup, EditorView } from 'codemirror';
 import { EditorState, type Extension } from '@codemirror/state';
 import { placeholder as editorPlaceholder } from '@codemirror/view';
 
 import CsoundEditorContextMenu from './CsoundEditorContextMenu';
 import { createCsoundEditorExtensions, getSelectedEditorMetadata } from './csound-editor-language';
+import {
+  createEvaluateCodeKeymapExtension,
+  evaluateCodeFromEditor,
+  evaluationFlashPlugin,
+} from './csound-editor-evaluation';
 import {
   createBasicTextEditorMenuItems,
   createJavaBlueCsoundEditorMenuItems,
@@ -79,6 +84,8 @@ export default function SelectedCodeEditor({
   dynamicCompletionProviders = EMPTY_DYNAMIC_COMPLETION_PROVIDERS,
   javaBlueCompletionOptions = EMPTY_JAVA_BLUE_COMPLETION_OPTIONS,
   contextMenuItems,
+  evaluateCodeEnabled = false,
+  onEvaluateCode,
   onChange,
 }: SelectedCodeEditorProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -86,6 +93,25 @@ export default function SelectedCodeEditor({
   const onChangeRef = useRef(onChange);
   const syncingFromPropsRef = useRef(false);
   const editorMetadata = getSelectedEditorMetadata(mode);
+  const hasEvaluateCodeHandler = Boolean(onEvaluateCode);
+
+  const evaluateCodeEnabledRef = useRef(evaluateCodeEnabled);
+  const onEvaluateCodeRef = useRef(onEvaluateCode);
+
+  useEffect(() => {
+    evaluateCodeEnabledRef.current = evaluateCodeEnabled;
+  }, [evaluateCodeEnabled]);
+
+  useEffect(() => {
+    onEvaluateCodeRef.current = onEvaluateCode;
+  }, [onEvaluateCode]);
+
+  const handleEvaluateCode = useCallback(() => {
+    const view = viewRef.current;
+    const onEvaluateCode = onEvaluateCodeRef.current;
+    if (!view || !evaluateCodeEnabledRef.current || !onEvaluateCode) return;
+    evaluateCodeFromEditor(view, mode, onEvaluateCode);
+  }, [mode]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -101,7 +127,11 @@ export default function SelectedCodeEditor({
       basicSetup,
       blueCodeMirrorTheme,
       EditorView.lineWrapping,
+      evaluationFlashPlugin,
       editorPlaceholder(placeholder ?? ''),
+      ...(hasEvaluateCodeHandler ? [
+        createEvaluateCodeKeymapExtension(mode, () => onEvaluateCodeRef.current, () => evaluateCodeEnabledRef.current),
+      ] : []),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || syncingFromPropsRef.current) {
           return;
@@ -129,7 +159,7 @@ export default function SelectedCodeEditor({
         viewRef.current = null;
       }
     };
-  }, [dynamicCompletionProviders, javaBlueCompletionOptions, mode, placeholder, readOnly]);
+  }, [dynamicCompletionProviders, hasEvaluateCodeHandler, javaBlueCompletionOptions, mode, placeholder, readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -168,10 +198,14 @@ export default function SelectedCodeEditor({
     contextMenuItems ??
     (mode === 'text'
       ? createBasicTextEditorMenuItems({ readOnly })
-      : createJavaBlueCsoundEditorMenuItems({ readOnly }));
+      : createJavaBlueCsoundEditorMenuItems({
+          readOnly,
+          showEvaluateCode: Boolean(onEvaluateCode),
+          evaluateCodeEnabled,
+        }));
 
   return (
-    <CsoundEditorContextMenu editorViewRef={viewRef} menuItems={menuItems}>
+    <CsoundEditorContextMenu editorViewRef={viewRef} menuItems={menuItems} onEvaluateCode={onEvaluateCode ? handleEvaluateCode : undefined}>
       <div
         className="selected-code-editor selected-code-editor--codemirror"
         data-editor-kind={editorMetadata.kind}

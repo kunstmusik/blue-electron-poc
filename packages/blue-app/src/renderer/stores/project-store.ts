@@ -8,6 +8,8 @@ import {
 } from '@blue/data';
 import {
   createEmptyProjectEditorSnapshot,
+  type BlueLiveProjectSnapshot,
+  type BlueLivePatch,
   type BsbRealtimeControlUpdate,
   type ArrangementRowSnapshot,
   type InstrumentPatch,
@@ -51,6 +53,7 @@ interface ProjectState {
   tablesText: string;
   projectUdos: UdoDefinitionSnapshot[];
   generatedCsd: { text: string; title: string } | null;
+  blueLive: BlueLiveProjectSnapshot | null;
 }
 
 interface ProjectActions {
@@ -72,6 +75,7 @@ interface ProjectActions {
   setLoopRendering: (loopRendering: boolean) => Promise<void>;
   updateTablesText: (tablesText: string) => Promise<void>;
   applyProjectUdoPatch: (patch: ProjectUdoPatch) => Promise<void>;
+  applyBlueLivePatch: (patch: BlueLivePatch) => Promise<void>;
   setGeneratedCsd: (csd: { text: string; title: string } | null) => void;
   generateCsdToScreen: () => Promise<void>;
   generateCsdToDisk: () => Promise<void>;
@@ -571,6 +575,7 @@ function applyProjectInfoToState(
       transport: nextTransport,
       tablesText: info.tablesText ?? state.tablesText,
       projectUdos: info.projectUdos ?? state.projectUdos,
+      blueLive: info.blueLive ?? state.blueLive,
     };
   });
 }
@@ -604,6 +609,7 @@ function buildInitialState(): ProjectState {
     tablesText: snapshot.tablesText,
     projectUdos: snapshot.projectUdos,
     generatedCsd: null,
+    blueLive: snapshot.blueLive ?? null,
   };
 }
 
@@ -656,6 +662,141 @@ function applyProjectUdoPatchToSnapshot(
   }
 
   return list;
+}
+
+function applyBlueLivePatchToSnapshot(
+  snap: BlueLiveProjectSnapshot,
+  patch: BlueLivePatch,
+): BlueLiveProjectSnapshot {
+  const next = {
+    ...snap,
+    bins: {
+      ...snap.bins,
+      cells: snap.bins.cells.map((col) => [...col]),
+    },
+    sets: snap.sets.map((set) => ({
+      ...set,
+      liveObjectIds: [...set.liveObjectIds],
+    })),
+  };
+
+  switch (patch.type) {
+    case 'updateOptions':
+      if (patch.patch.commandLine !== undefined) next.commandLine = patch.patch.commandLine;
+      if (patch.patch.commandLineEnabled !== undefined) next.commandLineEnabled = patch.patch.commandLineEnabled;
+      if (patch.patch.commandLineOverride !== undefined) next.commandLineOverride = patch.patch.commandLineOverride;
+      break;
+    case 'updateTempoRepeat':
+      if (patch.patch.tempo !== undefined) next.tempo = patch.patch.tempo;
+      if (patch.patch.repeat !== undefined) next.repeat = patch.patch.repeat;
+      if (patch.patch.repeatEnabled !== undefined) next.repeatEnabled = patch.patch.repeatEnabled;
+      break;
+    case 'updateLiveCodeText':
+      next.liveCodeText = patch.text;
+      break;
+    case 'setCellEnabled':
+      if (
+        patch.column >= 0 &&
+        patch.column < next.bins.cells.length &&
+        patch.row >= 0 &&
+        patch.row < next.bins.cells[patch.column]!.length
+      ) {
+        const cell = next.bins.cells[patch.column]![patch.row];
+        if (cell) {
+          next.bins.cells[patch.column]![patch.row] = { ...cell, enabled: patch.enabled };
+        }
+      }
+      break;
+    case 'insertRow':
+      {
+        const insertIndex = Math.min(Math.max(patch.index, 0), next.bins.rows);
+        next.bins = {
+          ...next.bins,
+          rows: next.bins.rows + 1,
+          cells: next.bins.cells.map((col) => {
+            const nextCol = [...col];
+            nextCol.splice(insertIndex, 0, null);
+            return nextCol;
+          }),
+        };
+      }
+      break;
+    case 'removeRow':
+      if (next.bins.rows <= 1 || patch.index < 0 || patch.index >= next.bins.rows) {
+        break;
+      }
+      next.bins = {
+        ...next.bins,
+        rows: next.bins.rows - 1,
+        cells: next.bins.cells.map((col) => {
+          const nextCol = [...col];
+          nextCol.splice(patch.index, 1);
+          return nextCol;
+        }),
+      };
+      break;
+    case 'insertColumn':
+      {
+        const insertIndex = Math.min(Math.max(patch.index, 0), next.bins.cells.length);
+        const cells = [...next.bins.cells];
+        cells.splice(insertIndex, 0, Array.from({ length: next.bins.rows }, () => null));
+        next.bins = { ...next.bins, columns: next.bins.columns + 1, cells };
+      }
+      break;
+    case 'removeColumn':
+      if (next.bins.columns <= 1 || patch.index < 0 || patch.index >= next.bins.cells.length) {
+        break;
+      }
+      {
+        const cells = [...next.bins.cells];
+        cells.splice(patch.index, 1);
+        next.bins = { ...next.bins, columns: next.bins.columns - 1, cells };
+      }
+      break;
+    case 'captureEnabledSet':
+      next.sets = [
+        ...next.sets,
+        {
+          name: `Set ${next.sets.length + 1}`,
+          liveObjectIds: next.bins.cells
+            .flatMap((col) => col)
+            .filter((cell): cell is NonNullable<typeof cell> => cell !== null && cell.enabled)
+            .map((cell) => cell.uniqueId),
+        },
+      ];
+      break;
+    case 'renameSet':
+      if (patch.index >= 0 && patch.index < next.sets.length) {
+        next.sets = next.sets.map((s, i) => i === patch.index ? { ...s, name: patch.name } : s);
+      }
+      break;
+    case 'removeSet':
+      if (patch.index >= 0 && patch.index < next.sets.length) {
+        next.sets = next.sets.filter((_, i) => i !== patch.index);
+      }
+      break;
+    case 'moveSet':
+      if (patch.from >= 0 && patch.from < next.sets.length && patch.to >= 0 && patch.to < next.sets.length) {
+        const sets = [...next.sets];
+        const [moved] = sets.splice(patch.from, 1);
+        sets.splice(patch.to, 0, moved);
+        next.sets = sets;
+      }
+      break;
+    case 'applySet':
+      if (patch.index >= 0 && patch.index < next.sets.length) {
+        const enabledIds = new Set(next.sets[patch.index]!.liveObjectIds);
+        next.bins = {
+          ...next.bins,
+          cells: next.bins.cells.map((col) =>
+            col.map((cell) => (cell ? { ...cell, enabled: enabledIds.has(cell.uniqueId) } : cell)),
+          ),
+        };
+      }
+      break;
+  }
+
+  return next;
 }
 
 function cloneInstrumentSnapshotForMutation<T extends InstrumentSnapshot>(instrument: T): T {
@@ -1859,6 +2000,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       patch.orchestra === undefined &&
       patch.tablesText === undefined &&
       patch.projectUdo === undefined &&
+      patch.blueLive === undefined &&
       (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
       (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
@@ -1916,6 +2058,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         next.projectUdos = applyProjectUdoPatchToSnapshot(state.projectUdos, patch.projectUdo);
       }
 
+      if (patch.blueLive !== undefined && state.blueLive) {
+        next.blueLive = applyBlueLivePatchToSnapshot(state.blueLive, patch.blueLive);
+      }
+
       return next;
     });
 
@@ -1960,6 +2106,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   applyProjectUdoPatch: async (patch) => {
     await get().applyProjectDocumentPatch({ projectUdo: patch });
+  },
+
+  applyBlueLivePatch: async (patch) => {
+    await get().applyProjectDocumentPatch({ blueLive: patch });
   },
 
   setGeneratedCsd: (csd: { text: string; title: string } | null) => {

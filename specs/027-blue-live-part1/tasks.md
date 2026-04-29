@@ -11,10 +11,10 @@
 
 **Purpose**: Confirm parity anchors and create focused test entry points before implementation.
 
-- [ ] T001 Review Java Blue Live source anchors in `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/research.md` and record any discovered implementation deltas there
-- [ ] T002 [P] Inventory current TypeScript LiveData and live object stubs in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.ts`
-- [ ] T003 [P] Inventory current Blue Live toolbar behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
-- [ ] T004 [P] Inventory current realtime engine lifecycle extension points in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/engine-bridge.ts`
+- [x] T001 Review Java Blue Live source anchors in `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/research.md` and record any discovered implementation deltas there
+- [x] T002 [P] Inventory current TypeScript LiveData and live object stubs in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.ts`
+- [x] T003 [P] Inventory current Blue Live toolbar behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
+- [x] T004 [P] Inventory current realtime engine lifecycle extension points in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/engine-bridge.ts`
 
 ---
 
@@ -24,24 +24,24 @@
 
 ### Tests
 
-- [ ] T005 [P] Add Java-compatible LiveData XML round-trip tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.test.ts`
-- [ ] T006 [P] Add LiveObject XML and deep-copy tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.test.ts`
-- [ ] T007 [P] Add LiveObjectBins row/column/set-reference tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-bins.test.ts`
-- [ ] T008 [P] Add Blue Live project snapshot/patch contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-contract.test.ts`
-- [ ] T009 [P] Add injectable engine-session lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
+- [x] T005 [P] Add Java-compatible LiveData XML round-trip tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.test.ts`
+- [x] T006 [P] Add LiveObject XML and deep-copy tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.test.ts`
+- [x] T007 [P] Add LiveObjectBins row/column/set-reference tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-bins.test.ts`
+- [x] T008 [P] Add Blue Live project snapshot/patch contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-contract.test.ts`
+- [x] T009 [P] Add injectable engine-session lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
 
 ### Implementation
 
-- [ ] T010 Implement Java-compatible `LiveData` fields/load/save/deepCopy in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.ts`
-- [ ] T011 Implement Java-compatible `LiveObject` uniqueId/triggers/enabled/SoundObject XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.ts`
-- [ ] T012 Implement Java-compatible `LiveObjectBins` grid operations and enabled-set helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-bins.ts`
-- [ ] T013 Implement Java-compatible `LiveObjectSet` name/ref XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-set.ts`
-- [ ] T014 Implement Java-compatible `LiveObjectSetList` load/save/deepCopy behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-set-list.ts`
-- [ ] T015 Export updated LiveData/live object APIs from `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
-- [ ] T016 Extend project snapshot and patch types for Blue Live in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T017 Implement main-process Blue Live patch application helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T018 Add Blue Live IPC/preload/global typings in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
-- [ ] T019 Create separable Blue Live engine session helper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T010 Implement Java-compatible `LiveData` fields/load/save/deepCopy in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live-data.ts`
+- [x] T011 Implement Java-compatible `LiveObject` uniqueId/triggers/enabled/SoundObject XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object.ts`
+- [x] T012 Implement Java-compatible `LiveObjectBins` grid operations and enabled-set helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-bins.ts`
+- [x] T013 Implement Java-compatible `LiveObjectSet` name/ref XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-set.ts`
+- [x] T014 Implement Java-compatible `LiveObjectSetList` load/save/deepCopy behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/live/live-object-set-list.ts`
+- [x] T015 Export updated LiveData/live object APIs from `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
+- [x] T016 Extend project snapshot and patch types for Blue Live in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T017 Implement main-process Blue Live patch application helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T018 Add Blue Live IPC/preload/global typings in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
+- [x] T019 Create separable Blue Live engine session helper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
 
 **Checkpoint**: LiveData round-trips safely, renderer contracts can represent LiveData, and main process has a testable Blue Live engine-session abstraction.
 
@@ -55,24 +55,24 @@
 
 ### Tests for User Story 1
 
-- [ ] T020 [P] Add Blue Live CSD generation tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-live-csd.test.ts`
-- [ ] T021 [P] Add toolbar no-editor-focus/toggle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-toolbar.test.tsx`
-- [ ] T022 [P] Add main-process Blue Live/realtime independence tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
-- [ ] T023 [P] Add Blue Live status store tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-store.test.ts`
+- [x] T020 [P] Add Blue Live CSD generation tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-live-csd.test.ts`
+- [x] T021 [P] Add toolbar no-editor-focus/toggle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-toolbar.test.tsx`
+- [x] T022 [P] Add main-process Blue Live/realtime independence tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
+- [x] T023 [P] Add Blue Live status store tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-store.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T024 [US1] Implement `BlueData.toBlueLiveCSD()` entry point in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
-- [ ] T025 [US1] Add Blue Live CSD generation helpers for long-duration live score, global setup, always-on instruments, mixer support, and no tempo map in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
-- [ ] T026 [US1] Add Blue Live macro and option handling support in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T027 [US1] Update engine session startup to use distinct ports/shared-memory/output tab in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T028 [US1] Wire Blue Live IPC handlers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T029 [US1] Add renderer Blue Live state store in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/blue-live-store.ts`
-- [ ] T030 [US1] Wire Blue Live status listeners in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/hooks/use-ipc-listeners.ts`
-- [ ] T031 [US1] Replace `openPanel('BlueLiveTopComponent')` with runtime toggle behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
-- [ ] T032 [US1] Disable or safely reject Blue Live toolbar toggle when no project is loaded in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
-- [ ] T033 [US1] Route Blue Live output reset/select/write events to `Csound (Blue Live)` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T034 [US1] Stop Blue Live on project load/switch and quit cleanup in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T024 [US1] Implement `BlueData.toBlueLiveCSD()` entry point in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
+- [x] T025 [US1] Add Blue Live CSD generation helpers for long-duration live score, global setup, always-on instruments, mixer support, and no tempo map in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
+- [x] T026 [US1] Add Blue Live macro and option handling support in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T027 [US1] Update engine session startup to use distinct ports/shared-memory/output tab in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T028 [US1] Wire Blue Live IPC handlers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T029 [US1] Add renderer Blue Live state store in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/blue-live-store.ts`
+- [x] T030 [US1] Wire Blue Live status listeners in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/hooks/use-ipc-listeners.ts`
+- [x] T031 [US1] Replace `openPanel('BlueLiveTopComponent')` with runtime toggle behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
+- [x] T032 [US1] Disable or safely reject Blue Live toolbar toggle when no project is loaded in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
+- [x] T033 [US1] Route Blue Live output reset/select/write events to `Csound (Blue Live)` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T034 [US1] Stop Blue Live on project load/switch and quit cleanup in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
 
 **Checkpoint**: User Story 1 is functional and testable independently.
 
@@ -86,19 +86,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T035 [P] Add Recompile lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
-- [ ] T036 [P] Add All Notes Off CSD instrument tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-live-csd.test.ts`
-- [ ] T037 [P] Add toolbar Recompile/All Notes Off enablement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-toolbar.test.tsx`
+- [x] T035 [P] Add Recompile lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-recompile.test.tsx`
+- [x] T036 [P] Add All Notes Off CSD instrument tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-live-csd.test.ts`
+- [x] T037 [P] Add toolbar Recompile/All Notes Off enablement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-toolbar.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] Generate `blueAllNotesOff` instrument in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
-- [ ] T039 [US2] Implement `recompileBlueLive` stop/regenerate/start behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T040 [US2] Implement All Notes Off score submission in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T041 [US2] Wire Recompile and All Notes Off IPC handlers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T042 [US2] Wire Recompile and All Notes Off buttons to IPC in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
-- [ ] T043 [US2] Keep `MIDI Input` visibly deferred or disabled in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
-- [ ] T044 [US2] Surface Recompile/All Notes Off errors through Blue Live status state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/blue-live-store.ts`
+- [x] T038 [US2] Generate `blueAllNotesOff` instrument in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
+- [x] T039 [US2] Implement `recompileBlueLive` stop/regenerate/start behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T040 [US2] Implement All Notes Off score submission in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T041 [US2] Wire Recompile and All Notes Off IPC handlers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T042 [US2] Wire Recompile and All Notes Off buttons to IPC in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
+- [x] T043 [US2] Keep `MIDI Input` visibly deferred or disabled in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/menu-bar/ToolbarBlueLive.tsx`
+- [x] T044 [US2] Surface Recompile/All Notes Off errors through Blue Live status state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/blue-live-store.ts`
 
 **Checkpoint**: User Stories 1 and 2 work independently.
 
@@ -112,28 +112,28 @@
 
 ### Tests for User Story 3
 
-- [ ] T045 [P] Add Blue Live panel tab render tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-panel.test.tsx`
-- [ ] T046 [P] Add Live Space grid action tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-live-space.test.tsx`
-- [ ] T047 [P] Add Live Code editor persistence tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-live-code.test.tsx`
-- [ ] T048 [P] Add Options tab patch tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-options.test.tsx`
-- [ ] T049 [P] Add Blue Live trigger routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts`
+- [x] T045 [P] Add Blue Live panel tab render tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-panel.test.tsx`
+- [x] T046 [P] Add Live Space grid action tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-live-space.test.tsx`
+- [x] T047 [P] Add Live Code editor persistence tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-live-code.test.tsx`
+- [x] T048 [P] Add Options tab patch tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-options.test.tsx`
+- [ ] T049 [P] Add Blue Live trigger routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.test.ts` (deferred to the later Score implementation)
 
 ### Implementation for User Story 3
 
-- [ ] T050 [US3] Route `BlueLiveTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
-- [ ] T051 [US3] Implement Blue Live tab shell in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/BlueLivePanel.tsx`
-- [ ] T052 [US3] Implement Live Space toolbar controls for tempo/repeat/trigger in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceTab.tsx`
-- [ ] T053 [US3] Implement Live Space grid rendering and enabled toggle behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceGrid.tsx`
-- [ ] T054 [US3] Implement Live Space row/column insert/remove actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceGrid.tsx`
-- [ ] T055 [US3] Implement saved-set list add/remove/rename/reorder/apply behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveObjectSetList.tsx`
-- [ ] T056 [US3] Implement Live Space trigger request from enabled live objects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T057 [US3] Implement renderer trigger button wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceTab.tsx`
-- [ ] T058 [US3] Implement Live Code tab using `SelectedCodeEditor` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveCodeTab.tsx`
-- [ ] T059 [US3] Implement Options tab fields and patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/OptionsTab.tsx`
-- [ ] T060 [US3] Wire Blue Live project patches through the project store in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
-- [ ] T061 [US3] Ensure SCO Pad is absent, disabled, or explicitly deferred in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/BlueLivePanel.tsx`
-- [ ] T062 [US3] Ensure nested SoundObject opening is not invoked from Live Space in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceGrid.tsx`
-- [ ] T063 [US3] Add Blue Live panel styling consistent with existing workbench panels in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
+- [x] T050 [US3] Route `BlueLiveTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
+- [x] T051 [US3] Implement Blue Live tab shell in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/BlueLivePanel.tsx`
+- [x] T052 [US3] Implement Live Space toolbar controls for tempo/repeat/trigger in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceTab.tsx`
+- [x] T053 [US3] Implement Live Space grid rendering and enabled toggle behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceGrid.tsx`
+- [x] T054 [US3] Implement Live Space row/column insert/remove actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceGrid.tsx`
+- [x] T055 [US3] Implement saved-set list add/remove/rename/reorder/apply behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveObjectSetList.tsx`
+- [ ] T056 [US3] Implement Live Space trigger request from enabled live objects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts` (deferred to the later Score implementation)
+- [x] T057 [US3] Implement renderer trigger button wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceTab.tsx`
+- [x] T058 [US3] Implement Live Code tab using `SelectedCodeEditor` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveCodeTab.tsx`
+- [x] T059 [US3] Implement Options tab fields and patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/OptionsTab.tsx`
+- [x] T060 [US3] Wire Blue Live project patches through the project store in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T061 [US3] Ensure SCO Pad is absent, disabled, or explicitly deferred in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/BlueLivePanel.tsx`
+- [x] T062 [US3] Ensure nested SoundObject opening is not invoked from Live Space in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveSpaceTab.tsx`
+- [x] T063 [US3] Add Blue Live panel styling consistent with existing workbench panels in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
 
 **Checkpoint**: Blue Live project authoring shell is usable and persists covered LiveData.
 
@@ -147,47 +147,47 @@
 
 ### Tests for User Story 4
 
-- [ ] T064 [P] Add native app menu template tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/application-menu.test.ts`
-- [ ] T065 [P] Add Settings window lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/settings-window.test.ts`
-- [ ] T066 [P] Add Settings renderer tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/settings-window.test.tsx`
+- [x] T064 [P] Add native app menu template tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/application-menu.test.ts`
+- [x] T065 [P] Add Settings window lifecycle tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/settings-window.test.ts`
+- [x] T066 [P] Add Settings renderer tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/settings-window.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T067 [US4] Extract or update native menu construction for a macOS-style Blue app menu in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T068 [US4] Add `Settings...` with Cmd-, and deferred `About Blue` menu item in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T069 [US4] Implement modal Settings BrowserWindow lifecycle in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/settings-window.ts`
-- [ ] T070 [US4] Wire settings IPC handler in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T071 [US4] Add settings preload/global API in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
-- [ ] T072 [US4] Implement Settings renderer surface with MIDI/OSC sidebar categories in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/settings/SettingsWindow.tsx`
-- [ ] T073 [US4] Add Settings window styling modeled on the provided dark split layout in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
+- [x] T067 [US4] Extract or update native menu construction for a macOS-style Blue app menu in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T068 [US4] Add `Settings...` with Cmd-, and deferred `About Blue` menu item in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T069 [US4] Implement modal Settings BrowserWindow lifecycle in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/settings-window.ts`
+- [x] T070 [US4] Wire settings IPC handler in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T071 [US4] Add settings preload/global API in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
+- [x] T072 [US4] Implement Settings renderer surface with MIDI/OSC sidebar categories in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/settings/SettingsApp.tsx`
+- [x] T073 [US4] Add Settings window styling modeled on the provided dark split layout in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/settings/SettingsApp.tsx`
 
 **Checkpoint**: Native Settings shell is present and isolated from project-level Blue Live options.
 
 ---
 
-## Phase 7: User Story 5 - Evaluate Selected Code Into The Active Engine (Priority: P3)
+## Phase 7: User Story 5 - Evaluate Selected Or Contextual Code Into The Active Engine (Priority: P3)
 
-**Goal**: Global orchestra/score editors expose `Evaluate Code` and route selected text to Blue Live first, realtime second.
+**Goal**: Global orchestra/score editors expose `Evaluate Code` and route selected or contextual code to Blue Live first, realtime second.
 
-**Independent Test**: With Blue Live running, evaluate selected global orchestra and score text; with only realtime running, repeat and confirm realtime routing; with no engine or no selection, confirm disabled/no-op.
+**Independent Test**: With Blue Live running, evaluate selected global orchestra and score text or use the current code context; with only realtime running, repeat and confirm realtime routing; with no engine or blank context, confirm disabled/no-op.
 
 ### Tests for User Story 5
 
-- [ ] T074 [P] Add Evaluate Code routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/evaluate-code.test.ts`
-- [ ] T075 [P] Add editor context menu enablement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/evaluate-code-context-menu.test.tsx`
-- [ ] T076 [P] Add Cmd-Return shortcut tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/evaluate-code-shortcut.test.tsx`
+- [x] T074 [P] Add Evaluate Code routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/blue-live-evaluate.test.tsx`
+- [x] T075 [P] Add editor context menu enablement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
+- [x] T076 [P] Add Cmd-Return shortcut tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/csound-editor-parity.test.ts`
 
 ### Implementation for User Story 5
 
-- [ ] T077 [US5] Add runtime evaluation methods to realtime engine bridge in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/engine-bridge.ts`
-- [ ] T078 [US5] Add runtime evaluation methods to Blue Live engine helper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T079 [US5] Add main-process evaluate-code router in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
-- [ ] T080 [US5] Expose evaluate-code preload/global API in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
-- [ ] T081 [US5] Extend editor adapter types with selected-text/evaluate metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/editor-adapter-types.ts`
-- [ ] T082 [US5] Add `Evaluate Code` menu item to Csound context menu helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
-- [ ] T083 [US5] Wire Evaluate Code rendering and disabled state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/CsoundEditorContextMenu.tsx`
-- [ ] T084 [US5] Add Cmd-Return handling to `SelectedCodeEditor` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
-- [ ] T085 [US5] Enable Evaluate Code only for Global Orchestra, Global Score, and Live Code editor usages in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalOrchestraPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalScorePanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveCodeTab.tsx`
+- [x] T077 [US5] Add runtime evaluation methods to realtime engine bridge in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/engine-bridge.ts`
+- [x] T078 [US5] Add runtime evaluation methods to Blue Live engine helper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T079 [US5] Add main-process evaluate-code router in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T080 [US5] Expose evaluate-code preload/global API in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
+- [x] T081 [US5] Extend editor adapter types with selected-text/evaluate metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/editor-adapter-types.ts`
+- [x] T082 [US5] Add `Evaluate Code` menu item to Csound context menu helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/csound-editor-menu.ts`
+- [x] T083 [US5] Wire Evaluate Code rendering and disabled state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/CsoundEditorContextMenu.tsx`
+- [x] T084 [US5] Add Cmd-Return handling to `SelectedCodeEditor` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
+- [x] T085 [US5] Enable Evaluate Code only for Global Orchestra, Global Score, and Live Code editor usages in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalOrchestraPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/GlobalScorePanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/blue-live/LiveCodeTab.tsx`
 
 **Checkpoint**: Evaluate Code works with the requested routing and disabled states.
 
@@ -197,13 +197,13 @@
 
 **Purpose**: Final integration, documentation, and manual verification.
 
-- [ ] T086 [P] Update `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/quickstart.md` with any implementation-specific validation changes discovered during development
-- [ ] T087 [P] Add or update AGENTS context if implementation changes technologies in `/Users/stevenyi/work/blue-electron/AGENTS.md`
-- [ ] T088 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T089 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T090 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
-- [ ] T091 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
-- [ ] T092 Perform the manual Blue Live toolbar, parallel engine, Recompile/All Notes Off, editor, Settings, and Evaluate Code scenarios from `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/quickstart.md`
+- [x] T086 [P] Update `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/quickstart.md` with any implementation-specific validation changes discovered during development
+- [x] T087 [P] Add or update AGENTS context if implementation changes technologies in `/Users/stevenyi/work/blue-electron/AGENTS.md` (no AGENTS changes needed)
+- [x] T088 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
+- [x] T089 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
+- [x] T090 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
+- [x] T091 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T092 Perform the manual Blue Live toolbar, parallel engine, Recompile/All Notes Off, editor, Settings, and Evaluate Code scenarios from `/Users/stevenyi/work/blue-electron/specs/027-blue-live-part1/quickstart.md`
 
 ---
 

@@ -210,8 +210,11 @@ Renderer settings surface:
 Renderer enablement checks:
 
 - Supported panel is Global Orchestra, Global Score, or Blue Live Live Code.
-- Selection text after trim is non-empty.
 - Engine status from renderer stores indicates Blue Live running or realtime playback running.
+- The command evaluates the selected text when non-empty.
+- When no selection exists, the command evaluates the current code context:
+  - Global Orchestra and Live Code use the enclosing `instr` or `opcode` block when the cursor is inside one, otherwise the current line.
+  - Global Score uses the current line.
 
 Main process routing is authoritative:
 

@@ -14,6 +14,11 @@ import {
   findDocumentLocalCsoundVariables,
 } from '../components/workbench/panels/editors/csound-java-blue-completions';
 import { createJavaBlueCsoundEditorMenuItems } from '../components/workbench/panels/editors/csound-editor-menu';
+import {
+  createEvaluateCodeKeyBindings,
+  evaluateCodeFromEditor,
+  getEvaluableCodeRange,
+} from '../components/workbench/panels/editors/csound-editor-evaluation';
 
 function createFakeEditorView(doc: string, selection: EditorSelection): {
   view: EditorView;
@@ -201,6 +206,94 @@ describe('Csound editor parity menu and clipboard helpers', () => {
       kind: 'disabled',
       label: 'Add to Code Repository',
     });
+  });
+
+  it('shows the platform evaluate shortcut in the context menu item', () => {
+    const menuItems = createJavaBlueCsoundEditorMenuItems({
+      showEvaluateCode: true,
+      evaluateCodeEnabled: true,
+    });
+    const evaluateItem = menuItems.find(
+      (item) => item.kind === 'command' && item.id === 'evaluate-code',
+    );
+
+    expect(evaluateItem).toMatchObject({
+      kind: 'command',
+      label: 'Evaluate Code',
+    });
+    if (!evaluateItem || evaluateItem.kind !== 'command') {
+      throw new Error('Expected evaluate code command item');
+    }
+    expect(evaluateItem.shortcutLabel).toMatch(/(?:Cmd|Ctrl).*Enter/);
+  });
+
+  it('extracts the enclosing ORC block when no selection exists inside an instrument', () => {
+    const state = EditorState.create({
+      doc: 'instr 1\n  out 0.5\nendin\n',
+      selection: EditorSelection.cursor('instr 1\n  '.length),
+    });
+
+    const range = getEvaluableCodeRange(state, 'orc');
+
+    expect(range).toEqual({
+      text: 'instr 1\n  out 0.5\nendin',
+      from: state.doc.line(1).from,
+      to: state.doc.line(3).to,
+    });
+  });
+
+  it('prefers a non-empty selection over contextual fallback', () => {
+    const state = EditorState.create({
+      doc: 'instr 1\n  out 0.5\nendin\n',
+      selection: EditorSelection.range(0, 'instr 1'.length),
+    });
+
+    expect(getEvaluableCodeRange(state, 'orc')).toEqual({
+      text: 'instr 1',
+      from: 0,
+      to: 'instr 1'.length,
+    });
+  });
+
+  it('falls back to the current SCO line when no selection exists', () => {
+    const state = EditorState.create({
+      doc: 'i 1 0 1 440\nf 1 0 8192 10 1\n',
+      selection: EditorSelection.cursor('i 1 0 1 440\n'.length + 2),
+    });
+
+    expect(getEvaluableCodeRange(state, 'sco')).toEqual({
+      text: 'f 1 0 8192 10 1',
+      from: state.doc.line(2).from,
+      to: state.doc.line(2).to,
+    });
+  });
+
+  it('uses explicit high-priority Cmd/Ctrl Enter bindings for code evaluation', () => {
+    const bindings = createEvaluateCodeKeyBindings('orc', () => vi.fn(), () => true);
+
+    expect(bindings.map((binding) => binding.key)).toEqual(['Cmd-Enter', 'Ctrl-Enter']);
+    expect(bindings.every((binding) => binding.preventDefault)).toBe(true);
+  });
+
+  it('evaluates and flashes the contextual code range when no selection exists', () => {
+    vi.useFakeTimers();
+    try {
+      const onEvaluateCode = vi.fn();
+      const editor = createFakeEditorView(
+        'instr 1\n  out 0.5\nendin',
+        EditorSelection.cursor('instr 1\n  '.length),
+      );
+      const dispatch = vi.spyOn(editor.view, 'dispatch');
+
+      expect(evaluateCodeFromEditor(editor.view, 'orc', onEvaluateCode)).toBe(true);
+      expect(onEvaluateCode).toHaveBeenCalledWith('instr 1\n  out 0.5\nendin');
+      expect(dispatch).toHaveBeenCalledTimes(1);
+
+      vi.runOnlyPendingTimers();
+      expect(dispatch).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('replaces the selected range when inserting text', () => {

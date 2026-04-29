@@ -216,6 +216,12 @@
     color: rgba(154, 167, 193, 0.54);
   }
 
+  .editor-context-menu__shortcut {
+    margin-left: auto;
+    font-size: 11px;
+    color: rgba(196, 210, 240, 0.72);
+  }
+
   .editor-context-menu__separator {
     height: 1px;
     margin: 0;
@@ -234,6 +240,16 @@
   .editor-context-menu__arrow {
     font-size: 10px;
     opacity: 0.6;
+  }
+
+  .cm-blue-code-eval-flash {
+    background: rgba(255, 255, 255, 0.48);
+    animation: blueCodeEvalFlash 450ms ease-out forwards;
+  }
+
+  @keyframes blueCodeEvalFlash {
+    from { background: rgba(255, 255, 255, 0.48); }
+    to { background: transparent; }
   }
 
   .bsb-tooltip-content {

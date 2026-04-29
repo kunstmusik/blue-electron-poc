@@ -1,7 +1,31 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-28
-**Branch**: `026-tables-udo-csd`
+**Date**: 2026-04-29
+**Branch**: `027-blue-live-part1`
+
+## Spec 027 Package
+
+Spec `027-blue-live-part1` is complete and closed out.
+
+- Goal: Blue Live lifecycle/output routing, Live Space / Live Code / Options editor surfaces, settings window, and Evaluate Code routing for Global Orchestra, Global Score, and Blue Live Live Code
+- Implemented in this pass:
+  - Blue Live output batching bug fixed so the `Csound (Blue Live)` output tab now receives lines again
+  - Live Code uses CodeMirror ORC with explicit `Cmd-Enter` / `Ctrl-Enter` bindings and transient flash styling
+  - Evaluate Code now uses selected text when present, otherwise current context
+  - ORC context fallback: enclosing `instr` / `opcode` block when inside one, otherwise the current line
+  - SCO context fallback: current line
+  - Native application menu / Settings window helper coverage added alongside renderer and main-process lifecycle tests
+  - Live Space Trigger remains intentionally deferred with a `not yet implemented` alert until the Score implementation owns trigger-note routing
+- Verification completed:
+  - `pnpm --filter @blue/data test`
+  - `pnpm --filter @blue/app test`
+  - `pnpm --filter @blue/app build`
+  - `git diff --check`
+  - Manual Blue Live toolbar, parallel engine, Recompile/All Notes Off, editor, Settings, and Evaluate Code scenarios
+- Deferred scope:
+  - Live Space trigger-note routing remains deferred to the later Score implementation
+- Working tree note:
+  - The repo is intentionally dirty with the Spec 027 edits plus the pre-existing untracked `BLUE_DATA_COMPATIBILITY_REPORT_*.md` files that were not part of this pass
 
 ## Spec 026 Package
 

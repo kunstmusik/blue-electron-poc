@@ -14,6 +14,7 @@ import * as path from 'path';
 import type { Parameter, TempoMap } from '@blue/data';
 import { AutomationCurve, getEngineAutomationPoints } from '@blue/data';
 import type { PlaybackClockSnapshot } from '../shared/project-editor';
+import { formatRenderCommandLine, writeTempCsdSnapshot } from './render-command';
 
 interface AutomationTimingContext {
   renderStartTime: number;
@@ -47,6 +48,7 @@ export class EngineBridge {
   private lastEngineStateSequence = 0;
   private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
   private terminalCleanupPromise: Promise<void> | null = null;
+  private workingDirectory: string | null = null;
 
   constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number, pubPort?: number) {
     this.mainWindow = mainWindow;
@@ -57,6 +59,10 @@ export class EngineBridge {
 
   setOutputCallback(cb: EngineOutputCallback | null): void {
     this.outputCallback = cb;
+  }
+
+  setWorkingDirectory(directory?: string | null): void {
+    this.workingDirectory = directory && directory.trim().length > 0 ? directory : null;
   }
 
   private sendPlaybackStatus(status: 'starting' | 'playing' | 'stopping' | 'stopped' | 'error', message?: string): void {
@@ -311,9 +317,21 @@ export class EngineBridge {
     console.log(`[EngineBridge] Starting: ${enginePath} --port ${this.port} --pub-port ${this.pubPort} --shm ${shmName}`);
 
     // Spawn blue-engine with unique shm name
-    this.engineProcess = spawn(enginePath, ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    const spawnWorkingDirectory =
+      this.workingDirectory &&
+      fs.existsSync(this.workingDirectory) &&
+      fs.statSync(this.workingDirectory).isDirectory()
+        ? this.workingDirectory
+        : undefined;
+
+    this.engineProcess = spawn(
+      enginePath,
+      ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName],
+      {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        cwd: spawnWorkingDirectory,
+      },
+    );
 
     // Capture stderr
     this.engineProcess.stderr?.on('data', (data: Buffer) => {
@@ -454,6 +472,7 @@ export class EngineBridge {
     csd: string,
     parameters?: Parameter[],
     automationTiming?: AutomationTimingContext,
+    workingDirectory?: string | null,
   ): Promise<boolean> {
     // Prevent concurrent playback
     if (this.playbackLock) {
@@ -461,18 +480,27 @@ export class EngineBridge {
       return false;
     }
     this.playbackLock = true;
+    this.setWorkingDirectory(workingDirectory);
 
     try {
-      const started = await this.startEngine();
-      if (!started) return false;
-      if (!this.client) return false;
-
       const { orchestra, score, options } = parseCSD(csd);
 
       console.log(`[EngineBridge] CSD: ${csd.length} bytes`);
       console.log(`[EngineBridge] Options: ${JSON.stringify(options)}`);
       console.log(`[EngineBridge] Orchestra: ${orchestra?.length || 0} chars`);
       console.log(`[EngineBridge] Score: ${score?.length || 0} chars`);
+
+      // Emit first so the output tab always starts with Java-style render command text.
+      const tempCsdPath = await writeTempCsdSnapshot(csd, this.workingDirectory);
+      const renderCommandOptions = options.includes('-d') ? [...options] : ['-d', ...options];
+      this.outputCallback?.(
+        formatRenderCommandLine(renderCommandOptions, tempCsdPath, this.enginePath),
+        'stdout',
+      );
+
+      const started = await this.startEngine();
+      if (!started) return false;
+      if (!this.client) return false;
 
       // Check if we have anything to play
       if (!orchestra && !score) {
@@ -677,11 +705,16 @@ export class EngineBridge {
   /**
    * Clean up all resources.
    */
-  dispose(): void {
-    this.playbackLock = false;
-    this.killEngine();
-  }
-}
+   dispose(): void {
+     this.playbackLock = false;
+     this.killEngine();
+   }
+
+   async killAndWait(): Promise<void> {
+     this.playbackLock = false;
+     await this.killEngine();
+   }
+ }
 
 /**
  * Parse a CSD string into its components.
