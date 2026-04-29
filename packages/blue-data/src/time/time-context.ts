@@ -18,6 +18,15 @@ export class TimeContext {
   private sampleRate = DEFAULT_SAMPLE_RATE;
   private smpteFrameRate: SmpteFrameRate = SmpteFrameRate.FPS_30;
 
+  constructor(other?: TimeContext) {
+    if (other) {
+      this.tempoMap = new TempoMap(other.tempoMap);
+      this.meterMap = new MeterMap(other.meterMap);
+      this.sampleRate = other.sampleRate;
+      this.smpteFrameRate = other.smpteFrameRate;
+    }
+  }
+
   // ─── Accessors ───
 
   getTempoMap(): TempoMap {

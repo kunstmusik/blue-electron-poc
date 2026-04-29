@@ -366,4 +366,12 @@ export class Element {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
   }
+
+  /**
+   * Create a deep copy of this Element tree.
+   * Uses round-trip serialization for a clean, independent copy.
+   */
+  clone(): Element {
+    return Element.parse(this.toXml());
+  }
 }

@@ -300,6 +300,12 @@ export class ProjectProperties {
     if (copyToMediaFileOnImport !== null) {
       props.copyToMediaFileOnImport =
         copyToMediaFileOnImport.toLowerCase() === 'true';
+    } else {
+      // Legacy alias: copyToMediaFolderOnImport → copyToMediaFileOnImport
+      const legacyCopy = data.getTextString('copyToMediaFolderOnImport');
+      if (legacyCopy !== null) {
+        props.copyToMediaFileOnImport = legacyCopy.toLowerCase() === 'true';
+      }
     }
 
     const cmd = data.getTextString('commandLine');

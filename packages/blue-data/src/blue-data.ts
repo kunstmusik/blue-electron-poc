@@ -42,6 +42,8 @@ import { Send } from "./mixer/send";
 import { UDOStyle } from "./opcodes/udo-style";
 import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
 import { disposeJavaScriptCompileState } from './javascript-runtime';
+import { parseUDOText } from "./opcodes/udo-utilities";
+import { TimeContext } from "./time/time-context";
 
 export class BlueData implements BlueDataObject {
   // Version
@@ -51,6 +53,7 @@ export class BlueData implements BlueDataObject {
   private arrangement = new Arrangement();
   private projectProperties = new ProjectProperties();
   private sObjLib = new SoundObjectLibrary();
+  private instrumentLibrary: InstrumentLibrary | null = null;
   private globalOrcSco = new GlobalOrcSco();
   private tableSet = new Tables();
   private score = new Score();
@@ -67,10 +70,15 @@ export class BlueData implements BlueDataObject {
   private renderEndTime = -1;
   private loopRendering = false;
 
-  // Plugin data (opaque for Phase 3)
-  private pluginData: BlueDataObject[] = [];
+  // Plugin data (preserved opaquely for round-trip)
+  private pluginDataXml: Element[] = [];
 
-  constructor() {}
+  constructor() {
+    // Wire projectProperties into score.timeContext (Java parity)
+    this.score.getTimeContext().setSampleRate(
+      parseInt(this.projectProperties.sampleRate, 10) || 44100
+    );
+  }
 
   // ─── Accessors ───
 
@@ -193,8 +201,15 @@ export class BlueData implements BlueDataObject {
     this.loopRendering = l;
   }
 
-  getPluginData(): BlueDataObject[] {
-    return this.pluginData;
+  getInstrumentLibrary(): InstrumentLibrary | null {
+    return this.instrumentLibrary;
+  }
+  setInstrumentLibrary(l: InstrumentLibrary | null): void {
+    this.instrumentLibrary = l;
+  }
+
+  getPluginDataXml(): Element[] {
+    return this.pluginDataXml;
   }
 
   // ─── Loading ───
@@ -221,35 +236,60 @@ export class BlueData implements BlueDataObject {
     const versionAttr = rootElement.getAttribute("version");
     if (versionAttr) blueData.setVersion(versionAttr);
 
+    // Java loads instrumentLibrary and arrangement nodes first (deferred),
+    // then processes other root elements, then wires arrangement with
+    // instrumentLibrary after the loop.
+    let instrumentLibraryNode: Element | null = null;
+    let arrangementNode: Element | null = null;
+    let mixerLoaded = false;
+
     const nodes = rootElement.getElements();
     while (nodes.hasMoreElements()) {
       const node = nodes.next();
       const nodeName = node.getName();
-      console.log(`[BlueData.loadFromString] Found element: ${nodeName}`);
 
       switch (nodeName) {
         case "projectProperties":
           blueData.projectProperties = ProjectProperties.loadFromXML(node);
           break;
-        case "arrangement":
-          blueData.arrangement = Arrangement.loadFromXML(node);
-          break;
         case "instrumentLibrary":
-          console.log(
-            `[BlueData.loadFromString] instrumentLibrary found (instruments stub)`,
-          );
+          // Store for deferred processing — arrangement needs it
+          instrumentLibraryNode = node;
+          break;
+        case "arrangement":
+          // Store for deferred processing — needs instrumentLibrary
+          arrangementNode = node;
+          break;
+        case "mixer":
+          blueData.mixer = Mixer.loadFromXML(node);
+          mixerLoaded = true;
           break;
         case "tables":
           blueData.tableSet = Tables.loadFromXML(node);
           break;
+        case "soundObjectLibrary":
+          blueData.sObjLib = SoundObjectLibrary.loadFromXML(node, objRefMap);
+          break;
         case "globalOrcSco":
           blueData.globalOrcSco = GlobalOrcSco.loadFromXML(node);
           break;
-        case "score":
-          blueData.score = Score.loadFromXML(node, objRefMap);
+        case "udo":
+          // Legacy root UDO text → parse into OpcodeList
+          {
+            const udoText = node.getTextString();
+            if (udoText) {
+              blueData.opcodeList = parseUDOText(udoText);
+            }
+          }
+          break;
+        case "opcodeList":
+          blueData.opcodeList = OpcodeList.loadFromXML(node);
           break;
         case "liveData":
           blueData.liveData = LiveData.loadFromXML(node, objRefMap);
+          break;
+        case "score":
+          blueData.score = Score.loadFromXML(node, objRefMap);
           break;
         case "scratchPadData":
           blueData.scratchData = ScratchPadData.loadFromXML(node);
@@ -274,18 +314,44 @@ export class BlueData implements BlueDataObject {
         case "midiInputProcessor":
           blueData.midiInputProcessor = MidiInputProcessor.loadFromXML(node);
           break;
-        case "mixer":
-          blueData.mixer = Mixer.loadFromXML(node);
-          break;
-        case "opcodeList":
-          // OpcodeList at root level — global UDO list
-          blueData.opcodeList = OpcodeList.loadFromXML(node);
+        case "timeContext":
+          // Legacy root timeContext → migrate into score
+          blueData.score.setTimeContext(TimeContext.loadFromXML(node));
           break;
         case "pluginData":
-          // Opaque preservation of plugin XML nodes
+          // Preserve plugin data children opaquely
+          blueData.pluginDataXml = [];
+          const pluginChildren = node.getElements();
+          while (pluginChildren.hasMoreElements()) {
+            blueData.pluginDataXml.push(pluginChildren.next());
+          }
           break;
       }
     }
+
+    // Post-loop: wire arrangement with instrumentLibrary (Java parity)
+    if (arrangementNode) {
+      if (instrumentLibraryNode) {
+        const lib = InstrumentLibrary.loadFromXML(instrumentLibraryNode);
+        blueData.instrumentLibrary = lib;
+        blueData.arrangement = Arrangement.loadFromXMLWithLibrary(arrangementNode, lib);
+      } else {
+        blueData.arrangement = Arrangement.loadFromXML(arrangementNode);
+      }
+    } else if (instrumentLibraryNode) {
+      // Store instrumentLibrary even without arrangement
+      blueData.instrumentLibrary = InstrumentLibrary.loadFromXML(instrumentLibraryNode);
+    }
+
+    // Post-loop: if no mixer element was present, disable mixer (Java parity)
+    if (!mixerLoaded) {
+      blueData.mixer.setEnabled(false);
+    }
+
+    // Post-loop: wire projectProperties into score.timeContext (Java parity)
+    blueData.score.getTimeContext().setSampleRate(
+      parseInt(blueData.projectProperties.sampleRate, 10) || 44100
+    );
 
     return blueData;
   }
@@ -300,6 +366,7 @@ export class BlueData implements BlueDataObject {
     const root = new Element("blueData");
     root.setAttribute("version", this.version);
 
+    // Java-compatible root section ordering
     root.addElement(this.projectProperties.saveAsXML(objRefMap));
     root.addElement(this.arrangement.saveAsXML());
     root.addElement(this.mixer.saveAsXML());
@@ -317,9 +384,10 @@ export class BlueData implements BlueDataObject {
     root.addElement("loopRendering").setText(this.loopRendering.toString());
     root.addElement(this.midiInputProcessor.saveAsXML());
 
+    // Preserve pluginData children
     const pluginDataElem = root.addElement("pluginData");
-    for (const pd of this.pluginData) {
-      pluginDataElem.addElement(pd.saveAsXML(objRefMap));
+    for (const pd of this.pluginDataXml) {
+      pluginDataElem.addElement(pd.clone());
     }
 
     return root;
@@ -1435,16 +1503,32 @@ export class BlueData implements BlueDataObject {
   // ─── DeepCopy ───
 
   deepCopy(): BlueDataObject {
-    // For Phase 3: shallow copy of structure
     const copy = new BlueData();
     copy.version = this.version;
     copy.arrangement = new Arrangement(this.arrangement);
     copy.projectProperties = new ProjectProperties(this.projectProperties);
-    copy.tableSet = new Tables(this.tableSet);
+    copy.sObjLib = this.sObjLib;
+    copy.instrumentLibrary = this.instrumentLibrary;
     copy.globalOrcSco = new GlobalOrcSco(this.globalOrcSco);
+    copy.tableSet = new Tables(this.tableSet);
+    copy.score = new Score(this.score);
+    copy.liveData = this.liveData;
+    copy.scratchData = new ScratchPadData(this.scratchData);
+    copy.noteProcessorChainMap = new NoteProcessorChainMap(this.noteProcessorChainMap);
+    copy.markersList = new MarkersList(this.markersList);
+    copy.midiInputProcessor = new MidiInputProcessor(this.midiInputProcessor);
+    copy.mixer = this.mixer.deepCopy() as Mixer;
+    copy.opcodeList = this.opcodeList;
     copy.renderStartTime = this.renderStartTime;
     copy.renderEndTime = this.renderEndTime;
     copy.loopRendering = this.loopRendering;
+    copy.pluginDataXml = this.pluginDataXml.map(e => e.clone());
+
+    // Wire projectProperties into score.timeContext (Java parity)
+    copy.score.getTimeContext().setSampleRate(
+      parseInt(copy.projectProperties.sampleRate, 10) || 44100
+    );
+
     return copy;
   }
 }

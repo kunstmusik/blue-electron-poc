@@ -10,6 +10,12 @@ import { Element } from '../serialization/xml-reader';
 export class TimeState {
   private smpteFrameRate: SmpteFrameRate = SmpteFrameRate.FPS_30;
 
+  constructor(other?: TimeState) {
+    if (other) {
+      this.smpteFrameRate = other.smpteFrameRate;
+    }
+  }
+
   getSmpteFrameRate(): SmpteFrameRate {
     return this.smpteFrameRate;
   }

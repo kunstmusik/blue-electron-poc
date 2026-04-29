@@ -28,10 +28,13 @@ export class Score extends Array<LayerGroup<Layer>> {
   constructor(other?: Score) {
     super();
     if (other) {
-      this.timeContext = new TimeContext(); // Fresh copy from XML
-      this.timeState = new TimeState();
+      this.timeContext = new TimeContext(other.timeContext);
+      this.timeState = new TimeState(other.timeState);
       this.npc = new NoteProcessorChain(other.npc);
-      // LayerGroups deep-copied by caller
+      for (const layerGroup of other) {
+        this.push(layerGroup.deepCopyLG() as LayerGroup<Layer>);
+      }
+      this.timeContext.setSmpteFrameRate(this.timeState.getSmpteFrameRate());
     }
   }
 

@@ -1,7 +1,24 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-29
-**Branch**: `027-blue-live-part1`
+**Branch**: `028-blue-data-xml-preservation`
+
+## Spec 028 Package
+
+Spec `028-blue-data-xml-preservation` is complete and validated.
+
+- Delivered scope:
+  - Java-compatible root `BlueData` load/save behavior for the in-scope sections
+  - legacy root migration for `udo`, `timeContext`, and project property aliases
+  - preservation of opaque root XML payloads such as `pluginData`
+  - omitted-mixer handling that matches Java Blue behavior
+  - `BlueData.deepCopy()` parity for the root document, including score state and root layer groups
+- Validation:
+  - `pnpm --filter @blue/data test`
+  - `git diff --check`
+- Notes:
+  - `instrumentLibrary` is loaded for root compatibility but remains intentionally omitted from save output, matching the Java reference
+  - deeper model semantics for later parity slices remain deferred to the later specs
 
 ## Spec 027 Package
 
