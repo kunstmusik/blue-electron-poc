@@ -10,6 +10,7 @@
 
 ```bash
 pnpm --filter @blue/data test
+pnpm --filter @blue/data build
 git diff --check
 ```
 
@@ -19,3 +20,7 @@ git diff --check
 2. Load and resave a mixer-heavy Java project and reopen it in Java Blue to confirm mixer structure survives.
 3. Compare Java and TypeScript behavior for representative tempo-map, SMPTE, and BBST conversion cases.
 4. Verify preservation-sensitive instrument types retain their data even where full execution remains deferred.
+
+## Completion Notes
+
+Spec 032 is complete on branch `032-blue-data-runtime-model-parity`. The runtime-model parity coverage now includes the BSB alias/replacement path, mixer XML round-trips, and tempo/time preservation cases used by the final validation pass.

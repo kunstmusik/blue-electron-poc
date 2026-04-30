@@ -9,6 +9,22 @@ import { MeterMap } from './meter-map';
 import { SmpteFrameRate } from './smpte-frame-rate';
 import { Element } from '../serialization/xml-reader';
 
+function parseSmpteFrameRate(rateText: string | null | undefined): SmpteFrameRate | null {
+  const normalized = rateText?.trim();
+  switch (normalized) {
+    case '24': return SmpteFrameRate.FPS_24;
+    case '25': return SmpteFrameRate.FPS_25;
+    case '29.97': return SmpteFrameRate.FPS_29_97;
+    case '30': return SmpteFrameRate.FPS_30;
+    case '29.97df': return SmpteFrameRate.FPS_29_97_DF;
+    case '30df': return SmpteFrameRate.FPS_30_DF;
+    default: {
+      const rate = parseFloat(normalized ?? '');
+      return Number.isNaN(rate) ? null : (rate as SmpteFrameRate);
+    }
+  }
+}
+
 /** Default sample rate. */
 const DEFAULT_SAMPLE_RATE = 44100;
 
@@ -21,8 +37,8 @@ export class TimeContext {
   constructor(other?: TimeContext) {
     if (other) {
       this.tempoMap = new TempoMap(other.tempoMap);
-      // MeterMap has no copy constructor yet — share reference for now
-      this.meterMap = other.meterMap;
+      this.meterMap = new MeterMap();
+      this.meterMap.replaceAll(other.meterMap);
       this.sampleRate = other.sampleRate;
       this.smpteFrameRate = other.smpteFrameRate;
     }
@@ -137,10 +153,9 @@ export class TimeContext {
 
     const smpteElem = data.getElement('smpteFrameRate');
     if (smpteElem) {
-      const rateStr = smpteElem.getTextString();
-      const rate = parseFloat(rateStr ?? '');
-      if (!isNaN(rate)) {
-        ctx.smpteFrameRate = rate as SmpteFrameRate;
+      const parsedRate = parseSmpteFrameRate(smpteElem.getTextString());
+      if (parsedRate !== null) {
+        ctx.smpteFrameRate = parsedRate;
       }
     }
 

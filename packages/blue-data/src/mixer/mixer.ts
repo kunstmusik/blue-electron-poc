@@ -15,6 +15,7 @@ export class Mixer implements BlueDataObject {
   private _subChannels = new ChannelList();
   private _master = new Channel();
   private _extraRenderTime = 0;
+  private _subChannelDependencies = new Set<string>();
 
   constructor() {
     this._master.setName(Mixer.MASTER_CHANNEL);
@@ -63,7 +64,9 @@ export class Mixer implements BlueDataObject {
   }
 
   addSubChannelDependency(_name: string): void {
-    // Phase 9: stub — full dependency tracking in Phase 10
+    if (_name) {
+      this._subChannelDependencies.add(_name);
+    }
   }
 
   getAllSourceChannels(): Channel[] {
@@ -121,14 +124,23 @@ export class Mixer implements BlueDataObject {
    * Check if the mixer has sub channel dependencies that need rendering.
    */
   hasSubChannelDependencies(): boolean {
-    return this._subChannels.length > 0;
+    return this._subChannelDependencies.size > 0;
   }
 
   saveAsXML(): Element {
     const elem = new Element("mixer");
     elem.setAttribute("enabled", this._enabled.toString());
-    elem.addElement(this._channels.saveAsXML().setName("channels"));
-    elem.addElement(this._subChannels.saveAsXML().setName("subChannels"));
+
+    const channelsElem = this._channels.saveAsXML();
+    channelsElem.setAttribute("list", "channels");
+    elem.addElement(channelsElem);
+
+    const subChannelsElem = this._subChannels.saveAsXML();
+    subChannelsElem.setAttribute("list", "subChannels");
+    elem.addElement(subChannelsElem);
+
+    elem.addElement(this._master.saveAsXML());
+    elem.addElement("extraRenderTime").setText(this._extraRenderTime.toString());
     return elem;
   }
 
@@ -181,6 +193,7 @@ export class Mixer implements BlueDataObject {
     copy._subChannels = this._subChannels.deepCopy() as ChannelList;
     copy._master = this._master.deepCopy() as Channel;
     copy._extraRenderTime = this._extraRenderTime;
+    copy._subChannelDependencies = new Set(this._subChannelDependencies);
     return copy;
   }
 }

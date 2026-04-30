@@ -7,6 +7,22 @@
 import { SmpteFrameRate } from './smpte-frame-rate';
 import { Element } from '../serialization/xml-reader';
 
+function parseSmpteFrameRate(rateText: string | null | undefined): SmpteFrameRate | null {
+  const normalized = rateText?.trim();
+  switch (normalized) {
+    case '24': return SmpteFrameRate.FPS_24;
+    case '25': return SmpteFrameRate.FPS_25;
+    case '29.97': return SmpteFrameRate.FPS_29_97;
+    case '30': return SmpteFrameRate.FPS_30;
+    case '29.97df': return SmpteFrameRate.FPS_29_97_DF;
+    case '30df': return SmpteFrameRate.FPS_30_DF;
+    default: {
+      const rate = parseFloat(normalized ?? '');
+      return Number.isNaN(rate) ? null : (rate as SmpteFrameRate);
+    }
+  }
+}
+
 export class TimeState {
   private smpteFrameRate: SmpteFrameRate = SmpteFrameRate.FPS_30;
 
@@ -37,10 +53,9 @@ export class TimeState {
 
     const smpteElem = data.getElement('smpteFrameRate');
     if (smpteElem) {
-      const rateStr = smpteElem.getTextString();
-      const rate = parseFloat(rateStr);
-      if (!isNaN(rate)) {
-        state.smpteFrameRate = rate as SmpteFrameRate;
+      const parsedRate = parseSmpteFrameRate(smpteElem.getTextString());
+      if (parsedRate !== null) {
+        state.smpteFrameRate = parsedRate;
       }
     }
 

@@ -155,16 +155,7 @@ export class BlueSynthBuilder extends Instrument {
   generateInstrument(parameters?: Parameter[]): string {
     if (!this._instrumentText) return "";
 
-    const unit = new BSBCompilationUnit();
-    const replacementParameters = parameters ?? this._parameters;
-    this._graphicInterface.collectReplacements(unit, replacementParameters);
-
-    let rendered = unit.replaceBSBValues(this._instrumentText);
-    if (this._udoReplacementValues && this._udoReplacementValues.size > 0) {
-      rendered = replaceOpcodeNames(this._udoReplacementValues, rendered);
-    }
-
-    return rendered;
+    return this.renderTextWithReplacements(this._instrumentText, parameters);
   }
 
   override generateAlwaysOnInstrument(): string | null {
@@ -172,24 +163,21 @@ export class BlueSynthBuilder extends Instrument {
       return null;
     }
 
-    const unit = new BSBCompilationUnit();
-    this._graphicInterface.collectReplacements(unit, this._parameters);
-
-    let rendered = unit.replaceBSBValues(this._alwaysOnInstrumentText);
-    if (this._udoReplacementValues && this._udoReplacementValues.size > 0) {
-      rendered = replaceOpcodeNames(this._udoReplacementValues, rendered);
-      this._udoReplacementValues = null;
-    }
-
-    return rendered;
+    return this.renderTextWithReplacements(
+      this._alwaysOnInstrumentText,
+      this._parameters,
+      true,
+    );
   }
 
   generateGlobalOrc(): string | null {
-    return this._globalOrc || null;
+    if (!this._globalOrc) return null;
+    return this.renderTextWithReplacements(this._globalOrc, this._parameters);
   }
 
   generateGlobalSco(): string | null {
-    return this._globalSco || null;
+    if (!this._globalSco) return null;
+    return this.renderTextWithReplacements(this._globalSco, this._parameters);
   }
 
   /**
@@ -668,7 +656,7 @@ export class BlueSynthBuilder extends Instrument {
     }
 
     // Load parameters
-    const paramListElem = data.getElement("parameterList");
+    const paramListElem = data.getElement("parameterList") ?? data.getElement("bsbParameterList");
     if (paramListElem) {
       bsb._parameters = BlueSynthBuilder._loadParameters(paramListElem);
     }
@@ -699,6 +687,26 @@ export class BlueSynthBuilder extends Instrument {
     }
 
     return parameters;
+  }
+
+  private renderTextWithReplacements(
+    text: string,
+    parameters?: Parameter[],
+    consumeUdoReplacementValues = false,
+  ): string {
+    const unit = new BSBCompilationUnit();
+    const replacementParameters = parameters ?? this._parameters;
+    this._graphicInterface.collectReplacements(unit, replacementParameters);
+
+    let rendered = unit.replaceBSBValues(text);
+    if (this._udoReplacementValues && this._udoReplacementValues.size > 0) {
+      rendered = replaceOpcodeNames(this._udoReplacementValues, rendered);
+      if (consumeUdoReplacementValues) {
+        this._udoReplacementValues = null;
+      }
+    }
+
+    return rendered;
   }
 
   override deepCopy(): BlueSynthBuilder {

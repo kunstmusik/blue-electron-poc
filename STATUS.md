@@ -6,7 +6,7 @@
 
 ## Spec 032 Package
 
-Spec `032-blue-data-runtime-model-parity` is planned and ready for implementation handoff on branch `032-blue-data-runtime-model-parity`.
+Spec `032-blue-data-runtime-model-parity` is complete and validated on branch `032-blue-data-runtime-model-parity`.
 
 - Goal: restore the remaining `@blue/data` runtime-model parity gaps for instrument/BSB generation, mixer XML and routing behavior, and time/automation semantics
 - Active feature context:
@@ -20,22 +20,22 @@ Spec `032-blue-data-runtime-model-parity` is planned and ready for implementatio
   - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/quickstart.md`
   - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/tasks.md`
   - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/checklists/requirements.md`
-- Task status: planning complete; `tasks.md` contains 38 unchecked tasks across Setup, Foundational, User Story 1, User Story 2, User Story 3, and Polish phases
-- Implementation status:
-  - no Spec 032 code changes are started in this branch yet; this commit only establishes the branch context, task plan, and handoff state
-- Recommended execution order:
-  - begin with Phase 1 and Phase 2 inventory plus fixture scaffolding
-  - implement User Story 1 first for BSB/instrument generation and preservation
-  - implement User Story 2 next for mixer XML/runtime parity
-  - implement User Story 3 last for time/automation semantics and final serialization/render integration
+- Task status: complete; `tasks.md` contains 38 checked tasks across Setup, Foundational, User Story 1, User Story 2, User Story 3, and Polish phases
+- Delivered scope:
+  - BSB now accepts `bsbParameterList` XML, applies replacements to instrument/global/always-on text, and preserves preset/grid data through the final parity checks
+  - Mixer XML now round-trips channels, subchannels, master channel, extra render time, and channel metadata with Java-compatible list attributes
+  - Tempo maps now sort beat-based points deterministically, and time context/state parsing preserves exact SMPTE values and deep-copied meter maps
+  - Runtime-model regression coverage now includes shared fixtures and parity tests for BSB, mixer, instruments, automation, and time behavior
 - Validation:
-  - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
+  - `pnpm --filter @blue/data test` — pass
+  - `pnpm --filter @blue/data build` — pass
   - `git diff --check` — pass
 - Handoff notes:
   - keep the slice inside `packages/blue-data`; renderer/Electron behavior remains out of scope
   - use the Java source anchors in `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/research.md` as the source of truth for behavior mismatches
   - start with failing fixture/tests before model changes, per the constitution
   - keep `.specify/feature.json` aligned to the active spec while this branch is in use
+  - this branch is ready for handoff to the next session if additional polish or follow-on work is needed
 
 ## Spec 031 Package
 

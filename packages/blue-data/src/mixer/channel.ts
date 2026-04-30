@@ -128,6 +128,8 @@ export class Channel implements BlueDataObject {
     elem.addElement("name").setText(this._name);
     elem.addElement("outChannel").setText(this._outChannel);
     elem.addElement("level").setText(this._level.toString());
+    elem.addElement("volume").setText(this._volume.toString());
+    elem.addElement("pan").setText(this._pan.toString());
     elem.addElement("muted").setText(this._muted.toString());
     elem.addElement("solo").setText(this._solo.toString());
 
@@ -138,6 +140,10 @@ export class Channel implements BlueDataObject {
     const postEffects = this._postEffects.saveAsXML();
     postEffects.setAttribute("bin", "post");
     elem.addElement(postEffects);
+
+    if (this._effectsChain.length > 0 && this._effectsChain !== this._postEffects) {
+      elem.addElement(this._effectsChain.saveAsXML());
+    }
 
     elem.addElement(this._levelParameter.saveAsXML());
 

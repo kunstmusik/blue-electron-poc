@@ -17,10 +17,10 @@
 
 **Purpose**: Confirm the Java runtime-model anchors and the exact TypeScript deltas before implementation starts.
 
-- [ ] T001 Review Java runtime-model anchors in `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/research.md`
-- [ ] T002 [P] Inventory current BSB and instrument generation/preservation paths in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.ts`
-- [ ] T003 [P] Inventory current mixer XML/render paths in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effects-chain.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/send.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel-list.ts`
-- [ ] T004 [P] Inventory current automation/time gaps in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-list.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-time-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`
+- [x] T001 Review Java runtime-model anchors in `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/research.md`
+- [x] T002 [P] Inventory current BSB and instrument generation/preservation paths in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.ts`
+- [x] T003 [P] Inventory current mixer XML/render paths in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effects-chain.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/send.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel-list.ts`
+- [x] T004 [P] Inventory current automation/time gaps in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-list.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-time-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`
 
 ---
 
@@ -32,15 +32,15 @@
 
 ### Tests
 
-- [ ] T005 [P] Add shared runtime-model fixture harness in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-fixtures.ts`
-- [ ] T006 [P] Add baseline runtime XML round-trip coverage for deferred instruments and mixer-heavy projects in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
-- [ ] T007 [P] Add baseline automation/time calculation coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.test.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.test.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.test.ts`
+- [x] T005 [P] Add shared runtime-model fixture harness in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-fixtures.ts`
+- [x] T006 [P] Add baseline runtime XML round-trip coverage for deferred instruments and mixer-heavy projects in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
+- [x] T007 [P] Add baseline automation/time calculation coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.test.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.test.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.test.ts`
 
 ### Implementation
 
-- [ ] T008 Add shared runtime-model comparison helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-comparison.ts`
-- [ ] T009 Add reusable fixture loaders and normalization helpers for BSB, mixer, automation, and time cases in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-fixtures.ts`
-- [ ] T010 Wire foundational runtime fixture helpers into new parity test entrypoints in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
+- [x] T008 Add shared runtime-model comparison helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-comparison.ts`
+- [x] T009 Add reusable fixture loaders and normalization helpers for BSB, mixer, automation, and time cases in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-fixtures.ts`
+- [x] T010 Wire foundational runtime fixture helpers into new parity test entrypoints in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
 
 **Checkpoint**: Shared runtime-model fixtures and parity helpers are ready for focused implementation work.
 
@@ -54,18 +54,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T011 [P] [US1] Add BSB value replacement, preset/grid default, always-on, and ftable fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-replacements.test.ts`
-- [ ] T012 [P] [US1] Add GenericInstrument UDO replacement and global-orchestra/global-score parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-instrument-roundtrip.test.ts`
-- [ ] T013 [P] [US1] Add lossless preservation tests for JavaScriptInstrument, PythonInstrument, and BlueX7 in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.test.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.test.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.test.ts`
+- [x] T011 [P] [US1] Add BSB value replacement, preset/grid default, always-on, and ftable fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-replacements.test.ts`
+- [x] T012 [P] [US1] Add GenericInstrument UDO replacement and global-orchestra/global-score parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-instrument-roundtrip.test.ts`
+- [x] T013 [P] [US1] Add lossless preservation tests for JavaScriptInstrument, PythonInstrument, and BlueX7 in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.test.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.test.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Restore Java-compatible BSB parameter-list loading and preset/grid default normalization in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-graphic-interface.ts`
-- [ ] T015 [US1] Restore BSB value replacement semantics for generated instrument, global orchestra, and global score text in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-unit.ts`
-- [ ] T016 [US1] Restore Java-compatible BSB always-on scheduling and ftable generation behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-unit.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/tables.ts`
-- [ ] T017 [US1] Restore GenericInstrument UDO reference replacement and generated-text parity in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/opcodes/udo-utilities.ts`
-- [ ] T018 [US1] Preserve JVM-dependent instrument payloads without silent loss in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/instrument-registry.ts`
-- [ ] T019 [US1] Align instrument-generation integration points with Java ordering in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/arrangement.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/global-orc-sco.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
+- [x] T014 [US1] Restore Java-compatible BSB parameter-list loading and preset/grid default normalization in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-graphic-interface.ts`
+- [x] T015 [US1] Restore BSB value replacement semantics for generated instrument, global orchestra, and global score text in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-unit.ts`
+- [x] T016 [US1] Restore Java-compatible BSB always-on scheduling and ftable generation behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-synth-builder/bsb-compilation-unit.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/tables.ts`
+- [x] T017 [US1] Restore GenericInstrument UDO reference replacement and generated-text parity in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/generic-instrument.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/opcodes/udo-utilities.ts`
+- [x] T018 [US1] Preserve JVM-dependent instrument payloads without silent loss in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/javascript-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/python-instrument.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/blue-x7.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/instrument-registry.ts`
+- [x] T019 [US1] Align instrument-generation integration points with Java ordering in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/arrangement.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/global-orc-sco.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
 
 **Checkpoint**: User Story 1 is independently testable and representative instrument output matches Java-compatible behavior.
 
@@ -79,16 +79,16 @@
 
 ### Tests for User Story 2
 
-- [ ] T020 [P] [US2] Add mixer XML default and master-channel round-trip tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
-- [ ] T021 [P] [US2] Add channel, subchannel, send, and effect dependency fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
-- [ ] T022 [P] [US2] Add extra-render-time and mixer-generated orchestra parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
+- [x] T020 [P] [US2] Add mixer XML default and master-channel round-trip tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
+- [x] T021 [P] [US2] Add channel, subchannel, send, and effect dependency fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
+- [x] T022 [P] [US2] Add extra-render-time and mixer-generated orchestra parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/mixer-runtime-parity.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T023 [US2] Restore mixer load/save defaults and master-channel/channel-list compatibility in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel-list.ts`
-- [ ] T024 [US2] Restore channel, subchannel, send, and effect serialization parity in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/send.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effects-chain.ts`
-- [ ] T025 [US2] Restore mixer dependency ordering and effect-manager behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer-node.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts`
-- [ ] T026 [US2] Align mixer-generated routing/orchestra text and extra-render-time handling in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
+- [x] T023 [US2] Restore mixer load/save defaults and master-channel/channel-list compatibility in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel-list.ts`
+- [x] T024 [US2] Restore channel, subchannel, send, and effect serialization parity in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/channel.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/send.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effects-chain.ts`
+- [x] T025 [US2] Restore mixer dependency ordering and effect-manager behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/effect-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer-node.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts`
+- [x] T026 [US2] Align mixer-generated routing/orchestra text and extra-render-time handling in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/mixer.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`
 
 **Checkpoint**: User Stories 1 and 2 together provide Java-compatible instrument and mixer generation behavior for representative fixtures.
 
@@ -102,17 +102,17 @@
 
 ### Tests for User Story 3
 
-- [ ] T027 [P] [US3] Add parameter serialization and line-behavior parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.test.ts`
-- [ ] T028 [P] [US3] Add tempo-map default, sort, and reset parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.test.ts`
-- [ ] T029 [P] [US3] Add BBST, SMPTE, and measure-meter conversion fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
+- [x] T027 [P] [US3] Add parameter serialization and line-behavior parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.test.ts`
+- [x] T028 [P] [US3] Add tempo-map default, sort, and reset parity tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.test.ts`
+- [x] T029 [P] [US3] Add BBST, SMPTE, and measure-meter conversion fixture tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.test.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/runtime-model-roundtrip.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Restore Java-compatible parameter and line-model serialization/behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-list.ts`
-- [ ] T031 [US3] Restore parameter runtime, name, id, and time-manager semantics in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-runtime.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-name-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-id-list.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-time-manager.ts`
-- [ ] T032 [US3] Restore tempo sorting, reset behavior, and SMPTE defaults in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/smpte-frame-rate.ts`
-- [ ] T033 [US3] Align measure-meter and time-unit conversion helpers with Java semantics in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/measure-meter-pair.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/meter-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-base.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-position.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-duration.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-unit-math.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-utilities.ts`
-- [ ] T034 [US3] Wire corrected time and automation semantics through project serialization and render entrypoints in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/arrangement.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/global-orc-sco.ts`
+- [x] T030 [US3] Restore Java-compatible parameter and line-model serialization/behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-helper.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-list.ts`
+- [x] T031 [US3] Restore parameter runtime, name, id, and time-manager semantics in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-runtime.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-name-manager.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-id-list.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/automation/parameter-time-manager.ts`
+- [x] T032 [US3] Restore tempo sorting, reset behavior, and SMPTE defaults in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/tempo-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-context.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/smpte-frame-rate.ts`
+- [x] T033 [US3] Align measure-meter and time-unit conversion helpers with Java semantics in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/measure-meter-pair.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/meter-map.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-base.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-position.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-duration.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-unit-math.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-utilities.ts`
+- [x] T034 [US3] Wire corrected time and automation semantics through project serialization and render entrypoints in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/arrangement.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/global-orc-sco.ts`
 
 **Checkpoint**: The time-system and automation model behavior is independently testable against Java fixtures.
 
@@ -122,10 +122,10 @@
 
 **Purpose**: Final validation and handoff updates after implementation.
 
-- [ ] T035 [P] Update `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/quickstart.md` with fixture-specific validation notes discovered during implementation
-- [ ] T036 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 032 implementation progress, validation results, and remaining deferrals
-- [ ] T037 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
-- [ ] T038 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T035 [P] Update `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/quickstart.md` with fixture-specific validation notes discovered during implementation
+- [x] T036 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 032 implementation progress, validation results, and remaining deferrals
+- [x] T037 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
+- [x] T038 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
 
 ---
 

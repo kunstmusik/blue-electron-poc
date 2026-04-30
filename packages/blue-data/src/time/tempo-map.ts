@@ -299,9 +299,16 @@ export class TempoMap {
   recalculateAccumulatedTimes(): void {
     if (this.points.length === 0) return;
 
-    if (this.points[0].position.isBeatTime()) {
-      this.points[0].beat = this.points[0].position.getValue();
+    for (const point of this.points) {
+      if (point.position.isBeatTime()) {
+        point.beat = point.position.getValue();
+      }
     }
+
+    if (this.points.every(point => point.position.isBeatTime())) {
+      this.points.sort((a, b) => a.beat - b.beat);
+    }
+
     this.points[0].accumulatedTime = 0;
 
     for (let i = 1; i < this.points.length; i++) {
@@ -341,6 +348,8 @@ export class TempoMap {
         point.beat = point.position.toBeats(context);
       }
     }
+
+    this.points.sort((a, b) => a.beat - b.beat);
 
     this.recalculateAccumulatedTimes();
   }
