@@ -1,7 +1,44 @@
 # Project Status — blue-electron
 
-**Date**: 2026-04-29
-**Branch**: `030-blue-data-note-processing-parity`
+**Date**: 2026-04-30
+**Branch**: `031-blue-data-csd-render-parity`
+
+## Spec 031 Package
+
+Spec `031-blue-data-csd-render-parity` is complete and validated on branch `031-blue-data-csd-render-parity`.
+
+- Goal: restore Java-compatible `BlueData.toCSD()` pipeline behavior, including compile-time context, macro/render-boundary handling, UDO/table parity, automation/channel initialization, and copy-safe deterministic generation
+- Active feature context:
+  - `.specify/feature.json` points to `specs/031-blue-data-csd-render-parity`
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/contracts/csd-render-contract.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/031-blue-data-csd-render-parity/tasks.md`
+- Task status: complete; `tasks.md` contains 38 tasks and all are checked
+- Delivered scope:
+  - `BlueData.toCSD()` / `toBlueLiveCSD()` now render from copied arrangement/mixer/table snapshots with isolated compile context per invocation
+  - Java-compatible UDO merge/collision renaming and opcode reference rewriting across arrangement instruments and mixer effects
+  - Java-compatible ftable number reservation/allocation and deterministic repeated-run ordering
+  - Java-compatible render boundary handling, tempo-map emission fallback behavior, and score macro preprocessing
+  - Java-compatible always-on scheduling via source-id semantics and explicit BlueMixer score scheduling
+  - Audio layer compile path now uses compile-time instrument IDs (no `INSTR_ID` placeholders)
+  - Dedicated parity/copy-safety/determinism test coverage added under `packages/blue-data/src/*csd-*.test.ts` plus shared fixture/comparison helpers
+  - Normalization and fixture guidance updated in `specs/031-blue-data-csd-render-parity/quickstart.md`
+- Automation parity note:
+  - For the API render path represented by the Java fixture set, parity is parameter/string-channel init+export behavior without additional automation score instrument emission.
+  - Adding automation score emission in this path produced deterministic parity regressions against `demo2026` Java output and was intentionally not kept.
+- Validation:
+  - `pnpm --filter @blue/data test` — 69 files / 697 tests pass
+  - `pnpm --filter @blue/data build` — pass
+  - `git diff --check` — pass
+- Scope boundaries:
+  - keep Spec 031 strictly in `@blue/data` render-generation and compile-context behavior
+  - do not fold renderer/Electron menu flows into this slice
+  - defer runtime/editor model parity concerns to Spec 032
 
 ## Spec 030 Package
 

@@ -1,199 +1,162 @@
-/**
- * CompileData — compilation context for CSD generation.
- * Mirrors the Java CompileData class.
- *
- * Holds accumulated orchestra code, score events, global orc/sco, F-tables,
- * and channel/mixer assignments during CSD generation.
- */
 import { Instrument } from './instruments/instrument';
+import { Arrangement } from './arrangement';
+import { Tables } from './tables';
+import { Channel } from './mixer/channel';
+import { Parameter } from './automation/parameter';
+
+interface StringChannelEntry {
+  objectName: string;
+  value: string;
+  channelName: string;
+}
 
 export class CompileData {
-  /** Orchestra code accumulator. */
-  private orchestraBuffer = '';
+  private arrangement: Arrangement;
+  private tables: Tables;
+  private channelIdAssignments = new Map<Channel, number>();
+  private instrSourceId = new Map<Instrument, string>();
+  private compileMap = new Map<unknown, unknown>();
+  private globalOrc = '';
+  private stringChannels: StringChannelEntry[] = [];
+  private originalParameters: Parameter[] = [];
+  private handleParametersAndChannels = false;
+  private _parameterNameMap = new Map<string, number>();
+  private _stringChannelNameMap = new Map<string, number>();
 
-  /** Score events accumulator. */
-  private scoreBuffer = '';
-
-  /** Global orc accumulator. */
-  private globalOrcBuffer = '';
-
-  /** Global sco accumulator. */
-  private globalScoBuffer = '';
-
-  /** F-tables accumulator. */
-  private fTablesBuffer = '';
-
-  /** Instrument ID assignments during compilation. */
-  private instrumentIdMap = new Map<Instrument, number>();
-
-  /** Channel ID assignments for mixer routing. */
-  private channelIdAssignments = new Map<unknown, number>();
-
-  /** Compilation variables (used for caching during CSD gen). */
-  private compilationVariables = new Map<string, unknown>();
-
-  // ─── Orchestra code ───
-
-  appendOrchestra(code: string): void {
-    this.orchestraBuffer += code + '\n';
+  constructor();
+  constructor(arrangement: Arrangement, tables: Tables, handleParameters?: boolean);
+  constructor(arrangement?: Arrangement, tables?: Tables, handleParameters?: boolean) {
+    this.arrangement = arrangement ?? new Arrangement();
+    this.tables = tables ?? new Tables();
+    this.handleParametersAndChannels = handleParameters ?? false;
   }
 
-  getOrchestra(): string {
-    return this.orchestraBuffer;
+  static createEmptyCompileData(): CompileData {
+    return new CompileData(new Arrangement(), new Tables(), false);
   }
 
-  // ─── Score events ───
-
-  appendScore(score: string): void {
-    this.scoreBuffer += score + '\n';
+  getArrangement(): Arrangement {
+    return this.arrangement;
   }
 
-  getScore(): string {
-    return this.scoreBuffer;
+  getTables(): Tables {
+    return this.tables;
   }
 
-  // ─── Global orc/sco ───
-
-  appendGlobalOrc(code: string): void {
-    this.globalOrcBuffer += code + '\n';
-  }
-
-  getGlobalOrc(): string {
-    return this.globalOrcBuffer;
-  }
-
-  appendGlobalSco(sco: string): void {
-    this.globalScoBuffer += sco + '\n';
-  }
-
-  getGlobalSco(): string {
-    return this.globalScoBuffer;
-  }
-
-  // ─── F-Tables ───
-
-  appendFTables(tables: string): void {
-    this.fTablesBuffer += tables + '\n';
-  }
-
-  getFTables(): string {
-    return this.fTablesBuffer;
-  }
-
-  // ─── Instrument ID management ───
-
-  /**
-   * Add an instrument and return its assigned ID.
-   */
-  addInstrument(instr: Instrument): number {
-    const id = this.instrumentIdMap.size + 1;
-    this.instrumentIdMap.set(instr, id);
-    return id;
-  }
-
-  /**
-   * Get the assigned ID for an instrument.
-   */
-  getInstrumentId(instr: Instrument): number | undefined {
-    return this.instrumentIdMap.get(instr);
-  }
-
-  /**
-   * Get the instrument that was the source of a generated instrument.
-   */
-  getInstrSourceId(_instr: Instrument): string | undefined {
-    return undefined; // For Phase 2, not used
-  }
-
-  /**
-   * Add an instrument source ID mapping.
-   */
-  addInstrSourceId(_generated: Instrument, _sourceId: string): void {
-    // For Phase 2, not used
-  }
-
-  // ─── Channel assignments ───
-
-  getChannelIdAssignments(): Map<unknown, number> {
+  getChannelIdAssignments(): Map<Channel, number> {
     return this.channelIdAssignments;
   }
 
-  // ─── Compilation variables ───
-
-  getCompilationVariable(name: string): unknown {
-    return this.compilationVariables.get(name);
+  addInstrument(instr: Instrument): number {
+    const instrId = this.arrangement.addInstrumentAtEnd(instr);
+    if (this.handleParametersAndChannels) {
+      this.collectStringChannels(instr);
+      this.collectParameters(instr);
+    }
+    return instrId;
   }
 
-  setCompilationVariable(name: string, value: unknown): void {
-    this.compilationVariables.set(name, value);
-  }
-
-  clearCompilationVariable(name: string): void {
-    this.compilationVariables.delete(name);
-  }
-
-  // ─── Reset ───
-
-  reset(): void {
-    this.orchestraBuffer = '';
-    this.scoreBuffer = '';
-    this.globalOrcBuffer = '';
-    this.globalScoBuffer = '';
-    this.fTablesBuffer = '';
-    this.instrumentIdMap.clear();
-    this.channelIdAssignments.clear();
-    this.compilationVariables.clear();
-  }
-
-  // ─── Generate complete CSD ───
-
-  /**
-   * Assemble all parts into a complete CSD string.
-   * Adds an `f 0 <duration>` sustain event at the end of the score
-   * so Csound renders audio for the full duration.
-   */
-  toCSD(options?: {
-    commandLine?: string;
-    header?: string;
-  }): string {
-    const header = options?.header ?? '<CsoundSynthesizer>\n<CsOptions>\n';
-    const commandLine = options?.commandLine ?? '';
-    const footer = '</CsOptions>\n<CsInstruments>\n';
-    const instrFooter = '\n</CsInstruments>\n<CsScore>\n';
-    const scoreFooter = '\n</CsScore>\n</CsoundSynthesizer>\n';
-
-    // Calculate score duration for sustain event
-    let maxTime = 1;
-    if (this.scoreBuffer.trim()) {
-      const lines = this.scoreBuffer.trim().split('\n');
-      for (const line of lines) {
-        const parts = line.trim().split(/\s+/);
-        if (parts.length >= 3) {
-          const start = parseFloat(parts[1]);
-          const dur = parseFloat(parts[2]);
-          if (!isNaN(start) && !isNaN(dur)) {
-            const end = start + dur;
-            if (end > maxTime) maxTime = end;
-          }
+  private collectStringChannels(instr: Instrument): void {
+    const anyInstr = instr as any;
+    if (typeof anyInstr.getStringChannels === 'function') {
+      const channels = anyInstr.getStringChannels() as StringChannelEntry[];
+      if (channels) {
+        for (const sc of channels) {
+          const base = sc.objectName || sc.channelName;
+          const count = this._stringChannelNameMap.get(base) ?? 0;
+          this._stringChannelNameMap.set(base, count + 1);
+          const name = count === 0 ? base : `${base}_${count}`;
+          this.stringChannels.push({
+            objectName: sc.objectName,
+            value: sc.value,
+            channelName: name,
+          });
         }
       }
     }
+  }
 
-    // Add sustain event so Csound knows how long to run
-    const sustainEvent = `f 0 ${maxTime + 1}`;
+  private collectParameters(instr: Instrument): void {
+    const anyInstr = instr as any;
+    if (typeof anyInstr.getParameters === 'function') {
+      const params = anyInstr.getParameters() as Parameter[];
+      if (params) {
+        for (const p of params) {
+          this.originalParameters.push(p);
+        }
+      }
+    }
+  }
 
-    return (
-      header +
-      commandLine +
-      '\n' +
-      footer +
-      this.globalOrcBuffer +
-      this.orchestraBuffer +
-      instrFooter +
-      this.globalScoBuffer +
-      this.scoreBuffer +
-      sustainEvent +
-      scoreFooter
-    );
+  getStringChannels(): StringChannelEntry[] {
+    return this.stringChannels;
+  }
+
+  getOriginalParameters(): Parameter[] {
+    return this.originalParameters;
+  }
+
+  isHandleParametersAndChannels(): boolean {
+    return this.handleParametersAndChannels;
+  }
+
+  setHandleParametersAndChannels(handleParametersAndChannels: boolean): void {
+    this.handleParametersAndChannels = handleParametersAndChannels;
+  }
+
+  getCompilationVariable(key: unknown): unknown {
+    return this.compileMap.get(key);
+  }
+
+  setCompilationVariable(key: unknown, value: unknown): void {
+    this.compileMap.set(key, value);
+  }
+
+  clearCompilationVariable(key: unknown): void {
+    this.compileMap.delete(key);
+  }
+
+  getOpenFTableNumber(): number {
+    return this.tables.getOpenFTableNumber();
+  }
+
+  appendTables(text: string): void {
+    const current = this.tables.getTables();
+    this.tables.setTables(current ? current + '\n' + text : text);
+  }
+
+  addInstrSourceId(generated: Instrument, sourceId: string): void {
+    this.instrSourceId.set(generated, sourceId);
+  }
+
+  getInstrSourceId(instr: Instrument): string | undefined {
+    return this.instrSourceId.get(instr);
+  }
+
+  appendGlobalOrc(code: string): void {
+    if (!code) {
+      return;
+    }
+    this.globalOrc += code;
+    if (!code.endsWith('\n')) {
+      this.globalOrc += '\n';
+    }
+  }
+
+  getGlobalOrc(): string {
+    return this.globalOrc;
+  }
+
+  reset(): void {
+    this.arrangement = new Arrangement();
+    this.tables = new Tables();
+    this.channelIdAssignments.clear();
+    this.instrSourceId.clear();
+    this.compileMap.clear();
+    this.globalOrc = '';
+    this.stringChannels = [];
+    this.originalParameters = [];
+    this._parameterNameMap.clear();
+    this._stringChannelNameMap.clear();
   }
 }

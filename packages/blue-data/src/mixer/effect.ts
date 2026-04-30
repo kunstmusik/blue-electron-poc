@@ -14,6 +14,8 @@ import { BSBCompilationUnit } from "../instruments/blue-synth-builder/bsb-compil
 import { OpcodeDefinition } from "../opcodes/opcode-definition";
 import { OpcodeList } from "../opcodes/opcode-list";
 import { UDOStyle } from "../opcodes/udo-style";
+import { appendUserDefinedOpcodes } from "../opcodes/udo-utilities";
+import { replaceOpcodeNames } from "../utilities/text";
 
 export class Effect implements BlueDataObject {
   private _name = "New Effect";
@@ -84,10 +86,17 @@ export class Effect implements BlueDataObject {
    * Generate a UDO from this effect's code.
    * Returns the UDO as a CSD string, using classic or modern style.
    */
-  generateUDO(effectId: number, parameters?: Parameter[]): string {
+  generateUDO(
+    effectId: number,
+    parameters?: Parameter[],
+    udoList?: OpcodeList,
+  ): string {
     if (!this._code) return "";
 
     const replacementParameters = parameters ?? this._parameters;
+    const udoReplacementValues = udoList
+      ? appendUserDefinedOpcodes(this._opcodeList, udoList)
+      : null;
 
     // Compile BSB widget replacements
     const unit = new BSBCompilationUnit();
@@ -97,6 +106,10 @@ export class Effect implements BlueDataObject {
     // If GI didn't load (async), fall back to parameter-based replacement
     if (compiledCode.includes("<")) {
       compiledCode = this.compileWithParameters(compiledCode, replacementParameters);
+    }
+
+    if (udoReplacementValues && udoReplacementValues.size > 0) {
+      compiledCode = replaceOpcodeNames(udoReplacementValues, compiledCode);
     }
 
     const udo = new OpcodeDefinition();

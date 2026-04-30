@@ -3,6 +3,16 @@ import { Element } from './serialization/xml-reader';
 import { Arrangement } from './arrangement';
 import { GenericInstrument } from './instruments/generic-instrument';
 import { JavaScriptInstrument } from './instruments/javascript-instrument';
+import { Tables } from './tables';
+import { CompileData } from './compile-data';
+
+class FtableInstrument extends GenericInstrument {
+  override generateFTables(tables: unknown): void {
+    if (tables instanceof Tables) {
+      tables.setCompilationVariable('called', true);
+    }
+  }
+}
 
 describe('Arrangement', () => {
   it('round-trips Java-style instrument assignments with embedded instruments', () => {
@@ -70,5 +80,40 @@ describe('Arrangement', () => {
     expect(arrangement.getArrangement()[0].arrangementId).toBe('1');
     expect(arrangement.updateAssignment('1', { nextArrangementId: '2' })).toBe(false);
     expect(arrangement.getArrangement()[0].arrangementId).toBe('1');
+  });
+
+  it('removes disabled assignments before render generation', () => {
+    const arrangement = new Arrangement();
+    arrangement.addInstrument(new GenericInstrument(), '1');
+    arrangement.addInstrument(new JavaScriptInstrument(), '2');
+    arrangement.getArrangement()[0].enabled = false;
+
+    arrangement.clearUnusedInstrAssignments();
+
+    expect(arrangement.size()).toBe(1);
+    expect(arrangement.getInstrumentId(0)).toBe('2');
+  });
+
+  it('generates global score text using compile-data source ids', () => {
+    const arrangement = new Arrangement();
+    const instr = new GenericInstrument();
+    instr.setName('Global Sco');
+    instr.setGlobalSco('i<INSTR_ID> 0 1');
+    arrangement.addInstrument(instr, 'Bus');
+
+    const compileData = new CompileData(arrangement, new Tables());
+    compileData.addInstrSourceId(instr, '7');
+
+    expect(arrangement.generateGlobalSco(compileData)).toContain('i7 0 1');
+  });
+
+  it('calls generateFTables on enabled instruments', () => {
+    const arrangement = new Arrangement();
+    arrangement.addInstrument(new FtableInstrument(), '1');
+
+    const tables = new Tables();
+    arrangement.generateFTables(tables);
+
+    expect(tables.getCompilationVariable('called')).toBe(true);
   });
 });

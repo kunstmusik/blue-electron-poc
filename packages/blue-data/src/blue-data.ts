@@ -25,9 +25,11 @@ import { MarkersList } from "./markers-list";
 import { MidiInputProcessor } from "./midi/midi-input-processor";
 import { InstrumentLibrary } from "./instruments/instrument-library";
 import { Instrument } from "./instruments/instrument";
+import { GenericInstrument } from "./instruments/generic-instrument";
 import { CompileData } from "./compile-data";
 import { BlueDataObject } from "./blue-data-object";
 import { NoteList } from "./sound-objects/note-list";
+import { Note } from "./sound-objects/note";
 import { Mixer } from "./mixer/mixer";
 import { OpcodeList } from "./opcodes/opcode-list";
 import { OpcodeDefinition } from "./opcodes/opcode-definition";
@@ -46,6 +48,14 @@ import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
 import { disposeJavaScriptCompileState } from './javascript-runtime';
 import { parseUDOText } from "./opcodes/udo-utilities";
 import { TimeContext } from "./time/time-context";
+import { TempoMap } from "./time/tempo-map";
+import {
+  processCommandBlocks,
+  preprocessSco,
+  getTempoScore,
+  getTempoMapFromScoreText,
+} from "./utilities/csd-render";
+import { getNotes } from "./utilities/score";
 import "./sound-objects/register-sound-object-types";
 
 export class BlueData implements BlueDataObject {
@@ -443,13 +453,14 @@ export class BlueData implements BlueDataObject {
    *   e
    *   </CsScore>
    *   </CsoundSynthesizer>
-   */
+  */
   toCSD(): string {
-    const compileData = new CompileData();
+    const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
+      this.createRenderSnapshot();
     let generationError: unknown = null;
 
     try {
-      const channelIdAssignments = this.assignChannelIds();
+      const channelIdAssignments = this.assignChannelIds(clonedMixer);
       for (const [channel, id] of channelIdAssignments) {
         compileData.getChannelIdAssignments().set(channel, id);
       }
@@ -460,18 +471,21 @@ export class BlueData implements BlueDataObject {
 
       // Global orchestra/sco from stored data
       let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
-      let globalSco = this.globalOrcSco.getGlobalSco() || "";
+      const baseGlobalSco = this.globalOrcSco.getGlobalSco() || "";
 
       const appendGlobalOrc = (section: string) => {
         if (!section) {
           return;
         }
-        globalOrc += `\n${section}`;
+        if (globalOrc.length > 0 && !globalOrc.endsWith("\n")) {
+          globalOrc += "\n";
+        }
+        globalOrc += section;
       };
 
       // Mixer init statements
-      if (this.mixer.isEnabled()) {
-        const mixerInits = this.mixer.getInitStatements(
+      if (clonedMixer.isEnabled()) {
+        const mixerInits = clonedMixer.getInitStatements(
           channelIdAssignments,
           nchnls,
         );
@@ -483,100 +497,144 @@ export class BlueData implements BlueDataObject {
         }
       }
 
-      // UDO list from OpcodeList — collect and deduplicate by name
-      const udoSet = new Map<string, string>(); // name → full UDO text
-      for (const udo of this.opcodeList.getOpcodes()) {
-        const text = udo.toCSD();
-        if (text && udo.getName()) udoSet.set(udo.getName(), text);
-      }
+      const udos = new OpcodeList(this.opcodeList);
+      clonedArrangement.generateUserDefinedOpcodes(udos);
 
-      // Also collect UDOs from BSB instruments (deduplicated)
-      for (const ia of this.arrangement.getArrangement()) {
-        if (!ia.enabled || !ia.instr) continue;
-        const instr = ia.instr as any;
-        if (typeof instr.getOpcodeList === "function") {
-          for (const udo of instr.getOpcodeList().getOpcodes()) {
-            const text = udo.toCSD();
-            if (text && udo.getName() && !udoSet.has(udo.getName())) {
-              udoSet.set(udo.getName(), text);
-            }
-          }
-        }
-      }
-
-      // Parameter and string-channel init statements are appended to the stored
-      // global orchestra text as one block, matching Java handleParameters().
-      const parameters = getAllParameters(this.arrangement, this.mixer);
+      const parameters = getAllParameters(clonedArrangement, clonedMixer);
       assignParameterNames(parameters);
-      const stringChannels = this.collectStringChannels();
-      const stringInits = this.buildStringChannelInits(stringChannels);
-      const paramInits = this.buildParameterInits(parameters);
-      const runtimeInitStatements = [stringInits, paramInits]
-        .filter((section) => section.length > 0)
-        .join("\n");
-      if (runtimeInitStatements) {
-        appendGlobalOrc(`${runtimeInitStatements}\n`);
-      }
+      const stringChannels = this.collectStringChannels(clonedArrangement);
 
-      // F-tables
-      const ftables = this.tableSet.getAllTables();
+      appendFtgenTableNumbers(globalOrc, clonedTables);
+      clonedArrangement.generateFTables(clonedTables);
 
-      // Build per-instrument parameter map for BSB compilation
-      const parameterMap = this.buildParameterMap();
-
-      // Mixer → effect UDOs + always-on instruments + BlueMixer
-      let mixerEffectUDOs: string[] = [];
-      let mixerInstruments = "";
-      if (this.mixer.isEnabled()) {
-        const mixerOutput = this.generateMixerOrchestra(
-          channelIdAssignments,
-          nchnls,
-          parameterMap,
-          parameters,
-        );
-        mixerEffectUDOs = mixerOutput.effectUDOs;
-        mixerInstruments = mixerOutput.instrumentsText;
-      }
-
-      const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
-      const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
-      const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
-
-      // Arrangement → orchestra
-      const orc = this.arrangement.generateOrchestra(
-        compileData,
-        this.mixer,
-        nchnls,
-        parameterMap,
-      );
+      const ftables = clonedTables.getAllTables();
 
       // Score → score events
       const startTime = this.renderStartTime;
       const endTime = this.renderEndTime;
       const noteList = this.score.generateForCSD(compileData, startTime, endTime);
+      compileData.setHandleParametersAndChannels(false);
 
-      // Tempo statement from TempoMap
-      const tempoMap = this.score.getTimeContext().getTempoMap();
-      const tempoStatement =
-        tempoMap.getTempo() !== 60 ? `t 0 ${formatJavaDouble(tempoMap.getTempo())}` : "";
+      if (endTime > 0 && endTime > startTime) {
+        const renderEndInstrument = this.createRenderEndInstrument();
+        const renderEndInstrumentId = clonedArrangement.addInstrumentAtEnd(
+          renderEndInstrument,
+        );
 
-      // Compute totalDur for always-on scheduling
-      let totalDur = 0;
-      if (noteList && noteList.length > 0) {
-        for (let i = 0; i < noteList.length; i++) {
-          const note = noteList.getNote(i);
-          const end = note.getStartTime() + note.getSubjectiveDuration();
-          if (end > totalDur) totalDur = end;
+        const renderEndNote = Note.createNoteFromText(
+          `i${renderEndInstrumentId} ${endTime - startTime} 0.1`,
+        );
+        if (renderEndNote) {
+          noteList.add(renderEndNote);
         }
       }
 
-      // Build score text with tempo, always-on events
+      const parameterMap = this.buildParameterMap(clonedArrangement);
+
+      const scoreTempoMap = this.score.getTimeContext().getTempoMap();
+      let tempoMap: TempoMap | null = null;
+      let scoreGlobalPrefix = baseGlobalSco;
+
+      if (scoreTempoMap.isEnabled()) {
+        tempoMap = scoreTempoMap;
+        const tempoStatement = getTempoScore(scoreTempoMap, startTime, endTime);
+        scoreGlobalPrefix = [baseGlobalSco, tempoStatement]
+          .filter((section) => section.length > 0)
+          .join("\n");
+      } else {
+        tempoMap = getTempoMapFromScoreText(baseGlobalSco);
+      }
+
+      const arrangementGlobalSco = clonedArrangement.generateGlobalSco(compileData);
+      const totalDur = this.getNoteListDuration(noteList);
+      const processingStart = startTime;
+      const globalSco = preprocessSco(
+        [scoreGlobalPrefix, arrangementGlobalSco].filter(Boolean).join("\n"),
+        totalDur,
+        startTime,
+        processingStart,
+        tempoMap,
+      );
+      let globalDur = this.getNoteListDurationFromText(globalSco);
+      if (globalDur < totalDur) {
+        globalDur = totalDur;
+      }
+      if (clonedMixer.isEnabled()) {
+        globalDur += clonedMixer.getExtraRenderTime();
+      }
+
+      const alwaysOnInstruments = this.collectAlwaysOnInstruments(
+        clonedArrangement,
+        clonedMixer,
+        channelIdAssignments,
+        parameterMap,
+        compileData,
+      );
+
+      for (const instrument of alwaysOnInstruments) {
+        const sourceId = compileData.getInstrSourceId(instrument);
+        if (sourceId && /^\d+$/.test(sourceId)) {
+          const instrId = clonedArrangement.addInstrumentAtEnd(instrument);
+          this.addScoreNote(noteList, `i${instrId} 0 ${globalDur}`);
+        } else {
+          const alwaysOnId = `${sourceId ?? "unknown"}_alwaysOn`;
+          clonedArrangement.addInstrumentWithId(instrument, alwaysOnId, false);
+          this.addScoreNote(noteList, `i"${alwaysOnId}" 0 ${globalDur}`);
+        }
+      }
+
+      let mixerEffectUDOs: string[] = [];
+      let mixerInstruments = "";
+      if (clonedMixer.isEnabled()) {
+        const mixerOutput = this.generateMixerOrchestra(
+          channelIdAssignments,
+          nchnls,
+          udos,
+          clonedMixer,
+        );
+        mixerEffectUDOs = mixerOutput.effectUDOs;
+        mixerInstruments = mixerOutput.instrumentsText;
+        this.addScoreNote(noteList, `i"BlueMixer" 0 ${globalDur}`);
+      }
+
+      const arrangementGlobalOrc = processCommandBlocks(
+        clonedArrangement.generateGlobalOrc(compileData),
+      );
+
+      const initStatements = this.buildRuntimeInitStatements(
+        parameters,
+        stringChannels,
+      );
+      if (initStatements.length > 0) {
+        appendGlobalOrc(`${initStatements}\n`);
+      }
+
+      const compileGlobalOrc = compileData.getGlobalOrc();
+      if (compileGlobalOrc.trim().length > 0) {
+        appendGlobalOrc(compileGlobalOrc);
+      }
+
+      const allUDOText: string[] = [];
+      const masterUDOText = udos.toString().trim();
+      if (masterUDOText.length > 0) {
+        allUDOText.push(masterUDOText);
+      }
+      if (mixerEffectUDOs.length > 0) {
+        allUDOText.push(...mixerEffectUDOs);
+      }
+      const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
+
+      const orc = clonedArrangement.generateOrchestra(
+        compileData,
+        clonedMixer,
+        nchnls,
+        parameterMap,
+      );
+
       const scoreText = this.buildScoreText(
         ftables,
         globalSco,
         noteList,
-        tempoStatement,
-        totalDur,
       );
 
       // Build project info comments
@@ -619,11 +677,12 @@ export class BlueData implements BlueDataObject {
   }
 
   toBlueLiveCSD(): { csdText: string; parameters?: Parameter[]; stringChannels?: Array<{ objectName: string; value: string; channelName: string }> } {
-    const compileData = new CompileData();
+    const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
+      this.createRenderSnapshot();
     let generationError: unknown = null;
 
     try {
-      const channelIdAssignments = this.assignChannelIds();
+      const channelIdAssignments = this.assignChannelIds(clonedMixer);
       for (const [channel, id] of channelIdAssignments) {
         compileData.getChannelIdAssignments().set(channel, id);
       }
@@ -639,35 +698,19 @@ export class BlueData implements BlueDataObject {
         globalOrc += `\n${section}`;
       };
 
-      if (this.mixer.isEnabled()) {
-        const mixerInits = this.mixer.getInitStatements(channelIdAssignments, nchnls);
+      if (clonedMixer.isEnabled()) {
+        const mixerInits = clonedMixer.getInitStatements(channelIdAssignments, nchnls);
         if (mixerInits) {
           appendGlobalOrc(`${mixerInits}\n\n`);
         }
       }
 
-      const udoSet = new Map<string, string>();
-      for (const udo of this.opcodeList.getOpcodes()) {
-        const text = udo.toCSD();
-        if (text && udo.getName()) udoSet.set(udo.getName(), text);
-      }
+      const udos = new OpcodeList(this.opcodeList);
+      clonedArrangement.generateUserDefinedOpcodes(udos);
 
-      for (const ia of this.arrangement.getArrangement()) {
-        if (!ia.enabled || !ia.instr) continue;
-        const instr = ia.instr as any;
-        if (typeof instr.getOpcodeList === "function") {
-          for (const udo of instr.getOpcodeList().getOpcodes()) {
-            const text = udo.toCSD();
-            if (text && udo.getName() && !udoSet.has(udo.getName())) {
-              udoSet.set(udo.getName(), text);
-            }
-          }
-        }
-      }
-
-      const parameters = getAllParameters(this.arrangement, this.mixer);
+      const parameters = getAllParameters(clonedArrangement, clonedMixer);
       assignParameterNames(parameters);
-      const stringChannels = this.collectStringChannels();
+      const stringChannels = this.collectStringChannels(clonedArrangement);
       const stringInits = this.buildStringChannelInits(stringChannels);
       const paramInits = this.buildParameterInits(parameters);
       const runtimeInitStatements = [stringInits, paramInits]
@@ -677,70 +720,73 @@ export class BlueData implements BlueDataObject {
         appendGlobalOrc(`${runtimeInitStatements}\n`);
       }
 
-      const ftables = this.tableSet.getAllTables();
-      const parameterMap = this.buildParameterMap();
+      const ftables = clonedTables.getAllTables();
+      const parameterMap = this.buildParameterMap(clonedArrangement);
+      const totalDur = 36000;
+
+      const baseArrangementItems = clonedArrangement
+        .getArrangement()
+        .filter((ia) => ia.enabled && ia.instr);
+      const baseInstrIds = baseArrangementItems
+        .map((ia) => ia.arrangementId)
+        .filter((id): id is string => Boolean(id));
+
+      const alwaysOnInstruments = this.collectAlwaysOnInstruments(
+        clonedArrangement,
+        clonedMixer,
+        channelIdAssignments,
+        parameterMap,
+        compileData,
+      );
+
+      let blueLiveSco = `${globalSco}\n`;
+      for (const instrument of alwaysOnInstruments) {
+        const sourceId = compileData.getInstrSourceId(instrument);
+        if (sourceId && /^\d+$/.test(sourceId)) {
+          const instrId = clonedArrangement.addInstrumentAtEnd(instrument);
+          blueLiveSco += `i${instrId} 0 ${totalDur}\n`;
+        } else {
+          const alwaysOnId = `${sourceId ?? "unknown"}_alwaysOn`;
+          clonedArrangement.addInstrumentWithId(instrument, alwaysOnId, false);
+          blueLiveSco += `i "${alwaysOnId}" 0 ${totalDur}\n`;
+        }
+      }
 
       let mixerEffectUDOs: string[] = [];
       let mixerInstruments = "";
-      if (this.mixer.isEnabled()) {
+      if (clonedMixer.isEnabled()) {
         const mixerOutput = this.generateMixerOrchestra(
           channelIdAssignments,
           nchnls,
-          parameterMap,
-          parameters,
+          udos,
+          clonedMixer,
         );
         mixerEffectUDOs = mixerOutput.effectUDOs;
         mixerInstruments = mixerOutput.instrumentsText;
       }
 
-      const arrangementGlobalOrc = this.arrangement.generateGlobalOrc(compileData);
-      const allUDOText = [...Array.from(udoSet.values()), ...mixerEffectUDOs];
+      const arrangementGlobalOrc = clonedArrangement.generateGlobalOrc(compileData);
+      const allUDOText: string[] = [];
+      const masterUDOText = udos.toString().trim();
+      if (masterUDOText.length > 0) {
+        allUDOText.push(masterUDOText);
+      }
+      if (mixerEffectUDOs.length > 0) {
+        allUDOText.push(...mixerEffectUDOs);
+      }
       const udoText = allUDOText.length > 0 ? `${allUDOText.join("\n")}\n` : "";
 
-      const orc = this.arrangement.generateOrchestra(
+      const orc = clonedArrangement.generateOrchestra(
         compileData,
-        this.mixer,
+        clonedMixer,
         nchnls,
         parameterMap,
       );
 
-      const totalDur = 36000;
-
-      const arrangementItems = this.arrangement
-        .getArrangement()
-        .filter((ia) => ia.enabled && ia.instr);
-
       let blueLiveOrc = orc + mixerInstruments;
+      blueLiveOrc += "\n\n" + this.createAllNotesOffInstrument(baseInstrIds);
 
-      const instrIds = arrangementItems
-        .map((ia) => ia.arrangementId)
-        .filter((id): id is string => Boolean(id));
-
-      blueLiveOrc += "\n\n" + this.createAllNotesOffInstrument(instrIds);
-
-      let blueLiveSco = `${globalSco}\n`;
-
-      for (let i = 0; i < arrangementItems.length; i++) {
-        const ia = arrangementItems[i]!;
-        const instr = ia.instr as any;
-        if (
-          typeof instr?.getAlwaysOnInstrumentText === "function" &&
-          instr.getAlwaysOnInstrumentText()
-        ) {
-          const alwaysOnId = getBlueLiveAlwaysOnInstrumentId(
-            ia.arrangementId,
-            arrangementItems.length,
-            i,
-          );
-          if (/^\d+$/.test(alwaysOnId)) {
-            blueLiveSco += `i${alwaysOnId} 0 ${totalDur}\n`;
-          } else {
-            blueLiveSco += `i "${alwaysOnId}" 0 ${totalDur}\n`;
-          }
-        }
-      }
-
-      if (this.mixer.isEnabled()) {
+      if (clonedMixer.isEnabled()) {
         blueLiveSco += `i "BlueMixer" 0 ${totalDur}\n`;
       }
 
@@ -853,32 +899,32 @@ export class BlueData implements BlueDataObject {
    * Assign channel IDs for mixer init statements.
    * Mirrors Java's assignChannelIds().
    */
-  private assignChannelIds(): Map<Channel, number> {
+  private assignChannelIds(mixer: Mixer = this.mixer): Map<Channel, number> {
     const assignments = new Map<Channel, number>();
     let i = 0;
 
     // Source channels
-    for (const channel of this.mixer.getAllSourceChannels()) {
+    for (const channel of mixer.getAllSourceChannels()) {
       assignments.set(channel, i++);
     }
 
     // Sub channels
-    for (const subChannel of this.mixer.getSubChannels()) {
+    for (const subChannel of mixer.getSubChannels()) {
       assignments.set(subChannel, i++);
     }
+
+    assignments.set(mixer.getMaster(), i);
 
     return assignments;
   }
 
   /**
-   * Build the score section with F-tables, tempo, globalSco, notes, and always-on events.
+   * Build the score section with F-tables, globalSco, and generated score notes.
    */
   private buildScoreText(
     ftables: string,
     globalSco: string,
     noteList: NoteList,
-    tempoStatement: string,
-    totalDur: number,
   ): string {
     const noteLines: string[] = [];
 
@@ -889,39 +935,280 @@ export class BlueData implements BlueDataObject {
       }
     }
 
-    // Always-on instrument events
-    if (totalDur > 0 && this.mixer.isEnabled()) {
-      const renderDur = totalDur + this.mixer.getExtraRenderTime();
-      const arrangementItems = this.arrangement
-        .getArrangement()
-        .filter((ia) => ia.enabled && ia.instr);
-      const nextInstrId = arrangementItems.length + 1;
+    const scoreGlobalText = globalSco.trimEnd();
 
-      // Schedule always-on instruments for instruments with alwaysOnInstrumentText
-      for (let i = 0; i < arrangementItems.length; i++) {
-        const instr = arrangementItems[i].instr as any;
-        if (
-          typeof instr.getAlwaysOnInstrumentText === "function" &&
-          instr.getAlwaysOnInstrumentText()
-        ) {
-          noteLines.push(`i${nextInstrId + i}\t0\t${renderDur}\t`);
-        }
+    const scoreNotesText = noteLines.length > 0 ? `${noteLines.join("\n")}\n` : "";
+
+    return `${ftables}\n\n${scoreGlobalText}\n\n${scoreNotesText}e\n\n`;
+  }
+
+  private buildRuntimeInitStatements(
+    parameters: Parameter[],
+    stringChannels: Array<{ objectName: string; value: string; channelName: string }>,
+  ): string {
+    const stringInits = this.buildStringChannelInits(stringChannels);
+    const paramInits = this.buildParameterInits(parameters);
+
+    return [stringInits, paramInits]
+      .filter((section) => section.length > 0)
+      .join("\n");
+  }
+
+  private collectAlwaysOnInstruments(
+    arrangement: Arrangement,
+    mixer: Mixer,
+    channelIdAssignments: Map<Channel, number>,
+    parameterMap: Map<Instrument, Parameter[]>,
+    compileData: CompileData,
+  ): GenericInstrument[] {
+    const alwaysOnInstruments: GenericInstrument[] = [];
+
+    const sourceChannels = mixer.getAllSourceChannels();
+
+    for (const ia of arrangement.getArrangement()) {
+      if (!ia.enabled || !ia.instr) {
+        continue;
       }
 
-      // Schedule BlueMixer
-      noteLines.push(`i"BlueMixer"\t0\t${renderDur}\t`);
+      const instr = ia.instr as any;
+      let compiled = "";
+
+      if (typeof instr.generateAlwaysOnInstrument === "function") {
+        compiled = instr.generateAlwaysOnInstrument() ?? "";
+      }
+
+      if (!compiled && typeof instr.getAlwaysOnInstrumentText === "function") {
+        const alwaysOnText = instr.getAlwaysOnInstrumentText();
+        if (!alwaysOnText) {
+          continue;
+        }
+
+        const instrParams = parameterMap.get(ia.instr);
+        const unit = new BSBCompilationUnit();
+        if (typeof instr.getGraphicInterface === "function") {
+          instr.getGraphicInterface().collectReplacements(unit, instrParams);
+        }
+        compiled = unit.replaceBSBValues(alwaysOnText);
+      }
+
+      if (!compiled || compiled.trim().length === 0) {
+        continue;
+      }
+
+      const sourceChannel = sourceChannels.find(
+        (channel) => channel.getName() === ia.arrangementId,
+      );
+      const channelId = sourceChannel
+        ? channelIdAssignments.get(sourceChannel)
+        : undefined;
+
+      if (channelId !== undefined) {
+        compiled = compiled.replace(
+          /(\w+),\s*(\w+)\s+blueMixerIn/g,
+          `$1 = ga_bluemix_${channelId}_0\n $2 = ga_bluemix_${channelId}_1`,
+        );
+        compiled = compiled.replace(
+          /blueMixerOut(\s+\w+),(\s*\w+)/g,
+          `ga_bluemix_${channelId}_0 = $1\nga_bluemix_${channelId}_1 = $2`,
+        );
+      }
+
+      const alwaysOnInstrument = new GenericInstrument();
+      alwaysOnInstrument.setText(compiled);
+      compileData.addInstrSourceId(alwaysOnInstrument, ia.arrangementId);
+      alwaysOnInstruments.push(alwaysOnInstrument);
     }
 
-    let scoreGlobalText = globalSco;
-    if (tempoStatement) {
-      scoreGlobalText += `${scoreGlobalText ? "" : "\n"}${tempoStatement}\n`;
+    return alwaysOnInstruments;
+  }
+
+  private appendParameterAutomationNotes(
+    parameters: Parameter[],
+    notes: NoteList,
+    arrangement: Arrangement,
+    renderStart: number,
+    renderEnd: number,
+  ): void {
+    for (const param of parameters) {
+      if (!param.isAutomationEnabled()) {
+        continue;
+      }
+
+      const compilationVarName = param.getCompilationVarName();
+      if (!compilationVarName) {
+        continue;
+      }
+
+      const points = param.getPoints();
+      if (points.length < 2) {
+        continue;
+      }
+
+      const instr = new GenericInstrument();
+      instr.setName(`Param: ${param.getName()}`);
+
+      if (param.getResolution() > 0.0) {
+        instr.setText(`${compilationVarName} init p4\nturnoff`);
+      } else {
+        instr.setText(
+          `if (p4 == p5) then\n` +
+            `${compilationVarName} init p4\n` +
+            `turnoff\n` +
+            `else\n` +
+            `${compilationVarName} line p4, p3, p5\n` +
+            `endif`,
+        );
+      }
+
+      const instrId = arrangement.addInstrumentAtEnd(instr);
+      this.appendParameterScore(
+        param,
+        instrId,
+        notes,
+        renderStart,
+        renderEnd,
+      );
+    }
+  }
+
+  private appendParameterScore(
+    param: Parameter,
+    instrId: number,
+    notes: NoteList,
+    renderStart: number,
+    renderEnd: number,
+  ): void {
+    const points = param.getPoints();
+    if (points.length < 2) {
+      return;
     }
 
-    const scoreNotesText = noteLines.length > 0
-      ? `${noteLines.join("\n")}\n`
-      : `f0 ${totalDur}\n`;
+    const resolution = param.getResolution();
+    const hasRenderEnd = renderEnd > renderStart;
 
-    return `${ftables}\n\n${scoreGlobalText}\n\n\n${scoreNotesText}e\n\n`;
+    if (resolution > 0.0) {
+      for (let i = 1; i < points.length; i++) {
+        const p1 = points[i - 1]!;
+        const p2 = points[i]!;
+
+        const startTime = p1.time;
+        const endTime = p2.time;
+
+        if (hasRenderEnd && startTime >= renderEnd) {
+          return;
+        }
+        if (endTime <= renderStart) {
+          continue;
+        }
+        if (startTime === endTime || p1.value === p2.value) {
+          continue;
+        }
+
+        const dur = endTime - startTime;
+        const numSteps = Math.abs(Math.round((p2.value - p1.value) / resolution));
+        if (numSteps <= 0) {
+          continue;
+        }
+
+        const step = dur / numSteps;
+        const valStep = p2.value < p1.value ? -resolution : resolution;
+        let currentVal = p1.value;
+        let start = startTime;
+
+        for (let j = 0; j < numSteps - 1; j++) {
+          currentVal += valStep;
+          start += step;
+
+          if (start <= renderStart) {
+            continue;
+          }
+          if (hasRenderEnd && start >= renderEnd) {
+            return;
+          }
+
+          this.addScoreNote(
+            notes,
+            `i${instrId}\t${formatJavaDouble(start - renderStart)}\t.0001\t${formatJavaDouble(currentVal)}`,
+          );
+        }
+
+        const finalStart = start + step;
+        if (hasRenderEnd && finalStart >= renderEnd) {
+          return;
+        }
+
+        this.addScoreNote(
+          notes,
+          `i${instrId}\t${formatJavaDouble(finalStart - renderStart)}\t.0001\t${formatJavaDouble(p2.value)}`,
+        );
+      }
+
+      return;
+    }
+
+    let lastValue = points[0]!.value;
+
+    for (let i = 1; i < points.length; i++) {
+      const p1 = points[i - 1]!;
+      const p2 = points[i]!;
+
+      let startTime = p1.time;
+      let endTime = p2.time;
+
+      if (hasRenderEnd && startTime >= renderEnd) {
+        return;
+      }
+      if (endTime <= renderStart) {
+        lastValue = p2.value;
+        continue;
+      }
+      if (startTime === endTime) {
+        if (i === points.length - 1) {
+          this.addScoreNote(
+            notes,
+            `i${instrId}\t${formatJavaDouble(p2.time - renderStart)}\t.0001\t${formatJavaDouble(p2.value)}\t${formatJavaDouble(p2.value)}`,
+          );
+        }
+        continue;
+      }
+
+      let startVal = p1.value;
+      let endVal = p2.value;
+
+      if (startTime < renderStart) {
+        startVal = param.getValue(renderStart);
+        startTime = renderStart;
+      }
+
+      if (hasRenderEnd && endTime > renderEnd) {
+        endVal = param.getValue(renderEnd);
+        endTime = renderEnd;
+      }
+
+      lastValue = endVal;
+
+      const dur = startVal === endVal ? 0.0001 : endTime - startTime;
+      const relativeStart = startTime - renderStart;
+
+      this.addScoreNote(
+        notes,
+        `i${instrId}\t${formatJavaDouble(relativeStart)}\t${formatJavaDouble(dur)}\t${formatJavaDouble(startVal)}\t${formatJavaDouble(endVal)}`,
+      );
+
+      if (i === points.length - 1) {
+        this.addScoreNote(
+          notes,
+          `i${instrId}\t${formatJavaDouble(relativeStart + dur)}\t.0001\t${formatJavaDouble(lastValue)}\t${formatJavaDouble(lastValue)}`,
+        );
+      }
+    }
+  }
+
+  private addScoreNote(notes: NoteList, noteText: string): void {
+    const note = Note.createNoteFromText(noteText);
+    if (note) {
+      notes.add(note);
+    }
   }
 
   /**
@@ -941,6 +1228,48 @@ export class BlueData implements BlueDataObject {
       `; Generated by blue ${BLUE_VERSION} (http://blue.kunstmusik.com)\n` +
       ";\n\n"
     );
+  }
+
+  private createRenderSnapshot(): {
+    arrangement: Arrangement;
+    tables: Tables;
+    mixer: Mixer;
+    compileData: CompileData;
+  } {
+    const arrangement = new Arrangement(this.arrangement);
+    arrangement.clearUnusedInstrAssignments();
+    const tables = new Tables(this.tableSet);
+    const mixer = this.mixer.deepCopy() as Mixer;
+    const compileData = new CompileData(arrangement, tables, true);
+
+    return {
+      arrangement,
+      tables,
+      mixer,
+      compileData,
+    };
+  }
+
+  private createRenderEndInstrument(): GenericInstrument {
+    const instr = new GenericInstrument();
+    instr.setText('event "e", 0, 0, 0.1');
+    return instr;
+  }
+
+  private getNoteListDuration(notes: NoteList): number {
+    let max = 0;
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes.getNote(i);
+      const end = note.getStartTime() + note.getSubjectiveDuration();
+      if (end > max) {
+        max = end;
+      }
+    }
+    return max;
+  }
+
+  private getNoteListDurationFromText(scoreText: string): number {
+    return this.getNoteListDuration(getNotes(scoreText));
   }
 
   /**
@@ -979,7 +1308,7 @@ export class BlueData implements BlueDataObject {
    * Collect all StringChannels from BSB instruments in the arrangement.
    * Mirrors Java's getStringChannels() method.
    */
-  private collectStringChannels(): Array<{
+  private collectStringChannels(arrangement?: Arrangement): Array<{
     objectName: string;
     value: string;
     channelName: string;
@@ -991,7 +1320,9 @@ export class BlueData implements BlueDataObject {
     }> = [];
     let idx = 0;
 
-    for (const ia of this.arrangement.getArrangement()) {
+    const arr = arrangement ?? this.arrangement;
+
+    for (const ia of arr.getArrangement()) {
       if (!ia.enabled || !ia.instr) continue;
       const instr = ia.instr as any;
       if (typeof instr.getStringChannels === "function") {
@@ -1015,10 +1346,11 @@ export class BlueData implements BlueDataObject {
    * Each instrument gets its own Parameter[] with compilationVarName set.
    * This is used by generateInstrument() to replace widget values with gk_blue_autoN.
    */
-  private buildParameterMap(): Map<Instrument, Parameter[]> {
+  private buildParameterMap(arrangement?: Arrangement): Map<Instrument, Parameter[]> {
     const map = new Map<Instrument, Parameter[]>();
+    const arr = arrangement ?? this.arrangement;
 
-    for (const ia of this.arrangement.getArrangement()) {
+    for (const ia of arr.getArrangement()) {
       if (!ia.enabled || !ia.instr) continue;
       const instr = ia.instr as any;
       if (typeof instr.getParameters === "function") {
@@ -1059,20 +1391,13 @@ export class BlueData implements BlueDataObject {
   }
 
   /**
-   * Generate the mixer's orchestra code: effect UDOs, always-on instruments,
-   * and the BlueMixer instrument.
+   * Generate the mixer's orchestra code: effect UDOs and the BlueMixer
+   * instrument text.
    *
    * Output structure:
    *   opcode blueEffect0,aa,aa ; EffectName
    *   ...
    *   endop
-   *
-   *   instr 4  ; always-on for instrument 1
-   *   ...
-   *   endin
-   *   instr 5  ; always-on for instrument 2
-   *   ...
-   *   endin
    *
    *   instr BlueMixer
    *   ...
@@ -1081,19 +1406,18 @@ export class BlueData implements BlueDataObject {
   private generateMixerOrchestra(
     channelIdAssignments: Map<Channel, number>,
     nchnls: number,
-    parameterMap: Map<Instrument, Parameter[]>,
-    _allParameters: Parameter[],
+    udos: OpcodeList,
+    mixer: Mixer = this.mixer,
   ): { effectUDOs: string[]; instrumentsText: string; effectIdMap: Map<Effect, number> } {
     const instrBuffer: string[] = [];
-    const sourceChannels = this.mixer.getAllSourceChannels();
+    const sourceChannels = mixer.getAllSourceChannels();
     const subChannels = this.sortSubChannelsForRendering(
-      Array.from(this.mixer.getSubChannels()),
+      Array.from(mixer.getSubChannels()),
     );
 
     let effectId = 0;
     const effectUDOs: string[] = [];
     const effectIdMap = new Map<Effect, number>();
-    const nestedOpcodes = new OpcodeList();
 
     const registerEffects = (chain: EffectsChain) => {
       for (const item of chain) {
@@ -1101,14 +1425,10 @@ export class BlueData implements BlueDataObject {
           continue;
         }
 
-        const replacements = this.registerNestedEffectOpcodes(
-          item,
-          nestedOpcodes,
-          effectUDOs,
-        );
-        const udo = this.applyOpcodeNameReplacements(
-          item.generateUDO(effectId),
-          replacements,
+        const udo = item.generateUDO(
+          effectId,
+          item.getParameters(),
+          udos,
         );
         if (!udo) {
           continue;
@@ -1130,56 +1450,8 @@ export class BlueData implements BlueDataObject {
       registerEffects(subChannel.getPostEffects());
     }
 
-    registerEffects(this.mixer.getMaster().getPreEffects());
-    registerEffects(this.mixer.getMaster().getPostEffects());
-
-    // Generate always-on instruments from BSB instruments' alwaysOnInstrumentText
-    const arrangementItems = this.arrangement
-      .getArrangement()
-      .filter((ia) => ia.enabled && ia.instr);
-    const nextInstrId = arrangementItems.length + 1;
-
-    for (let i = 0; i < arrangementItems.length; i++) {
-      const ia = arrangementItems[i];
-      const instr = ia.instr as any;
-      if (typeof instr.getAlwaysOnInstrumentText !== "function") continue;
-      const alwaysOnText = instr.getAlwaysOnInstrumentText();
-      if (!alwaysOnText) continue;
-
-      // Compile the always-on instrument text with BSB widget replacement
-      const instrParams = parameterMap.get(ia.instr!);
-      const unit = new BSBCompilationUnit();
-      if (typeof instr.getGraphicInterface === "function") {
-        instr.getGraphicInterface().collectReplacements(unit, instrParams);
-      }
-      let compiled = unit.replaceBSBValues(alwaysOnText);
-
-      // Replace blueMixerIn/blueMixerOut with mixer channel routing
-      const channelId = channelIdAssignments.get(sourceChannels[i]);
-      if (channelId !== undefined) {
-        // "aLeft, aRight\tblueMixerIn" → "aLeft = ga_bluemix_{id}_0\n aRight = ga_bluemix_{id}_1"
-        compiled = compiled.replace(
-          /(\w+),\s*(\w+)\s+blueMixerIn/g,
-          `$1 = ga_bluemix_${channelId}_0\n $2 = ga_bluemix_${channelId}_1`,
-        );
-        // "blueMixerOut aLeft, aRight" → "ga_bluemix_{id}_0 = aLeft\nga_bluemix_{id}_1 = aRight"
-        compiled = compiled.replace(
-          /blueMixerOut(\s+\w+),(\s*\w+)/g,
-          `ga_bluemix_${channelId}_0 = $1\nga_bluemix_${channelId}_1 = $2`,
-        );
-      }
-
-      const alwaysOnId = getBlueLiveAlwaysOnInstrumentId(
-        ia.arrangementId,
-        arrangementItems.length,
-        i,
-      );
-      instrBuffer.push(`\tinstr ${alwaysOnId}\t;untitled`);
-      instrBuffer.push(compiled);
-      instrBuffer.push("");
-      instrBuffer.push("\tendin");
-      instrBuffer.push("");
-    }
+    registerEffects(mixer.getMaster().getPreEffects());
+    registerEffects(mixer.getMaster().getPostEffects());
 
     // Generate BlueMixer instrument
     const blueMixerCode = this.generateBlueMixer(
@@ -1188,6 +1460,7 @@ export class BlueData implements BlueDataObject {
       channelIdAssignments,
       nchnls,
       effectIdMap,
+      mixer,
     );
     instrBuffer.push(blueMixerCode);
 
@@ -1208,6 +1481,7 @@ export class BlueData implements BlueDataObject {
     channelIdAssignments: Map<Channel, number>,
     nchnls: number,
     effectIdMap: Map<Effect, number>,
+    mixer: Mixer = this.mixer,
   ): string {
     const lines: string[] = [];
 
@@ -1235,7 +1509,7 @@ export class BlueData implements BlueDataObject {
       this.routeChannelOutput(signalVars, subChannel.getOutChannel(), subChannel.getName(), lines);
     }
 
-    const masterChannel = this.mixer.getMaster();
+    const masterChannel = mixer.getMaster();
     const masterVars = this.getSubChannelSignalVars("Master", nchnls);
     this.applyEffectsChain(masterChannel.getPreEffects(), masterVars, effectIdMap, lines);
     this.applyChannelLevel(masterVars, masterChannel.getLevelParameter(), masterChannel.getLevel(), lines);
@@ -1533,6 +1807,18 @@ export class BlueData implements BlueDataObject {
     );
 
     return copy;
+  }
+}
+
+function appendFtgenTableNumbers(globalOrc: string, tables: Tables): void {
+  const pattern = /ftgen\s+-?(\d+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(globalOrc)) !== null) {
+    const ftgenNum = parseInt(match[1] ?? '0', 10);
+    if (ftgenNum !== 0) {
+      tables.addFtgenNumber(ftgenNum);
+    }
   }
 }
 

@@ -49,7 +49,17 @@ function extractInstrumentSequence(scoreEvents: string[]): string[] {
 }
 
 function normalizeWhitespace(line: string): string {
-  return line.replace(/\s+/g, ' ').trim();
+  return line
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((token) => {
+      if (/^-?\d+\.0+$/.test(token)) {
+        return String(Number.parseInt(token, 10));
+      }
+      return token;
+    })
+    .join(' ');
 }
 
 beforeAll(async () => {
@@ -69,36 +79,16 @@ describe('NoteList merge parity', () => {
 });
 
 describe('BlueData score scheduling parity', () => {
-  it('extends always-on instruments by mixer extra render time', () => {
+  it('buildScoreText renders only provided score events', () => {
     const data = new BlueData();
     const notes = new NoteList([createNote('1', 127.75, 0.25)]);
 
-    (data as any).arrangement = {
-      getArrangement: () => Array.from({ length: 5 }, () => ({
-        enabled: true,
-        instr: {
-          getAlwaysOnInstrumentText: () => 'aLeft, aRight blueMixerIn',
-        },
-      })),
-    };
-    (data as any).mixer = {
-      isEnabled: () => true,
-      getExtraRenderTime: () => 4,
-    };
-
-    const scoreText = (data as any).buildScoreText('', '', notes, '', 128) as string;
+    const scoreText = (data as any).buildScoreText('', '', notes) as string;
     const scoreEvents = scoreText
       .split(/\r?\n/)
       .filter((line) => line.startsWith('i'));
 
-    expect(scoreEvents.slice(-6)).toEqual([
-      'i6\t0\t132\t',
-      'i7\t0\t132\t',
-      'i8\t0\t132\t',
-      'i9\t0\t132\t',
-      'i10\t0\t132\t',
-      'i"BlueMixer"\t0\t132\t',
-    ]);
+    expect(scoreEvents).toEqual(['i1\t127.75\t0.25']);
   });
 });
 

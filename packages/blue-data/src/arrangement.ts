@@ -14,6 +14,7 @@ import { replaceAll, stripSingleLineComments } from "./utilities/text";
 import { Element } from "./serialization/xml-reader";
 import { Mixer } from "./mixer/mixer";
 import { Channel } from "./mixer/channel";
+import { Tables } from "./tables";
 
 export class Arrangement {
   private arrangement: InstrumentAssignment[] = [];
@@ -38,6 +39,36 @@ export class Arrangement {
     return this.arrangement.length;
   }
 
+  addInstrumentAtEnd(instrument: Instrument): number {
+    let max = 0;
+
+    for (const ia of this.arrangement) {
+      const numericId = parseNumericArrangementId(ia.arrangementId);
+      if (numericId !== null && numericId > max) {
+        max = numericId;
+      }
+    }
+
+    const nextId = max + 1;
+    const ia = new InstrumentAssignment();
+    ia.arrangementId = String(nextId);
+    ia.instr = instrument;
+    this.arrangement.push(ia);
+
+    return nextId;
+  }
+
+  addInstrumentWithId(instrument: Instrument, instrumentId: string, sort = true): void {
+    const ia = new InstrumentAssignment();
+    ia.arrangementId = instrumentId;
+    ia.instr = instrument;
+    this.arrangement.push(ia);
+
+    if (sort) {
+      this.sort();
+    }
+  }
+
   size(): number {
     return this.arrangement.length;
   }
@@ -56,6 +87,10 @@ export class Arrangement {
 
   getArrangement(): InstrumentAssignment[] {
     return [...this.arrangement];
+  }
+
+  clearUnusedInstrAssignments(): void {
+    this.arrangement = this.arrangement.filter((ia) => ia.enabled);
   }
 
   removeInstrument(index: number): Instrument | null {
@@ -103,9 +138,9 @@ export class Arrangement {
   getNextInstrumentId(): string {
     let max = 0;
     for (const ia of this.arrangement) {
-      const value = Number.parseInt(ia.arrangementId, 10);
-      if (Number.isFinite(value)) {
-        max = Math.max(max, value);
+      const numericId = parseNumericArrangementId(ia.arrangementId);
+      if (numericId !== null) {
+        max = Math.max(max, numericId);
       }
     }
     return String(max + 1);
@@ -190,17 +225,59 @@ export class Arrangement {
    */
   generateGlobalOrc(compileData: CompileData): string {
     const buffer: string[] = [];
+    const seenInstruments = new Set<Instrument>();
 
     for (const ia of this.arrangement) {
       if (!ia.enabled) continue;
       if (!ia.instr) continue; // Skip unresolved instrument references
+      if (seenInstruments.has(ia.instr)) continue;
       const globalOrc = ia.instr.generateGlobalOrc();
       if (globalOrc) {
-        buffer.push(this.replaceInstrumentId(ia.arrangementId, globalOrc));
+        const assignmentId = compileData.getInstrSourceId(ia.instr) ?? ia.arrangementId;
+        buffer.push(this.replaceInstrumentId(assignmentId, globalOrc));
+      }
+      seenInstruments.add(ia.instr);
+    }
+
+    return buffer.join("\n");
+  }
+
+  /**
+   * Generate global score code from all enabled instruments.
+   */
+  generateGlobalSco(compileData: CompileData): string {
+    const buffer: string[] = [];
+
+    for (const ia of this.arrangement) {
+      if (!ia.enabled) continue;
+      if (!ia.instr) continue;
+      const globalSco = ia.instr.generateGlobalSco();
+      if (globalSco) {
+        const assignmentId = compileData.getInstrSourceId(ia.instr) ?? ia.arrangementId;
+        buffer.push(this.replaceInstrumentId(assignmentId, globalSco));
       }
     }
 
     return buffer.join("\n");
+  }
+
+  /**
+   * Generate any compile-time ftables used by enabled instruments.
+   */
+  generateFTables(tables: Tables): void {
+    for (const ia of this.arrangement) {
+      if (!ia.enabled) continue;
+      if (!ia.instr) continue;
+      ia.instr.generateFTables(tables);
+    }
+  }
+
+  generateUserDefinedOpcodes(udoList: unknown): void {
+    for (const ia of this.arrangement) {
+      if (!ia.enabled) continue;
+      if (!ia.instr) continue;
+      ia.instr.generateUserDefinedOpcodes(udoList);
+    }
   }
 
   private replaceInstrumentId(arrangementId: string, input: string): string {
@@ -385,4 +462,12 @@ export class Arrangement {
   ): Arrangement {
     return Arrangement.loadFromXML(data);
   }
+}
+
+function parseNumericArrangementId(arrangementId: string): number | null {
+  const trimmed = arrangementId.trim();
+  if (!/^-?\d+$/.test(trimmed)) {
+    return null;
+  }
+  return Number.parseInt(trimmed, 10);
 }

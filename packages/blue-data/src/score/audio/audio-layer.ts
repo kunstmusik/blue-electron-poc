@@ -16,6 +16,11 @@ import { TimeContext } from '../../time/time-context';
 import { fadeTypeToCsound } from './fade-type';
 import { Element } from '../../serialization/xml-reader';
 import { ObjRefSaveMap } from '../../serialization/obj-ref-map';
+import { GenericInstrument } from '../../instruments/generic-instrument';
+import { Mixer } from '../../mixer/mixer';
+import { Channel } from '../../mixer/channel';
+import { BLUE_FADE_UDO } from './blue-fade-udo';
+import { PLAYBACK_INSTRUMENT_ORC } from './playback-instrument-orc';
 
 export class AudioLayer extends Array<AudioClip> implements ScoreObjectLayer<AudioClip> {
   static HEIGHT_MAX_INDEX = 9;
@@ -102,6 +107,12 @@ export class AudioLayer extends Array<AudioClip> implements ScoreObjectLayer<Aud
     startTime: number,
     endTime: number,
   ): NoteList {
+    if (compileData.getCompilationVariable('BLUE_FADE_UDO') == null) {
+      compileData.appendGlobalOrc(BLUE_FADE_UDO);
+      compileData.setCompilationVariable('BLUE_FADE_UDO', {});
+    }
+
+    const instrId = this.generateInstrumentForAudioLayer(compileData);
     const notes = new NoteList();
     const usesEndTime = endTime > startTime;
     const adjustedEndTime = endTime - startTime;
@@ -128,8 +139,8 @@ export class AudioLayer extends Array<AudioClip> implements ScoreObjectLayer<Aud
 
       // Create a note with diskin2 p-fields
       const n = Note.createNote(12);
-      // p1: instrument ID (set by caller during CSD gen)
-      n.setPField('INSTR_ID', 1);
+      // p1: compile-time generated playback instrument ID
+      n.setPField(instrId.toString(), 1);
       n.setStartTime(newStart);
       n.setSubjectiveDuration(newDuration);
       // p4: audio file path
@@ -155,6 +166,59 @@ export class AudioLayer extends Array<AudioClip> implements ScoreObjectLayer<Aud
     }
 
     return notes;
+  }
+
+  protected getInstrumentText(var1: string, var2: string): string {
+    return PLAYBACK_INSTRUMENT_ORC
+      .replaceAll('{0}', var1)
+      .replaceAll('{1}', var2);
+  }
+
+  protected generateInstrumentForAudioLayer(compileData: CompileData): number {
+    const existing = compileData.getCompilationVariable(this._uniqueId);
+    if (typeof existing === 'number') {
+      return existing;
+    }
+
+    const assignments = compileData.getChannelIdAssignments();
+
+    let associatedChannel: Channel | undefined;
+    for (const channel of assignments.keys()) {
+      if (channel.getAssociation() === this._uniqueId) {
+        associatedChannel = channel;
+        break;
+      }
+    }
+
+    if (!associatedChannel) {
+      for (const channel of assignments.keys()) {
+        if (channel.getName() === Mixer.MASTER_CHANNEL) {
+          associatedChannel = channel;
+          break;
+        }
+      }
+    }
+
+    const instrument = new GenericInstrument();
+    if (!associatedChannel) {
+      instrument.setText(`${this.getInstrumentText("a1", "a2")}\noutc a1, a2\n`);
+    } else {
+      const channelId = assignments.get(associatedChannel);
+      if (channelId == null) {
+        throw new Error(
+          `Error: missing mixer channel assignment for ${associatedChannel.getName()}`,
+        );
+      }
+
+      const var1 = Mixer.getChannelVar(channelId, 0);
+      const var2 = Mixer.getChannelVar(channelId, 1);
+      instrument.setText(this.getInstrumentText(var1, var2));
+    }
+
+    const instrId = compileData.addInstrument(instrument);
+    compileData.setCompilationVariable(this._uniqueId, instrId);
+
+    return instrId;
   }
 
   // ─── XML Serialization ───

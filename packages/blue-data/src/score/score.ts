@@ -67,31 +67,23 @@ export class Score extends Array<LayerGroup<Layer>> {
    * Iterates all LayerGroups and collects their NoteLists.
    */
   generateForCSD(compileData: CompileData, startTime: number, endTime: number): NoteList {
-    console.log(`[Score.generateForCSD] layerGroups: ${this.length}, start: ${startTime}, end: ${endTime}`);
-
     const noteList = new NoteList();
     const context = this.timeContext;
     const hasSolo = this.some((lg) => lg.hasSoloLayers());
-    console.log(`[Score.generateForCSD] hasSolo: ${hasSolo}`);
 
     for (let i = 0; i < this.length; i++) {
       const layerGroup = this[i];
-      console.log(`[Score.generateForCSD] LayerGroup ${i}: ${layerGroup.getName()}, type: ${layerGroup.constructor.name}`);
 
       if (!hasSolo) {
         // No solo layers — generate all non-muted layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, false);
-        console.log(`[Score.generateForCSD] LayerGroup ${i} generated ${nl.length} notes`);
         noteList.merge(nl);
       } else {
         // Solo mode — generate only solo layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, true);
-        console.log(`[Score.generateForCSD] LayerGroup ${i} (solo) generated ${nl.length} notes`);
         noteList.merge(nl);
       }
     }
-
-    console.log(`[Score.generateForCSD] Total notes: ${noteList.length}`);
     return noteList;
   }
 

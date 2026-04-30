@@ -1,6 +1,10 @@
 # Build output
 dist/
 *.tsbuildinfo
+packages/blue-data/tests/integration/*.js
+packages/blue-data/tests/integration/*.js.map
+packages/blue-data/tests/integration/*.d.ts
+packages/blue-data/tests/integration/*.d.ts.map
 
 # Dependencies
 node_modules/

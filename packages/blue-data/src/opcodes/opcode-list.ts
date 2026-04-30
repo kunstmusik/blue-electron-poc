@@ -9,6 +9,14 @@ export class OpcodeList {
   private _opcodes: OpcodeDefinition[] = [];
   private _counter = 0;
 
+  constructor(other?: OpcodeList) {
+    if (other) {
+      this._opcodes = other.getOpcodes().map(
+        (opcode) => opcode.deepCopy() as OpcodeDefinition,
+      );
+    }
+  }
+
   addOpcode(opcode: OpcodeDefinition): void {
     this._opcodes.push(opcode);
   }

@@ -5,6 +5,7 @@
 import { OpcodeDefinition } from './opcode-definition';
 import { OpcodeList } from './opcode-list';
 import { UDOStyle } from './udo-style';
+import { replaceOpcodeNames } from '../utilities/text';
 import {
   getModernOutTypesFromSignature,
   getInputArgumentsFromCodeBody,
@@ -185,4 +186,39 @@ export function convertToClassic(udo: OpcodeDefinition): void {
 
   udo.setInputArguments('');
   udo.setStyle(UDOStyle.CLASSIC);
+}
+
+/**
+ * Append UDOs from newList into masterList, preserving Java-style
+ * equivalence checks and collision renaming behavior.
+ */
+export function appendUserDefinedOpcodes(
+  newList: OpcodeList,
+  masterList: OpcodeList,
+): Map<string, string> {
+  const keyValues = new Map<string, string>();
+
+  for (const udo of newList.getOpcodes()) {
+    if (keyValues.size > 0) {
+      udo.setCode(replaceOpcodeNames(keyValues, udo.getCode()));
+    }
+
+    const oldName = udo.getName();
+    let newName = masterList.getNameOfEquivalentCopy(udo);
+
+    if (newName == null) {
+      if (!masterList.isNameUnique(oldName)) {
+        newName = masterList.getUniqueName();
+        udo.setName(newName);
+      }
+
+      masterList.addOpcode(udo);
+    }
+
+    if (newName != null && newName !== oldName) {
+      keyValues.set(oldName, newName);
+    }
+  }
+
+  return keyValues;
 }

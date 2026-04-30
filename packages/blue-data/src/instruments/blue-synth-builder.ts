@@ -23,10 +23,15 @@ import { PresetGroup } from "./blue-synth-builder/preset-group";
 import { Preset } from "./blue-synth-builder/preset";
 import { OpcodeDefinition } from "../opcodes/opcode-definition";
 import { UDOStyle } from "../opcodes/udo-style";
-import { convertToClassic, convertToModern } from "../opcodes/udo-utilities";
+import {
+  appendUserDefinedOpcodes,
+  convertToClassic,
+  convertToModern,
+} from "../opcodes/udo-utilities";
 import { ParameterList } from "../automation/parameter-list";
 import { BSBHSliderBank } from './blue-synth-builder/bsb-hslider-bank';
 import { BSBVSliderBank } from './blue-synth-builder/bsb-vslider-bank';
+import { replaceOpcodeNames } from "../utilities/text";
 
 function parseUdoBlock(
   block: string,
@@ -63,6 +68,7 @@ export class BlueSynthBuilder extends Instrument {
   private _parameters: Parameter[] = [];
   private _opcodeList = new OpcodeList();
   private _presetGroup: PresetGroup | null = null;
+  private _udoReplacementValues: Map<string, string> | null = null;
 
   constructor(other?: BlueSynthBuilder) {
     super();
@@ -150,8 +156,32 @@ export class BlueSynthBuilder extends Instrument {
     if (!this._instrumentText) return "";
 
     const unit = new BSBCompilationUnit();
-    this._graphicInterface.collectReplacements(unit, parameters);
-    return unit.replaceBSBValues(this._instrumentText);
+    const replacementParameters = parameters ?? this._parameters;
+    this._graphicInterface.collectReplacements(unit, replacementParameters);
+
+    let rendered = unit.replaceBSBValues(this._instrumentText);
+    if (this._udoReplacementValues && this._udoReplacementValues.size > 0) {
+      rendered = replaceOpcodeNames(this._udoReplacementValues, rendered);
+    }
+
+    return rendered;
+  }
+
+  override generateAlwaysOnInstrument(): string | null {
+    if (!this._alwaysOnInstrumentText || this._alwaysOnInstrumentText.trim().length === 0) {
+      return null;
+    }
+
+    const unit = new BSBCompilationUnit();
+    this._graphicInterface.collectReplacements(unit, this._parameters);
+
+    let rendered = unit.replaceBSBValues(this._alwaysOnInstrumentText);
+    if (this._udoReplacementValues && this._udoReplacementValues.size > 0) {
+      rendered = replaceOpcodeNames(this._udoReplacementValues, rendered);
+      this._udoReplacementValues = null;
+    }
+
+    return rendered;
   }
 
   generateGlobalOrc(): string | null {
@@ -187,6 +217,17 @@ export class BlueSynthBuilder extends Instrument {
 
   setOpcodeList(opcodeList: OpcodeList): void {
     this._opcodeList = opcodeList;
+  }
+
+  override generateUserDefinedOpcodes(udoList: unknown): void {
+    if (!(udoList instanceof OpcodeList)) {
+      return;
+    }
+
+    this._udoReplacementValues = appendUserDefinedOpcodes(
+      this._opcodeList,
+      udoList,
+    );
   }
 
   getOpcodeListText(): string {

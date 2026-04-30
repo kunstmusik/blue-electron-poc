@@ -12,6 +12,29 @@ export function replaceAll(input: string, search: string, replacement: string): 
 }
 
 /**
+ * Replace opcode names using Java-compatible whitespace boundary matching.
+ * Mirrors TextUtilities.replaceOpcodeNames().
+ */
+export function replaceOpcodeNames(
+  replacementValues: Map<string, string>,
+  input: string,
+): string {
+  let output = input;
+
+  for (const [from, to] of replacementValues) {
+    if (!from || from === to) {
+      continue;
+    }
+
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const pattern = new RegExp(`(^|\\s)${escaped}($|\\s)`, "g");
+    output = output.replace(pattern, `$1${to}$2`);
+  }
+
+  return output;
+}
+
+/**
  * Strip a single-line comment from a string.
  * Removes everything from // or ; to end of line.
  */
