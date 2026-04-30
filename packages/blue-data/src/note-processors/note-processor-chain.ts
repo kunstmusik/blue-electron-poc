@@ -1,7 +1,3 @@
-/**
- * NoteProcessorChain — ordered chain of note processors applied to a NoteList.
- * Mirrors the Java NoteProcessorChain class.
- */
 import { NoteProcessor } from './note-processor';
 import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
@@ -23,7 +19,52 @@ import { TuningProcessor } from './tuning-processor';
 import { SwitchProcessor } from './switch-processor';
 import { SubListProcessor } from './sublist-processor';
 import { EqualsProcessor } from './equals-processor';
-import { ValueTimeMapper } from './value-time-mapper';
+import { UnsupportedProcessor } from './unsupported-processor';
+
+const PROCESSOR_MAP: Record<string, { loadFromXML: (data: Element) => NoteProcessor }> = {
+  AddProcessor,
+  MultiplyProcessor,
+  Code,
+  RandomAddProcessor,
+  RandomMultiplyProcessor,
+  LineAddProcessor,
+  LineMultiplyProcessor,
+  PchAddProcessor,
+  PchInversionProcessor,
+  InversionProcessor,
+  RetrogradeProcessor,
+  RotateProcessor,
+  TimeWarpProcessor,
+  TuningProcessor,
+  SwitchProcessor,
+  SubListProcessor,
+  EqualsProcessor,
+};
+
+const FULL_CLASS_NAME_MAP: Record<string, string> = {
+  'blue.noteProcessor.AddProcessor': 'AddProcessor',
+  'blue.noteProcessor.MultiplyProcessor': 'MultiplyProcessor',
+  'blue.noteProcessor.Code': 'Code',
+  'blue.noteProcessor.RandomAddProcessor': 'RandomAddProcessor',
+  'blue.noteProcessor.RandomMultiplyProcessor': 'RandomMultiplyProcessor',
+  'blue.noteProcessor.LineAddProcessor': 'LineAddProcessor',
+  'blue.noteProcessor.LineMultiplyProcessor': 'LineMultiplyProcessor',
+  'blue.noteProcessor.PchAddProcessor': 'PchAddProcessor',
+  'blue.noteProcessor.PchInversionProcessor': 'PchInversionProcessor',
+  'blue.noteProcessor.InversionProcessor': 'InversionProcessor',
+  'blue.noteProcessor.RetrogradeProcessor': 'RetrogradeProcessor',
+  'blue.noteProcessor.RotateProcessor': 'RotateProcessor',
+  'blue.noteProcessor.TimeWarpProcessor': 'TimeWarpProcessor',
+  'blue.noteProcessor.TuningProcessor': 'TuningProcessor',
+  'blue.noteProcessor.SwitchProcessor': 'SwitchProcessor',
+  'blue.noteProcessor.SubListProcessor': 'SubListProcessor',
+  'blue.noteProcessor.EqualsProcessor': 'EqualsProcessor',
+  'blue.noteProcessor.PythonProcessor': 'PythonProcessor',
+};
+
+export function normalizeProcessorType(typeAttr: string): string {
+  return FULL_CLASS_NAME_MAP[typeAttr] ?? typeAttr;
+}
 
 export class NoteProcessorChain {
   private _processors: NoteProcessor[] = [];
@@ -46,9 +87,6 @@ export class NoteProcessorChain {
     this._processors = [];
   }
 
-  /**
-   * Apply this chain of processors to a NoteList.
-   */
   apply(notes: NoteList): NoteList {
     let result = notes;
     for (const proc of this._processors) {
@@ -68,16 +106,16 @@ export class NoteProcessorChain {
     return result;
   }
 
-  /** Save to XML. */
   saveAsXML(): Element {
     const elem = new Element('noteProcessorChain');
     for (const proc of this._processors) {
-      elem.addElement(proc.saveAsXML().setName('noteProcessor'));
+      const procElem = proc.saveAsXML();
+      procElem.setName('noteProcessor');
+      elem.addElement(procElem);
     }
     return elem;
   }
 
-  /** Load from XML. */
   static loadFromXML(data: Element): NoteProcessorChain {
     const chain = new NoteProcessorChain();
     const procNodes = data.getElements('noteProcessor');
@@ -92,55 +130,18 @@ export class NoteProcessorChain {
     return chain;
   }
 
-  /** Deep copy. */
   deepCopy(): NoteProcessorChain {
     return new NoteProcessorChain(this);
   }
 }
 
-/**
- * Factory function to create a NoteProcessor from XML based on type attribute.
- */
 function createProcessorFromXML(type: string, data: Element): NoteProcessor | null {
-  switch (type) {
-    case 'AddProcessor':
-      return AddProcessor.loadFromXML(data);
-    case 'MultiplyProcessor':
-      return MultiplyProcessor.loadFromXML(data);
-    case 'Code':
-      return Code.loadFromXML(data);
-    case 'RandomAddProcessor':
-      return RandomAddProcessor.loadFromXML(data);
-    case 'RandomMultiplyProcessor':
-      return RandomMultiplyProcessor.loadFromXML(data);
-    case 'LineAddProcessor':
-      return LineAddProcessor.loadFromXML(data);
-    case 'LineMultiplyProcessor':
-      return LineMultiplyProcessor.loadFromXML(data);
-    case 'PchAddProcessor':
-      return PchAddProcessor.loadFromXML(data);
-    case 'PchInversionProcessor':
-      return PchInversionProcessor.loadFromXML(data);
-    case 'InversionProcessor':
-      return InversionProcessor.loadFromXML(data);
-    case 'RetrogradeProcessor':
-      return RetrogradeProcessor.loadFromXML(data);
-    case 'RotateProcessor':
-      return RotateProcessor.loadFromXML(data);
-    case 'TimeWarpProcessor':
-      return TimeWarpProcessor.loadFromXML(data);
-    case 'TuningProcessor':
-      return TuningProcessor.loadFromXML(data);
-    case 'SwitchProcessor':
-      return SwitchProcessor.loadFromXML(data);
-    case 'SubListProcessor':
-      return SubListProcessor.loadFromXML(data);
-    case 'EqualsProcessor':
-      return EqualsProcessor.loadFromXML(data);
-    case 'ValueTimeMapper':
-      return ValueTimeMapper.loadFromXML(data);
-    default:
-      console.warn(`Unknown NoteProcessor type: ${type}`);
-      return null;
+  const shortName = normalizeProcessorType(type);
+
+  const loader = PROCESSOR_MAP[shortName];
+  if (loader) {
+    return loader.loadFromXML(data);
   }
+
+  return UnsupportedProcessor.loadFromXML(data, type);
 }

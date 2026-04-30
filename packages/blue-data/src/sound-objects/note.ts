@@ -1,73 +1,173 @@
-/**
- * Note — represents a single Csound note with p-fields.
- * Mirrors the Java Note class.
- *
- * Csound notes are text-based: "i1 0 2 440 0.5" where:
- *   p1 = instrument, p2 = start time, p3 = duration, p4+ = parameters
- *
- * Notes are built by SoundObjects during CSD generation and collected
- * into NoteLists for the final score output.
- */
 import { formatBlueNumber, formatJavaDouble } from '../utilities/number-format';
+
+const TOKEN_PATTERN = /"[^"]*"|\[[^\]]*\]|\S*/g;
+
+function evalBracketExpression(expr: string): string {
+  try {
+    const sanitized = expr
+      .replace(/[^0-9+\-*/().eE\s]/g, '')
+      .trim();
+    if (!sanitized) return '0';
+    const result = new Function(`return (${sanitized})`)();
+    if (typeof result === 'number' && isFinite(result)) {
+      return result.toString();
+    }
+    return expr;
+  } catch {
+    return expr;
+  }
+}
 
 export class Note {
   private _pFields = new Map<number, string>();
   private _startTime = 0;
   private _subjectiveDuration = 0;
+  isTied = false;
 
-  constructor() {}
-
-  /** Create a note with the specified number of p-fields. */
   static createNote(numPFields: number): Note {
     const note = new Note();
+    for (let i = 1; i <= numPFields; i++) {
+      note._pFields.set(i, (i - 1).toString());
+    }
     return note;
   }
 
-  /** Get start time (p2). */
-  getStartTime(): number {
-    return this._startTime;
+  static createBlank(numPFields: number): Note {
+    return Note.createNote(numPFields);
   }
 
-  /** Set start time (p2). */
+  static fromOther(other: Note): Note {
+    const note = new Note();
+    note._startTime = other._startTime;
+    note._subjectiveDuration = other._subjectiveDuration;
+    note.isTied = other.isTied;
+    for (const [k, v] of other._pFields) {
+      note._pFields.set(k, v);
+    }
+    return note;
+  }
+
+  static createNoteFromText(text: string, previousNote?: Note | null): Note | null {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('i')) return null;
+
+    try {
+      const n = new Note();
+      const cleanText = trimmed.substring(trimmed.indexOf('i') + 1);
+      n.noteInit(cleanText, previousNote ?? null);
+      return n;
+    } catch {
+      return null;
+    }
+  }
+
+  private noteInit(input: string, previousNote: Note | null): void {
+    const buffer: string[] = [];
+
+    const m = input.match(TOKEN_PATTERN);
+    if (m) {
+      for (const str of m) {
+        if (!str) continue;
+        if (str.charAt(0) === '[') {
+          const evaluated = evalBracketExpression(str.substring(1, str.length - 1));
+          buffer.push(evaluated);
+        } else {
+          buffer.push(str);
+        }
+      }
+    }
+
+    if (buffer.length < 3) throw new Error('Insufficient pfields');
+
+    if (previousNote !== null) {
+      let performCarry = buffer[0] === previousNote.getPField(1);
+
+      if (!performCarry) {
+        try {
+          const instr1 = parseInt(buffer[0], 10);
+          const instr2 = parseInt(previousNote.getPField(1) ?? '', 10);
+          if (instr1 === instr2) performCarry = true;
+        } catch { /* not numeric */ }
+      }
+
+      if (performCarry) {
+        const numFieldsToCopy = previousNote.getPCount() - buffer.length;
+        if (numFieldsToCopy > 0) {
+          for (let i = previousNote.getPCount() - numFieldsToCopy; i < previousNote.getPCount(); i++) {
+            buffer.push(previousNote.getPField(i + 1) ?? '');
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < buffer.length; i++) {
+      this._pFields.set(i + 1, buffer[i]);
+    }
+
+    if (previousNote !== null) {
+      for (let i = 0; i < buffer.length; i++) {
+        if (buffer[i] === '.') {
+          const prevVal = previousNote.getPField(i + 1);
+          if (prevVal !== undefined) {
+            this._pFields.set(i + 1, prevVal);
+          }
+        }
+      }
+    }
+
+    const dur = parseFloat(buffer[2] ?? '0');
+    this._startTime = parseFloat(buffer[1] ?? '0');
+    this.setSubjectiveDuration(dur);
+    this.setTied(dur < 0);
+  }
+
+  getStartTime(): number { return this._startTime; }
   setStartTime(time: number): void {
     this._startTime = time;
+    this._pFields.set(2, formatJavaDouble(time));
   }
 
-  /** Get subjective duration (p3). */
-  getSubjectiveDuration(): number {
-    return this._subjectiveDuration;
-  }
-
-  /** Set subjective duration (p3). */
+  getSubjectiveDuration(): number { return this._subjectiveDuration; }
   setSubjectiveDuration(duration: number): void {
-    this._subjectiveDuration = duration;
+    this._subjectiveDuration = Math.abs(duration);
   }
 
-  /** Get a p-field value. */
+  getObjectiveDuration(): number { return this.getSubjectiveDuration(); }
+
+  getEndTime(): number { return this._startTime + this._subjectiveDuration; }
+
+  isTiedNote(): boolean { return this.isTied; }
+  setTied(tied: boolean): void { this.isTied = tied; }
+
+  getPCount(): number { return this._pFields.size; }
+
   getPField(index: number): string | undefined {
     return this._pFields.get(index);
   }
 
-  /** Set a p-field value. Index is 1-based (p1 = instrument). */
   setPField(value: string, index: number): void {
     this._pFields.set(index, value);
+    if (index === 2) {
+      this._startTime = parseFloat(value);
+    }
+    if (index === 3) {
+      this.setSubjectiveDuration(parseFloat(value));
+    }
   }
 
-  /** Get all p-fields as a map. */
   getPFields(): Map<number, string> {
     return new Map(this._pFields);
   }
 
-  /** Convert this note to Csound score text. Outputs "i<p1> <p2> <p3> ..." format. */
   toScoreText(): string {
     const parts: string[] = [];
-    // p1 (instrument) — prefixed with 'i'
     parts.push('i' + (this._pFields.get(1) ?? '0'));
-    // p2 (start time)
     parts.push(formatJavaDouble(this._startTime));
-    // p3 (duration)
-    parts.push(formatBlueNumber(this._subjectiveDuration));
-    // p4+ (parameters)
+    if (this.isTied) {
+      parts.push('-' + formatBlueNumber(this._subjectiveDuration));
+    } else {
+      parts.push(formatBlueNumber(this._subjectiveDuration));
+    }
     for (let i = 4; ; i++) {
       const val = this._pFields.get(i);
       if (val === undefined) break;
@@ -76,40 +176,7 @@ export class Note {
     return parts.join('\t');
   }
 
-  /** Create a deep copy of this note. */
   deepCopy(): Note {
-    const note = new Note();
-    note._startTime = this._startTime;
-    note._subjectiveDuration = this._subjectiveDuration;
-    for (const [k, v] of this._pFields) {
-      note._pFields.set(k, v);
-    }
-    return note;
-  }
-
-  /**
-   * Parse a Csound score text string into a Note.
-   * Handles both "i1 0 2 440 0.5" and "i 1 0 2 440 0.5" formats.
-   * Mirrors Java Note.createNote which strips the leading 'i' before parsing.
-   */
-  static createNoteFromText(text: string): Note | null {
-    let cleanText = text.trim();
-
-    // Strip leading 'i' or 'I' (score statement type), mirroring Java
-    if (cleanText.startsWith('i') || cleanText.startsWith('I')) {
-      cleanText = cleanText.substring(1);
-    }
-
-    const parts = cleanText.split(/\s+/).filter(Boolean);
-    if (parts.length < 3) return null;
-
-    const note = new Note();
-    note._pFields.set(1, parts[0]);
-    note._startTime = parseFloat(parts[1]);
-    note._subjectiveDuration = parseFloat(parts[2]);
-    for (let i = 3; i < parts.length; i++) {
-      note._pFields.set(i + 1, parts[i]);
-    }
-    return note;
+    return Note.fromOther(this);
   }
 }

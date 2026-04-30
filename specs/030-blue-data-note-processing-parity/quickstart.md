@@ -19,3 +19,14 @@ git diff --check
 2. Load a project containing named and inline note processor chains, save it from TypeScript, and reopen it in Java Blue.
 3. Compare Java and TypeScript output for the known incompatible processors called out in the compatibility report.
 4. Supply invalid processor configurations for processors that Java rejects and verify TypeScript fails loudly instead of silently skipping them.
+
+## Validation Notes
+
+- Final closeout validation on 2026-04-30:
+  - `pnpm --filter @blue/data test`
+  - `pnpm --filter @blue/data build`
+  - `git diff --check`
+- Regression coverage added for note model parity, unsupported processor XML preservation, and processor-chain `ValueTimeMapper` handling in:
+  - `packages/blue-data/src/sound-objects/note.test.ts`
+  - `packages/blue-data/src/note-processors/unsupported-processor.test.ts`
+  - `packages/blue-data/src/note-processors/note-processor-chain.test.ts`

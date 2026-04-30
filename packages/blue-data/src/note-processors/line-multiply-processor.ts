@@ -1,41 +1,53 @@
-/**
- * LineMultiplyProcessor — multiplies a p-field by a linearly interpolated value.
- */
 import { NoteProcessor } from './note-processor';
 import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
+import { ValueTimeMapper } from './value-time-mapper';
+
+const JAVA_TYPE = 'blue.noteProcessor.LineMultiplyProcessor';
 
 export class LineMultiplyProcessor extends NoteProcessor {
+  private _lineMultiplyString = '0 1';
   private _pfield = 4;
-  private _startValue = 1;
-  private _endValue = 1;
 
-  getPfield(): number { return this._pfield; }
-  setPfield(p: number): void { this._pfield = p; }
+  constructor();
+  constructor(src: LineMultiplyProcessor);
+  constructor(src?: LineMultiplyProcessor) {
+    super();
+    if (src) {
+      this._lineMultiplyString = src._lineMultiplyString;
+      this._pfield = src._pfield;
+    }
+  }
 
-  getStartValue(): number { return this._startValue; }
-  setStartValue(v: number): void { this._startValue = v; }
+  getPfield(): string { return this._pfield.toString(); }
+  setPfield(pfield: string): void { this._pfield = parseInt(pfield, 10); }
 
-  getEndValue(): number { return this._endValue; }
-  setEndValue(v: number): void { this._endValue = v; }
+  getLineMultiplyString(): string { return this._lineMultiplyString; }
+  setLineMultiplyString(lineMultiplyString: string): void { this._lineMultiplyString = lineMultiplyString; }
 
   override process(notes: NoteList): NoteList {
-    const n = notes.length;
-    if (n === 0) return notes;
-    for (let i = 0; i < n; i++) {
-      const note = notes.getNote(i);
-      const oldVal = note.getPField(this._pfield);
-      if (oldVal === undefined) {
-        throw new NoteProcessorException(`Missing p-field ${this._pfield}`, this._pfield);
+    const tm = ValueTimeMapper.createValueTimeMapper(this._lineMultiplyString);
+    if (tm === null) {
+      throw new NoteProcessorException('Error in line multiply string', this._pfield);
+    }
+
+    for (const note of notes) {
+      let oldVal: number;
+      let multiplyVal: number;
+      try {
+        oldVal = parseFloat(note.getPField(this._pfield)!);
+        multiplyVal = tm.getValueForBeat(note.getStartTime());
+      } catch {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const numVal = parseFloat(oldVal);
-      if (isNaN(numVal)) {
-        throw new NoteProcessorException(`P-field ${this._pfield} is not a number`, this._pfield);
+      if (isNaN(oldVal)) {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const t = n > 1 ? i / (n - 1) : 0;
-      const lineVal = this._startValue + t * (this._endValue - this._startValue);
-      note.setPField((numVal * lineVal).toString(), this._pfield);
+      if (isNaN(multiplyVal)) {
+        throw new NoteProcessorException('Note beat out of range', this._pfield);
+      }
+      note.setPField((oldVal * multiplyVal).toString(), this._pfield);
     }
     return notes;
   }
@@ -43,30 +55,23 @@ export class LineMultiplyProcessor extends NoteProcessor {
   override getDisplayName(): string { return 'LineMultiplyProcessor'; }
 
   override deepCopy(): LineMultiplyProcessor {
-    const copy = new LineMultiplyProcessor();
-    copy._pfield = this._pfield;
-    copy._startValue = this._startValue;
-    copy._endValue = this._endValue;
-    return copy;
+    return new LineMultiplyProcessor(this);
   }
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'LineMultiplyProcessor');
-    elem.addElement('pfield').setText(this._pfield.toString());
-    elem.addElement('startValue').setText(this._startValue.toString());
-    elem.addElement('endValue').setText(this._endValue.toString());
+    elem.setAttribute('type', JAVA_TYPE);
+    elem.addElement('pfield').setText(this.getPfield());
+    elem.addElement('lineMultiplyString').setText(this.getLineMultiplyString());
     return elem;
   }
 
   static loadFromXML(data: Element): LineMultiplyProcessor {
     const proc = new LineMultiplyProcessor();
-    const pfi = data.getTextString('pfield');
-    if (pfi) proc._pfield = parseInt(pfi, 10);
-    const sv = data.getTextString('startValue');
-    if (sv) proc._startValue = parseFloat(sv);
-    const ev = data.getTextString('endValue');
-    if (ev) proc._endValue = parseFloat(ev);
+    const pf = data.getTextString('pfield');
+    if (pf !== null) proc._pfield = parseInt(pf, 10);
+    const lms = data.getTextString('lineMultiplyString');
+    if (lms !== null) proc._lineMultiplyString = lms;
     return proc;
   }
 }

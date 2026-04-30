@@ -1,23 +1,27 @@
-/**
- * RetrogradeProcessor — reverses the order of notes (temporal retrograde).
- */
 import { NoteProcessor } from './note-processor';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
 
-export class RetrogradeProcessor extends NoteProcessor {
-  override process(notes: NoteList): NoteList {
-    // Sort by start time first
-    notes.sortByStartTime();
-    const n = notes.length;
-    if (n === 0) return notes;
+const JAVA_TYPE = 'blue.noteProcessor.RetrogradeProcessor';
 
-    const lastNote = notes.getNote(n - 1);
+export class RetrogradeProcessor extends NoteProcessor {
+  constructor();
+  constructor(_src: RetrogradeProcessor);
+  constructor(_src?: RetrogradeProcessor) {
+    super();
+  }
+
+  override process(notes: NoteList): NoteList {
+    notes.sort();
+    const size = notes.length;
+    if (size === 0) return notes;
+
+    const lastNote = notes.getNote(size - 1);
     const totalTime = lastNote.getStartTime() + lastNote.getSubjectiveDuration();
 
-    for (let i = 0; i < n; i++) {
-      const note = notes.getNote(i);
-      note.setStartTime(totalTime - (note.getStartTime() + note.getSubjectiveDuration()));
+    for (let i = 0; i < size; i++) {
+      const temp = notes.getNote(i);
+      temp.setStartTime(totalTime - (temp.getStartTime() + temp.getSubjectiveDuration()));
     }
     return notes;
   }
@@ -30,7 +34,7 @@ export class RetrogradeProcessor extends NoteProcessor {
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'RetrogradeProcessor');
+    elem.setAttribute('type', JAVA_TYPE);
     return elem;
   }
 

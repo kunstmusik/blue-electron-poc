@@ -1,61 +1,61 @@
-/**
- * AddProcessor — adds a value to specified p-fields.
- * Mirrors the Java AddProcessor class.
- */
 import { NoteProcessor } from './note-processor';
+import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
-import { Note } from '../sound-objects/note';
 import { Element } from '../serialization/xml-reader';
 
+const JAVA_TYPE = 'blue.noteProcessor.AddProcessor';
+
 export class AddProcessor extends NoteProcessor {
-  private _pFieldIndex = 4;
+  private _pfield = 4;
   private _value = 0;
 
-  getPFieldIndex(): number { return this._pFieldIndex; }
-  setPFieldIndex(idx: number): void { this._pFieldIndex = idx; }
+  getPfield(): string { return this._pfield.toString(); }
+  setPfield(pfield: string): void { this._pfield = parseInt(pfield, 10); }
 
-  getValue(): number { return this._value; }
-  setValue(v: number): void { this._value = v; }
+  getVal(): string { return this._value.toString(); }
+  setVal(val: string): void { this._value = parseFloat(val); }
 
   override process(notes: NoteList): NoteList {
-    const result = new NoteList();
-    for (let i = 0; i < notes.length; i++) {
-      const note = notes.getNote(i);
-      const newNote = note.deepCopy();
-      const oldVal = newNote.getPField(this._pFieldIndex);
-      if (oldVal !== undefined) {
-        newNote.setPField((parseFloat(oldVal) + this._value).toString(), this._pFieldIndex);
+    for (const note of notes) {
+      let fieldVal: number;
+      try {
+        fieldVal = parseFloat(note.getPField(this._pfield)!);
+      } catch {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      result.push(newNote);
+      if (isNaN(fieldVal)) {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
+      }
+      note.setPField((fieldVal + this._value).toString(), this._pfield);
     }
-    return result;
+    return notes;
   }
 
-  override getDisplayName(): string {
-    return `AddProcessor(p${this._pFieldIndex} += ${this._value})`;
-  }
+  override getDisplayName(): string { return 'AddProcessor'; }
 
   override deepCopy(): AddProcessor {
     const copy = new AddProcessor();
-    copy._pFieldIndex = this._pFieldIndex;
+    copy._pfield = this._pfield;
     copy._value = this._value;
     return copy;
   }
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'AddProcessor');
-    elem.addElement('pFieldIndex').setText(this._pFieldIndex.toString());
-    elem.addElement('value').setText(this._value.toString());
+    elem.setAttribute('type', JAVA_TYPE);
+    elem.addElement('pfield').setText(this.getPfield());
+    elem.addElement('value').setText(this.getVal());
     return elem;
   }
 
   static loadFromXML(data: Element): AddProcessor {
     const proc = new AddProcessor();
-    const pfi = data.getTextString('pFieldIndex');
-    if (pfi) proc._pFieldIndex = parseInt(pfi, 10);
+    const pf = data.getTextString('pfield');
+    if (pf !== null) proc._pfield = parseInt(pf, 10);
     const v = data.getTextString('value');
-    if (v) proc._value = parseFloat(v);
+    if (v !== null) proc._value = parseFloat(v);
+    const pfIdx = data.getTextString('pFieldIndex');
+    if (pfIdx !== null) proc._pfield = parseInt(pfIdx, 10);
     return proc;
   }
 }

@@ -1,61 +1,75 @@
-/**
- * ValueTimeMapper — maps a p-field value to a time offset.
- * Mirrors the Java ValueTimeMapper class.
- */
-import { NoteProcessor } from './note-processor';
-import { NoteProcessorException } from './note-processor-exception';
-import { NoteList } from '../sound-objects/note-list';
-import { Element } from '../serialization/xml-reader';
+export class ValueTimeMapper {
+  private _timeMap: BeatValuePair[] = [];
 
-export class ValueTimeMapper extends NoteProcessor {
-  private _pfield = 4;
-  private _scaleFactor = 1;
-
-  getPfield(): number { return this._pfield; }
-  setPfield(p: number): void { this._pfield = p; }
-
-  getScaleFactor(): number { return this._scaleFactor; }
-  setScaleFactor(v: number): void { this._scaleFactor = v; }
-
-  override process(notes: NoteList): NoteList {
-    for (let i = 0; i < notes.length; i++) {
-      const note = notes.getNote(i);
-      const val = note.getPField(this._pfield);
-      if (val === undefined) {
-        throw new NoteProcessorException(`Missing p-field ${this._pfield}`, this._pfield);
-      }
-      const numVal = parseFloat(val);
-      if (isNaN(numVal)) {
-        throw new NoteProcessorException(`P-field ${this._pfield} is not a number`, this._pfield);
-      }
-      note.setStartTime(note.getStartTime() + numVal * this._scaleFactor);
+  constructor();
+  constructor(src: ValueTimeMapper);
+  constructor(src?: ValueTimeMapper) {
+    if (src && src._timeMap.length > 0) {
+      this._timeMap = src._timeMap.map(p => {
+        const pair = new BeatValuePair();
+        pair.beat = p.beat;
+        pair.value = p.value;
+        return pair;
+      });
     }
-    return notes;
   }
 
-  override getDisplayName(): string { return 'ValueTimeMapper'; }
+  static createValueTimeMapper(beatValueString: string): ValueTimeMapper | null {
+    const tokens = beatValueString.trim().split(/\s+/);
 
-  override deepCopy(): ValueTimeMapper {
-    const copy = new ValueTimeMapper();
-    copy._pfield = this._pfield;
-    copy._scaleFactor = this._scaleFactor;
-    return copy;
+    if (tokens.length % 2 !== 0) {
+      return null;
+    }
+
+    const timeMap: BeatValuePair[] = [];
+
+    for (let i = 0; i < tokens.length; i += 2) {
+      try {
+        const beat = parseFloat(tokens[i]);
+        const value = parseFloat(tokens[i + 1]);
+
+        if (beat < 0.0) {
+          return null;
+        }
+
+        const pair = new BeatValuePair();
+        pair.beat = beat;
+        pair.value = value;
+        timeMap.push(pair);
+      } catch {
+        return null;
+      }
+    }
+
+    const tm = new ValueTimeMapper();
+    tm._timeMap = timeMap;
+    return tm;
   }
 
-  saveAsXML(): Element {
-    const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'ValueTimeMapper');
-    elem.addElement('pfield').setText(this._pfield.toString());
-    elem.addElement('scaleFactor').setText(this._scaleFactor.toString());
-    return elem;
-  }
+  getValueForBeat(beat: number): number {
+    if (this._timeMap.length === 0) return NaN;
 
-  static loadFromXML(data: Element): ValueTimeMapper {
-    const proc = new ValueTimeMapper();
-    const pfi = data.getTextString('pfield');
-    if (pfi) proc._pfield = parseInt(pfi, 10);
-    const sf = data.getTextString('scaleFactor');
-    if (sf) proc._scaleFactor = parseFloat(sf);
-    return proc;
+    if (beat >= this._timeMap[this._timeMap.length - 1].beat) {
+      return this._timeMap[this._timeMap.length - 1].value;
+    }
+
+    for (let i = 0; i < this._timeMap.length - 1; i++) {
+      if (beat >= this._timeMap[i].beat && beat < this._timeMap[i + 1].beat) {
+        const x1 = this._timeMap[i].value;
+        const x2 = this._timeMap[i + 1].value;
+
+        const m = x2 - x1;
+        const x = (beat - this._timeMap[i].beat) / (this._timeMap[i + 1].beat - this._timeMap[i].beat);
+
+        return m * x + x1;
+      }
+    }
+
+    return NaN;
   }
+}
+
+class BeatValuePair {
+  beat = 0.0;
+  value = 0;
 }

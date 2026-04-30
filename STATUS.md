@@ -1,7 +1,45 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-29
-**Branch**: `029-blue-data-score-library-parity`
+**Branch**: `030-blue-data-note-processing-parity`
+
+## Spec 030 Package
+
+Spec `030-blue-data-note-processing-parity` is complete and validated.
+
+- Goal: restore Java-compatible score-text parsing, note timing semantics, note-processor XML round-trip behavior, named chain persistence, and high-risk processor execution behavior in `@blue/data`
+- Delivered scope:
+  - Java-compatible score parser with carry (`.`), `+` start-time expansion, ramp (`<`/`>`) expansion, continuation-line support, bracketed-expression evaluation, comments, and tied-note handling
+  - `Note` class with Java-parity pfield seeding/carry, lowercase `i` parsing, `setStartTime()` p2 sync, `isTied`, `getObjectiveDuration`, `getEndTime`, `getPCount`, and bracket expression evaluation
+  - `NoteList` with Java-parity `add`, `get`, `size`, `sort`, `clear`, `removeIf`, `normalizeNoteList`
+  - All 18 note processors saving with Java full class names (e.g., `blue.noteProcessor.AddProcessor`) and loading both short and full class names
+  - `NoteProcessorChainMap` using Java-compatible `<npc>` wrapper elements with legacy `<noteProcessorChain>` fallback
+  - `UnsupportedProcessor` for lossless preservation of unknown processor types and nested XML payloads, including `PythonProcessor`
+  - `GenericScore` unified on shared `getNotes()` parser (no bespoke parse path)
+  - `ValueTimeMapper` kept as a helper-only type so the processor registry matches Java's line-processor model
+  - `applyTimeBehavior` uses `getObjectiveDuration()` for duration calculations matching Java
+  - `getBaseTen()` pch utility for `PchAddProcessor`, `PchInversionProcessor`
+  - Processor implementations match Java in-place mutation semantics and exception behavior
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/contracts/note-processing-contract.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/030-blue-data-note-processing-parity/tasks.md`
+- Task status: complete; all 40 tasks marked done
+- Validation:
+  - `pnpm --filter @blue/data test` — 679 tests pass
+  - `pnpm --filter @blue/data build` — clean
+  - `pnpm --filter @blue/app build` — clean
+  - `git diff --check` — clean
+- Handoff notes:
+  - Spec 031 (CSD render parity) should build on the restored parser and processor semantics
+  - `TimeWarpProcessor` uses a simplified inline tempo-map; full `TempoMap` integration may be needed for complex warp strings
+  - `TuningProcessor` uses simplified tuning table handling; complex scale lookups may need further work
+  - `Code` processor preserves XML but does not execute code
+  - `UnsupportedProcessor` preserves unknown types losslessly for future execution support
 
 ## Spec 029 Package
 

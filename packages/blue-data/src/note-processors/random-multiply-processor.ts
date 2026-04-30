@@ -1,39 +1,61 @@
-/**
- * RandomMultiplyProcessor — multiplies a specified p-field by a random value.
- * Mirrors the Java RandomMultiplyProcessor class.
- */
 import { NoteProcessor } from './note-processor';
 import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
 
+const JAVA_TYPE = 'blue.noteProcessor.RandomMultiplyProcessor';
+
 export class RandomMultiplyProcessor extends NoteProcessor {
   private _pfield = 4;
-  private _min = 0.5;
-  private _max = 1.5;
+  private _min = 0.0;
+  private _max = 1.0;
+  private _seedUsed = false;
+  private _seed = 0;
 
-  getPfield(): number { return this._pfield; }
-  setPfield(p: number): void { this._pfield = p; }
+  constructor();
+  constructor(src: RandomMultiplyProcessor);
+  constructor(src?: RandomMultiplyProcessor) {
+    super();
+    if (src) {
+      this._pfield = src._pfield;
+      this._min = src._min;
+      this._max = src._max;
+      this._seedUsed = src._seedUsed;
+      this._seed = src._seed;
+    }
+  }
 
-  getMin(): number { return this._min; }
-  setMin(v: number): void { this._min = v; }
+  getPfield(): string { return this._pfield.toString(); }
+  setPfield(pfield: string): void { this._pfield = parseInt(pfield, 10); }
 
-  getMax(): number { return this._max; }
-  setMax(v: number): void { this._max = v; }
+  getMin(): string { return this._min.toString(); }
+  setMin(value: string): void { this._min = parseFloat(value); }
+
+  getMax(): string { return this._max.toString(); }
+  setMax(value: string): void { this._max = parseFloat(value); }
+
+  isSeedUsed(): boolean { return this._seedUsed; }
+  setSeedUsed(seedUsed: boolean): void { this._seedUsed = seedUsed; }
+
+  getSeed(): string { return this._seed.toString(); }
+  setSeed(seed: string): void { this._seed = parseInt(seed, 10); }
 
   override process(notes: NoteList): NoteList {
-    for (let i = 0; i < notes.length; i++) {
-      const note = notes.getNote(i);
-      const oldVal = note.getPField(this._pfield);
-      if (oldVal === undefined) {
-        throw new NoteProcessorException(`Missing p-field ${this._pfield}`, this._pfield);
+    const range = this._max - this._min;
+    const r = this._seedUsed ? this._seedRandom(this._seed) : Math.random;
+
+    for (const note of notes) {
+      let fieldVal: number;
+      try {
+        fieldVal = parseFloat(note.getPField(this._pfield)!);
+      } catch {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const numVal = parseFloat(oldVal);
-      if (isNaN(numVal)) {
-        throw new NoteProcessorException(`P-field ${this._pfield} is not a number`, this._pfield);
+      if (isNaN(fieldVal)) {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const randVal = Math.random() * (this._max - this._min) + this._min;
-      note.setPField((numVal * randVal).toString(), this._pfield);
+      const randVal = (r.call(Math) * range) + this._min;
+      note.setPField((fieldVal * randVal).toString(), this._pfield);
     }
     return notes;
   }
@@ -41,30 +63,40 @@ export class RandomMultiplyProcessor extends NoteProcessor {
   override getDisplayName(): string { return 'RandomMultiplyProcessor'; }
 
   override deepCopy(): RandomMultiplyProcessor {
-    const copy = new RandomMultiplyProcessor();
-    copy._pfield = this._pfield;
-    copy._min = this._min;
-    copy._max = this._max;
-    return copy;
+    return new RandomMultiplyProcessor(this);
   }
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'RandomMultiplyProcessor');
-    elem.addElement('pfield').setText(this._pfield.toString());
-    elem.addElement('min').setText(this._min.toString());
-    elem.addElement('max').setText(this._max.toString());
+    elem.setAttribute('type', JAVA_TYPE);
+    elem.addElement('pfield').setText(this.getPfield());
+    elem.addElement('min').setText(this.getMin());
+    elem.addElement('max').setText(this.getMax());
+    elem.addElement('seedUsed').setText(this._seedUsed.toString());
+    elem.addElement('seed').setText(this.getSeed());
     return elem;
   }
 
   static loadFromXML(data: Element): RandomMultiplyProcessor {
     const proc = new RandomMultiplyProcessor();
-    const pfi = data.getTextString('pfield');
-    if (pfi) proc._pfield = parseInt(pfi, 10);
+    const pf = data.getTextString('pfield');
+    if (pf !== null) proc._pfield = parseInt(pf, 10);
     const mn = data.getTextString('min');
-    if (mn) proc._min = parseFloat(mn);
+    if (mn !== null) proc._min = parseFloat(mn);
     const mx = data.getTextString('max');
-    if (mx) proc._max = parseFloat(mx);
+    if (mx !== null) proc._max = parseFloat(mx);
+    const su = data.getTextString('seedUsed');
+    if (su !== null) proc._seedUsed = su.toLowerCase() === 'true';
+    const sd = data.getTextString('seed');
+    if (sd !== null) proc._seed = parseInt(sd, 10);
     return proc;
+  }
+
+  private _seedRandom(seed: number): () => number {
+    let s = seed;
+    return () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      return s / 0x7fffffff;
+    };
   }
 }

@@ -1,46 +1,45 @@
-/**
- * TimeWarpProcessor — applies a time warp function to note start times.
- */
 import { NoteProcessor } from './note-processor';
+import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
 
+const JAVA_TYPE = 'blue.noteProcessor.TimeWarpProcessor';
+
 export class TimeWarpProcessor extends NoteProcessor {
-  private _warpFunction = 'linear';
-  private _warpAmount = 1;
+  private _timeWarpString = '0 60';
 
-  getWarpFunction(): string { return this._warpFunction; }
-  setWarpFunction(fn: string): void { this._warpFunction = fn; }
+  constructor();
+  constructor(src: TimeWarpProcessor);
+  constructor(src?: TimeWarpProcessor) {
+    super();
+    if (src) {
+      this._timeWarpString = src._timeWarpString;
+    }
+  }
 
-  getWarpAmount(): number { return this._warpAmount; }
-  setWarpAmount(v: number): void { this._warpAmount = v; }
+  getTimeWarpString(): string { return this._timeWarpString; }
+  setTimeWarpString(timeWarpString: string): void { this._timeWarpString = timeWarpString; }
 
   override process(notes: NoteList): NoteList {
-    if (notes.length === 0) return notes;
+    const tm = TempoMap.createTempoMap(this._timeWarpString);
+    if (tm === null) {
+      throw new NoteProcessorException('Error in tempo string', 0);
+    }
 
-    const lastNote = notes.getNote(notes.length - 1);
-    const totalTime = lastNote.getStartTime() + lastNote.getSubjectiveDuration();
-
-    for (let i = 0; i < notes.length; i++) {
-      const note = notes.getNote(i);
-      const t = totalTime > 0 ? note.getStartTime() / totalTime : 0;
-      let warpedT: number;
-
-      switch (this._warpFunction) {
-        case 'exponential':
-          warpedT = Math.pow(t, this._warpAmount);
-          break;
-        case 'logarithmic':
-          warpedT = Math.log(1 + t * this._warpAmount) / Math.log(1 + this._warpAmount);
-          break;
-        case 'sine':
-          warpedT = Math.sin(t * Math.PI / 2);
-          break;
-        default: // linear
-          warpedT = t;
+    for (const note of notes) {
+      let newStart: number;
+      let newEnd: number;
+      try {
+        newStart = tm.beatsToSeconds(note.getStartTime());
+        newEnd = tm.beatsToSeconds(note.getStartTime() + note.getSubjectiveDuration());
+      } catch {
+        throw new NoteProcessorException('Error in time warp', 0);
       }
-
-      note.setStartTime(warpedT * totalTime);
+      note.setStartTime(newStart);
+      if (newEnd - newStart < 0) {
+        throw new NoteProcessorException('Error in time warp', 0);
+      }
+      note.setSubjectiveDuration(newEnd - newStart);
     }
     return notes;
   }
@@ -48,26 +47,76 @@ export class TimeWarpProcessor extends NoteProcessor {
   override getDisplayName(): string { return 'TimeWarpProcessor'; }
 
   override deepCopy(): TimeWarpProcessor {
-    const copy = new TimeWarpProcessor();
-    copy._warpFunction = this._warpFunction;
-    copy._warpAmount = this._warpAmount;
-    return copy;
+    return new TimeWarpProcessor(this);
   }
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'TimeWarpProcessor');
-    elem.addElement('warpFunction').setText(this._warpFunction);
-    elem.addElement('warpAmount').setText(this._warpAmount.toString());
+    elem.setAttribute('type', JAVA_TYPE);
+    elem.addElement('timeWarpString').setText(this.getTimeWarpString());
     return elem;
   }
 
   static loadFromXML(data: Element): TimeWarpProcessor {
     const proc = new TimeWarpProcessor();
-    const fn = data.getTextString('warpFunction');
-    if (fn) proc._warpFunction = fn;
-    const amt = data.getTextString('warpAmount');
-    if (amt) proc._warpAmount = parseFloat(amt);
+    const tws = data.getTextString('timeWarpString');
+    if (tws !== null) proc._timeWarpString = tws;
     return proc;
+  }
+}
+
+class BeatTempoPair {
+  beat = 0;
+  tempo = 0;
+}
+
+class TempoMap {
+  private _pairs: BeatTempoPair[];
+
+  private constructor(pairs: BeatTempoPair[]) {
+    this._pairs = pairs;
+  }
+
+  static createTempoMap(tempoString: string): TempoMap | null {
+    const tokens = tempoString.trim().split(/\s+/);
+    if (tokens.length % 2 !== 0) return null;
+
+    const pairs: BeatTempoPair[] = [];
+    for (let i = 0; i < tokens.length; i += 2) {
+      const pair = new BeatTempoPair();
+      pair.beat = parseFloat(tokens[i]);
+      pair.tempo = parseFloat(tokens[i + 1]);
+      if (isNaN(pair.beat) || isNaN(pair.tempo) || pair.beat < 0) {
+        return null;
+      }
+      pairs.push(pair);
+    }
+    if (pairs.length === 0) return null;
+    return new TempoMap(pairs);
+  }
+
+  beatsToSeconds(beat: number): number {
+    if (this._pairs.length === 0) return 0;
+
+    let seconds = 0;
+
+    for (let i = 0; i < this._pairs.length - 1; i++) {
+      const current = this._pairs[i];
+      const next = this._pairs[i + 1];
+
+      if (beat <= next.beat) {
+        const bpm = (current.tempo + next.tempo) / 2;
+        const secondsPerBeat = 60 / bpm;
+        return seconds + (beat - current.beat) * secondsPerBeat;
+      }
+
+      const bpm = (current.tempo + next.tempo) / 2;
+      const secondsPerBeat = 60 / bpm;
+      seconds += (next.beat - current.beat) * secondsPerBeat;
+    }
+
+    const last = this._pairs[this._pairs.length - 1];
+    const secondsPerBeat = 60 / last.tempo;
+    return seconds + (beat - last.beat) * secondsPerBeat;
   }
 }

@@ -1,10 +1,3 @@
-/**
- * NoteList — collection of Notes with merge and sort operations.
- * Mirrors the Java NoteList class.
- *
- * NoteLists are the output of SoundObject.generateForCSD() and are
- * accumulated during CSD generation to form the final <CsScore> section.
- */
 import { Note } from './note';
 
 export class NoteList {
@@ -16,39 +9,42 @@ export class NoteList {
     }
   }
 
-  /** Get the number of notes. */
-  get length(): number {
-    return this._notes.length;
-  }
+  get length(): number { return this._notes.length; }
+  get size(): number { return this._notes.length; }
 
-  /** Get a note by index. */
-  getNote(index: number): Note {
-    return this._notes[index];
-  }
+  get(index: number): Note { return this._notes[index]; }
+  getNote(index: number): Note { return this._notes[index]; }
 
-  /** Add a note. */
-  push(note: Note): void {
-    this._notes.push(note);
-  }
+  add(note: Note): void { this._notes.push(note); }
+  push(note: Note): void { this._notes.push(note); }
 
-  /**
-   * Merge another NoteList into this one.
-   * Java NoteList.merge() preserves append order; callers sort explicitly when needed.
-   */
+  clear(): void { this._notes = []; }
+
   merge(other: NoteList): void {
     for (let i = 0; i < other.length; i++) {
       this._notes.push(other.getNote(i));
     }
   }
 
-  /** Sort notes by start time (ascending). */
-  sortByStartTime(): void {
+  sort(): void {
     this._notes.sort((a, b) => a.getStartTime() - b.getStartTime());
   }
 
-  /**
-   * Create a deep copy of this note list.
-   */
+  sortByStartTime(): void { this.sort(); }
+
+  removeIf(predicate: (note: Note) => boolean): void {
+    this._notes = this._notes.filter((n) => !predicate(n));
+  }
+
+  normalizeNoteList(): void {
+    if (this._notes.length === 0) return;
+    this.sort();
+    const minStart = this._notes[0].getStartTime();
+    for (const note of this._notes) {
+      note.setStartTime(note.getStartTime() - minStart);
+    }
+  }
+
   deepCopy(): NoteList {
     const copy = new NoteList();
     for (const note of this._notes) {
@@ -57,24 +53,20 @@ export class NoteList {
     return copy;
   }
 
-  /** Iterate over notes (for...of). */
   *[Symbol.iterator](): Iterator<Note> {
     for (const note of this._notes) {
       yield note;
     }
   }
 
-  /** Map over notes. */
   map<T>(fn: (note: Note, index: number) => T): T[] {
     return this._notes.map(fn);
   }
 
-  /** Remove note at index. Used internally by applyTimeBehavior. */
   _removeAt(index: number): void {
     this._notes.splice(index, 1);
   }
 
-  /** Replace all notes with contents of another NoteList. Used internally by applyTimeBehavior. */
   _replaceContents(other: NoteList): void {
     this._notes = [];
     for (let i = 0; i < other.length; i++) {

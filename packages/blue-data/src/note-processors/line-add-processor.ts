@@ -1,42 +1,53 @@
-/**
- * LineAddProcessor — adds a linearly interpolated value to a p-field across notes.
- * Mirrors the Java LineAddProcessor class.
- */
 import { NoteProcessor } from './note-processor';
 import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
+import { ValueTimeMapper } from './value-time-mapper';
+
+const JAVA_TYPE = 'blue.noteProcessor.LineAddProcessor';
 
 export class LineAddProcessor extends NoteProcessor {
+  private _lineAddString = '0 0';
   private _pfield = 4;
-  private _startValue = 0;
-  private _endValue = 1;
 
-  getPfield(): number { return this._pfield; }
-  setPfield(p: number): void { this._pfield = p; }
+  constructor();
+  constructor(src: LineAddProcessor);
+  constructor(src?: LineAddProcessor) {
+    super();
+    if (src) {
+      this._lineAddString = src._lineAddString;
+      this._pfield = src._pfield;
+    }
+  }
 
-  getStartValue(): number { return this._startValue; }
-  setStartValue(v: number): void { this._startValue = v; }
+  getPfield(): string { return this._pfield.toString(); }
+  setPfield(pfield: string): void { this._pfield = parseInt(pfield, 10); }
 
-  getEndValue(): number { return this._endValue; }
-  setEndValue(v: number): void { this._endValue = v; }
+  getLineAddString(): string { return this._lineAddString; }
+  setLineAddString(lineAddString: string): void { this._lineAddString = lineAddString; }
 
   override process(notes: NoteList): NoteList {
-    const n = notes.length;
-    if (n === 0) return notes;
-    for (let i = 0; i < n; i++) {
-      const note = notes.getNote(i);
-      const oldVal = note.getPField(this._pfield);
-      if (oldVal === undefined) {
-        throw new NoteProcessorException(`Missing p-field ${this._pfield}`, this._pfield);
+    const tm = ValueTimeMapper.createValueTimeMapper(this._lineAddString);
+    if (tm === null) {
+      throw new NoteProcessorException('Error in line add string', this._pfield);
+    }
+
+    for (const note of notes) {
+      let oldVal: number;
+      let addVal: number;
+      try {
+        oldVal = parseFloat(note.getPField(this._pfield)!);
+        addVal = tm.getValueForBeat(note.getStartTime());
+      } catch {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const numVal = parseFloat(oldVal);
-      if (isNaN(numVal)) {
-        throw new NoteProcessorException(`P-field ${this._pfield} is not a number`, this._pfield);
+      if (isNaN(oldVal)) {
+        throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const t = n > 1 ? i / (n - 1) : 0;
-      const lineVal = this._startValue + t * (this._endValue - this._startValue);
-      note.setPField((numVal + lineVal).toString(), this._pfield);
+      if (isNaN(addVal)) {
+        throw new NoteProcessorException('Note beat out of range', this._pfield);
+      }
+      note.setPField((oldVal + addVal).toString(), this._pfield);
     }
     return notes;
   }
@@ -44,30 +55,23 @@ export class LineAddProcessor extends NoteProcessor {
   override getDisplayName(): string { return 'LineAddProcessor'; }
 
   override deepCopy(): LineAddProcessor {
-    const copy = new LineAddProcessor();
-    copy._pfield = this._pfield;
-    copy._startValue = this._startValue;
-    copy._endValue = this._endValue;
-    return copy;
+    return new LineAddProcessor(this);
   }
 
   saveAsXML(): Element {
     const elem = new Element('noteProcessor');
-    elem.setAttribute('type', 'LineAddProcessor');
-    elem.addElement('pfield').setText(this._pfield.toString());
-    elem.addElement('startValue').setText(this._startValue.toString());
-    elem.addElement('endValue').setText(this._endValue.toString());
+    elem.setAttribute('type', JAVA_TYPE);
+    elem.addElement('pfield').setText(this.getPfield());
+    elem.addElement('lineAddString').setText(this.getLineAddString());
     return elem;
   }
 
   static loadFromXML(data: Element): LineAddProcessor {
     const proc = new LineAddProcessor();
-    const pfi = data.getTextString('pfield');
-    if (pfi) proc._pfield = parseInt(pfi, 10);
-    const sv = data.getTextString('startValue');
-    if (sv) proc._startValue = parseFloat(sv);
-    const ev = data.getTextString('endValue');
-    if (ev) proc._endValue = parseFloat(ev);
+    const pf = data.getTextString('pfield');
+    if (pf !== null) proc._pfield = parseInt(pf, 10);
+    const las = data.getTextString('lineAddString');
+    if (las !== null) proc._lineAddString = las;
     return proc;
   }
 }

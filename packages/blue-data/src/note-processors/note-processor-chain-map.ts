@@ -1,9 +1,3 @@
-/**
- * NoteProcessorChainMap — maps named note processor chains.
- * Mirrors the Java NoteProcessorChainMap class.
- *
- * Stores named note processor chains that can be referenced by score objects.
- */
 import { Element } from '../serialization/xml-reader';
 import { BlueDataObject } from '../blue-data-object';
 import { NoteProcessorChain } from './note-processor-chain';
@@ -23,6 +17,10 @@ export class NoteProcessorChainMap implements BlueDataObject {
     return this.chains.get(name);
   }
 
+  getNoteProcessorChain(name: string): NoteProcessorChain | undefined {
+    return this.chains.get(name);
+  }
+
   setChain(name: string, chain: NoteProcessorChain): void {
     this.chains.set(name, chain);
   }
@@ -34,24 +32,38 @@ export class NoteProcessorChainMap implements BlueDataObject {
   saveAsXML(): Element {
     const elem = new Element('noteProcessorChainMap');
     for (const [name, chain] of this.chains) {
-      const chainElem = chain.saveAsXML();
-      chainElem.setAttribute('name', name);
-      elem.addElement(chainElem);
+      const npcNode = new Element('npc');
+      npcNode.setAttribute('name', name);
+      npcNode.addElement(chain.saveAsXML());
+      elem.addElement(npcNode);
     }
     return elem;
   }
 
   static loadFromXML(data: Element): NoteProcessorChainMap {
     const map = new NoteProcessorChainMap();
-    const children = data.getElements('noteProcessorChain');
-    while (children.hasMoreElements()) {
-      const node = children.next();
+
+    const npcNodes = data.getElements('npc');
+    while (npcNodes.hasMoreElements()) {
+      const npcNode = npcNodes.next();
+      const name = npcNode.getAttribute('name') ?? '';
+      const chainElem = npcNode.getElement('noteProcessorChain');
+      if (name && chainElem) {
+        const chain = NoteProcessorChain.loadFromXML(chainElem);
+        map.chains.set(name, chain);
+      }
+    }
+
+    const legacyChainNodes = data.getElements('noteProcessorChain');
+    while (legacyChainNodes.hasMoreElements()) {
+      const node = legacyChainNodes.next();
       const name = node.getAttribute('name') ?? '';
       if (name) {
         const chain = NoteProcessorChain.loadFromXML(node);
         map.chains.set(name, chain);
       }
     }
+
     return map;
   }
 
