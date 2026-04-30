@@ -1,7 +1,41 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-30
-**Branch**: `031-blue-data-csd-render-parity`
+**Branch**: `032-blue-data-runtime-model-parity`
+**Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 032 Package
+
+Spec `032-blue-data-runtime-model-parity` is planned and ready for implementation handoff on branch `032-blue-data-runtime-model-parity`.
+
+- Goal: restore the remaining `@blue/data` runtime-model parity gaps for instrument/BSB generation, mixer XML and routing behavior, and time/automation semantics
+- Active feature context:
+  - `.specify/feature.json` points to `specs/032-blue-data-runtime-model-parity`
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/contracts/runtime-model-contract.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/tasks.md`
+  - `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/checklists/requirements.md`
+- Task status: planning complete; `tasks.md` contains 38 unchecked tasks across Setup, Foundational, User Story 1, User Story 2, User Story 3, and Polish phases
+- Implementation status:
+  - no Spec 032 code changes are started in this branch yet; this commit only establishes the branch context, task plan, and handoff state
+- Recommended execution order:
+  - begin with Phase 1 and Phase 2 inventory plus fixture scaffolding
+  - implement User Story 1 first for BSB/instrument generation and preservation
+  - implement User Story 2 next for mixer XML/runtime parity
+  - implement User Story 3 last for time/automation semantics and final serialization/render integration
+- Validation:
+  - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
+  - `git diff --check` — pass
+- Handoff notes:
+  - keep the slice inside `packages/blue-data`; renderer/Electron behavior remains out of scope
+  - use the Java source anchors in `/Users/stevenyi/work/blue-electron/specs/032-blue-data-runtime-model-parity/research.md` as the source of truth for behavior mismatches
+  - start with failing fixture/tests before model changes, per the constitution
+  - keep `.specify/feature.json` aligned to the active spec while this branch is in use
 
 ## Spec 031 Package
 
