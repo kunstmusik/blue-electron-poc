@@ -1,8 +1,40 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-30
-**Branch**: `032-blue-data-runtime-model-parity`
+**Branch**: `033-midi-input-virtual-keyboard-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 033 Package
+
+Spec `033-midi-input-virtual-keyboard-parity` now has a complete planning package and is ready for implementation on branch `033-midi-input-virtual-keyboard-parity`.
+
+- Goal: implement the Java Blue-parity MIDI Input panel and Virtual Keyboard, integrated into the current workbench design and usable with Blue Live for live triggering
+- Active feature context:
+  - `.specify/feature.json` points to `specs/033-midi-input-virtual-keyboard-parity`
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/contracts/midi-input-virtual-keyboard-surfaces.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/tasks.md`
+  - `/Users/stevenyi/work/blue-electron/specs/033-midi-input-virtual-keyboard-parity/checklists/requirements.md`
+- Scope anchors captured in the planning docs:
+  - Java MIDI UI/runtime references: `MidiInputPanelTopComponent`, `MidiInputProcessorPanel`, `MidiInputEngine`, `VirtualKeyboardTopComponent`, and `VirtualKeyboardPanel`
+  - Electron parity targets: toolbar MIDI Input action, `MidiInputPanelTopComponent`, `VirtualKeyboardTopComponent`, project snapshot/patch extension for `MidiInputProcessor`, and Blue Live note-event routing
+- Key planning decisions:
+  - use the existing project snapshot/patch bridge for MIDI Input panel edits
+  - adapt `MidiInputProcessor` scale data through the typed `Scale` model instead of exposing raw XML in the renderer
+  - add a pure `@blue/data` MIDI trigger mapping helper and a main-process Blue Live note-trigger IPC surface for the Virtual Keyboard
+  - keep OS MIDI device enumeration and background hardware input explicitly deferred for a later slice
+- Validation:
+  - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
+  - `git diff --check` — pass
+- Manual target called out in the spec:
+  - load a project, adjust MIDI Input panel settings, turn on Blue Live, and trigger instruments using the Virtual Keyboard
+- Immediate next step:
+  - start implementation from Phase 2 in `tasks.md`, beginning with typed MIDI scale accessors, pure trigger mapping, and the `project-editor.ts` snapshot/patch extension
 
 ## Spec 032 Package
 
