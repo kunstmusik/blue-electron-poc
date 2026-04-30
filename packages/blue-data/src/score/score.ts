@@ -112,7 +112,7 @@ export class Score extends Array<LayerGroup<Layer>> {
     return elem;
   }
 
-  static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): Score {
+  static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): Score {
     const score = new Score();
 
     const nodes = data.getElements();
@@ -120,7 +120,6 @@ export class Score extends Array<LayerGroup<Layer>> {
     while (nodes.hasMoreElements()) {
       const node = nodes.next();
       const nodeName = node.getName();
-      console.log(`[Score.loadFromXML] Found element: ${nodeName}`);
 
       switch (nodeName) {
         case 'timeContext':
@@ -136,38 +135,24 @@ export class Score extends Array<LayerGroup<Layer>> {
           // Check if this is a PolyObject (contains soundLayer elements)
           const type = node.getAttribute('type');
           if (type === 'PolyObject' || node.hasElement('soundLayer')) {
-            console.log(`[Score.loadFromXML] soundObject is PolyObject → pushing`);
-            score.push(PolyObject.loadFromXML(node));
-            console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
-          } else {
-            console.log(`[Score.loadFromXML] soundObject type=${type || '(no type)'}`);
+            score.push(PolyObject.loadFromXML(node, objRefMap));
           }
           break;
         }
         case 'polyObject':
-          console.log(`[Score.loadFromXML] polyObject → pushing`);
-          score.push(PolyObject.loadFromXML(node));
-          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
+          score.push(PolyObject.loadFromXML(node, objRefMap));
           break;
         case 'audioLayerGroup':
-          console.log(`[Score.loadFromXML] audioLayerGroup → pushing`);
           score.push(AudioLayerGroup.loadFromXML(node));
-          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
           break;
         case 'patternsLayerGroup':
-          console.log(`[Score.loadFromXML] patternsLayerGroup → pushing`);
-          score.push(PatternsLayerGroup.loadFromXML(node));
-          console.log(`[Score.loadFromXML] Score now has ${score.length} layer groups`);
+          score.push(PatternsLayerGroup.loadFromXML(node, objRefMap));
           break;
         case 'scoreObjectLayerGroup':
-          console.log(`[Score.loadFromXML] scoreObjectLayerGroup (generic)`);
           break;
-        default:
-          console.log(`[Score.loadFromXML] Unknown: ${nodeName}`);
       }
     }
 
-    console.log(`[Score.loadFromXML] Final count: ${score.length} layer groups`);
     return score;
   }
 }

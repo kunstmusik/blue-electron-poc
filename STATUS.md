@@ -1,7 +1,49 @@
 # Project Status — blue-electron
 
 **Date**: 2026-04-29
-**Branch**: `028-blue-data-xml-preservation`
+**Branch**: `029-blue-data-score-library-parity`
+
+## Spec 029 Package
+
+Spec `029-blue-data-score-library-parity` is complete and validated.
+
+- Goal: restore Java-compatible score graph, library-backed reference behavior, and sound-object XML interoperability for `@blue/data`
+- Delivered scope:
+  - Java-compatible score and library loading/saving for `Instance`, `GenericScore`, `PolyObject`, `PatternLayer`, and audio-layer structures
+  - Java-compatible score/model copy semantics for `Score`, `SoundObjectLibrary`, `InstrumentLibrary`, and related registry helpers
+  - removal of dynamic `require()` / `import()` usage from the blue-data slice in favor of static module wiring
+  - regression coverage for score/library, registry, and migration behavior
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/contracts/score-library-contract.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/029-blue-data-score-library-parity/tasks.md`
+- Branch status: currently on `029-blue-data-score-library-parity`
+- Task status: complete; `tasks.md` contains 37 tasks and all are complete
+- High-risk implementation files:
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-library.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/instance.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/instruments/instrument-library.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/poly-object.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/sound-layer.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-registry.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-utilities.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/patterns/pattern-layer.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/audio/audio-layer.ts`
+- Validation completed:
+  - `pnpm --filter @blue/data test`
+  - `pnpm --filter @blue/app test`
+  - `git diff --check`
+- Handoff notes:
+  - Keep 029 focused on score/library/sound-object model parity; do not absorb note processor semantics from Spec 030
+  - Pattern/audio layer XML compatibility is in-scope despite Java module boundaries
+  - Prefer centralized Java full-class-name normalization over one-off loader patches
+  - Spec 028 is already marked complete and should be treated as a prerequisite baseline for this slice
+  - This slice is closed out; remaining work is future-spec scope only
 
 ## Spec 028 Package
 

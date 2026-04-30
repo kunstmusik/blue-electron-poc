@@ -63,6 +63,12 @@ TypeScript 5.x, strict mode: Follow standard conventions
 - For behavior mismatches, render failures, XML-compatibility issues, or formatting/parity bugs in the TypeScript port, consult the Java implementation first before changing TypeScript code.
 - Primary reference roots: `~/work/nbprojects/blue/blue-core` and `~/work/nbprojects/blue/blue-ui-core`.
 - When applicable, compare against Java-generated artifacts first, especially `~/work/blue/demo2026/01.csd`, and only keep a TypeScript-side divergence if it is intentional and documented.
+
+## Constraints
+
+- No `require()` or dynamic `import()` calls in `@blue/data` (esbuild bundle constraint).
+- No Node.js built-ins in `@blue/data` — browser-safe and Node-safe library code only.
+- Static ES `import` statements only — no `require()`, no dynamic `import()`, and no inline `import("...").Type` type annotations; use top-level static imports instead.
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes

@@ -944,11 +944,11 @@ function buildGridSettingsSnapshot(bsb: BlueSynthBuilder): GridSettingsSnapshot 
   };
 }
 
-function buildPresetGroupSnapshot(bsb: import('@blue/data').BlueSynthBuilder): PresetGroupSnapshot | undefined {
+function buildPresetGroupSnapshot(bsb: BlueSynthBuilder): PresetGroupSnapshot | undefined {
   const pg = bsb.getPresetGroup();
   if (!pg) return undefined;
 
-  const convert = (group: import('@blue/data').PresetGroup): PresetGroupSnapshot => ({
+  const convert = (group: PresetGroup): PresetGroupSnapshot => ({
     name: group.getPresetGroupName(),
     currentPresetUniqueId: group.getCurrentPresetUniqueId() || undefined,
     currentPresetModified: group.isCurrentPresetModified(),
@@ -970,9 +970,9 @@ function buildPresetGroupSnapshot(bsb: import('@blue/data').BlueSynthBuilder): P
   return convert(pg);
 }
 
-function buildUdoListSnapshot(bsb: import('@blue/data').BlueSynthBuilder): UdoDefinitionSnapshot[] {
+function buildUdoListSnapshot(bsb: BlueSynthBuilder): UdoDefinitionSnapshot[] {
   const udos = bsb.getUdoList();
-  return udos.map((udo: import('@blue/data').OpcodeDefinition) => ({
+  return udos.map((udo: OpcodeDefinition) => ({
     name: udo.getName(),
     style: udo.getStyle(),
     outTypes: udo.getOutTypes(),
@@ -988,7 +988,7 @@ function createProjectUdoListSnapshot(data: BlueData): UdoDefinitionSnapshot[] {
   return opcodes.map((udo) => udoToSnapshot(udo));
 }
 
-export function udoToSnapshot(udo: import('@blue/data').OpcodeDefinition): UdoDefinitionSnapshot {
+export function udoToSnapshot(udo: OpcodeDefinition): UdoDefinitionSnapshot {
   return {
     name: udo.getName(),
     style: udo.getStyle(),

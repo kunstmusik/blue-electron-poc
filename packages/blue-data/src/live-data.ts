@@ -6,6 +6,7 @@ import { LiveObjectSetList } from './live/live-object-set-list';
 import { LiveObject } from './live/live-object';
 import { readInt, writeInt, readBoolean, writeBoolean } from './utilities/xml';
 import { loadSoundObjectFromXML } from './sound-objects/sound-object-registry';
+import './sound-objects/register-sound-object-types';
 import type { SoundObject } from './sound-objects/sound-object';
 
 export class LiveData implements BlueDataObject {

@@ -13,6 +13,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 import { BlueData } from '@blue/data';
+import { openSettingsWindow } from './settings-window';
 import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
@@ -82,7 +83,6 @@ function rebuildApplicationMenu(): void {
     onRequestQuit: () => { void requestQuit(); },
     onOpenSettings: () => {
       if (mainWindow) {
-        const { openSettingsWindow } = require('./settings-window') as typeof import('./settings-window');
         openSettingsWindow(mainWindow);
       }
     },
@@ -618,13 +618,13 @@ async function generateCsdToDisk(): Promise<void> {
     await ensureJavaScriptRuntime();
     const csdText = currentData.toCSD();
     const projectBase = currentFilePath
-      ? require('path').basename(currentFilePath, '.blue')
+      ? path.basename(currentFilePath, '.blue')
       : 'generated';
     const projectDir = currentFilePath
-      ? require('path').dirname(currentFilePath)
+      ? path.dirname(currentFilePath)
       : undefined;
     const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: projectDir ? require('path').join(projectDir, `${projectBase}.csd`) : `${projectBase}.csd`,
+      defaultPath: projectDir ? path.join(projectDir, `${projectBase}.csd`) : `${projectBase}.csd`,
       filters: [{ name: 'CSD Files', extensions: ['csd'] }],
     });
     if (result.canceled || !result.filePath) return;
@@ -632,8 +632,7 @@ async function generateCsdToDisk(): Promise<void> {
     if (!filePath.endsWith('.csd')) {
       filePath += '.csd';
     }
-    const { writeFile } = await import('fs/promises');
-    await writeFile(filePath, csdText, 'utf-8');
+    await fs.promises.writeFile(filePath, csdText, 'utf-8');
     mainWindow.webContents.send('save-complete', { filePath });
   } catch (err) {
     mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
@@ -704,8 +703,7 @@ ipcMain.handle('import-blue-udo', async () => {
     properties: ['openFile'],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  const { readFile } = await import('fs/promises');
-  const xml = await readFile(result.filePaths[0], 'utf-8');
+  const xml = await fs.promises.readFile(result.filePaths[0], 'utf-8');
   return xml;
 });
 
@@ -716,8 +714,7 @@ ipcMain.handle('import-csound-udo', async () => {
     properties: ['openFile'],
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  const { readFile } = await import('fs/promises');
-  const text = await readFile(result.filePaths[0], 'utf-8');
+  const text = await fs.promises.readFile(result.filePaths[0], 'utf-8');
   return text;
 });
 
@@ -729,8 +726,7 @@ ipcMain.handle('export-blue-udo', async (_event, xmlText: string) => {
   if (result.canceled || !result.filePath) return;
   let filePath = result.filePath;
   if (!filePath.endsWith('.blueUDO')) filePath += '.blueUDO';
-  const { writeFile } = await import('fs/promises');
-  await writeFile(filePath, xmlText, 'utf-8');
+  await fs.promises.writeFile(filePath, xmlText, 'utf-8');
 });
 
 ipcMain.handle('export-csound-udo', async (_event, codeText: string, udoName: string) => {
@@ -740,8 +736,7 @@ ipcMain.handle('export-csound-udo', async (_event, codeText: string, udoName: st
     filters: [{ name: 'Csound UDO File', extensions: ['udo', 'inc'] }],
   });
   if (result.canceled || !result.filePath) return;
-  const { writeFile } = await import('fs/promises');
-  await writeFile(result.filePath, codeText, 'utf-8');
+  await fs.promises.writeFile(result.filePath, codeText, 'utf-8');
 });
 
 // ─── Blue Live IPC Handlers ───
@@ -794,8 +789,6 @@ ipcMain.handle('blue-live:get-status', async () => {
 
 ipcMain.handle('settings:open', async () => {
   if (!mainWindow) return;
-
-  const { openSettingsWindow } = await import('./settings-window');
   openSettingsWindow(mainWindow);
 });
 

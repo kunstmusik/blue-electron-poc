@@ -16,7 +16,7 @@ import { TimeContext } from '../../time/time-context';
 import { CompileData } from '../../compile-data';
 import { ScoreGenerationException } from '../../score/score-generation-exception';
 import { Element } from '../../serialization/xml-reader';
-import { ObjRefSaveMap } from '../../serialization/obj-ref-map';
+import { ObjRefSaveMap, ObjRefLoadMap } from '../../serialization/obj-ref-map';
 
 export class PatternsLayerGroup extends Array<PatternLayer> implements LayerGroup<PatternLayer> {
   private _name = 'Patterns Layer Group';
@@ -99,7 +99,7 @@ export class PatternsLayerGroup extends Array<PatternLayer> implements LayerGrou
     return root;
   }
 
-  static loadFromXML(data: Element): PatternsLayerGroup {
+  static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): PatternsLayerGroup {
     const group = new PatternsLayerGroup();
 
     const name = data.getAttribute('name');
@@ -115,7 +115,7 @@ export class PatternsLayerGroup extends Array<PatternLayer> implements LayerGrou
         while (patternNodes.hasMoreElements()) {
           const patternNode = patternNodes.next();
           if (patternNode.getName() === 'patternLayer') {
-            group.push(PatternLayer.loadFromXML(patternNode));
+            group.push(PatternLayer.loadFromXML(patternNode, objRefMap));
           }
         }
       } else if (node.getName() === 'noteProcessorChain') {

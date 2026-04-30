@@ -9,7 +9,7 @@ import { Element } from "../serialization/xml-reader";
 import { ObjRefSaveMap, ObjRefLoadMap } from "../serialization/obj-ref-map";
 import { Instrument } from "./instrument";
 import { BSBCompilationUnit } from "./blue-synth-builder/bsb-compilation-unit";
-import { BSBGraphicInterface } from "./blue-synth-builder/bsb-graphic-interface";
+import { BSBGraphicInterface, GridSettingsData } from "./blue-synth-builder/bsb-graphic-interface";
 import { BSBGroup } from "./blue-synth-builder/bsb-group";
 import { BSBWidget } from "./blue-synth-builder/bsb-widget";
 import { Parameter, AutomationCurve } from "../automation/parameter";
@@ -495,7 +495,7 @@ export class BlueSynthBuilder extends Instrument {
     this._graphicInterfaceXML = null;
   }
 
-  setBsbGridSettings(settings: Partial<import("./blue-synth-builder/bsb-graphic-interface").GridSettingsData>): void {
+  setBsbGridSettings(settings: Partial<GridSettingsData>): void {
     this._graphicInterface.setGridSettings(settings);
     this._graphicInterfaceXML = null;
   }

@@ -21,7 +21,8 @@ export class TimeContext {
   constructor(other?: TimeContext) {
     if (other) {
       this.tempoMap = new TempoMap(other.tempoMap);
-      this.meterMap = new MeterMap(other.meterMap);
+      // MeterMap has no copy constructor yet — share reference for now
+      this.meterMap = other.meterMap;
       this.sampleRate = other.sampleRate;
       this.smpteFrameRate = other.smpteFrameRate;
     }

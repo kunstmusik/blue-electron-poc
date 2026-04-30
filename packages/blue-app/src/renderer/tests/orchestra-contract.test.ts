@@ -11,6 +11,7 @@ import {
 import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
+  type BlueSynthBuilderInstrumentSnapshot,
 } from '../../shared/project-editor';
 
 function createProjectWithGenericInstrument(): BlueData {
@@ -170,7 +171,7 @@ describe('BSB Interface Parity contract', () => {
   it('populates widgetTree, gridSettings, editEnabled, and presetGroup in BSB snapshots', () => {
     const data = createProjectWithBSBInstrument();
     const snapshot = createProjectEditorSnapshot(data, '/tmp/bsb.blue');
-    const bsb = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    const bsb = snapshot.orchestra.instruments[0] as BlueSynthBuilderInstrumentSnapshot;
 
     expect(bsb.type).toBe('blueSynthBuilder');
     expect(bsb.editEnabled).toBe(true);
@@ -206,7 +207,7 @@ describe('BSB Interface Parity contract', () => {
   it('updates widget properties via BSB interface patches', () => {
     const data = createProjectWithBSBInstrument();
     const snapshot = createProjectEditorSnapshot(data, null);
-    const bsb = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    const bsb = snapshot.orchestra.instruments[0] as BlueSynthBuilderInstrumentSnapshot;
     const widgetId = bsb.widgetTree!.children![0].id;
 
     const changed = applyProjectDocumentPatch(data, {
@@ -225,7 +226,7 @@ describe('BSB Interface Parity contract', () => {
     expect(changed).toBe(true);
 
     const after = createProjectEditorSnapshot(data, null);
-    const afterBsb = after.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    const afterBsb = after.orchestra.instruments[0] as BlueSynthBuilderInstrumentSnapshot;
     expect(afterBsb.widgetTree!.children![0].objectName).toBe('gain');
     expect(afterBsb.widgetTree!.children![0].x).toBe(50);
   });
@@ -246,7 +247,7 @@ describe('BSB Interface Parity contract', () => {
 
     const bsb = data.getArrangement().getInstrumentById('1') as BlueSynthBuilder;
     const snapshot = createProjectEditorSnapshot(data, null);
-    const bsbSnap = snapshot.orchestra.instruments[0] as import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot;
+    const bsbSnap = snapshot.orchestra.instruments[0] as BlueSynthBuilderInstrumentSnapshot;
     expect(bsbSnap.presetGroup!.currentPresetUniqueId).toBe('p1');
   });
 });

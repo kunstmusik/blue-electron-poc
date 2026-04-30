@@ -1,21 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { Element } from '../../src/serialization/xml-reader';
 import { GlobalOrcSco } from '../../src/global-orc-sco';
+import { BlueData } from '../../src/blue-data';
 
-/**
- * Migration test: loads a pre-2.3.0 .blue file format and verifies
- * that the upgrade system correctly migrates the data.
- *
- * Pre-2.3.0 files had:
- * - Tempo as a root-level element (not inside Score)
- * - Root PolyObject as a direct child (not inside Score)
- * - Pattern layers with patternLayer children directly under patternsLayerGroup
- *   (not nested under a patternLayers element)
- */
 describe('Migration: old file formats', () => {
   it('loads pre-2.3.0 file with tempo at root level', async () => {
-    const { BlueData } = await import('../../src/blue-data');
-
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.2.5">
   <tempo>
@@ -36,15 +25,12 @@ describe('Migration: old file formats', () => {
   </soundObject>
 </blueData>`;
 
-    // Should not throw
     const data = await BlueData.loadFromString(oldXml);
     expect(data.getVersion()).toBe('2.2.5');
     expect(data.getProjectProperties().title).toBe('Old Tempo Project');
   });
 
   it('loads pre-2.1.10 file without 0dbfs properties', async () => {
-    const { BlueData } = await import('../../src/blue-data');
-
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.1.5">
   <projectProperties>
@@ -62,7 +48,6 @@ nchnls = 2</globalOrc>
     const data = await BlueData.loadFromString(oldXml);
     const props = data.getProjectProperties();
 
-    // 2.1.10 upgrader should have extracted 0dbfs
     expect(props.useZeroDbFS).toBe(true);
     expect(props.zeroDbFS).toBe('65536');
     expect(props.diskUseZeroDbFS).toBe(true);
@@ -70,8 +55,6 @@ nchnls = 2</globalOrc>
   });
 
   it('loads minimal .blue file', async () => {
-    const { BlueData } = await import('../../src/blue-data');
-
     const minimalXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.9.0">
   <projectProperties>
@@ -82,14 +65,11 @@ nchnls = 2</globalOrc>
     const data = await BlueData.loadFromString(minimalXml);
     expect(data.getVersion()).toBe('2.9.0');
     expect(data.getProjectProperties().title).toBe('Minimal');
-    // Default values should be set
     expect(data.getProjectProperties().sampleRate).toBe('44100');
     expect(data.getProjectProperties().ksmps).toBe('64');
   });
 
   it('migration, async', async () => {
-    const { BlueData } = await import('../../src/blue-data');
-
     const oldXml = `<?xml version="1.0" encoding="UTF-8"?>
 <blueData version="2.1.5">
   <globalOrcSco>
@@ -106,16 +86,9 @@ nchnls = 2</globalOrc>
   </projectProperties>
 </blueData>`;
 
-    // Load (applies migration)
     const data = await BlueData.loadFromString(oldXml);
-
-    // Save
     const savedXml = data.saveToString();
-
-    // Reload
     const reloaded = await BlueData.loadFromString(savedXml);
-
-    // Verify 0dbfs properties preserved
     const props = reloaded.getProjectProperties();
     expect(props.useZeroDbFS).toBe(true);
     expect(props.zeroDbFS).toBe('32768');

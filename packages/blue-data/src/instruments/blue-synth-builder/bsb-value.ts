@@ -5,6 +5,7 @@
 import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
+import { Parameter } from '../../automation/parameter';
 import { formatBlueNumber } from '../../utilities/number-format';
 
 export class BSBValue extends BSBWidget {
@@ -28,7 +29,7 @@ export class BSBValue extends BSBWidget {
 
   override collectReplacements(
     unit: BSBCompilationUnit,
-    parameters?: import('../../automation/parameter').Parameter[],
+    parameters?: Parameter[],
   ): void {
     this.addCompilationReplacement(unit, this.objectName, formatBlueNumber(this.defaultValue), parameters);
   }

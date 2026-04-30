@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
+  BsbWidgetNodeSnapshot,
   InstrumentPatch,
 } from '../../../../../../shared/project-editor';
 import BSBInterfaceCanvas from './BSBInterfaceCanvas';
@@ -9,7 +10,6 @@ import BSBPropertySheet from './BSBPropertySheet';
 import BSBGridSettingsPanel from './BSBGridSettingsPanel';
 import BSBPresetBar from './BSBPresetBar';
 import SplitPane from '../SplitPane';
-import type { BsbWidgetNodeSnapshot } from '../../../../../../shared/project-editor';
 
 interface BSBInterfaceEditorProps {
   instrument: BlueSynthBuilderInstrumentSnapshot;
@@ -170,12 +170,12 @@ function BSBInterfaceEditor({
 export default React.memo(BSBInterfaceEditor);
 
 function findWidgetInTree(
-  tree: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot | null,
+  tree: BsbWidgetNodeSnapshot | null,
   widgetId: string | null,
 ): BsbWidgetNodeSnapshot | null {
   if (!tree || !widgetId) return null;
 
-  const visit = (node: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot): BsbWidgetNodeSnapshot | null => {
+  const visit = (node: BsbWidgetNodeSnapshot): BsbWidgetNodeSnapshot | null => {
     if (node.id === widgetId) return node;
     if (node.children) {
       for (const child of node.children) {
@@ -196,10 +196,10 @@ function findWidgetInTree(
 }
 
 function collectObjectNames(
-  tree: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot,
+  tree: BsbWidgetNodeSnapshot,
 ): Set<string> {
   const names = new Set<string>();
-  const visit = (node: import('../../../../../../shared/project-editor').BsbWidgetNodeSnapshot) => {
+  const visit = (node: BsbWidgetNodeSnapshot) => {
     if (node.objectName) names.add(node.objectName);
     if (node.children) node.children.forEach(visit);
   };

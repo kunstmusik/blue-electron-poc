@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { openSettingsWindow, closeSettingsWindow } from './settings-window';
 
 const electronMock = vi.hoisted(() => {
   const instances: MockBrowserWindow[] = [];
@@ -47,19 +48,18 @@ vi.mock('electron', () => ({
 }));
 
 beforeEach(() => {
+  closeSettingsWindow();
   electronMock.instances.length = 0;
   delete process.env.VITE_DEV_SERVER_URL;
-  vi.resetModules();
 });
 
 afterEach(() => {
+  closeSettingsWindow();
   vi.clearAllMocks();
 });
 
 describe('settings window lifecycle', () => {
-  it('creates a modal child window with the expected presentation', async () => {
-    const { openSettingsWindow } = await import('./settings-window');
-
+  it('creates a modal child window with the expected presentation', () => {
     const mainWindow = {} as never;
     openSettingsWindow(mainWindow);
 
@@ -81,9 +81,7 @@ describe('settings window lifecycle', () => {
     expect(settingsWindow.show).toHaveBeenCalledTimes(1);
   });
 
-  it('focuses the existing window on repeat open and recreates after close', async () => {
-    const { openSettingsWindow, closeSettingsWindow } = await import('./settings-window');
-
+  it('focuses the existing window on repeat open and recreates after close', () => {
     const mainWindow = {} as never;
     openSettingsWindow(mainWindow);
     const firstWindow = electronMock.instances[0];

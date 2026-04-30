@@ -30,6 +30,7 @@ import { BlueDataObject } from "./blue-data-object";
 import { NoteList } from "./sound-objects/note-list";
 import { Mixer } from "./mixer/mixer";
 import { OpcodeList } from "./opcodes/opcode-list";
+import { OpcodeDefinition } from "./opcodes/opcode-definition";
 import {
   getAllParameters,
   assignParameterNames,
@@ -38,12 +39,14 @@ import { Parameter } from "./automation/parameter";
 import { BSBCompilationUnit } from "./instruments/blue-synth-builder/bsb-compilation-unit";
 import { Effect } from "./mixer/effect";
 import { EffectsChain } from "./mixer/effects-chain";
+import { Channel } from "./mixer/channel";
 import { Send } from "./mixer/send";
 import { UDOStyle } from "./opcodes/udo-style";
 import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
 import { disposeJavaScriptCompileState } from './javascript-runtime';
 import { parseUDOText } from "./opcodes/udo-utilities";
 import { TimeContext } from "./time/time-context";
+import "./sound-objects/register-sound-object-types";
 
 export class BlueData implements BlueDataObject {
   // Version
@@ -850,8 +853,8 @@ export class BlueData implements BlueDataObject {
    * Assign channel IDs for mixer init statements.
    * Mirrors Java's assignChannelIds().
    */
-  private assignChannelIds(): Map<import("./mixer/channel").Channel, number> {
-    const assignments = new Map<import("./mixer/channel").Channel, number>();
+  private assignChannelIds(): Map<Channel, number> {
+    const assignments = new Map<Channel, number>();
     let i = 0;
 
     // Source channels
@@ -873,7 +876,7 @@ export class BlueData implements BlueDataObject {
   private buildScoreText(
     ftables: string,
     globalSco: string,
-    noteList: import("./sound-objects/note-list").NoteList,
+    noteList: NoteList,
     tempoStatement: string,
     totalDur: number,
   ): string {
@@ -1076,7 +1079,7 @@ export class BlueData implements BlueDataObject {
    *   endin
    */
   private generateMixerOrchestra(
-    channelIdAssignments: Map<import("./mixer/channel").Channel, number>,
+    channelIdAssignments: Map<Channel, number>,
     nchnls: number,
     parameterMap: Map<Instrument, Parameter[]>,
     _allParameters: Parameter[],
@@ -1200,9 +1203,9 @@ export class BlueData implements BlueDataObject {
    * Routes audio through volumes, sends, effect UDOs, and outputs via outc.
    */
   private generateBlueMixer(
-    sourceChannels: import("./mixer/channel").Channel[],
-    subChannels: import("./mixer/channel").Channel[],
-    channelIdAssignments: Map<import("./mixer/channel").Channel, number>,
+    sourceChannels: Channel[],
+    subChannels: Channel[],
+    channelIdAssignments: Map<Channel, number>,
     nchnls: number,
     effectIdMap: Map<Effect, number>,
   ): string {
@@ -1385,14 +1388,14 @@ export class BlueData implements BlueDataObject {
   }
 
   private sortSubChannelsForRendering(
-    subChannels: import("./mixer/channel").Channel[],
-  ): import("./mixer/channel").Channel[] {
+    subChannels: Channel[],
+  ): Channel[] {
     const byName = new Map(subChannels.map(channel => [channel.getName(), channel]));
     const visited = new Set<string>();
     const visiting = new Set<string>();
-    const ordered: import("./mixer/channel").Channel[] = [];
+    const ordered: Channel[] = [];
 
-    const visit = (channel: import("./mixer/channel").Channel) => {
+    const visit = (channel: Channel) => {
       const name = channel.getName();
       if (visited.has(name) || visiting.has(name)) {
         return;
@@ -1437,7 +1440,7 @@ export class BlueData implements BlueDataObject {
     const replacements = new Map<string, string>();
     const pending = effect.getOpcodeList()
       .getOpcodes()
-      .map(opcode => opcode.deepCopy() as import("./opcodes/opcode-definition").OpcodeDefinition);
+      .map(opcode => opcode.deepCopy() as OpcodeDefinition);
 
     for (const opcode of pending) {
       const originalName = opcode.getName();

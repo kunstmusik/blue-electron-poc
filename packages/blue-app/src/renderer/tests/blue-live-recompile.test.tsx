@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BlueData, LiveData, GenericInstrument } from '@blue/data';
+import { BlueLiveEngineSession, resolveNamedInstrumentNumbers } from '../../main/blue-live-engine';
 
 class MockWebContents {
   send = vi.fn();
@@ -9,10 +10,6 @@ class MockBrowserWindow {
   webContents = new MockWebContents();
   isDestroyed = vi.fn(() => false);
 }
-
-const { BlueLiveEngineSession } = await import(
-  '../../main/blue-live-engine'
-);
 
 function createMockWindow(): any {
   return new MockBrowserWindow();
@@ -94,8 +91,7 @@ describe('BlueLive toolbar Recompile and All Notes Off enablement (T037)', () =>
     expect(['running', 'error', 'idle', 'stopped']).toContain(afterFirst.status);
   });
 
-  it('all-notes-off score event uses resolved named instrument', async () => {
-    const { resolveNamedInstrumentNumbers } = await import('../../main/blue-live-engine');
+  it('all-notes-off score event uses resolved named instrument', () => {
     const ids = resolveNamedInstrumentNumbers('instr blueAllNotesOff\nendin');
     expect(ids.get('blueAllNotesOff')).toBe(1);
   });

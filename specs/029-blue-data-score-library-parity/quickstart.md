@@ -20,3 +20,11 @@ git diff --check
 3. Load a project with legacy arrangement instrument ids and verify instrument bindings survive load/save.
 4. Save a project containing `GenericScore`, `PolyObject`, pattern layers, and audio layers; reopen it in Java Blue and confirm the structure still loads.
 5. Deep-copy a nested score graph and verify mutations on the copy do not affect the source tree.
+
+## Closeout Validation
+
+The completed slice was validated with:
+
+- `pnpm --filter @blue/data test`
+- `pnpm --filter @blue/app test`
+- `git diff --check`

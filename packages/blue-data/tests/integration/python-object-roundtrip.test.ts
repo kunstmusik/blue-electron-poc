@@ -15,6 +15,7 @@ import { TimeDuration } from '../../src/time/time-duration';
 import { TimeContext } from '../../src/time/time-context';
 import { loadSoundObjectFromXML } from '../../src/sound-objects/sound-object-registry';
 import { Element } from '../../src/serialization/xml-reader';
+import '../../src/sound-objects/register-sound-object-types';
 
 beforeAll(async () => {
   await initializeJavaScriptRuntime();

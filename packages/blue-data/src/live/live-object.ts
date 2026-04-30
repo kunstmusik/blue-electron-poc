@@ -3,6 +3,7 @@ import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { BlueDataObject } from '../blue-data-object';
 import { readInt, writeInt, readBoolean, writeBoolean } from '../utilities/xml';
 import { loadSoundObjectFromXML } from '../sound-objects/sound-object-registry';
+import '../sound-objects/register-sound-object-types';
 import type { SoundObject } from '../sound-objects/sound-object';
 
 function generateUniqueId(): string {

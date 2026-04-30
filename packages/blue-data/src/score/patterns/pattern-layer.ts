@@ -19,6 +19,14 @@ import { Element } from '../../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../../serialization/obj-ref-map';
 import { setScoreStart } from '../../utilities/score';
 
+/**
+ * Normalize a Java class name type to a short name.
+ */
+function normalizeType(type: string | null): string {
+  if (!type) return '';
+  return type.split('.').pop() || type;
+}
+
 export class PatternLayer implements Layer {
   private _soundObject: SoundObject;
   private _name = '';
@@ -79,14 +87,6 @@ export class PatternLayer implements Layer {
     return this._patternData;
   }
 
-  /**
-   * Generate notes by repeating the sound object at active pattern positions.
-   * @param context Time context for conversions
-   * @param compileData Compilation context
-   * @param startTime Start of render window (beats)
-   * @param endTime End of render window (-1 for no end)
-   * @param patternBeatsLength Duration of each pattern step in beats
-   */
   generateForCSD(
     context: TimeContext,
     compileData: CompileData,
@@ -96,10 +96,8 @@ export class PatternLayer implements Layer {
   ): NoteList {
     const notes = new NoteList();
 
-    // Generate notes from the sound object once
     const baseNotes = this._soundObject.generateForCSD(context, compileData, -1, -1);
 
-    // Repeat at each active pattern position
     let currentIndex = Math.floor(startTime / patternBeatsLength);
     while (currentIndex < this._patternData.getSize()) {
       if (this._patternData.isPatternSet(currentIndex)) {
@@ -143,11 +141,12 @@ export class PatternLayer implements Layer {
       const nodeName = node.getName();
 
       if (nodeName === 'soundObject') {
-        const type = node.getAttribute('type');
+        const rawType = node.getAttribute('type');
+        const type = normalizeType(rawType);
         if (type === 'GenericScore') {
           layer._soundObject = GenericScore.loadFromXML(node);
         } else {
-          console.warn(`Unknown sound object type in pattern layer: ${type}`);
+          console.warn(`Unknown sound object type in pattern layer: ${rawType}`);
         }
       } else if (nodeName === 'patternData') {
         layer._patternData = PatternData.loadFromXML(node);

@@ -91,11 +91,12 @@ export class Instance extends AbstractSoundObject {
     const refNode = data.getElement('soundObjectReference');
     if (refNode) {
       const id = refNode.getAttribute('soundObjectLibraryID') ?? 'null';
-      if (id === 'null') {
-        throw new Error('SoundObject Instance points to a library item that no longer exists');
-      }
-      if (objRefMap && objRefMap.has(id)) {
+      if (id === 'null' || !id) {
+        // Unresolved reference — store as library id for later resolution
+        obj._libraryId = '';
+      } else if (objRefMap && objRefMap.has(id)) {
         obj._soundObject = objRefMap.get(id) as SoundObject;
+        obj._libraryId = id;
       } else {
         obj._libraryId = id;
         // Will be resolved in second pass by caller

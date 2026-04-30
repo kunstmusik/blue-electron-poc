@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { BlueData, LiveData } from '@blue/data';
+import { BlueLiveEngineSession, resolveNamedInstrumentNumbers, normalizeScoreForEngineApi } from '../../main/blue-live-engine';
 
 class MockWebContents {
   send = vi.fn();
@@ -9,10 +10,6 @@ class MockBrowserWindow {
   webContents = new MockWebContents();
   isDestroyed = vi.fn(() => false);
 }
-
-const { BlueLiveEngineSession } = await import(
-  '../../main/blue-live-engine'
-);
 
 function createMockWindow(): any {
   return new MockBrowserWindow();
@@ -92,13 +89,7 @@ describe('BlueLiveEngineSession buildLiveOptions (via LiveData)', () => {
 });
 
 describe('parseCSD helper behavior', () => {
-  it('is exported by the module and handles a minimal CSD', async () => {
-    const mod = await import('../../main/blue-live-engine');
-    expect(mod).toBeDefined();
-  });
-
-  it('assigns stable numeric ids to named orchestra instruments', async () => {
-    const { resolveNamedInstrumentNumbers } = await import('../../main/blue-live-engine');
+  it('assigns stable numeric ids to named orchestra instruments', () => {
     const namedIds = resolveNamedInstrumentNumbers([
       'instr 1',
       'endin',
@@ -112,11 +103,7 @@ describe('parseCSD helper behavior', () => {
     expect(namedIds.get('BlueMixer')).toBe(3);
   });
 
-  it('normalizes named score events for engine-api readScore', async () => {
-    const {
-      normalizeScoreForEngineApi,
-      resolveNamedInstrumentNumbers,
-    } = await import('../../main/blue-live-engine');
+  it('normalizes named score events for engine-api readScore', () => {
     const namedIds = resolveNamedInstrumentNumbers([
       'instr 1',
       'endin',

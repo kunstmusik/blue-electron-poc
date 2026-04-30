@@ -48,14 +48,13 @@ import { FrozenSoundObject } from './frozen-sound-object';
  */
 function normalizeType(type: string | null): string {
   if (!type) return '';
-  // Strip package prefix
   const shortName = type.split('.').pop() || type;
   return shortName;
 }
 
 /**
  * Load a nested SoundObject from XML by dispatching based on type attribute.
- * Uses static imports only — no dynamic requires, no registry dependency.
+ * Handles both short names and Java full class names.
  */
 function loadNestedSoundObject(
   data: Element,
@@ -319,7 +318,6 @@ export class PolyObject extends Array<SoundLayer>
   }
 
   deepCopy(): SoundObject {
-    // For Phase 3: shallow copy
     const copy = new PolyObject(false);
     copy._name = this._name;
     copy._startTime = this._startTime;
@@ -327,6 +325,15 @@ export class PolyObject extends Array<SoundLayer>
     copy._backgroundColor = this._backgroundColor;
     copy._timeBehavior = this._timeBehavior;
     copy._npc = new NoteProcessorChain(this._npc);
+    // Deep copy layers
+    for (const layer of this) {
+      const layerCopy = new SoundLayer();
+      layerCopy.setName(layer.getName());
+      for (const sObj of layer) {
+        layerCopy.push(sObj.deepCopy());
+      }
+      copy.push(layerCopy);
+    }
     return copy;
   }
 

@@ -10,10 +10,15 @@ import {
   createEmptyProjectEditorSnapshot,
   type BlueLiveProjectSnapshot,
   type BlueLivePatch,
+  type BlueSynthBuilderInstrumentSnapshot,
+  type BsbInterfacePatch,
   type BsbRealtimeControlUpdate,
+  type BsbWidgetNodeSnapshot,
   type ArrangementRowSnapshot,
   type InstrumentPatch,
   type InstrumentSnapshot,
+  type PresetGroupSnapshot,
+  type PresetSnapshot,
   type ProjectDocumentPatch,
   type ProjectLoadedPayload,
   type ProjectPropertiesSnapshot,
@@ -268,7 +273,7 @@ const PATCH_FLUSH_DELAY_MS = 100;
     case 'addWidget': {
       if (!instrument.widgetTree) break;
       const newId = `w${Date.now()}`;
-      const newNode: import('../../shared/project-editor').BsbWidgetNodeSnapshot = {
+      const newNode: BsbWidgetNodeSnapshot = {
         id: newId,
         type: patch.widgetType,
         objectName: '',
@@ -808,8 +813,8 @@ function cloneArrangementRowSnapshot(row: ArrangementRowSnapshot): ArrangementRo
 }
 
 function clonePresetGroupSnapshot(
-  group: import('../../shared/project-editor').PresetGroupSnapshot,
-): import('../../shared/project-editor').PresetGroupSnapshot {
+  group: PresetGroupSnapshot,
+): PresetGroupSnapshot {
   return {
     ...group,
     subGroups: group.subGroups.map((subGroup) => clonePresetGroupSnapshot(subGroup)),
@@ -998,10 +1003,10 @@ function updateInstrumentSnapshot(
 }
 
 function applyBsbInterfacePatchToSnapshot(
-  instrument: import('../../shared/project-editor').BlueSynthBuilderInstrumentSnapshot,
-  patch: import('../../shared/project-editor').BsbInterfacePatch,
+  instrument: BlueSynthBuilderInstrumentSnapshot,
+  patch: BsbInterfacePatch,
 ): void {
-  const getSnapshotWidgetValue = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): number => {
+  const getSnapshotWidgetValue = (node: BsbWidgetNodeSnapshot): number => {
     if (node.type === 'BSBValue' && typeof node.properties.defaultValue === 'number') {
       return node.properties.defaultValue;
     }
@@ -1021,7 +1026,7 @@ function applyBsbInterfacePatchToSnapshot(
     }
 
     const nextWidgets: typeof instrument.widgets = [];
-    const visit = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+    const visit = (node: BsbWidgetNodeSnapshot): void => {
       if (node.objectName) {
         nextWidgets.push({
           objectName: node.objectName,
@@ -1040,7 +1045,7 @@ function applyBsbInterfacePatchToSnapshot(
     instrument.widgets = nextWidgets.sort((left, right) => left.objectName.localeCompare(right.objectName));
   };
 
-  const syncSliderBankLayout = (node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+  const syncSliderBankLayout = (node: BsbWidgetNodeSnapshot): void => {
     const sliderCount = Array.isArray(node.properties.sliders)
       ? Math.max(1, node.properties.sliders.length)
       : typeof node.properties.numberOfSliders === 'number'
@@ -1072,7 +1077,7 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const applyLineObjectPreset = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    node: BsbWidgetNodeSnapshot,
     raw: string,
   ): void => {
     const existingLines = Array.isArray(node.properties.lines)
@@ -1126,7 +1131,7 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const applyPresetValueToNode = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    node: BsbWidgetNodeSnapshot,
     raw: string,
   ): void => {
     if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
@@ -1259,8 +1264,8 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const cloneWidgetNode = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
-  ): import('../../shared/project-editor').BsbWidgetNodeSnapshot => ({
+    node: BsbWidgetNodeSnapshot,
+  ): BsbWidgetNodeSnapshot => ({
     ...node,
     properties: { ...node.properties },
     children: node.children ? [...node.children] : undefined,
@@ -1278,13 +1283,13 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const updateWidgetTreeById = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    node: BsbWidgetNodeSnapshot,
     widgetId: string,
     updater: (
-      nextNode: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+      nextNode: BsbWidgetNodeSnapshot,
     ) => boolean,
   ): {
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot;
+    node: BsbWidgetNodeSnapshot;
     changed: boolean;
   } => {
     if (node.id === widgetId) {
@@ -1317,10 +1322,10 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const removeWidgetFromTree = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    node: BsbWidgetNodeSnapshot,
     widgetId: string,
   ): {
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot;
+    node: BsbWidgetNodeSnapshot;
     removed: boolean;
   } => {
     if (!node.children || node.children.length === 0) {
@@ -1355,10 +1360,10 @@ function applyBsbInterfacePatchToSnapshot(
   };
 
   const applyPresetToTree = (
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot,
+    node: BsbWidgetNodeSnapshot,
     valuesMap: Record<string, string>,
   ): {
-    node: import('../../shared/project-editor').BsbWidgetNodeSnapshot;
+    node: BsbWidgetNodeSnapshot;
     changed: boolean;
   } => {
     let nextNode = node;
@@ -1606,7 +1611,7 @@ function applyBsbInterfacePatchToSnapshot(
     case 'addWidget': {
       if (!instrument.widgetTree) break;
       const newId = `w${Date.now()}`;
-      const newNode: import('../../shared/project-editor').BsbWidgetNodeSnapshot = {
+      const newNode: BsbWidgetNodeSnapshot = {
         id: newId,
         type: patch.widgetType,
         objectName: '',
@@ -1713,9 +1718,9 @@ function applyBsbInterfacePatchToSnapshot(
   }
 }
 
-function collectObjectNamesFromTree(node: import('../../shared/project-editor').BsbWidgetNodeSnapshot): string[] {
+function collectObjectNamesFromTree(node: BsbWidgetNodeSnapshot): string[] {
   const names: string[] = [];
-  const visit = (n: import('../../shared/project-editor').BsbWidgetNodeSnapshot): void => {
+  const visit = (n: BsbWidgetNodeSnapshot): void => {
     if (n.objectName) names.push(n.objectName);
     if (n.children) n.children.forEach(visit);
   };
@@ -1724,9 +1729,9 @@ function collectObjectNamesFromTree(node: import('../../shared/project-editor').
 }
 
 function findPresetById(
-  group: import('../../shared/project-editor').PresetGroupSnapshot | undefined,
+  group: PresetGroupSnapshot | undefined,
   uniqueId: string,
-): import('../../shared/project-editor').PresetSnapshot | undefined {
+): PresetSnapshot | undefined {
   if (!group) return undefined;
   for (const p of group.presets) {
     if (p.uniqueId === uniqueId) return p;
