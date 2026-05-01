@@ -18,6 +18,8 @@ import type { EngineOutputPayload } from '../shared/io-provider';
 contextBridge.exposeInMainWorld('blueAPI', {
   // File operations
   openFile: () => ipcRenderer.invoke('open-file'),
+  openFilePath: (filePath: string) => ipcRenderer.invoke('open-file-path', filePath),
+  newFile: () => ipcRenderer.invoke('new-file'),
   openBsbFileSelector: (currentValue?: string) => ipcRenderer.invoke('open-bsb-file-selector', currentValue),
   setBsbFileSelectorPath: (filePath: string) => ipcRenderer.invoke('set-bsb-file-selector-path', filePath),
   copyBsbFileSelectorToMediaFolder: (currentValue?: string) => ipcRenderer.invoke('copy-bsb-file-selector-to-media-folder', currentValue),

@@ -177,7 +177,7 @@ const AUXILIARY_SEED_DEFINITIONS: Record<
     seedGroupId: 'output-main',
     modeId: 'output',
     defaultEdge: 'bottom',
-    panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'OutputTopComponent'],
+    panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'VirtualKeyboardTopComponent', 'OutputTopComponent'],
     defaultActivePanelId: 'ScoreObjectEditorTopComponent',
     defaultDockedSize: 228,
     defaultSlideoutSize: 228,
@@ -910,6 +910,49 @@ export function minimizeAuxiliaryPanelLayout(
   const applied = applyAuxiliaryLayout(api, next, {
     preserveDockedSizes: preservedDockedSizes,
     debugLabel: 'layout.minimizeAuxiliaryPanel',
+    debugMeta: { panelId },
+    debugState: state,
+  });
+  const activeDockedPanelId = getActiveDockedPanelIdForEdge(
+    getInstancesOnEdge(next, target.edge),
+  );
+  if (activeDockedPanelId) {
+    focusDockviewPanel(api, activeDockedPanelId);
+  }
+  return syncAuxiliaryLayoutFromApi(api, applied);
+}
+
+export function closeAuxiliaryPanelLayout(
+  api: DockviewApi,
+  state: AuxiliaryLayoutState,
+  panelId: string,
+): AuxiliaryLayoutState {
+  const preservedDockedSizes = captureAuxiliaryDockedSizesFromApi(api, state);
+  const instance = getGroupInstanceForPanel(state, panelId);
+  if (!instance) {
+    return cloneAuxiliaryLayoutState(state);
+  }
+
+  const next = cloneAuxiliaryLayoutState(normalizeAuxiliaryLayoutState(state));
+  const target = next.groups.find(
+    (g) => g.groupInstanceId === instance.groupInstanceId,
+  )!;
+
+  const seedDef = AUXILIARY_SEED_DEFINITIONS[target.seedGroupId];
+  target.panelIds = target.panelIds.filter((id) => id !== panelId);
+  target.dockedPanelIds = target.dockedPanelIds.filter((id) => id !== panelId);
+  target.isMaximized = false;
+  target.activePanelId = target.panelIds[0] ?? seedDef.defaultActivePanelId;
+
+  if (next.slideouts[target.edge].openPanelId === panelId) {
+    next.slideouts[target.edge].openPanelId = undefined;
+  }
+
+  api.getPanel(panelId)?.api.close();
+
+  const applied = applyAuxiliaryLayout(api, next, {
+    preserveDockedSizes: preservedDockedSizes,
+    debugLabel: 'layout.closeAuxiliaryPanel',
     debugMeta: { panelId },
     debugState: state,
   });

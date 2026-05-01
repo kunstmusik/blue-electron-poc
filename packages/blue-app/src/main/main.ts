@@ -75,11 +75,38 @@ function hasLoadedProject(): boolean {
   return Boolean(currentData);
 }
 
+async function confirmSaveBeforeReplace(): Promise<boolean> {
+  if (!currentData) return true;
+  if (!currentFilePath) return true;
+
+  const result = await dialog.showMessageBox(mainWindow!, {
+    type: 'question',
+    title: 'Save Changes?',
+    message: 'Save changes before proceeding?',
+    detail: `File: ${path.basename(currentFilePath)}`,
+    buttons: ['Save', "Don't Save", 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+  });
+
+  if (result.response === 0) {
+    doSave(currentFilePath);
+    return true;
+  }
+
+  if (result.response === 1) {
+    return true;
+  }
+
+  return false;
+}
+
 function rebuildApplicationMenu(): void {
   const menu = Menu.buildFromTemplate(buildApplicationMenuTemplate({
     hasLoadedProject: hasLoadedProject(),
     isDarwin: process.platform === 'darwin',
-    onOpenFile: () => { void openFile(); },
+    onNewFile: () => { void handleNewFile(); },
+    onOpenFile: () => { void handleOpenFile(); },
     onSaveFile: () => { void saveFile(); },
     onSaveFileAs: () => { void saveFileAs(); },
     onRequestQuit: () => { void requestQuit(); },
@@ -309,6 +336,16 @@ async function doQuit(): Promise<void> {
 
 // ─── File Operations ───
 
+async function handleOpenFile(): Promise<void> {
+  if (!(await confirmSaveBeforeReplace())) return;
+  await openFile();
+}
+
+async function handleNewFile(): Promise<void> {
+  if (!(await confirmSaveBeforeReplace())) return;
+  await newFile();
+}
+
 async function openFile(): Promise<void> {
   if (!mainWindow) return;
 
@@ -364,6 +401,59 @@ async function openFile(): Promise<void> {
       `Failed to load ${path.basename(filePath)}:\n${err instanceof Error ? err.message : String(err)}`,
     );
   }
+}
+
+async function openFilePath(filePath: string): Promise<void> {
+  if (!mainWindow) return;
+
+  try {
+    const xml = fs.readFileSync(filePath, 'utf-8');
+    const data = await BlueData.loadFromString(xml);
+
+    if (blueLiveSession && blueLiveSession.isRunning()) {
+      await blueLiveSession.stop();
+    }
+
+    currentData = data;
+    currentFilePath = filePath;
+    currentProjectRevision = 0;
+    rebuildApplicationMenu();
+    updateWindowTitle();
+
+    mainWindow.webContents.send('project-loaded', {
+      ...createProjectEditorSnapshot(data, filePath),
+      title: data.getProjectProperties().title || path.basename(filePath),
+      author: data.getProjectProperties().author,
+      sampleRate: data.getProjectProperties().sampleRate,
+    });
+  } catch (err: unknown) {
+    await dialog.showErrorBox(
+      'Error Loading File',
+      `Failed to load ${path.basename(filePath)}:\n${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+async function newFile(): Promise<void> {
+  if (!mainWindow) return;
+
+  if (blueLiveSession && blueLiveSession.isRunning()) {
+    await blueLiveSession.stop();
+  }
+
+  const data = new BlueData();
+  currentData = data;
+  currentFilePath = null;
+  currentProjectRevision = 0;
+  rebuildApplicationMenu();
+  updateWindowTitle();
+
+  mainWindow.webContents.send('project-loaded', {
+    ...createProjectEditorSnapshot(data, null),
+    title: 'Untitled',
+    author: '',
+    sampleRate: '44100',
+  });
 }
 
 async function saveFile(): Promise<void> {
@@ -645,6 +735,17 @@ async function generateCsdToDisk(): Promise<void> {
 
 ipcMain.handle('open-file', async () => {
   await openFile();
+  return currentFilePath;
+});
+
+ipcMain.handle('open-file-path', async (_event, filePath: string) => {
+  if (!(await confirmSaveBeforeReplace())) return currentFilePath;
+  await openFilePath(filePath);
+  return currentFilePath;
+});
+
+ipcMain.handle('new-file', async () => {
+  await newFile();
   return currentFilePath;
 });
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { JavaScriptInstrumentSnapshot } from '../../../../../shared/project-editor';
 import SelectedCodeEditor from '../editors/SelectedCodeEditor';
-import DeferredOpcodeListPanel from './DeferredOpcodeListPanel';
+import EmbeddedUdoPanel from './EmbeddedUdoPanel';
 import type { SelectedInstrumentEditorProps } from './types';
 
 type JavaScriptTab = 'instrument' | 'udo' | 'globalOrc' | 'globalSco';
@@ -58,7 +58,11 @@ export default function JavaScriptInstrumentEditor({
                   onChange={(event) => void onInstrumentPatch({ text: event.target.value })}
                 />
               ) : tab.key === 'udo' ? (
-                <DeferredOpcodeListPanel message="Embedded opcode-list editing for JavaScript instruments is deferred in this slice." />
+                <EmbeddedUdoPanel
+                  udolist={instrument.udolist ?? []}
+                  resetKey={instrument.assignmentId}
+                  onInstrumentPatch={onInstrumentPatch}
+                />
               ) : (
                 <SelectedCodeEditor
                   active={isActive}

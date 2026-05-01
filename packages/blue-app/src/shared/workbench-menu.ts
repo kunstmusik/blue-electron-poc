@@ -60,7 +60,7 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
     auxiliaryGroupId: 'output-main',
     auxiliaryRailLabel: 'Mixer',
   },
-  { id: 'VirtualKeyboardTopComponent', title: 'Virtual Keyboard', mode: 'output', openAtStartup: false, position: 800, icon: '🎹' },
+  { id: 'VirtualKeyboardTopComponent', title: 'Virtual Keyboard', mode: 'output', openAtStartup: false, position: 800, icon: '🎹', auxiliaryGroupId: 'output-main', auxiliaryRailLabel: 'Virtual Keyboard' },
   { id: 'JavaScriptConsoleTopComponent', title: 'JavaScript Console', mode: 'output', openAtStartup: false },
   { id: 'JythonConsoleTopComponent', title: 'Jython Console', mode: 'output', openAtStartup: false },
   { id: 'ClojureConsoleTopComponent', title: 'Clojure Console', mode: 'output', openAtStartup: false },

@@ -21,6 +21,7 @@ describe('Orchestra code instrument editors', () => {
       text: 'aout oscili p4, p5',
       globalOrc: 'gi1 ftgen 0, 0, 1024, 10, 1',
       globalSco: '',
+      udolist: [],
     };
 
     const html = renderToStaticMarkup(
@@ -34,7 +35,6 @@ describe('Orchestra code instrument editors', () => {
     expect(html).toContain('Instrument');
     expect(html).toContain('UDO');
     expect(html).toContain('Global Orc');
-    expect(html).toContain('Embedded opcode-list editing for Generic instruments is deferred');
     expect(html).toContain('data-editor-language="csound-orc"');
     expect(html).toContain('aout oscili');
     expect((html.match(/data-editor-language="csound-orc"/g) ?? []).length).toBe(3);
@@ -50,6 +50,7 @@ describe('Orchestra code instrument editors', () => {
       text: 'instrument = "aout oscili 0.2, 440"',
       globalOrc: '',
       globalSco: '',
+      udolist: [],
     };
 
     const html = renderToStaticMarkup(
@@ -63,7 +64,6 @@ describe('Orchestra code instrument editors', () => {
     expect(html).toContain('Script');
     expect(html).toContain('UDO');
     expect(html).toContain('Global Orc');
-    expect(html).toContain('Embedded opcode-list editing for JavaScript instruments is deferred');
     expect(html).toContain('instrument = &quot;aout oscili 0.2, 440&quot;');
     expect((html.match(/data-editor-language="csound-orc"/g) ?? []).length).toBe(2);
   });

@@ -4,6 +4,7 @@ import { getPanelsByMode, type PanelMode } from '../shared/workbench-menu';
 export interface ApplicationMenuTemplateOptions {
   hasLoadedProject: boolean;
   isDarwin: boolean;
+  onNewFile: () => void;
   onOpenFile: () => void;
   onSaveFile: () => void;
   onSaveFileAs: () => void;
@@ -111,7 +112,9 @@ export function buildApplicationMenuTemplate(
   template.push({
     label: 'File',
     submenu: [
+      { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => options.onNewFile() },
       { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => options.onOpenFile() },
+      { type: 'separator' },
       { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => options.onSaveFile() },
       { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => options.onSaveFileAs() },
       ...(options.isDarwin

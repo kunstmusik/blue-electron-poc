@@ -15,6 +15,9 @@ import {
   type BsbRealtimeControlUpdate,
   type BsbWidgetNodeSnapshot,
   type ArrangementRowSnapshot,
+  type EmbeddedOpcodeListPatch,
+  type GenericInstrumentSnapshot,
+  type JavaScriptInstrumentSnapshot,
   type MidiInputPatch,
   type MidiInputProcessorSnapshot,
   type InstrumentPatch,
@@ -96,284 +99,6 @@ let pendingPatchTimer: ReturnType<typeof setTimeout> | null = null;
 let storeGet: any;
 let storeSet: any;
 const PATCH_FLUSH_DELAY_MS = 100;
-/*
-      const shouldRebuildWidgetIndexes = Object.prototype.hasOwnProperty.call(
-        patch.properties,
-        'objectName',
-      );
-      const result = updateWidgetTreeById(instrument.widgetTree, patch.widgetId, (node) => {
-        for (const [key, value] of Object.entries(patch.properties)) {
-          switch (key) {
-            case 'objectName': node.objectName = value as string; break;
-            case 'x': node.x = value as number; break;
-            case 'y': node.y = value as number; break;
-            case 'width': node.width = value as number; break;
-            case 'height': node.height = value as number; break;
-            case 'value': node.value = value as number; break;
-            case 'defaultValue':
-              node.properties.defaultValue = value as number;
-              if (node.type === 'BSBValue') {
-                node.value = value as number;
-              }
-              break;
-            case 'minimum': node.minimum = value as number; break;
-            case 'maximum': node.maximum = value as number; break;
-            case 'selectedIndex':
-              node.properties.selectedIndex = value as number;
-              node.value = value as number;
-              break;
-            case 'sliderWidth':
-              node.properties.sliderWidth = value as number;
-              if (node.type === 'BSBHSliderBank') {
-                syncSliderBankLayout(node);
-              } else {
-                node.width = (value as number) + (node.properties.valueDisplayEnabled ? 50 : 0);
-              }
-              break;
-            case 'sliderHeight':
-              node.properties.sliderHeight = value as number;
-              if (node.type === 'BSBVSliderBank') {
-                syncSliderBankLayout(node);
-              } else {
-                node.height = (value as number) + (node.properties.valueDisplayEnabled ? 30 : 0);
-              }
-              break;
-            case 'knobWidth':
-              node.properties.knobWidth = value as number;
-              node.width = value as number;
-              break;
-            case 'canvasWidth':
-              node.properties.canvasWidth = value as number;
-              node.width = value as number;
-              break;
-            case 'canvasHeight':
-              node.properties.canvasHeight = value as number;
-              node.height = node.type === 'BSBLineObject'
-                ? (value as number) + BSB_LINE_SELECTOR_HEIGHT
-                : (value as number);
-              break;
-            case 'textFieldWidth':
-              node.properties.textFieldWidth = value as number;
-              node.width = node.type === 'BSBFileSelector'
-                ? (value as number) + 30
-                : (value as number);
-              break;
-            case 'numberOfSliders': {
-              const nextCount = Math.max(1, value as number);
-              const previous = Array.isArray(node.properties.sliders)
-                ? node.properties.sliders as Array<{ value?: number }>
-                : [];
-              node.properties.numberOfSliders = nextCount;
-              node.properties.sliders = Array.from(
-                { length: nextCount },
-                (_unused, index) => previous[index] ?? { value: node.minimum ?? 0 },
-              );
-              syncSliderBankLayout(node);
-              break;
-            }
-            case 'valueDisplayEnabled':
-              node.properties.valueDisplayEnabled = value;
-              if (node.type === 'BSBHSlider') {
-                const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 150;
-                node.width = sliderWidth + (value ? 50 : 0);
-              } else if (node.type === 'BSBVSlider') {
-                const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
-                node.height = sliderHeight + (value ? 30 : 0);
-              } else if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
-                syncSliderBankLayout(node);
-              }
-              break;
-            case 'gap':
-              node.properties.gap = value as number;
-              if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
-                syncSliderBankLayout(node);
-              }
-              break;
-            default: node.properties[key] = value; break;
-          }
-        }
-        return true;
-      });
-      if (result.changed) {
-        instrument.widgetTree = result.node;
-        if (shouldRebuildWidgetIndexes) {
-          rebuildWidgetIndexes();
-        }
-  const patches = pendingPatches.slice();
-  pendingPatches = [];
-  pendingPatchTimer = null;
-  if (patches.length === 0) return;
-
-      const result = updateWidgetTreeById(instrument.widgetTree, patch.widgetId, (node) => {
-        const sliderCount = typeof node.properties.numberOfSliders === 'number'
-          ? Math.max(1, node.properties.numberOfSliders)
-          : Array.isArray(node.properties.sliders)
-            ? Math.max(1, node.properties.sliders.length)
-            : 1;
-        const sliders = Array.isArray(node.properties.sliders)
-          ? [...(node.properties.sliders as Array<{ value?: number }>)]
-          : Array.from({ length: sliderCount }, () => ({ value: node.minimum ?? 0 }));
-        if (patch.sliderIndex < 0 || patch.sliderIndex >= sliders.length) {
-          return false;
-        }
-        sliders[patch.sliderIndex] = {
-          ...sliders[patch.sliderIndex],
-          value: patch.value,
-        };
-        node.properties.sliders = sliders;
-        return true;
-      });
-      if (result.changed) {
-        instrument.widgetTree = result.node;
-      }
-      break;
-    }
-    case 'updateGridSettings':
-      instrument.gridSettings = { ...instrument.gridSettings, ...patch.patch };
-      break;
-    case 'applyPreset':
-      if (instrument.presetGroup) {
-        instrument.presetGroup = clonePresetGroupSnapshot(instrument.presetGroup);
-        instrument.presetGroup.currentPresetUniqueId = patch.presetUniqueId;
-        instrument.presetGroup.currentPresetModified = false;
-        const preset = findPresetById(instrument.presetGroup, patch.presetUniqueId);
-        if (preset?.values && instrument.widgetTree) {
-          const result = applyPresetToTree(instrument.widgetTree, preset.values);
-          if (result.changed) {
-            instrument.widgetTree = result.node;
-          }
-        }
-      }
-      break;
-    case 'updatePreset':
-      if (instrument.presetGroup) {
-        instrument.presetGroup = clonePresetGroupSnapshot(instrument.presetGroup);
-        instrument.presetGroup.currentPresetModified = false;
-      }
-      break;
-    case 'addPreset':
-      // Optimistic update - actual preset creation happens on main process
-      if (instrument.presetGroup) {
-        instrument.presetGroup = clonePresetGroupSnapshot(instrument.presetGroup);
-        instrument.presetGroup.currentPresetModified = false;
-      }
-      break;
-    case 'addPresetGroup':
-      // Optimistic update - actual group creation happens on main process
-      if (instrument.presetGroup) {
-        instrument.presetGroup = clonePresetGroupSnapshot(instrument.presetGroup);
-      }
-      break;
-    case 'synchronizePresets':
-      // Optimistic update - actual sync happens on main process
-      if (instrument.presetGroup) {
-        instrument.presetGroup = clonePresetGroupSnapshot(instrument.presetGroup);
-      }
-      break;
-    case 'updateEmbeddedOpcodeList':
-      instrument.opcodeListText = patch.opcodeList;
-      break;
-    case 'addWidget': {
-      if (!instrument.widgetTree) break;
-      const newId = `w${Date.now()}`;
-      const newNode: BsbWidgetNodeSnapshot = {
-        id: newId,
-        type: patch.widgetType,
-        objectName: '',
-        x: patch.x,
-        y: patch.y,
-        width: 60,
-        height: 24,
-        value: 0,
-        minimum: 0,
-        maximum: 1,
-        properties: {},
-        children: patch.widgetType === 'BSBGroup' ? [] : undefined,
-      };
-      const targetId = patch.parentGroupId;
-      if (targetId) {
-        const result = updateWidgetTreeById(instrument.widgetTree, targetId, (node) => {
-          if (node.type !== 'BSBGroup') {
-            return false;
-          }
-          node.children = [...(node.children ?? []), newNode];
-          return true;
-        });
-        if (result.changed) {
-          instrument.widgetTree = result.node;
-          rebuildWidgetIndexes();
-        }
-      } else {
-        const nextRoot = cloneWidgetNode(instrument.widgetTree);
-        nextRoot.children = [...(nextRoot.children ?? []), newNode];
-        instrument.widgetTree = nextRoot;
-        rebuildWidgetIndexes();
-      }
-      break;
-    }
-    case 'removeWidget': {
-      if (!instrument.widgetTree) break;
-      const result = removeWidgetFromTree(instrument.widgetTree, patch.widgetId);
-      if (result.removed) {
-        instrument.widgetTree = result.node;
-        rebuildWidgetIndexes();
-      }
-      break;
-    }
-    case 'randomize':
-      break;
-  }
-}
-      };
-    }
-    case 'javascript': {
-      const instrument = new JavaScriptInstrument();
-      return {
-        assignmentId,
-        type: 'javascript',
-        name: instrument.getName(),
-        enabled,
-        comment: instrument.getComment(),
-        text: instrument.getText(),
-        globalOrc: instrument.getGlobalOrc(),
-        globalSco: instrument.getGlobalSco(),
-      };
-    }
-    case 'blueX7': {
-      const instrument = new BlueX7();
-      return {
-        assignmentId,
-        type: 'blueX7',
-        name: instrument.getName(),
-        enabled,
-        comment: instrument.getComment(),
-      };
-    }
-    case 'blueSynthBuilder': {
-      const instrument = new BlueSynthBuilder();
-      return {
-        assignmentId,
-        type: 'blueSynthBuilder',
-        name: instrument.getName(),
-        enabled,
-        comment: instrument.getComment(),
-        instrumentText: instrument.getInstrumentText(),
-        alwaysOnInstrumentText: instrument.getAlwaysOnInstrumentText(),
-        globalOrc: instrument.getGlobalOrc(),
-        globalSco: instrument.getGlobalSco(),
-        objectNames: [],
-        widgets: [],
-        editEnabled: true,
-        gridSettings: { columns: 8, rows: 4, snap: true },
-        widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
-      };
-    }
-  }
-
-  throw new Error(`Unsupported instrument type: ${instrumentType}`);
-}
-function updateInstrumentSnapshot(
-*/
 
 let pendingFlushPromise: Promise<void> | null = null;
 
@@ -1021,6 +746,9 @@ function updateInstrumentSnapshot(
     }
     if (patch.globalSco !== undefined) {
       instrument.globalSco = patch.globalSco;
+    }
+    if (patch.embeddedOpcodeList) {
+      applyEmbeddedOpcodeListPatchToSnapshot(instrument, patch.embeddedOpcodeList);
     }
   } else if (instrument.type === 'blueSynthBuilder') {
     if (patch.instrumentText !== undefined) {
@@ -1764,6 +1492,67 @@ function applyBsbInterfacePatchToSnapshot(
     }
     case 'randomize':
       break;
+  }
+}
+
+function applyEmbeddedOpcodeListPatchToSnapshot(
+  instrument: (GenericInstrumentSnapshot | JavaScriptInstrumentSnapshot),
+  patch: EmbeddedOpcodeListPatch,
+): void {
+  switch (patch.type) {
+    case 'addUdo': {
+      const udolist = instrument.udolist ? [...instrument.udolist] : [];
+      const newUdo = patch.definition
+        ? cloneUdoSnapshot(patch.definition)
+        : cloneUdoSnapshot(EMPTY_UDO_SNAPSHOT);
+      if (patch.index !== undefined && patch.index >= 0 && patch.index <= udolist.length) {
+        udolist.splice(patch.index, 0, newUdo);
+      } else {
+        udolist.push(newUdo);
+      }
+      instrument.udolist = udolist;
+      break;
+    }
+    case 'removeUdo': {
+      const removeUdolist = instrument.udolist ? [...instrument.udolist] : [];
+      if (patch.index >= 0 && patch.index < removeUdolist.length) {
+        removeUdolist.splice(patch.index, 1);
+      }
+      instrument.udolist = removeUdolist;
+      break;
+    }
+    case 'updateUdo': {
+      const updateUdolist = instrument.udolist
+        ? instrument.udolist.map((udo) => cloneUdoSnapshot(udo))
+        : [];
+      if (patch.index >= 0 && patch.index < updateUdolist.length) {
+        updateUdolist[patch.index] = { ...updateUdolist[patch.index], ...patch.patch };
+      }
+      instrument.udolist = updateUdolist;
+      break;
+    }
+    case 'convertUdoStyle': {
+      const convertedUdolist = instrument.udolist
+        ? instrument.udolist.map((udo) => cloneUdoSnapshot(udo))
+        : [];
+      if (patch.index >= 0 && patch.index < convertedUdolist.length) {
+        convertedUdolist[patch.index] = convertUdoSnapshotStyle(
+          convertedUdolist[patch.index]!,
+          patch.style,
+        );
+      }
+      instrument.udolist = convertedUdolist;
+      break;
+    }
+    case 'reorderUdo': {
+      const reorderUdolist = instrument.udolist ? [...instrument.udolist] : [];
+      if (patch.from >= 0 && patch.from < reorderUdolist.length && patch.to >= 0 && patch.to < reorderUdolist.length) {
+        const [moved] = reorderUdolist.splice(patch.from, 1);
+        reorderUdolist.splice(patch.to, 0, moved);
+      }
+      instrument.udolist = reorderUdolist;
+      break;
+    }
   }
 }
 

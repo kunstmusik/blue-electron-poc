@@ -4,6 +4,7 @@ import {
   buildDefaultWorkbenchLayout,
   cloneAuxiliaryLayoutState,
   captureAuxiliaryDockedSizesFromApi,
+  closeAuxiliaryPanelLayout,
   createDefaultAuxiliaryLayoutState,
   createStoredWorkbenchLayout,
   dockAuxiliaryPanel,
@@ -251,8 +252,8 @@ describe('workbench auxiliary layout helpers', () => {
             id: 'output-main',
             edge: 'bottom',
             mode: 'output',
-            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
-            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'VirtualKeyboardTopComponent'],
+            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'VirtualKeyboardTopComponent'],
             activePanelId: 'ScoreObjectEditorTopComponent',
             dockedSize: 228,
             slideoutSize: 228,
@@ -284,6 +285,7 @@ describe('workbench auxiliary layout helpers', () => {
     expect(outputGroup.panelIds).toEqual([
       'ScoreObjectEditorTopComponent',
       'MixerTopComponent',
+      'VirtualKeyboardTopComponent',
     ]);
   });
 
@@ -295,7 +297,7 @@ describe('workbench auxiliary layout helpers', () => {
       'output-main',
     );
     expect(getAuxiliaryGroupIdForPanel('MarkersTopComponent')).toBeUndefined();
-    expect(isAuxiliaryPanelId('VirtualKeyboardTopComponent')).toBe(false);
+    expect(isAuxiliaryPanelId('VirtualKeyboardTopComponent')).toBe(true);
   });
 
   it('derives minimized edge tabs and the active slideout panel from per-tool state', () => {
@@ -458,8 +460,8 @@ describe('v4 to v5 migration', () => {
             id: 'output-main',
             edge: 'bottom',
             mode: 'output',
-            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
-            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent'],
+            panelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'VirtualKeyboardTopComponent'],
+            dockedPanelIds: ['ScoreObjectEditorTopComponent', 'MixerTopComponent', 'VirtualKeyboardTopComponent'],
             activePanelId: 'MixerTopComponent',
             dockedSize: 260,
             slideoutSize: 228,
@@ -751,6 +753,7 @@ describe('edge independence', () => {
     expect(outputGroup.panelIds).toEqual([
       'ScoreObjectEditorTopComponent',
       'MixerTopComponent',
+      'VirtualKeyboardTopComponent',
       'OutputTopComponent',
     ]);
   });
@@ -881,5 +884,45 @@ describe('cloneAuxiliaryLayoutState', () => {
     expect(origGroup.panelIds).not.toBe(cloneGroup.panelIds);
     expect(origGroup.dockedPanelIds).not.toBe(cloneGroup.dockedPanelIds);
     expect(origGroup.panelIds).toEqual(cloneGroup.panelIds);
+  });
+});
+
+describe('closeAuxiliaryPanelLayout', () => {
+  it('removes a docked panel from the auxiliary layout and closes the dockview panel', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const api = createDockviewApiStub();
+    const applied = applyAuxiliaryLayout(api, state);
+
+    expect(api.getPanel('SoundObjectPropertiesTopComponent')).toBeDefined();
+
+    const next = closeAuxiliaryPanelLayout(
+      api,
+      applied,
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    const propsGroup = findSeeded(next, 'properties-main')!;
+    expect(propsGroup.panelIds).not.toContain('SoundObjectPropertiesTopComponent');
+    expect(propsGroup.dockedPanelIds).not.toContain('SoundObjectPropertiesTopComponent');
+    expect(api.getPanel('SoundObjectPropertiesTopComponent')).toBeUndefined();
+  });
+
+  it('clears the slideout if the closed panel was slideout-open', () => {
+    const state = createDefaultAuxiliaryLayoutState();
+    const propsGroup = findSeeded(state, 'properties-main')!;
+    propsGroup.dockedPanelIds = ['MidiInputPanelTopComponent'];
+    state.slideouts.right.openPanelId = 'SoundObjectPropertiesTopComponent';
+
+    const api = createDockviewApiStub();
+    const applied = applyAuxiliaryLayout(api, state);
+
+    const next = closeAuxiliaryPanelLayout(
+      api,
+      applied,
+      'SoundObjectPropertiesTopComponent',
+    );
+
+    expect(next.slideouts.right.openPanelId).toBeUndefined();
+    expect(api.getPanel('SoundObjectPropertiesTopComponent')).toBeUndefined();
   });
 });

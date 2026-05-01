@@ -1,9 +1,7 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 
-import type {
-  ProjectUdoPatch,
-  UdoDefinitionSnapshot,
-} from '../../../../shared/project-editor';
+import type { ProjectUdoPatch } from '../../../../shared/project-editor';
+import { useUdoCallbacks } from '../../../hooks/use-udo-callbacks';
 import { useProjectStore } from '../../../stores/project-store';
 import UdoWorkspacePanel from './udo/UdoWorkspacePanel';
 
@@ -13,57 +11,11 @@ export default function UserDefinedOpcodePanel(): React.ReactElement {
   const filePath = useProjectStore((state) => state.filePath);
   const applyProjectUdoPatch = useProjectStore((state) => state.applyProjectUdoPatch);
 
-  const dispatch = useCallback(
-    (patch: ProjectUdoPatch) => {
-      void applyProjectUdoPatch(patch);
-    },
-    [applyProjectUdoPatch],
-  );
+  const dispatch = (patch: Record<string, unknown>) => {
+    void applyProjectUdoPatch(patch as ProjectUdoPatch);
+  };
 
-  const handleInsertUdos = useCallback(
-    (definitions: UdoDefinitionSnapshot[], index?: number) => {
-      definitions.forEach((definition, offset) => {
-        dispatch({
-          type: 'add',
-          index: index === undefined ? undefined : index + offset,
-          definition,
-        });
-      });
-    },
-    [dispatch],
-  );
-
-  const handleRemoveIndices = useCallback(
-    (indices: number[]) => {
-      [...indices]
-        .sort((left, right) => right - left)
-        .forEach((index) => {
-          dispatch({ type: 'remove', index });
-        });
-    },
-    [dispatch],
-  );
-
-  const handleReorder = useCallback(
-    (from: number, to: number) => {
-      dispatch({ type: 'reorder', from, to });
-    },
-    [dispatch],
-  );
-
-  const handleUpdateUdo = useCallback(
-    (index: number, patch: Partial<UdoDefinitionSnapshot>) => {
-      dispatch({ type: 'update', index, patch });
-    },
-    [dispatch],
-  );
-
-  const handleConvertStyle = useCallback(
-    (index: number, style: 'CLASSIC' | 'MODERN') => {
-      dispatch({ type: 'convertStyle', index, style });
-    },
-    [dispatch],
-  );
+  const callbacks = useUdoCallbacks('project', dispatch);
 
   if (!loaded) {
     return (
@@ -83,11 +35,7 @@ export default function UserDefinedOpcodePanel(): React.ReactElement {
         <UdoWorkspacePanel
           udos={projectUdos}
           resetKey={filePath ?? 'project-udo'}
-          onInsertUdos={handleInsertUdos}
-          onRemoveIndices={handleRemoveIndices}
-          onReorder={handleReorder}
-          onUpdateUdo={handleUpdateUdo}
-          onConvertStyle={handleConvertStyle}
+          {...callbacks}
         />
       </div>
     </div>

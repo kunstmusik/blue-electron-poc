@@ -15,6 +15,7 @@ import {
   maximizeAuxiliaryGroupLayout,
   mergeBackToSeededGroup as mergeBackToSeededGroupLayout,
   minimizeAuxiliaryPanelLayout,
+  closeAuxiliaryPanelLayout,
   minimizeAuxiliaryGroupLayout,
   moveAuxiliaryEdge as moveAuxiliaryEdgeLayout,
   moveGroupToEdge as moveGroupToEdgeLayout,
@@ -43,6 +44,7 @@ interface WorkbenchActions {
   focusPanel: (panelId: string) => void;
   toggleAuxiliaryPanel: (panelId: string) => void;
   minimizeAuxiliaryPanel: (panelId: string) => void;
+  closeAuxiliaryPanel: (panelId: string) => void;
   closePanel: (panelId: string) => void;
   isPanelOpen: (panelId: string) => boolean;
   saveLayout: () => string | null;
@@ -146,6 +148,15 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
 
       set({
         auxiliary: minimizeAuxiliaryPanelLayout(api, auxiliary, panelId),
+      });
+    },
+
+    closeAuxiliaryPanel: (panelId) => {
+      const { api, auxiliary } = get();
+      if (!api || !isAuxiliaryPanelId(panelId)) return;
+
+      set({
+        auxiliary: closeAuxiliaryPanelLayout(api, auxiliary, panelId),
       });
     },
 

@@ -10,6 +10,7 @@ import { getAuxiliaryRailLabel } from './auxiliary-layout';
 import { getPanel } from './panel-registry';
 import OutputPanel from './panels/output/OutputPanel';
 import MidiInputPanel from './panels/MidiInputPanel';
+import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 
 interface AuxiliarySlideoutProps {
@@ -137,6 +138,8 @@ export default function AuxiliarySlideout({
           <OutputPanel />
         ) : descriptor.id === 'MidiInputPanelTopComponent' ? (
           <MidiInputPanel />
+        ) : descriptor.id === 'VirtualKeyboardTopComponent' ? (
+          <VirtualKeyboardPanel />
         ) : (
           <PlaceholderPanel descriptor={descriptor} showHeader={false} />
         )}

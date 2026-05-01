@@ -16,6 +16,7 @@ interface SettingsState {
 interface SettingsActions {
   openFile: () => Promise<void>;
   openRecentFile: (path: string) => Promise<void>;
+  newProject: () => Promise<void>;
   setEnginePath: (path: string) => void;
   addRecentFile: (path: string) => void;
   removeRecentFile: (path: string) => void;
@@ -69,11 +70,23 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         }
       },
 
-      openRecentFile: async (path: string) => {
-        // IPC open dialog — if user picks same file, it loads
-        // For direct recent file open, we'd need a separate IPC call
-        // For now, trigger the open dialog
-        get().openFile();
+      openRecentFile: async (filePath: string) => {
+        try {
+          const result = await window.blueAPI.openFilePath(filePath);
+          if (result) {
+            get().addRecentFile(result);
+          }
+        } catch (err: unknown) {
+          toast.error(`Failed to open: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      },
+
+      newProject: async () => {
+        try {
+          await window.blueAPI.newFile();
+        } catch (err: unknown) {
+          toast.error(`Failed to create project: ${err instanceof Error ? err.message : String(err)}`);
+        }
       },
 
       setEnginePath: (enginePath) => set({ enginePath }),

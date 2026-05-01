@@ -39,6 +39,8 @@ declare global {
   interface Window {
     blueAPI: {
       openFile: () => Promise<string | null>;
+      openFilePath: (filePath: string) => Promise<string | null>;
+      newFile: () => Promise<string | null>;
       openBsbFileSelector: (currentValue?: string) => Promise<string | null>;
       setBsbFileSelectorPath: (filePath: string) => Promise<string | null>;
       copyBsbFileSelectorToMediaFolder: (currentValue?: string) => Promise<string | null>;

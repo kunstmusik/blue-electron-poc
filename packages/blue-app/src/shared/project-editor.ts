@@ -8,6 +8,7 @@ import {
   Instrument,
   JavaScriptInstrument,
   OpcodeDefinition,
+  OpcodeList,
   Preset,
   PresetGroup,
   ProjectProperties,
@@ -275,6 +276,7 @@ export interface GenericInstrumentSnapshot extends InstrumentSnapshotBase {
   text: string;
   globalOrc: string;
   globalSco: string;
+  udolist: UdoDefinitionSnapshot[];
 }
 
 export interface JavaScriptInstrumentSnapshot extends InstrumentSnapshotBase {
@@ -282,6 +284,7 @@ export interface JavaScriptInstrumentSnapshot extends InstrumentSnapshotBase {
   text: string;
   globalOrc: string;
   globalSco: string;
+  udolist: UdoDefinitionSnapshot[];
 }
 
 export interface PythonInstrumentSnapshot extends InstrumentSnapshotBase {
@@ -320,6 +323,13 @@ export interface UdoDefinitionSnapshot {
   code: string;
   comments: string;
 }
+
+export type EmbeddedOpcodeListPatch =
+  | { type: 'addUdo'; index?: number; definition?: UdoDefinitionSnapshot }
+  | { type: 'removeUdo'; index: number }
+  | { type: 'updateUdo'; index: number; patch: Partial<UdoDefinitionSnapshot> }
+  | { type: 'convertUdoStyle'; index: number; style: 'CLASSIC' | 'MODERN' }
+  | { type: 'reorderUdo'; from: number; to: number };
 
 export type ProjectUdoPatch =
   | { type: 'add'; index?: number; definition?: UdoDefinitionSnapshot }
@@ -443,6 +453,7 @@ export type InstrumentPatch = Partial<{
   bsbWidgetValues: Record<string, number>;
   bsbOpcodeListText: string;
   bsbInterface: BsbInterfacePatch;
+  embeddedOpcodeList: EmbeddedOpcodeListPatch;
 }>;
 
 export type OrchestraPatch =
@@ -1056,6 +1067,7 @@ export function createInstrumentSnapshot(
       text: instrument.getText(),
       globalOrc: instrument.getGlobalOrc(),
       globalSco: instrument.getGlobalSco(),
+      udolist: instrument.getOpcodeList().getOpcodes().map(udoToSnapshot),
     };
   }
 
@@ -1069,6 +1081,7 @@ export function createInstrumentSnapshot(
       text: instrument.getText(),
       globalOrc: instrument.getGlobalOrc(),
       globalSco: instrument.getGlobalSco(),
+      udolist: instrument.getOpcodeList().getOpcodes().map(udoToSnapshot),
     };
   }
 
@@ -1211,6 +1224,48 @@ function createInstrumentFromSnapshot(snapshot: InstrumentSnapshot): Instrument 
   }
 
   return instrument;
+}
+
+function applyEmbeddedOpcodeListPatch(opcodeList: OpcodeList, patch: EmbeddedOpcodeListPatch): boolean {
+  switch (patch.type) {
+    case 'addUdo': {
+      const definition = patch.definition
+        ? snapshotToUdo(patch.definition)
+        : new OpcodeDefinition();
+      const index = patch.index ?? opcodeList.size();
+      opcodeList.addOpcodeAt(index, definition);
+      return true;
+    }
+    case 'removeUdo':
+      return opcodeList.removeOpcodeAt(patch.index);
+    case 'updateUdo': {
+      const existing = opcodeList.getOpcode(patch.index);
+      if (!existing) return false;
+      if (patch.patch.name !== undefined) existing.setName(patch.patch.name);
+      if (patch.patch.outTypes !== undefined) existing.setOutTypes(patch.patch.outTypes);
+      if (patch.patch.inTypes !== undefined) existing.setInTypes(patch.patch.inTypes);
+      if (patch.patch.inputArguments !== undefined) existing.setInputArguments(patch.patch.inputArguments);
+      if (patch.patch.code !== undefined) existing.setCode(patch.patch.code);
+      if (patch.patch.comments !== undefined) existing.setComments(patch.patch.comments);
+      if (patch.patch.style !== undefined) {
+        existing.setStyle(UDOStyle[patch.patch.style as keyof typeof UDOStyle]);
+      }
+      return true;
+    }
+    case 'convertUdoStyle': {
+      const udo = opcodeList.getOpcode(patch.index);
+      if (!udo) return false;
+      udo.setStyle(UDOStyle[patch.style as keyof typeof UDOStyle]);
+      return true;
+    }
+    case 'reorderUdo': {
+      const udo = opcodeList.getOpcode(patch.from);
+      if (!udo) return false;
+      opcodeList.removeOpcodeAt(patch.from);
+      opcodeList.addOpcodeAt(patch.to, udo);
+      return true;
+    }
+  }
 }
 
 function applyBsbInterfacePatch(instrument: BlueSynthBuilder, patch: BsbInterfacePatch): boolean {
@@ -1616,6 +1671,9 @@ function applyInstrumentPatch(instrument: Instrument, patch: InstrumentPatch): b
       instrument.setGlobalSco(patch.globalSco);
       changed = true;
     }
+    if (patch.embeddedOpcodeList) {
+      changed = applyEmbeddedOpcodeListPatch(instrument.getOpcodeList(), patch.embeddedOpcodeList) || changed;
+    }
   } else if (instrument instanceof JavaScriptInstrument || instrument instanceof PythonInstrument) {
     if (patch.text !== undefined && instrument.getText() !== patch.text) {
       instrument.setText(patch.text);
@@ -1628,6 +1686,9 @@ function applyInstrumentPatch(instrument: Instrument, patch: InstrumentPatch): b
     if (patch.globalSco !== undefined && instrument.getGlobalSco() !== patch.globalSco) {
       instrument.setGlobalSco(patch.globalSco);
       changed = true;
+    }
+    if (patch.embeddedOpcodeList) {
+      changed = applyEmbeddedOpcodeListPatch(instrument.getOpcodeList(), patch.embeddedOpcodeList) || changed;
     }
   } else if (instrument instanceof BlueSynthBuilder) {
     if (

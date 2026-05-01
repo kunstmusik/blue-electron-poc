@@ -494,12 +494,21 @@
 }
 
 .workbench-edge-rail__group-action--left,
-.workbench-edge-rail__group-action--right,
+.workbench-edge-rail__group-action--right {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+  align-self: center;
+}
+
 .workbench-edge-rail__group-action--bottom {
   width: 28px;
   height: 28px;
   padding: 0;
   border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .workbench-edge-rail__group-action-label,
@@ -546,8 +555,10 @@
 .workbench-aux-header-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding-right: 4px;
+  padding: 0 4px;
+  height: 100%;
 }
 
 [data-aux-edge] .dv-tabs-and-actions-container .dv-void-container,

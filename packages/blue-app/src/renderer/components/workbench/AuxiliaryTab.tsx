@@ -114,8 +114,8 @@ function AuxiliaryTabMenu({
   props: IDockviewPanelHeaderProps;
 }) {
   const panelId = props.api.id;
-  const minimizeAuxiliaryPanel = useWorkbenchStore(
-    (state) => state.minimizeAuxiliaryPanel,
+  const closeAuxiliaryPanel = useWorkbenchStore(
+    (state) => state.closeAuxiliaryPanel,
   );
   const minimizeAuxiliaryGroup = useWorkbenchStore(
     (state) => state.minimizeAuxiliaryGroup,
@@ -133,7 +133,7 @@ function AuxiliaryTabMenu({
     return <DockviewDefaultTab {...props} />;
   }
 
-  const handleClosePanel = () => minimizeAuxiliaryPanel(panelId);
+  const handleClosePanel = () => closeAuxiliaryPanel(panelId);
   const handleCloseGroup = () =>
     minimizeAuxiliaryGroup(instance.groupInstanceId);
   const handleMaximizeToggle = () => {

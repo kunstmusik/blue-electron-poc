@@ -3,6 +3,7 @@ import { buildApplicationMenuTemplate } from './application-menu';
 
 function createHandlers() {
   return {
+    onNewFile: vi.fn(),
     onOpenFile: vi.fn(),
     onSaveFile: vi.fn(),
     onSaveFileAs: vi.fn(),
@@ -47,7 +48,7 @@ describe('application menu template', () => {
     expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
 
     const fileMenu = getSubmenu(template[1]);
-    expect(getLabels(fileMenu)).toEqual(['Open...', 'Save', 'Save As...']);
+    expect(getLabels(fileMenu)).toEqual(['New', 'Open...', 'Save', 'Save As...']);
 
     const projectMenu = getSubmenu(template[3]);
     expect(projectMenu.find((item) => item.label === 'Play')?.enabled).toBe(true);
@@ -76,7 +77,7 @@ describe('application menu template', () => {
     expect(template.map((item) => item.label)).toEqual(['File', 'Edit', 'Project', 'Window']);
 
     const fileMenu = getSubmenu(template[0]);
-    expect(getLabels(fileMenu)).toEqual(['Open...', 'Save', 'Save As...', 'Settings...', 'Quit']);
+    expect(getLabels(fileMenu)).toEqual(['New', 'Open...', 'Save', 'Save As...', 'Settings...', 'Quit']);
 
     const settingsItem = fileMenu.find((item) => item.label === 'Settings...');
     expect(settingsItem?.accelerator).toBe('CmdOrCtrl+,');

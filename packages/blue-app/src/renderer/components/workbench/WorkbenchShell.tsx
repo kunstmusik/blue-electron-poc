@@ -61,12 +61,10 @@ export default function WorkbenchShell() {
   const hideAllAuxiliarySlideouts = useWorkbenchStore(
     (s) => s.hideAllAuxiliarySlideouts,
   );
-  const hideAuxiliarySlideout = useWorkbenchStore(
-    (s) => s.hideAuxiliarySlideout,
-  );
   const resizeAuxiliarySlideout = useWorkbenchStore(
     (s) => s.resizeAuxiliarySlideout,
   );
+  const closeAuxiliaryPanel = useWorkbenchStore((s) => s.closeAuxiliaryPanel);
   const restoreAuxiliaryGroup = useWorkbenchStore((s) => s.restoreAuxiliaryGroup);
   const moveAuxiliaryEdge = useWorkbenchStore((s) => s.moveAuxiliaryEdge);
   const movePanelToEdge = useWorkbenchStore((s) => s.movePanelToEdge);
@@ -466,7 +464,9 @@ export default function WorkbenchShell() {
       {leftSlideout ? (
         <AuxiliarySlideout
           slideout={leftSlideout}
-          onClose={() => hideAuxiliarySlideout('left')}
+          onClose={() => {
+            closeAuxiliaryPanel(leftSlideout.panelId);
+          }}
           onDock={() => dockAuxiliaryPanel(leftSlideout.panelId)}
           onResize={(size) => resizeAuxiliarySlideout(leftSlideout.panelId, size)}
         />
@@ -475,7 +475,9 @@ export default function WorkbenchShell() {
       {rightSlideout ? (
         <AuxiliarySlideout
           slideout={rightSlideout}
-          onClose={() => hideAuxiliarySlideout('right')}
+          onClose={() => {
+            closeAuxiliaryPanel(rightSlideout.panelId);
+          }}
           onDock={() => dockAuxiliaryPanel(rightSlideout.panelId)}
           onResize={(size) =>
             resizeAuxiliarySlideout(rightSlideout.panelId, size)
@@ -486,7 +488,9 @@ export default function WorkbenchShell() {
       {bottomSlideout ? (
         <AuxiliarySlideout
           slideout={bottomSlideout}
-          onClose={() => hideAuxiliarySlideout('bottom')}
+          onClose={() => {
+            closeAuxiliaryPanel(bottomSlideout.panelId);
+          }}
           onDock={() => dockAuxiliaryPanel(bottomSlideout.panelId)}
           onResize={(size) =>
             resizeAuxiliarySlideout(bottomSlideout.panelId, size)
