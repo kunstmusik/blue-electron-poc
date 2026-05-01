@@ -108,6 +108,7 @@ export { LineObject } from './sound-objects/line-object';
 export { ZakLineObject } from './sound-objects/zak-line-object';
 export { PatternObject } from './sound-objects/pattern-object';
 export { PianoRoll } from './sound-objects/piano-roll';
+export { Scale } from './sound-objects/piano-roll/scale';
 export { JMask } from './sound-objects/j-mask';
 export { TrackerObject } from './sound-objects/tracker-object';
 export { NotationObject } from './sound-objects/notation-object';
@@ -172,6 +173,8 @@ export { LiveObjectSetList } from './live/live-object-set-list';
 export { MidiInputProcessor } from './midi/midi-input-processor';
 export { MidiKeyMapping } from './midi/midi-key-mapping';
 export { MidiVelocityMapping } from './midi/midi-velocity-mapping';
+export { mapMidiTrigger } from './midi/midi-trigger-routing';
+export type { MidiTriggerMappingInput, MidiTriggerMappingResult } from './midi/midi-trigger-routing';
 
 // ─── Opcodes ───
 export { OpcodeDefinition } from './opcodes/opcode-definition';

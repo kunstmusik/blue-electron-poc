@@ -9,12 +9,24 @@ import { useBlueLiveStore } from '../stores/blue-live-store';
 import { useProjectStore } from '../stores/project-store';
 import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
 
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const { mockOpenPanel } = vi.hoisted(() => ({
+  mockOpenPanel: vi.fn(),
+}));
+
+vi.mock('../stores/workbench-store', () => ({
+  useWorkbenchStore: (selector: (state: { openPanel: typeof mockOpenPanel }) => unknown) =>
+    selector({ openPanel: mockOpenPanel }),
+}));
+
 declare global {
   interface Window {
     blueAPI?: {
       toggleBlueLive?: () => Promise<unknown> | unknown;
       recompileBlueLive?: () => Promise<unknown> | unknown;
       sendBlueLiveAllNotesOff?: () => Promise<unknown> | unknown;
+      triggerBlueLiveNote?: () => Promise<unknown> | unknown;
     };
   }
 }
@@ -51,10 +63,12 @@ function renderToolbar(): { container: HTMLDivElement; root: Root } {
 beforeEach(() => {
   useBlueLiveStore.getState().reset();
   useProjectStore.getState().clearProject();
+  mockOpenPanel.mockReset();
   window.blueAPI = {
     toggleBlueLive: vi.fn(),
     recompileBlueLive: vi.fn(),
     sendBlueLiveAllNotesOff: vi.fn(),
+    triggerBlueLiveNote: vi.fn(),
   };
 });
 
@@ -76,7 +90,7 @@ describe('Blue Live toolbar behavior', () => {
     expect((blueLiveButton as HTMLButtonElement).disabled).toBe(true);
     expect((recompileButton as HTMLButtonElement).disabled).toBe(true);
     expect((allNotesOffButton as HTMLButtonElement).disabled).toBe(true);
-    expect((midiInputButton as HTMLButtonElement).disabled).toBe(true);
+    expect((midiInputButton as HTMLButtonElement).disabled).toBe(false);
 
     act(() => {
       root.unmount();
@@ -142,6 +156,27 @@ describe('Blue Live toolbar behavior', () => {
 
     expect(recompile).toHaveBeenCalledTimes(1);
     expect(allNotesOff).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('opens the MIDI Input panel from the toolbar', () => {
+    seedLoadedProject();
+
+    const { container, root } = renderToolbar();
+    const midiInputButton = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === 'MIDI Input');
+
+    expect(midiInputButton).toBeTruthy();
+    expect((midiInputButton as HTMLButtonElement).disabled).toBe(false);
+
+    act(() => {
+      midiInputButton?.click();
+    });
+
+    expect(mockOpenPanel).toHaveBeenCalledWith('MidiInputPanelTopComponent');
 
     act(() => {
       root.unmount();

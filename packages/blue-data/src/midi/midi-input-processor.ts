@@ -7,13 +7,14 @@
  */
 import { Element } from '../serialization/xml-reader';
 import { BlueDataObject } from '../blue-data-object';
+import { Scale } from '../sound-objects/piano-roll/scale';
 
 export class MidiInputProcessor implements BlueDataObject {
   private _keyMapping = 'PCH';
   private _velMapping = 'MIDI';
   private _pitchConstant = '';
   private _ampConstant = '';
-  private _scaleXml: Element | null = null;
+  private _scale: Scale | null = new Scale();
 
   constructor(other?: MidiInputProcessor) {
     if (other) {
@@ -21,7 +22,7 @@ export class MidiInputProcessor implements BlueDataObject {
       this._velMapping = other._velMapping;
       this._pitchConstant = other._pitchConstant;
       this._ampConstant = other._ampConstant;
-      this._scaleXml = other._scaleXml ? other._scaleXml.clone() : null;
+      this._scale = other._scale ? new Scale(other._scale) : null;
     }
   }
 
@@ -57,19 +58,21 @@ export class MidiInputProcessor implements BlueDataObject {
     this._ampConstant = value;
   }
 
+  getScale(): Scale | null {
+    return this._scale;
+  }
+
+  setScale(scale: Scale | null): void {
+    this._scale = scale ? new Scale(scale) : null;
+  }
+
   saveAsXML(): Element {
     const elem = new Element('midiInputProcessor');
     elem.addElement('keyMapping').setText(this._keyMapping);
     elem.addElement('velMapping').setText(this._velMapping);
-    if (this._pitchConstant) {
-      elem.addElement('pitchConstant').setText(this._pitchConstant);
-    }
-    if (this._ampConstant) {
-      elem.addElement('ampConstant').setText(this._ampConstant);
-    }
-    if (this._scaleXml) {
-      elem.addElement(this._scaleXml.clone());
-    }
+    elem.addElement('pitchConstant').setText(this._pitchConstant);
+    elem.addElement('ampConstant').setText(this._ampConstant);
+    elem.addElement((this._scale ?? new Scale()).saveAsXML());
     return elem;
   }
 
@@ -98,7 +101,7 @@ export class MidiInputProcessor implements BlueDataObject {
 
     const scaleElem = data.getElement('scale');
     if (scaleElem) {
-      mip._scaleXml = scaleElem.clone();
+      mip._scale = Scale.loadFromXML(scaleElem);
     }
 
     return mip;

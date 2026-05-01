@@ -15,6 +15,8 @@ import {
   type BsbRealtimeControlUpdate,
   type BsbWidgetNodeSnapshot,
   type ArrangementRowSnapshot,
+  type MidiInputPatch,
+  type MidiInputProcessorSnapshot,
   type InstrumentPatch,
   type InstrumentSnapshot,
   type PresetGroupSnapshot,
@@ -59,6 +61,7 @@ interface ProjectState {
   projectUdos: UdoDefinitionSnapshot[];
   generatedCsd: { text: string; title: string } | null;
   blueLive: BlueLiveProjectSnapshot | null;
+  midiInput: MidiInputProcessorSnapshot | null;
 }
 
 interface ProjectActions {
@@ -360,6 +363,9 @@ const PATCH_FLUSH_DELAY_MS = 100;
         globalSco: instrument.getGlobalSco(),
         objectNames: [],
         widgets: [],
+        editEnabled: true,
+        gridSettings: { columns: 8, rows: 4, snap: true },
+        widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
       };
     }
   }
@@ -581,6 +587,7 @@ function applyProjectInfoToState(
       tablesText: info.tablesText ?? state.tablesText,
       projectUdos: info.projectUdos ?? state.projectUdos,
       blueLive: info.blueLive ?? state.blueLive,
+      midiInput: info.midiInput ?? state.midiInput,
     };
   });
 }
@@ -615,6 +622,7 @@ function buildInitialState(): ProjectState {
     projectUdos: snapshot.projectUdos,
     generatedCsd: null,
     blueLive: snapshot.blueLive ?? null,
+    midiInput: snapshot.midiInput ?? null,
   };
 }
 
@@ -804,6 +812,43 @@ function applyBlueLivePatchToSnapshot(
   return next;
 }
 
+function createDefaultMidiInputSnapshot(): MidiInputProcessorSnapshot {
+  return {
+    keyMapping: 'PCH',
+    velocityMapping: 'MIDI',
+    pitchConstant: '',
+    ampConstant: '',
+    scale: null,
+  };
+}
+
+function applyMidiInputPatchToSnapshot(
+  snap: MidiInputProcessorSnapshot,
+  patch: MidiInputPatch,
+): MidiInputProcessorSnapshot {
+  const next = structuredClone(snap);
+
+  switch (patch.type) {
+    case 'updateKeyMapping':
+      next.keyMapping = patch.value;
+      break;
+    case 'updateVelocityMapping':
+      next.velocityMapping = patch.value;
+      break;
+    case 'updatePitchConstant':
+      next.pitchConstant = patch.value;
+      break;
+    case 'updateAmpConstant':
+      next.ampConstant = patch.value;
+      break;
+    case 'updateScale':
+      next.scale = patch.scale ? structuredClone(patch.scale) : null;
+      break;
+  }
+
+  return next;
+}
+
 function cloneInstrumentSnapshotForMutation<T extends InstrumentSnapshot>(instrument: T): T {
   return { ...instrument };
 }
@@ -915,6 +960,9 @@ function createDefaultInstrumentSnapshot(
         globalSco: instrument.getGlobalSco(),
         objectNames: [],
         widgets: [],
+        editEnabled: true,
+        gridSettings: { columns: 8, rows: 4, snap: true },
+        widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
       };
     }
   }
@@ -1623,6 +1671,7 @@ function applyBsbInterfacePatchToSnapshot(
         minimum: 0,
         maximum: 1,
         properties: {},
+        editable: true,
         children: patch.widgetType === 'BSBGroup' ? [] : undefined,
       };
       const targetId = patch.parentGroupId;
@@ -1905,6 +1954,9 @@ function applyOrchestraPatchSnapshot(
           globalSco: source.globalSco,
           objectNames: [],
           widgets: [],
+          editEnabled: true,
+          gridSettings: { columns: 8, rows: 4, snap: true },
+          widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
         };
         next.arrangement.rows = next.arrangement.rows.slice();
         next.arrangement.rows[rowIndex] = row;
@@ -2006,6 +2058,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       patch.tablesText === undefined &&
       patch.projectUdo === undefined &&
       patch.blueLive === undefined &&
+      patch.midiInput === undefined &&
       (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
       (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
@@ -2065,6 +2118,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
       if (patch.blueLive !== undefined && state.blueLive) {
         next.blueLive = applyBlueLivePatchToSnapshot(state.blueLive, patch.blueLive);
+      }
+
+      if (patch.midiInput !== undefined) {
+        next.midiInput = applyMidiInputPatchToSnapshot(
+          state.midiInput ?? createDefaultMidiInputSnapshot(),
+          patch.midiInput,
+        );
       }
 
       return next;

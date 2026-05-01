@@ -4,6 +4,8 @@
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import type {
   BsbRealtimeControlUpdate,
+  BlueLiveNoteTriggerRequest,
+  BlueLiveNoteTriggerResult,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
@@ -111,6 +113,8 @@ contextBridge.exposeInMainWorld('blueAPI', {
   stopBlueLive: () => ipcRenderer.invoke('blue-live:stop'),
   recompileBlueLive: () => ipcRenderer.invoke('blue-live:recompile'),
   sendBlueLiveAllNotesOff: () => ipcRenderer.invoke('blue-live:all-notes-off'),
+  triggerBlueLiveNote: (request: BlueLiveNoteTriggerRequest) =>
+    ipcRenderer.invoke('blue-live:trigger-note', request) as Promise<BlueLiveNoteTriggerResult>,
   getBlueLiveStatus: () => ipcRenderer.invoke('blue-live:get-status'),
   onBlueLiveStatus: (callback: (snapshot: unknown) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, snapshot: unknown) => callback(snapshot);

@@ -9,6 +9,7 @@ import type { AuxiliarySlideoutView } from './auxiliary-layout';
 import { getAuxiliaryRailLabel } from './auxiliary-layout';
 import { getPanel } from './panel-registry';
 import OutputPanel from './panels/output/OutputPanel';
+import MidiInputPanel from './panels/MidiInputPanel';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 
 interface AuxiliarySlideoutProps {
@@ -134,6 +135,8 @@ export default function AuxiliarySlideout({
       <div className="workbench-aux-slideout__content">
         {descriptor.id === 'OutputTopComponent' ? (
           <OutputPanel />
+        ) : descriptor.id === 'MidiInputPanelTopComponent' ? (
+          <MidiInputPanel />
         ) : (
           <PlaceholderPanel descriptor={descriptor} showHeader={false} />
         )}

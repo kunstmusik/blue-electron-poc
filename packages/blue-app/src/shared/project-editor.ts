@@ -12,6 +12,7 @@ import {
   PresetGroup,
   ProjectProperties,
   PythonInstrument,
+  Scale,
   TempoMap,
   UDOStyle,
   convertToModern,
@@ -147,6 +148,42 @@ export interface BlueLiveProjectSnapshot {
   sets: LiveObjectSetSnapshot[];
 }
 
+export interface MidiScaleSnapshot {
+  scaleName: string;
+  baseFrequency: number;
+  octave: number;
+  ratios: number[];
+}
+
+export interface MidiInputProcessorSnapshot {
+  keyMapping: string;
+  velocityMapping: string;
+  pitchConstant: string;
+  ampConstant: string;
+  scale: MidiScaleSnapshot | null;
+}
+
+export type MidiInputPatch =
+  | { type: 'updateKeyMapping'; value: string }
+  | { type: 'updateVelocityMapping'; value: string }
+  | { type: 'updatePitchConstant'; value: string }
+  | { type: 'updateAmpConstant'; value: string }
+  | { type: 'updateScale'; scale: MidiScaleSnapshot | null };
+
+export interface BlueLiveNoteTriggerRequest {
+  type: 'noteOn' | 'noteOff';
+  midiNote: number;
+  velocity: number;
+  channel: number;
+  source: 'mouse' | 'computer';
+}
+
+export interface BlueLiveNoteTriggerResult {
+  ok: boolean;
+  message?: string;
+  submittedScoreText?: string;
+}
+
 export type BlueLivePatch =
   | { type: 'updateOptions'; patch: Partial<Pick<BlueLiveProjectSnapshot, 'commandLine' | 'commandLineEnabled' | 'commandLineOverride'>> }
   | { type: 'updateTempoRepeat'; patch: Partial<Pick<BlueLiveProjectSnapshot, 'tempo' | 'repeat' | 'repeatEnabled'>> }
@@ -174,6 +211,7 @@ export interface ProjectEditorSnapshot {
   projectUdos: UdoDefinitionSnapshot[];
   loaded: boolean;
   blueLive?: BlueLiveProjectSnapshot;
+  midiInput?: MidiInputProcessorSnapshot;
 }
 
 export interface ProjectSummarySnapshot {
@@ -193,6 +231,7 @@ export interface ProjectDocumentPatch {
   tablesText?: string;
   projectUdo?: ProjectUdoPatch;
   blueLive?: BlueLivePatch;
+  midiInput?: MidiInputPatch;
 }
 
 export interface ProjectDocumentCommitReceipt {
@@ -457,6 +496,7 @@ export type ProjectLoadedPayload = ProjectSummarySnapshot &
       | 'projectUdos'
       | 'loaded'
       | 'blueLive'
+      | 'midiInput'
     >
   >;
 
@@ -664,6 +704,7 @@ export function createProjectEditorSnapshot(
     projectUdos: createProjectUdoListSnapshot(data),
     loaded: true,
     blueLive: createBlueLiveProjectSnapshot(data.getLiveData()),
+    midiInput: createMidiInputProcessorSnapshot(data.getMidiInputProcessor()),
   };
 }
 
@@ -1739,6 +1780,69 @@ export function createBlueLiveProjectSnapshot(liveData: LiveData): BlueLiveProje
   };
 }
 
+export function createMidiScaleSnapshot(scale: Scale | null): MidiScaleSnapshot | null {
+  if (!scale) {
+    return null;
+  }
+
+  return {
+    scaleName: scale.scaleName,
+    baseFrequency: scale.baseFrequency,
+    octave: scale.octave,
+    ratios: Array.isArray(scale.ratios) ? [...scale.ratios] : [],
+  };
+}
+
+export function createMidiInputProcessorSnapshot(
+  processor: { getKeyMapping(): string; getVelocityMapping(): string; getPitchConstant(): string; getAmpConstant(): string; getScale(): Scale | null },
+): MidiInputProcessorSnapshot {
+  return {
+    keyMapping: processor.getKeyMapping(),
+    velocityMapping: processor.getVelocityMapping(),
+    pitchConstant: processor.getPitchConstant(),
+    ampConstant: processor.getAmpConstant(),
+    scale: createMidiScaleSnapshot(processor.getScale()),
+  };
+}
+
+function createScaleFromSnapshot(snapshot: MidiScaleSnapshot | null): Scale | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  const scale = new Scale();
+  scale.scaleName = snapshot.scaleName;
+  scale.baseFrequency = snapshot.baseFrequency;
+  scale.octave = snapshot.octave;
+  scale.ratios = snapshot.ratios.length > 0 ? [...snapshot.ratios] : [...scale.ratios];
+  return scale;
+}
+
+function applyMidiInputPatch(
+  data: BlueData,
+  patch: MidiInputPatch,
+): boolean {
+  const midiInput = data.getMidiInputProcessor();
+
+  switch (patch.type) {
+    case 'updateKeyMapping':
+      midiInput.setKeyMapping(patch.value);
+      return true;
+    case 'updateVelocityMapping':
+      midiInput.setVelocityMapping(patch.value);
+      return true;
+    case 'updatePitchConstant':
+      midiInput.setPitchConstant(patch.value);
+      return true;
+    case 'updateAmpConstant':
+      midiInput.setAmpConstant(patch.value);
+      return true;
+    case 'updateScale':
+      midiInput.setScale(createScaleFromSnapshot(patch.scale));
+      return true;
+  }
+}
+
 function applyBlueLivePatch(data: BlueData, patch: BlueLivePatch): boolean {
   const liveData = data.getLiveData();
   switch (patch.type) {
@@ -1919,6 +2023,10 @@ export function applyProjectDocumentPatch(
     changed = applyBlueLivePatch(data, patch.blueLive) || changed;
   }
 
+  if (patch.midiInput) {
+    changed = applyMidiInputPatch(data, patch.midiInput) || changed;
+  }
+
   return changed;
 }
 
@@ -1993,6 +2101,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
   const hasBlueLive =
     patch.blueLive !== undefined &&
     Object.keys(patch.blueLive).length > 0;
+  const hasMidiInput = patch.midiInput !== undefined;
 
   return (
     patch.globalOrc === undefined &&
@@ -2002,6 +2111,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     !hasTransport &&
     !hasOrchestra &&
     !hasProjectUdo &&
-    !hasBlueLive
+    !hasBlueLive &&
+    !hasMidiInput
   );
 }

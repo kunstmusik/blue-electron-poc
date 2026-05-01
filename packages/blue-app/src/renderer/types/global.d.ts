@@ -2,6 +2,8 @@ export {};
 
 import type {
   BsbRealtimeControlUpdate,
+  BlueLiveNoteTriggerRequest,
+  BlueLiveNoteTriggerResult,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
@@ -81,6 +83,9 @@ declare global {
       stopBlueLive: () => Promise<BlueLiveStatusSnapshot>;
       recompileBlueLive: () => Promise<BlueLiveStatusSnapshot>;
       sendBlueLiveAllNotesOff: () => Promise<{ ok: boolean; message?: string }>;
+      triggerBlueLiveNote: (
+        request: BlueLiveNoteTriggerRequest,
+      ) => Promise<BlueLiveNoteTriggerResult>;
       getBlueLiveStatus: () => Promise<BlueLiveStatusSnapshot>;
       onBlueLiveStatus: (cb: (snapshot: BlueLiveStatusSnapshot) => void) => () => void;
 

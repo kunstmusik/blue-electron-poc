@@ -1,8 +1,12 @@
 import { BrowserWindow } from 'electron';
 import { EngineBridge, EngineOutputCallback } from './engine-bridge';
 import type { BlueData } from '@blue/data';
-import { LiveData } from '@blue/data';
+import { LiveData, mapMidiTrigger } from '@blue/data';
 import { formatRenderCommandLine, writeTempCsdSnapshot } from './render-command';
+import type {
+  BlueLiveNoteTriggerRequest,
+  BlueLiveNoteTriggerResult,
+} from '../shared/project-editor';
 
 export type BlueLiveEngineStatus = 'idle' | 'starting' | 'running' | 'stopping' | 'stopped' | 'error';
 
@@ -27,6 +31,7 @@ export class BlueLiveEngineSession {
   private outputCallback: EngineOutputCallback | null = null;
   private namedInstrumentNumbers = new Map<string, number>();
   private projectDirectory: string | null = null;
+  private projectData: BlueData | null = null;
 
   constructor(mainWindow: BrowserWindow, enginePath?: string, port = 5560, pubPort = 5561) {
     this.mainWindow = mainWindow;
@@ -71,6 +76,7 @@ export class BlueLiveEngineSession {
     this.sessionId++;
     this.projectRevision = revision;
     this.projectDirectory = projectDirectory && projectDirectory.trim().length > 0 ? projectDirectory : null;
+    this.projectData = data;
 
     try {
       const liveData = data.getLiveData();
@@ -212,12 +218,59 @@ export class BlueLiveEngineSession {
     return this.status === 'running';
   }
 
+  async triggerNote(
+    request: BlueLiveNoteTriggerRequest,
+  ): Promise<BlueLiveNoteTriggerResult> {
+    const client = this.bridge?.['client'];
+    const projectData = this.projectData;
+
+    if (this.status !== 'running' || !client || !projectData) {
+      return { ok: false, message: 'Blue Live is not running' };
+    }
+
+    const arrangement = projectData.getArrangement().getArrangement();
+    const assignment = arrangement[request.channel];
+    if (!assignment) {
+      return { ok: false, message: 'No instrument mapped to that channel' };
+    }
+
+    const mapped = mapMidiTrigger(projectData.getMidiInputProcessor(), {
+      midiNote: request.midiNote,
+      velocity: request.velocity,
+      channel: request.channel,
+    });
+
+    const paddedNoteNum = this.getPaddedNoteNum(mapped.originalMidiNote);
+    const arrangementId = assignment.arrangementId;
+    const scoreText = request.type === 'noteOff'
+      ? `i-${arrangementId}.${paddedNoteNum} 0 0`
+      : `i${arrangementId}.${paddedNoteNum} 0 -1 ${mapped.mappedPitchValue} ${mapped.mappedAmplitudeValue}`;
+
+    try {
+      const resp = await client.readScore(
+        normalizeScoreForEngineApi(scoreText, this.namedInstrumentNumbers),
+      );
+      return {
+        ok: resp.ok,
+        message: resp.ok ? undefined : resp.message,
+        submittedScoreText: scoreText,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err instanceof Error ? err.message : String(err),
+        submittedScoreText: scoreText,
+      };
+    }
+  }
+
   getStatus(): BlueLiveStatusSnapshot {
     return this.getSnapshot();
   }
 
   private async cleanup(): Promise<void> {
     this.namedInstrumentNumbers.clear();
+    this.projectData = null;
     if (this.bridge) {
       const bridge = this.bridge;
       this.bridge = null;
@@ -232,6 +285,19 @@ export class BlueLiveEngineSession {
       return `i ${instrNum} 0 1`;
     }
     return 'i "blueAllNotesOff" 0 1';
+  }
+
+  private getPaddedNoteNum(noteNum: number): string {
+    const noteStr = String(noteNum);
+    let buffer = '';
+    if (noteStr.length < 3) {
+      buffer += '0';
+    }
+    if (noteStr.length < 2) {
+      buffer += '1';
+    }
+    buffer += noteStr;
+    return buffer;
   }
 
   private buildLiveOptions(liveData: LiveData, csdOptions: string[]): string[] {

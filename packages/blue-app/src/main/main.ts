@@ -26,6 +26,8 @@ import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
   isEmptyProjectDocumentPatch,
+  type BlueLiveNoteTriggerRequest,
+  type BlueLiveNoteTriggerResult,
   type BsbRealtimeControlUpdate,
   type ProjectDocumentCommitReceipt,
   type ProjectDocumentPatch,
@@ -776,6 +778,14 @@ ipcMain.handle('blue-live:all-notes-off', async () => {
     return { ok: false, message: 'Blue Live not initialized' };
   }
   return blueLiveSession.sendAllNotesOff();
+});
+
+ipcMain.handle('blue-live:trigger-note', async (_event, request: BlueLiveNoteTriggerRequest): Promise<BlueLiveNoteTriggerResult> => {
+  if (!blueLiveSession || !currentData) {
+    return { ok: false, message: 'No project loaded' };
+  }
+
+  return blueLiveSession.triggerNote(request);
 });
 
 ipcMain.handle('blue-live:get-status', async () => {

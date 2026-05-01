@@ -3,12 +3,14 @@ import type { IDockviewPanelProps } from 'dockview';
 import { PANEL_MAP } from './panel-registry';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 import BlueLivePanel from './panels/BlueLivePanel';
+import MidiInputPanel from './panels/MidiInputPanel';
 import GlobalOrchestraPanel from './panels/GlobalOrchestraPanel';
 import GlobalScorePanel from './panels/GlobalScorePanel';
 import OrchestraPanel from './panels/OrchestraPanel';
 import ProjectPropertiesPanel from './panels/ProjectPropertiesPanel';
 import TablesPanel from './panels/TablesPanel';
 import UserDefinedOpcodePanel from './panels/UserDefinedOpcodePanel';
+import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
 import OutputPanel from './panels/output/OutputPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
@@ -40,6 +42,10 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <UserDefinedOpcodePanel />
           ) : descriptor.id === 'BlueLiveTopComponent' ? (
             <BlueLivePanel />
+          ) : descriptor.id === 'MidiInputPanelTopComponent' ? (
+            <MidiInputPanel />
+          ) : descriptor.id === 'VirtualKeyboardTopComponent' ? (
+            <VirtualKeyboardPanel />
           ) : descriptor.id === 'OutputTopComponent' ? (
             <OutputPanel />
           ) : (
