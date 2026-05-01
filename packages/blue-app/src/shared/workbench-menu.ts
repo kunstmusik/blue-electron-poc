@@ -1,4 +1,4 @@
-export type PanelMode = 'editor' | 'properties' | 'output';
+export type PanelMode = 'editor' | 'properties' | 'output' | 'repl';
 
 export interface PanelDescriptor {
   id: string;
@@ -30,9 +30,30 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
     auxiliaryGroupId: 'properties-main',
     auxiliaryRailLabel: 'Properties',
   },
-  { id: 'SoundObjectLibraryTopComponent', title: 'Sound Object Library', mode: 'properties', openAtStartup: false },
-  { id: 'MarkersTopComponent', title: 'Markers', mode: 'properties', openAtStartup: false },
-  { id: 'AudioFilePlayerTopComponent', title: 'Audio File Player', mode: 'properties', openAtStartup: false },
+  {
+    id: 'SoundObjectLibraryTopComponent',
+    title: 'Sound Object Library',
+    mode: 'properties',
+    openAtStartup: false,
+    auxiliaryGroupId: 'properties-main',
+    auxiliaryRailLabel: 'Library',
+  },
+  {
+    id: 'AudioFilePlayerTopComponent',
+    title: 'Audio File Player',
+    mode: 'properties',
+    openAtStartup: false,
+    auxiliaryGroupId: 'properties-main',
+    auxiliaryRailLabel: 'Audio Player',
+  },
+  {
+    id: 'MarkersTopComponent',
+    title: 'Markers',
+    mode: 'properties',
+    openAtStartup: false,
+    auxiliaryGroupId: 'properties-main',
+    auxiliaryRailLabel: 'Markers',
+  },
   {
     id: 'MidiInputPanelTopComponent',
     title: 'MIDI Input',
@@ -60,11 +81,15 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
     auxiliaryGroupId: 'output-main',
     auxiliaryRailLabel: 'Mixer',
   },
+  {
+    id: 'BlueFileManagerTopComponent',
+    title: 'File Manager',
+    mode: 'output',
+    openAtStartup: false,
+    auxiliaryGroupId: 'output-main',
+    auxiliaryRailLabel: 'Files',
+  },
   { id: 'VirtualKeyboardTopComponent', title: 'Virtual Keyboard', mode: 'output', openAtStartup: false, position: 800, icon: '🎹', auxiliaryGroupId: 'output-main', auxiliaryRailLabel: 'Virtual Keyboard' },
-  { id: 'JavaScriptConsoleTopComponent', title: 'JavaScript Console', mode: 'output', openAtStartup: false },
-  { id: 'JythonConsoleTopComponent', title: 'Jython Console', mode: 'output', openAtStartup: false },
-  { id: 'ClojureConsoleTopComponent', title: 'Clojure Console', mode: 'output', openAtStartup: false },
-  { id: 'BlueFileManagerTopComponent', title: 'File Manager', mode: 'output', openAtStartup: false },
   {
     id: 'OutputTopComponent',
     title: 'Output',
@@ -73,6 +98,10 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
     auxiliaryGroupId: 'output-main',
     auxiliaryRailLabel: 'Output',
   },
+
+  { id: 'JavaScriptConsoleTopComponent', title: 'JavaScript Console', mode: 'repl', openAtStartup: false, auxiliaryGroupId: 'output-main', auxiliaryRailLabel: 'JS Console' },
+  { id: 'JythonConsoleTopComponent', title: 'Python Console', mode: 'repl', openAtStartup: false, auxiliaryGroupId: 'output-main', auxiliaryRailLabel: 'Python Console' },
+  { id: 'ClojureConsoleTopComponent', title: 'Clojure REPL', mode: 'repl', openAtStartup: false, auxiliaryGroupId: 'output-main', auxiliaryRailLabel: 'Clojure REPL' },
 ];
 
 export const PANEL_MAP = new Map(WORKBENCH_PANEL_REGISTRY.map((panel) => [panel.id, panel]));

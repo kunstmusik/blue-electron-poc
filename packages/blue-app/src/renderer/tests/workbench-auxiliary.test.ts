@@ -296,7 +296,9 @@ describe('workbench auxiliary layout helpers', () => {
     expect(getAuxiliaryGroupIdForPanel('ScoreObjectEditorTopComponent')).toBe(
       'output-main',
     );
-    expect(getAuxiliaryGroupIdForPanel('MarkersTopComponent')).toBeUndefined();
+    expect(getAuxiliaryGroupIdForPanel('MarkersTopComponent')).toBe(
+      'properties-main',
+    );
     expect(isAuxiliaryPanelId('VirtualKeyboardTopComponent')).toBe(true);
   });
 
@@ -311,6 +313,9 @@ describe('workbench auxiliary layout helpers', () => {
 
     expect(tabs.map((tab) => tab.panelId)).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
     ]);
     expect(tabs[0]?.isActivePanel).toBe(true);
     expect(slideout?.panelId).toBe('SoundObjectPropertiesTopComponent');
@@ -378,7 +383,12 @@ describe('workbench auxiliary layout helpers', () => {
     );
 
     const propsGroup = findSeeded(next, 'properties-main')!;
-    expect(propsGroup.dockedPanelIds).toEqual(['MidiInputPanelTopComponent']);
+    expect(propsGroup.dockedPanelIds).toEqual([
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
     expect(getMinimizedTabsForEdge(next, 'right').map((tab) => tab.panelId)).toContain(
       'SoundObjectPropertiesTopComponent',
     );
@@ -548,6 +558,9 @@ describe('left-edge whole-group moves', () => {
     expect(propsGroup.edge).toBe('left');
     expect(propsGroup.panelIds).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
       'MidiInputPanelTopComponent',
     ]);
   });
@@ -583,7 +596,12 @@ describe('left-edge single-tool split', () => {
     expect(derived!.groupInstanceId).toBe('derived:SoundObjectPropertiesTopComponent');
 
     const remaining = findSeeded(moved, 'properties-main')!;
-    expect(remaining.panelIds).toEqual(['MidiInputPanelTopComponent']);
+    expect(remaining.panelIds).toEqual([
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
+      'MidiInputPanelTopComponent',
+    ]);
     expect(remaining.edge).toBe('right');
   });
 
@@ -645,6 +663,9 @@ describe('reset layout', () => {
     expect(propsGroup.edge).toBe('right');
     expect(propsGroup.panelIds).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
       'MidiInputPanelTopComponent',
     ]);
   });
@@ -667,6 +688,9 @@ describe('merge-back to seeded group', () => {
     const propsGroup = findSeeded(merged, 'properties-main')!;
     expect(propsGroup.panelIds).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
       'MidiInputPanelTopComponent',
     ]);
   });
@@ -685,6 +709,9 @@ describe('merge-back to seeded group', () => {
     const propsGroup = findSeeded(merged, 'properties-main')!;
     expect(propsGroup.panelIds).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
       'MidiInputPanelTopComponent',
     ]);
   });
@@ -698,9 +725,12 @@ describe('left-edge minimized tabs and slideout', () => {
     propsGroup.dockedPanelIds = [];
 
     const tabs = getMinimizedTabsForEdge(moved, 'left');
-    expect(tabs).toHaveLength(2);
+    expect(tabs).toHaveLength(5);
     expect(tabs.map((t) => t.panelId)).toEqual([
       'SoundObjectPropertiesTopComponent',
+      'SoundObjectLibraryTopComponent',
+      'AudioFilePlayerTopComponent',
+      'MarkersTopComponent',
       'MidiInputPanelTopComponent',
     ]);
   });
@@ -753,8 +783,12 @@ describe('edge independence', () => {
     expect(outputGroup.panelIds).toEqual([
       'ScoreObjectEditorTopComponent',
       'MixerTopComponent',
+      'BlueFileManagerTopComponent',
       'VirtualKeyboardTopComponent',
       'OutputTopComponent',
+      'JavaScriptConsoleTopComponent',
+      'JythonConsoleTopComponent',
+      'ClojureConsoleTopComponent',
     ]);
   });
 

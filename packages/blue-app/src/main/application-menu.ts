@@ -64,6 +64,7 @@ function buildWindowMenuTemplate(options: ApplicationMenuTemplateOptions): MenuI
     { label: 'Editors', submenu: buildWorkbenchMenuItems('editor', options.onFocusPanel) },
     { label: 'Properties', submenu: buildWorkbenchMenuItems('properties', options.onFocusPanel) },
     { label: 'Output', submenu: buildWorkbenchMenuItems('output', options.onFocusPanel) },
+    { label: 'REPL', submenu: buildWorkbenchMenuItems('repl', options.onFocusPanel) },
     {
       label: 'Toggle Dev Tools',
       accelerator: options.isDarwin ? 'Cmd+Alt+I' : 'Ctrl+Shift+I',

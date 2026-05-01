@@ -57,7 +57,7 @@ describe('application menu template', () => {
     expect(handlers.onPlay).toHaveBeenCalledTimes(1);
 
     const windowMenu = getSubmenu(template[4]);
-    expect(windowMenu.map((item) => item.label).slice(0, 4)).toEqual(['Editors', 'Properties', 'Output', 'Toggle Dev Tools']);
+    expect(windowMenu.map((item) => item.label).slice(0, 5)).toEqual(['Editors', 'Properties', 'Output', 'REPL', 'Toggle Dev Tools']);
     expect(windowMenu.find((item) => item.label === 'Reset Default Layout')).toBeTruthy();
 
     const editorsMenu = getSubmenu(windowMenu.find((item) => item.label === 'Editors'));
