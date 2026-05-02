@@ -2,7 +2,7 @@
 
 **Feature Branch**: `034-mixer-editor-core`  
 **Created**: 2026-05-01  
-**Status**: Draft  
+**Status**: Complete
 **Input**: User description: "The next big feature to implement is the Mixer. There's a lot to build so I'd like you to do research to figure out how best to plan out specs using spec-kit (i.e., number of specs and scope). Review the Java Blue implementation in ~/work/nbprojects/blue for Mixer data and UI. Some things I think we'll need: EffectsLibrary loading from ~/.blue without saving, Mixer UI, non-modal effect editor BrowserWindows, menu-opened effects library modal, effect editor reuse of UDO and BSB interface surfaces, and reliable UI synchronization when instruments are added or removed. Go ahead and use spec-kit to branch, plan out spec 034 and 035, then update status.md for handoff."
 
 ## User Scenarios & Testing *(mandatory)*

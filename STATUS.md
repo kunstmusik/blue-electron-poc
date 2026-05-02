@@ -1,6 +1,6 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-01
+**Date**: 2026-05-02
 **Branch**: `034-mixer-editor-core`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
@@ -10,7 +10,7 @@ Spec `034-mixer-editor-core` is complete and validated on branch `034-mixer-edit
 
 - Goal: deliver the first usable mixer app-layer workflow by extending the project snapshot/patch bridge with mixer state, replacing the Mixer placeholder with a real workbench panel, loading the user's effects library from `~/.blue` into a mutable in-memory session without saving, and adding reusable non-modal effect editor windows
 - Active feature context:
-  - `.specify/feature.json` points to `specs/034-mixer-editor-core`
+  - `.specify/feature.json` points to `specs/035-mixer-follow-up`
 - Delivered scope:
   - mixer state now flows through `ProjectEditorSnapshot` and `ProjectDocumentPatch`, including effect comments and chain operations
   - `MixerTopComponent` now renders a real workbench mixer panel with arrangement-driven strip sync, chain authoring, and effect editor launch actions
@@ -24,12 +24,13 @@ Spec `034-mixer-editor-core` is complete and validated on branch `034-mixer-edit
   - `pnpm --filter @blue/app build:main` — pass
   - `pnpm --filter @blue/app build:preload` — pass
   - `pnpm --filter @blue/app build:renderer` — pass
+  - `pnpm --filter @blue/app test -- src/renderer/tests/workbench-mixer-panel.test.tsx src/renderer/tests/mixer-chain-editing.test.tsx src/renderer/tests/mixer-effect-editor-contract.test.ts` — pass
   - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass for `specs/034-mixer-editor-core`
   - `git diff --check` — pass
 - Handoff notes:
   - Spec `035-mixer-follow-up` remains the planned next slice for routing safety, advanced chain editing, richer no-save library workflow, and playback/window polish
   - SQLite and any other durable user-library storage redesign stay out of Spec 034
-  - the Mixer panel, effects library modal, and effect editor window coverage is now backed by renderer and main-process tests
+  - the Mixer panel, effects library modal, and effect editor window coverage is now backed by renderer and main-process tests, including dedicated mixer-workbench, chain-editing, and project-effect contract tests added during the closeout review
 - Completion status:
   - implementation is complete and validated
   - the branch is ready for handoff
