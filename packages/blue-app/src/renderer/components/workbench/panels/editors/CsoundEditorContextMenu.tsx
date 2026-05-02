@@ -1,6 +1,5 @@
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { EditorView } from '@codemirror/view';
-import { ChevronRight } from 'lucide-react';
 import React, { useMemo, type MutableRefObject, type ReactNode } from 'react';
 
 import {
@@ -77,12 +76,11 @@ function renderMenuItem(
     return (
       <ContextMenu.Sub key={item.id}>
         <ContextMenu.SubTrigger
-          className={getMenuItemClassName(item.disabled)}
+          className={[getMenuItemClassName(item.disabled), 'editor-context-menu__subtrigger'].filter(Boolean).join(' ')}
           disabled={item.disabled}
           title={item.disabledReason}
         >
           <span>{item.label}</span>
-          <ChevronRight size={12} style={{ marginLeft: 'auto', flexShrink: 0 }} />
         </ContextMenu.SubTrigger>
         {portalContainer ? (
           <ContextMenu.Portal container={portalContainer}>

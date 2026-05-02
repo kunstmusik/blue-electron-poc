@@ -11,6 +11,7 @@ import { getPanel } from './panel-registry';
 import OutputPanel from './panels/output/OutputPanel';
 import MidiInputPanel from './panels/MidiInputPanel';
 import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
+import MixerPanel from './panels/MixerPanel';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 
 interface AuxiliarySlideoutProps {
@@ -140,6 +141,8 @@ export default function AuxiliarySlideout({
           <MidiInputPanel />
         ) : descriptor.id === 'VirtualKeyboardTopComponent' ? (
           <VirtualKeyboardPanel />
+        ) : descriptor.id === 'MixerTopComponent' ? (
+          <MixerPanel />
         ) : (
           <PlaceholderPanel descriptor={descriptor} showHeader={false} />
         )}

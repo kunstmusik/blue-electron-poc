@@ -81,6 +81,7 @@ export function getCanvasDisplaySize(
   children: BsbWidgetNodeSnapshot[],
   viewportWidth = 0,
   viewportHeight = 0,
+  minOverride?: number,
 ): { width: number; height: number } {
   let maxWidth = 1;
   let maxHeight = 1;
@@ -93,9 +94,11 @@ export function getCanvasDisplaySize(
 
   const contentWidth = maxWidth + BSB_CANVAS_SCROLL_PADDING;
   const contentHeight = maxHeight + BSB_CANVAS_SCROLL_PADDING;
+  const minW = minOverride ?? BSB_CANVAS_MIN_WIDTH;
+  const minH = minOverride ?? BSB_CANVAS_MIN_HEIGHT;
 
   return {
-    width: Math.max(BSB_CANVAS_MIN_WIDTH, Math.ceil(viewportWidth), contentWidth),
-    height: Math.max(BSB_CANVAS_MIN_HEIGHT, Math.ceil(viewportHeight), contentHeight),
+    width: Math.max(minW, Math.ceil(viewportWidth), contentWidth),
+    height: Math.max(minH, Math.ceil(viewportHeight), contentHeight),
   };
 }

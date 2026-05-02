@@ -3,9 +3,14 @@
  */
 import { clipboard, contextBridge, ipcRenderer } from 'electron';
 import type {
+  EffectEditorPatchRequest,
+  EffectEditorRequest,
+  EffectEditorSnapshot,
   BsbRealtimeControlUpdate,
   BlueLiveNoteTriggerRequest,
   BlueLiveNoteTriggerResult,
+  EffectsLibraryPatch,
+  EffectsLibrarySnapshot,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
@@ -31,10 +36,28 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('get-project-document') as Promise<ProjectEditorSnapshot | null>,
   updateProjectDocument: (patch: ProjectDocumentPatch) =>
     ipcRenderer.invoke('update-project-document', patch) as Promise<ProjectEditorSnapshot | null>,
+  getEffectsLibrary: () =>
+    ipcRenderer.invoke('get-effects-library') as Promise<EffectsLibrarySnapshot>,
+  reloadEffectsLibrary: () =>
+    ipcRenderer.invoke('reload-effects-library') as Promise<EffectsLibrarySnapshot>,
+  updateEffectsLibrary: (patch: EffectsLibraryPatch) =>
+    ipcRenderer.invoke('update-effects-library', patch) as Promise<EffectsLibrarySnapshot>,
+  openEffectEditor: (request: EffectEditorRequest) =>
+    ipcRenderer.invoke('open-effect-editor', request) as Promise<void>,
+  openEffectInterface: (request: EffectEditorRequest) =>
+    ipcRenderer.invoke('open-effect-interface', request) as Promise<void>,
+  getEffectEditorDocument: (request: EffectEditorRequest) =>
+    ipcRenderer.invoke('get-effect-editor-document', request) as Promise<EffectEditorSnapshot | null>,
+  updateEffectEditorDocument: (request: EffectEditorPatchRequest) =>
+    ipcRenderer.invoke('update-effect-editor-document', request) as Promise<EffectEditorSnapshot | null>,
   commitProjectDocumentPatches: (patches: ProjectDocumentPatch[]) =>
     ipcRenderer.invoke('commit-project-document-patches', patches) as Promise<ProjectDocumentCommitReceipt>,
   sendBsbRealtimeControlUpdate: (update: BsbRealtimeControlUpdate) =>
     ipcRenderer.invoke('send-bsb-realtime-control-update', update) as Promise<void>,
+  sendMixerRealtimeLevelUpdate: (update: import('../shared/project-editor').MixerRealtimeLevelUpdate) =>
+    ipcRenderer.invoke('send-mixer-realtime-level-update', update) as Promise<void>,
+  sendEffectRealtimeUpdate: (update: import('../shared/project-editor').EffectRealtimeUpdate) =>
+    ipcRenderer.invoke('send-effect-realtime-update', update) as Promise<void>,
 
   // Clipboard
   readClipboardText: () => Promise.resolve(clipboard.readText()),

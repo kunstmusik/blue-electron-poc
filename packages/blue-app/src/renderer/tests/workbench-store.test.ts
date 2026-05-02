@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultAuxiliaryLayoutState } from '../components/workbench/auxiliary-layout';
 import { useWorkbenchStore } from '../stores/workbench-store';
+import { useUIStore } from '../stores/ui-store';
 
 const dockviewSnapshot = {
   grid: {
@@ -22,6 +23,10 @@ afterEach(() => {
   useWorkbenchStore.setState({
     api: null,
     auxiliary: createDefaultAuxiliaryLayoutState(),
+  });
+  useUIStore.setState({
+    effectsLibraryOpen: false,
+    effectsLibraryTarget: null,
   });
 });
 
@@ -111,5 +116,18 @@ describe('workbench store native menu commands', () => {
     });
 
     expect(resetLayout).toHaveBeenCalledOnce();
+  });
+
+  it('routes open-effects-library commands through the UI store', () => {
+    useWorkbenchStore.setState({
+      openPanel: vi.fn() as never,
+      resetLayout: vi.fn() as never,
+    });
+
+    useWorkbenchStore.getState().handleNativeMenuCommand({
+      type: 'open-effects-library',
+    });
+
+    expect(useUIStore.getState().effectsLibraryOpen).toBe(true);
   });
 });

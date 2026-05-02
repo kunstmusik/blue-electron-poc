@@ -167,7 +167,12 @@ function BSBInterfaceCanvas({
   };
 
   const currentChildren = resolveCurrentChildren(instrument.widgetTree, groupStack);
-  const canvasSize = getCanvasDisplaySize(currentChildren, viewportSize.width, viewportSize.height);
+  const canvasSize = getCanvasDisplaySize(
+    currentChildren,
+    viewportSize.width,
+    viewportSize.height,
+    editEnabled ? undefined : 10,
+  );
 
   const parentGroupId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
 
@@ -581,7 +586,7 @@ function BSBInterfaceCanvas({
       <div
         ref={canvasInnerRef}
         className="relative"
-        style={{ minHeight: 400, minWidth: 600, width: canvasSize.width, height: canvasSize.height }}
+        style={{ minHeight: editEnabled ? 400 : canvasSize.height, minWidth: editEnabled ? 600 : canvasSize.width, width: canvasSize.width, height: canvasSize.height }}
         onMouseDown={onCanvasMouseDown}
         onMouseMove={onCanvasMouseMove}
         onMouseUp={onCanvasMouseUp}

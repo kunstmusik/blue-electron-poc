@@ -1,0 +1,270 @@
+import React, { useCallback, useMemo, useState } from 'react';
+
+import type {
+  BlueSynthBuilderInstrumentSnapshot,
+  EffectEditorSnapshot,
+  EffectEditablePatch,
+  EmbeddedOpcodeListPatch,
+  InstrumentPatch,
+} from '../../../shared/project-editor';
+import { createBsbReplacementKeys } from '../workbench/panels/orchestra/bsb/bsb-completions';
+import BSBInterfaceEditor from '../workbench/panels/orchestra/bsb/BSBInterfaceEditor';
+import SelectedCodeEditor from '../workbench/panels/editors/SelectedCodeEditor';
+import UdoWorkspacePanel from '../workbench/panels/udo/UdoWorkspacePanel';
+import { useUdoCallbacks } from '../../hooks/use-udo-callbacks';
+import { cloneUdoSnapshot, formatUdoListAsOpcodeText } from '../workbench/panels/udo/udo-snapshot-utils';
+
+type EffectEditorTab = 'interface' | 'code' | 'udo' | 'comments';
+
+export interface EffectEditorPanelProps {
+  snapshot: EffectEditorSnapshot;
+  onPatch: (patch: EffectEditablePatch) => void;
+  className?: string;
+  showNameField?: boolean;
+  initialTab?: EffectEditorTab;
+  interfaceOnly?: boolean;
+}
+
+function buildFakeInstrumentSnapshot(
+  snapshot: EffectEditorSnapshot,
+): BlueSynthBuilderInstrumentSnapshot {
+  return {
+    assignmentId: snapshot.effectId,
+    type: 'blueSynthBuilder',
+    name: snapshot.name,
+    enabled: snapshot.enabled,
+    comment: snapshot.comments,
+    instrumentText: snapshot.code,
+    alwaysOnInstrumentText: '',
+    globalOrc: '',
+    globalSco: '',
+    objectNames: [...snapshot.objectNames],
+    widgets: snapshot.widgets.map((widget) => ({ ...widget })),
+    editEnabled: snapshot.editEnabled,
+    gridSettings: { ...snapshot.gridSettings },
+    widgetTree: structuredClone(snapshot.widgetTree),
+    presetGroup: undefined,
+    opcodeListText: formatUdoListAsOpcodeText(snapshot.udos),
+    udolist: snapshot.udos.map((udo) => cloneUdoSnapshot(udo)),
+  };
+}
+
+export default function EffectEditorPanel({
+  snapshot,
+  onPatch,
+  className,
+  showNameField = true,
+  initialTab = 'interface',
+  interfaceOnly = false,
+}: EffectEditorPanelProps): React.ReactElement {
+  const [activeTab, setActiveTab] = useState<EffectEditorTab>(initialTab);
+
+  const handleInstrumentPatch = useCallback(
+    (patch: InstrumentPatch) => {
+      if (!patch.bsbInterface) return;
+      onPatch({ bsbInterface: patch.bsbInterface });
+    },
+    [onPatch],
+  );
+
+  const handleCodeChange = useCallback(
+    (code: string) => onPatch({ code }),
+    [onPatch],
+  );
+
+  const handleCommentsChange = useCallback(
+    (comments: string) => onPatch({ comments }),
+    [onPatch],
+  );
+
+  const handleNameChange = useCallback(
+    (name: string) => onPatch({ name }),
+    [onPatch],
+  );
+
+  const handleNumInsChange = useCallback(
+    (numIns: number) => onPatch({ numIns }),
+    [onPatch],
+  );
+
+  const handleNumOutsChange = useCallback(
+    (numOuts: number) => onPatch({ numOuts }),
+    [onPatch],
+  );
+
+  const handleStyleChange = useCallback(
+    (style: 'CLASSIC' | 'MODERN') => onPatch({ style }),
+    [onPatch],
+  );
+
+  const udoDispatch = useCallback(
+    (patch: Record<string, unknown>) => {
+      onPatch({ opcodeList: patch as EmbeddedOpcodeListPatch });
+    },
+    [onPatch],
+  );
+
+  const udoCallbacks = useUdoCallbacks('embedded', udoDispatch);
+
+  const fakeInstrument = useMemo(
+    () => buildFakeInstrumentSnapshot(snapshot),
+    [snapshot],
+  );
+
+  const replacementKeys = useMemo(
+    () => createBsbReplacementKeys(snapshot.objectNames),
+    [snapshot.objectNames],
+  );
+
+  const javaBlueCompletionOptions = useMemo(
+    () => ({ bsbReplacementKeys: replacementKeys }),
+    [replacementKeys],
+  );
+
+  const xinLabel = useMemo(() => {
+    const { numIns, style } = snapshot;
+    const names: string[] = [];
+    for (let i = 0; i < numIns; i++) names.push(`ain${i + 1}`);
+    if (style === 'MODERN') {
+      return `; inputs passed by reference: ${names.join(', ')}`;
+    }
+    return `${names.join(', ')} xin`;
+  }, [snapshot.numIns, snapshot.style]);
+
+  const xoutLabel = useMemo(() => {
+    const { numOuts } = snapshot;
+    const names: string[] = [];
+    for (let i = 0; i < numOuts; i++) names.push(`aout${i + 1}`);
+    return `xout ${names.join(', ')}`;
+  }, [snapshot.numOuts]);
+
+  if (interfaceOnly) {
+    return (
+      <div className={['flex h-full min-h-0 flex-col overflow-hidden', className].filter(Boolean).join(' ')}>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <BSBInterfaceEditor
+            instrument={{ ...fakeInstrument, editEnabled: false }}
+            onInstrumentPatch={handleInstrumentPatch}
+            showEditModeToggle={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={['flex h-full min-h-0 flex-col overflow-hidden', className].filter(Boolean).join(' ')}>
+      <div className="flex flex-none flex-wrap items-center gap-3 border-b border-blue-border bg-[#10192a] px-3 py-2">
+        {showNameField && (
+          <input
+            type="text"
+            value={snapshot.name}
+            onChange={(event) => handleNameChange(event.target.value)}
+            className="min-w-0 flex-1 rounded border border-blue-border bg-[#0a0f1a] px-2 py-1 text-sm text-gray-100 outline-none focus:border-blue-accent"
+            aria-label="Effect name"
+          />
+        )}
+        <label className="flex items-center gap-1 text-xs text-blue-muted">
+          In
+          <input
+            type="number"
+            min={0}
+            value={snapshot.numIns}
+            onChange={(event) => handleNumInsChange(Number.parseInt(event.target.value, 10) || 0)}
+            className="w-14 rounded border border-blue-border bg-[#0a0f1a] px-1.5 py-1 text-xs text-gray-100 outline-none focus:border-blue-accent"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-xs text-blue-muted">
+          Out
+          <input
+            type="number"
+            min={0}
+            value={snapshot.numOuts}
+            onChange={(event) => handleNumOutsChange(Number.parseInt(event.target.value, 10) || 0)}
+            className="w-14 rounded border border-blue-border bg-[#0a0f1a] px-1.5 py-1 text-xs text-gray-100 outline-none focus:border-blue-accent"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-xs text-blue-muted">
+          Style
+          <select
+            value={snapshot.style}
+            onChange={(event) => handleStyleChange(event.target.value as 'CLASSIC' | 'MODERN')}
+            className="rounded border border-blue-border bg-[#0a0f1a] px-1.5 py-1 text-xs text-gray-100 outline-none focus:border-blue-accent"
+          >
+            <option value="CLASSIC">Classic</option>
+            <option value="MODERN">Modern</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="flex-none border-b border-blue-border bg-[#10192a] px-2">
+        <div className="flex items-end gap-1">
+          {([
+            ['interface', 'Interface'],
+            ['code', 'Code'],
+            ['udo', 'UDO'],
+            ['comments', 'Comments'],
+          ] as const).map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              className={[
+                'border-b-2 px-3 py-2 text-xs',
+                activeTab === tab
+                  ? 'border-blue-accent text-gray-100'
+                  : 'border-transparent text-blue-muted hover:text-gray-100',
+              ].join(' ')}
+              onClick={() => setActiveTab(tab)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {activeTab === 'code' && (
+          <div className="flex h-full flex-col">
+            <div className="flex-none border-b border-blue-border/40 bg-[#0a0f1a] px-3 py-1 font-mono text-[11px] italic text-blue-muted">
+              {xinLabel}
+            </div>
+            <div className="min-h-0 flex-1">
+              <SelectedCodeEditor
+                value={snapshot.code}
+                onChange={handleCodeChange}
+                ariaLabel="Effect code editor"
+                mode="orc"
+                javaBlueCompletionOptions={javaBlueCompletionOptions}
+              />
+            </div>
+            <div className="flex-none border-t border-blue-border/40 bg-[#0a0f1a] px-3 py-1 font-mono text-[11px] font-bold text-blue-muted">
+              {xoutLabel}
+            </div>
+          </div>
+        )}
+        {activeTab === 'interface' && (
+          <BSBInterfaceEditor
+            instrument={fakeInstrument}
+            onInstrumentPatch={handleInstrumentPatch}
+          />
+        )}
+        {activeTab === 'udo' && (
+          <UdoWorkspacePanel
+            udos={snapshot.udos}
+            resetKey={snapshot.effectId}
+            {...udoCallbacks}
+          />
+        )}
+        {activeTab === 'comments' && (
+          <SelectedCodeEditor
+            value={snapshot.comments}
+            onChange={handleCommentsChange}
+            ariaLabel="Effect comments editor"
+            mode="text"
+            placeholder="Add notes for this effect..."
+          />
+        )}
+      </div>
+    </div>
+  );
+}

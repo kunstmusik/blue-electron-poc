@@ -1,18 +1,24 @@
 import {
   BlueData,
+  Channel,
   BlueSynthBuilder,
   BlueX7,
   BSBGroup,
   BSBWidget,
+  BSBXYController,
+  BSBDropdown,
+  Element,
   GenericInstrument,
   Instrument,
   JavaScriptInstrument,
+  Effect,
   OpcodeDefinition,
   OpcodeList,
   Preset,
   PresetGroup,
   ProjectProperties,
   PythonInstrument,
+  Mixer,
   Scale,
   TempoMap,
   UDOStyle,
@@ -21,6 +27,7 @@ import {
   LiveData,
   LiveObjectBins,
   LiveObjectSetList,
+  Send,
 } from '@blue/data';
 import {
   getHSliderBankDisplaySize,
@@ -164,6 +171,176 @@ export interface MidiInputProcessorSnapshot {
   scale: MidiScaleSnapshot | null;
 }
 
+export type MixerChannelKind = 'instrument' | 'subChannel' | 'master';
+export type MixerChainKind = 'pre' | 'post';
+
+export interface EffectSnapshot {
+  effectXml: string;
+  name: string;
+  enabled: boolean;
+  numIns: number;
+  numOuts: number;
+  style: 'CLASSIC' | 'MODERN';
+  code: string;
+  comments: string;
+  editEnabled: boolean;
+  gridSettings: GridSettingsSnapshot;
+  objectNames: string[];
+  widgets: BsbWidgetSnapshot[];
+  widgetTree: BsbWidgetNodeSnapshot;
+  udos: UdoDefinitionSnapshot[];
+}
+
+export interface EffectEditorSnapshot extends EffectSnapshot {
+  effectId: string;
+  ownerType: 'project' | 'library';
+  projectRef?: ProjectEffectRef;
+  libraryRef?: LibraryEffectRef;
+}
+
+export interface EffectEditorRequest {
+  effectId: string;
+  ownerType: 'project' | 'library';
+  projectRef?: ProjectEffectRef;
+  libraryRef?: LibraryEffectRef;
+}
+
+export interface EffectEditorPatchRequest extends EffectEditorRequest {
+  patch: EffectEditablePatch;
+}
+
+export interface ProjectEffectRef {
+  channelId: string;
+  chain: MixerChainKind;
+  entryId: string;
+}
+
+export interface LibraryEffectRef {
+  libraryEffectId: string;
+}
+
+export interface MixerEffectEntrySnapshot extends EffectSnapshot {
+  entryId: string;
+  kind: 'effect';
+  projectRef?: ProjectEffectRef;
+  libraryRef?: LibraryEffectRef;
+}
+
+export interface MixerSendEntrySnapshot {
+  entryId: string;
+  kind: 'send';
+  sendChannel: string;
+  level: number;
+  enabled: boolean;
+}
+
+export type MixerChainEntrySnapshot = MixerEffectEntrySnapshot | MixerSendEntrySnapshot;
+
+export interface MixerChannelSnapshot {
+  id: string;
+  name: string;
+  channelKind: MixerChannelKind;
+  association?: string;
+  outChannel: string;
+  muted: boolean;
+  solo: boolean;
+  level: number;
+  volume: number;
+  pan: number;
+  preChain: MixerChainEntrySnapshot[];
+  postChain: MixerChainEntrySnapshot[];
+}
+
+export interface MixerSnapshot {
+  enabled: boolean;
+  extraRenderTime: number;
+  channels: MixerChannelSnapshot[];
+  subChannels: MixerChannelSnapshot[];
+  master: MixerChannelSnapshot;
+}
+
+export interface MixerChannelEditableFields {
+  name: string;
+  outChannel: string;
+  muted: boolean;
+  solo: boolean;
+  level: number;
+  volume: number;
+  pan: number;
+}
+
+export interface EffectEditablePatch {
+  effectXml?: string;
+  name?: string;
+  enabled?: boolean;
+  numIns?: number;
+  numOuts?: number;
+  style?: 'CLASSIC' | 'MODERN';
+  code?: string;
+  comments?: string;
+  bsbInterface?: BsbInterfacePatch;
+  opcodeList?: EmbeddedOpcodeListPatch;
+}
+
+export interface MixerEffectPatch {
+  effectXml?: string;
+  name?: string;
+  enabled?: boolean;
+  numIns?: number;
+  numOuts?: number;
+  style?: 'CLASSIC' | 'MODERN';
+  code?: string;
+  comments?: string;
+  bsbInterface?: BsbInterfacePatch;
+  opcodeList?: EmbeddedOpcodeListPatch;
+}
+
+export type MixerPatch =
+  | { type: 'setMixerEnabled'; value: boolean }
+  | { type: 'updateExtraRenderTime'; value: number }
+  | { type: 'updateChannel'; channelId: string; patch: Partial<MixerChannelEditableFields> }
+  | { type: 'addSubChannel'; name?: string; insertIndex?: number; channelId?: string }
+  | { type: 'removeSubChannel'; channelId: string }
+  | { type: 'addEffectFromLibrary'; channelId: string; chain: MixerChainKind; libraryEffectId: string; effectXml?: string; insertIndex?: number; entryId?: string }
+  | { type: 'addSend'; channelId: string; chain: MixerChainKind; sendChannel?: string; level?: number; insertIndex?: number; entryId?: string }
+  | { type: 'updateSend'; channelId: string; chain: MixerChainKind; entryId: string; patch: { sendChannel?: string; level?: number; enabled?: boolean } }
+  | { type: 'updateEffect'; channelId: string; chain: MixerChainKind; entryId: string; patch: EffectEditablePatch }
+  | { type: 'removeChainEntry'; channelId: string; chain: MixerChainKind; entryId: string }
+  | { type: 'reorderChainEntry'; channelId: string; chain: MixerChainKind; from: number; to: number };
+
+export interface EffectsLibraryCategorySnapshot {
+  categoryId: string;
+  name: string;
+  categories: EffectsLibraryCategorySnapshot[];
+  effects: LibraryEffectSnapshot[];
+}
+
+export interface LibraryEffectSnapshot extends EffectSnapshot {
+  libraryEffectId: string;
+  categoryId?: string;
+}
+
+export interface EffectsLibrarySnapshot {
+  loaded: boolean;
+  sourcePath: string | null;
+  loadError?: string;
+  root: EffectsLibraryCategorySnapshot;
+}
+
+export type EffectsLibraryPatch =
+  | { type: 'addCategory'; parentCategoryId?: string; name?: string; insertIndex?: number; categoryId?: string }
+  | { type: 'addEffect'; parentCategoryId?: string; name?: string; insertIndex?: number; effectId?: string }
+  | { type: 'renameCategory'; categoryId: string; name: string }
+  | { type: 'reorderCategory'; parentCategoryId?: string; from: number; to: number }
+  | { type: 'removeCategory'; categoryId: string }
+  | { type: 'renameEffect'; effectId: string; name: string }
+  | { type: 'duplicateEffect'; effectId: string; insertIndex?: number; libraryEffectId?: string }
+  | { type: 'removeEffect'; effectId: string }
+  | { type: 'updateEffect'; effectId: string; patch: EffectEditablePatch }
+  | { type: 'pasteCategory'; parentCategoryId?: string; sourceSnapshot: EffectsLibraryCategorySnapshot }
+  | { type: 'pasteEffect'; parentCategoryId?: string; sourceEffect: LibraryEffectSnapshot }
+  | { type: 'moveNode'; nodeId: string; targetParentCategoryId?: string; targetIndex: number };
+
 export type MidiInputPatch =
   | { type: 'updateKeyMapping'; value: string }
   | { type: 'updateVelocityMapping'; value: string }
@@ -206,6 +383,7 @@ export interface ProjectEditorSnapshot {
   globalOrc: string;
   globalSco: string;
   orchestra: OrchestraSnapshot;
+  mixer?: MixerSnapshot;
   projectProperties: ProjectPropertiesSnapshot;
   transport: ToolbarProjectTransportSnapshot;
   tablesText: string;
@@ -227,6 +405,7 @@ export interface ProjectDocumentPatch {
   globalOrc?: string;
   globalSco?: string;
   orchestra?: OrchestraPatch;
+  mixer?: MixerPatch;
   projectProperties?: Partial<ProjectPropertiesSnapshot>;
   transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>>;
   tablesText?: string;
@@ -246,6 +425,18 @@ export interface BsbRealtimeControlUpdate {
   widgetId: string;
   kind: BsbRealtimeControlKind;
   payload: Record<string, number | boolean>;
+}
+
+export interface MixerRealtimeLevelUpdate {
+  channelId: string;
+  level: number;
+}
+
+export interface EffectRealtimeUpdate {
+  channelId: string;
+  chain: 'pre' | 'post';
+  entryId: string;
+  bsbWidgetValues?: Record<string, number>;
 }
 
 export type SupportedNewInstrumentType =
@@ -501,6 +692,7 @@ export type ProjectLoadedPayload = ProjectSummarySnapshot &
       | 'globalOrc'
       | 'globalSco'
       | 'orchestra'
+      | 'mixer'
       | 'projectProperties'
       | 'transport'
       | 'tablesText'
@@ -561,11 +753,462 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
     globalOrc: '',
     globalSco: '',
     orchestra: createEmptyOrchestraSnapshot(false),
+    mixer: createEmptyMixerSnapshot(),
     projectProperties: createDefaultProjectPropertiesSnapshot(),
     transport: createEmptyToolbarProjectTransportSnapshot(),
     tablesText: '',
     projectUdos: [],
     loaded: false,
+  };
+}
+
+const MIXER_CHANNEL_IDS = new WeakMap<object, string>();
+const MIXER_ENTRY_IDS = new WeakMap<object, string>();
+let nextMixerSnapshotId = 1;
+
+function assignMixerSnapshotId(
+  map: WeakMap<object, string>,
+  value: object,
+  prefix: string,
+  preferredId?: string,
+): string {
+  const existing = map.get(value);
+  if (existing) {
+    return existing;
+  }
+
+  const id = preferredId && preferredId.trim().length > 0
+    ? preferredId.trim()
+    : `${prefix}-${nextMixerSnapshotId++}`;
+  map.set(value, id);
+  return id;
+}
+
+export function getMixerChannelSnapshotId(channel: Channel, preferredId?: string): string {
+  const association = channel.getAssociation().trim();
+  if (association.length > 0) {
+    return association;
+  }
+
+  if (channel.getName() === Mixer.MASTER_CHANNEL) {
+    return 'master';
+  }
+
+  return assignMixerSnapshotId(MIXER_CHANNEL_IDS, channel, 'mixer-channel', preferredId);
+}
+
+export function getMixerEntrySnapshotId(entry: Effect | Send, preferredId?: string): string {
+  return assignMixerSnapshotId(
+    MIXER_ENTRY_IDS,
+    entry,
+    entry instanceof Effect ? 'mixer-effect' : 'mixer-send',
+    preferredId,
+  );
+}
+
+function toGridSettingsSnapshot(settings: {
+  enabled: boolean;
+  snapEnabled: boolean;
+  width: number;
+  height: number;
+  gridStyle: string;
+}): GridSettingsSnapshot {
+  return {
+    enabled: settings.enabled,
+    snapEnabled: settings.snapEnabled,
+    width: settings.width,
+    height: settings.height,
+    gridStyle: settings.gridStyle as GridSettingsSnapshot['gridStyle'],
+  };
+}
+
+function collectGraphicInterfaceWidgets(graphicInterface: {
+  getRootGroup(): {
+    id?: string;
+    getChildren(): unknown[];
+  };
+  getGridSettings(): {
+    enabled: boolean;
+    snapEnabled: boolean;
+    width: number;
+    height: number;
+    gridStyle: string;
+  };
+  isEditEnabled(): boolean;
+}): BsbWidgetSnapshot[] {
+  const widgets: BsbWidgetSnapshot[] = [];
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== 'object') return;
+    const record = node as Record<string, unknown>;
+    const objectName =
+      typeof record.getObjectName === 'function'
+        ? (record.getObjectName as () => unknown)()
+        : record.objectName ?? record._objectName;
+    if (typeof objectName === 'string' && objectName.trim()) {
+      widgets.push({
+        objectName: objectName.trim(),
+        widgetType:
+          typeof record.constructor === 'function' && 'name' in record.constructor
+            ? String(record.constructor.name)
+            : 'BSBObject',
+        value: typeof record.value === 'number' ? record.value : 0,
+        minimum: typeof record.minimum === 'number' ? record.minimum : 0,
+        maximum: typeof record.maximum === 'number' ? record.maximum : 1,
+      });
+    }
+
+    const children =
+      typeof record.getChildren === 'function'
+        ? (record.getChildren as () => unknown[]).call(node)
+        : record.children ?? record._children;
+    if (Array.isArray(children)) {
+      children.forEach(visit);
+    }
+  };
+
+  visit(graphicInterface.getRootGroup());
+  return widgets.sort((a, b) => a.objectName.localeCompare(b.objectName));
+}
+
+function collectGraphicInterfaceObjectNames(graphicInterface: {
+  getRootGroup(): {
+    id?: string;
+    getChildren(): unknown[];
+  };
+  getGridSettings(): {
+    enabled: boolean;
+    snapEnabled: boolean;
+    width: number;
+    height: number;
+    gridStyle: string;
+  };
+  isEditEnabled(): boolean;
+}): string[] {
+  return collectGraphicInterfaceWidgets(graphicInterface).map((widget) => widget.objectName);
+}
+
+function buildWidgetTreeNodeFromGraphicNode(widget: unknown): BsbWidgetNodeSnapshot | null {
+  if (!widget || typeof widget !== 'object') return null;
+  const record = widget as Record<string, unknown>;
+
+  const id = typeof record.id === 'string' ? record.id : '';
+  if (!id) return null;
+
+  const ctorName = typeof record.constructor === 'function' && 'name' in record.constructor
+    ? String(record.constructor.name)
+    : 'Unknown';
+
+  const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
+
+  const properties: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(record)) {
+    if (['id', 'objectName', 'x', 'y', 'parameterName', '_children', 'children', 'stringChannel', 'labelFont', 'font'].includes(key)) continue;
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
+      properties[key] = val as string | number | boolean | null;
+    }
+  }
+
+  const fontKeys = ['labelFont', 'font'] as const;
+  for (const fk of fontKeys) {
+    const fv = record[fk];
+    if (fv && typeof fv === 'object') {
+      const f = fv as Record<string, unknown>;
+      if (typeof f.name === 'string') properties[`${fk}.name`] = f.name;
+      if (typeof f.size === 'number') properties[`${fk}.size`] = f.size;
+      if (typeof f.style === 'number') properties[`${fk}.style`] = f.style;
+    }
+  }
+
+  const dropdownItems = record.dropdownItems;
+  if (Array.isArray(dropdownItems)) {
+    properties['dropdownItems'] = dropdownItems;
+  }
+
+  const lines = record.lines;
+  if (Array.isArray(lines)) {
+    properties.lines = lines.map((line) => {
+      if (!line || typeof line !== 'object') {
+        return {
+          varName: '',
+          min: 0,
+          max: 1,
+          color: '#000000',
+          points: [],
+        };
+      }
+
+      const lineRecord = line as Record<string, unknown>;
+      const points = Array.isArray(lineRecord.points)
+        ? lineRecord.points.map((point) => {
+            if (!point || typeof point !== 'object') {
+              return { x: 0, y: 0 };
+            }
+            const pointRecord = point as Record<string, unknown>;
+            return {
+              x: typeof pointRecord.x === 'number' ? pointRecord.x : 0,
+              y: typeof pointRecord.y === 'number' ? pointRecord.y : 0,
+            };
+          })
+        : [];
+
+      return {
+        varName: typeof lineRecord.varName === 'string' ? lineRecord.varName : '',
+        min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
+        max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
+        color: typeof lineRecord.color === 'string' ? lineRecord.color : '#000000',
+        points,
+      };
+    });
+  }
+
+  const sliders = record.sliders;
+  if (Array.isArray(sliders)) {
+    properties.sliders = sliders.map((slider) => {
+      if (!slider || typeof slider !== 'object') {
+        return { value: 0 };
+      }
+      const sliderRecord = slider as Record<string, unknown>;
+      return {
+        value: typeof sliderRecord.value === 'number' ? sliderRecord.value : 0,
+      };
+    });
+  }
+
+  const children = typeof record.getChildren === 'function'
+    ? (record.getChildren as () => unknown[]).call(widget)
+    : record.children ?? record._children;
+
+  return {
+    id,
+    type: ctorName,
+    objectName: typeof record.objectName === 'string' ? record.objectName : '',
+    x: typeof record.x === 'number' ? record.x : 0,
+    y: typeof record.y === 'number' ? record.y : 0,
+    width:
+      typeof record.width === 'number'
+        ? record.width
+        : typeof record.sliderWidth === 'number'
+          ? record.sliderWidth
+          : typeof record.textFieldWidth === 'number'
+            ? record.textFieldWidth
+            : typeof record.canvasWidth === 'number'
+              ? record.canvasWidth
+              : 60,
+    height:
+      typeof record.height === 'number'
+        ? record.height
+        : typeof record.sliderHeight === 'number'
+          ? record.sliderHeight
+          : typeof record.canvasHeight === 'number'
+            ? record.canvasHeight + BSB_LINE_SELECTOR_HEIGHT
+            : 24,
+    value: typeof record.value === 'number' ? record.value : 0,
+    minimum: typeof record.minimum === 'number' ? record.minimum : 0,
+    maximum: typeof record.maximum === 'number' ? record.maximum : 1,
+    editable: !preservedOnly,
+    preservedOnly,
+    properties,
+    children: Array.isArray(children)
+      ? children
+          .map((child) => buildWidgetTreeNodeFromGraphicNode(child))
+          .filter((node): node is BsbWidgetNodeSnapshot => Boolean(node))
+      : undefined,
+  };
+}
+
+function buildWidgetTreeSnapshotFromGraphicInterface(graphicInterface: {
+  getRootGroup(): {
+    id?: string;
+    getChildren(): unknown[];
+  };
+}): BsbWidgetNodeSnapshot {
+  const rootGroup = graphicInterface.getRootGroup();
+  const children: BsbWidgetNodeSnapshot[] = [];
+
+  for (const child of rootGroup.getChildren()) {
+    const node = buildWidgetTreeNodeFromGraphicNode(child);
+    if (node) {
+      children.push(node);
+    }
+  }
+
+  return {
+    id: rootGroup.id || 'root',
+    type: 'BSBRootGroup',
+    objectName: '',
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    value: 0,
+    minimum: 0,
+    maximum: 1,
+    editable: true,
+    properties: {},
+    children,
+  };
+}
+
+function createEffectSnapshotBase(effect: Effect): EffectSnapshot {
+  const graphicInterface = effect.getGraphicInterface();
+  return {
+    effectXml: effect.saveAsXML().toXml(),
+    name: effect.getName(),
+    enabled: effect.isEnabled(),
+    numIns: effect.getNumIns(),
+    numOuts: effect.getNumOuts(),
+    style: effect.getStyle(),
+    code: effect.getCode(),
+    comments: effect.getComments(),
+    editEnabled: graphicInterface.isEditEnabled(),
+    gridSettings: toGridSettingsSnapshot(graphicInterface.getGridSettings()),
+    objectNames: collectGraphicInterfaceObjectNames(graphicInterface),
+    widgets: collectGraphicInterfaceWidgets(graphicInterface),
+    widgetTree: buildWidgetTreeSnapshotFromGraphicInterface(graphicInterface),
+    udos: effect.getOpcodeList().getOpcodes().map(udoToSnapshot),
+  };
+}
+
+export function createEffectEditorSnapshot(
+  effect: Effect,
+  effectId: string,
+  ownerType: 'project' | 'library',
+  refs?: {
+    projectRef?: ProjectEffectRef;
+    libraryRef?: LibraryEffectRef;
+  },
+): EffectEditorSnapshot {
+  return {
+    ...createEffectSnapshotBase(effect),
+    effectId,
+    ownerType,
+    projectRef: refs?.projectRef,
+    libraryRef: refs?.libraryRef,
+  };
+}
+
+export function createMixerEffectEntrySnapshot(
+  effect: Effect,
+  entryId: string,
+  refs?: {
+    projectRef?: ProjectEffectRef;
+    libraryRef?: LibraryEffectRef;
+  },
+): MixerEffectEntrySnapshot {
+  return {
+    ...createEffectSnapshotBase(effect),
+    entryId,
+    kind: 'effect',
+    projectRef: refs?.projectRef,
+    libraryRef: refs?.libraryRef,
+  };
+}
+
+export function createLibraryEffectSnapshot(
+  effect: Effect,
+  libraryEffectId: string,
+  categoryId?: string,
+): LibraryEffectSnapshot {
+  return {
+    ...createEffectSnapshotBase(effect),
+    libraryEffectId,
+    categoryId,
+  };
+}
+
+function createMixerSendEntrySnapshot(send: Send, entryId: string): MixerSendEntrySnapshot {
+  return {
+    entryId,
+    kind: 'send',
+    sendChannel: send.getTargetChannelId(),
+    level: send.getLevel(),
+    enabled: send.isEnabled(),
+  };
+}
+
+function createMixerChainSnapshot(
+  chain: Array<Effect | Send>,
+  refs: {
+    channelId: string;
+    chain: MixerChainKind;
+    libraryRef?: LibraryEffectRef;
+  },
+): MixerChainEntrySnapshot[] {
+  return chain.map((entry) => {
+    if (entry instanceof Effect) {
+      const entryId = getMixerEntrySnapshotId(entry);
+      return {
+        ...createEffectSnapshotBase(entry),
+        entryId,
+        kind: 'effect',
+        projectRef: {
+          channelId: refs.channelId,
+          chain: refs.chain,
+          entryId,
+        },
+        libraryRef: refs.libraryRef,
+      };
+    }
+
+    return createMixerSendEntrySnapshot(entry, getMixerEntrySnapshotId(entry));
+  });
+}
+
+function createMixerChannelSnapshot(
+  channel: Channel,
+  channelKind: MixerChannelKind,
+  refs?: {
+    libraryRef?: LibraryEffectRef;
+  },
+): MixerChannelSnapshot {
+  const id = getMixerChannelSnapshotId(channel);
+  return {
+    id,
+    name: channel.getName(),
+    channelKind,
+    association: channel.getAssociation() || undefined,
+    outChannel: channel.getOutChannel(),
+    muted: channel.isMuted(),
+    solo: channel.isSolo(),
+    level: channel.getLevel(),
+    volume: channel.getVolume(),
+    pan: channel.getPan(),
+    preChain: createMixerChainSnapshot(channel.getPreEffects(), {
+      channelId: id,
+      chain: 'pre',
+      libraryRef: refs?.libraryRef,
+    }),
+    postChain: createMixerChainSnapshot(channel.getPostEffects(), {
+      channelId: id,
+      chain: 'post',
+      libraryRef: refs?.libraryRef,
+    }),
+  };
+}
+
+export function createEmptyMixerSnapshot(): MixerSnapshot {
+  const master = new Channel();
+  master.setName(Mixer.MASTER_CHANNEL);
+  return {
+    enabled: true,
+    extraRenderTime: 0,
+    channels: [],
+    subChannels: [],
+    master: createMixerChannelSnapshot(master, 'master'),
+  };
+}
+
+export function createMixerSnapshot(mixer: Mixer): MixerSnapshot {
+  return {
+    enabled: mixer.isEnabled(),
+    extraRenderTime: mixer.getExtraRenderTime(),
+    channels: mixer.getChannels().map((channel) =>
+      createMixerChannelSnapshot(channel, 'instrument'),
+    ),
+    subChannels: mixer.getSubChannels().map((channel) =>
+      createMixerChannelSnapshot(channel, 'subChannel'),
+    ),
+    master: createMixerChannelSnapshot(mixer.getMaster(), 'master'),
   };
 }
 
@@ -701,12 +1344,14 @@ export function createProjectEditorSnapshot(
   data: BlueData,
   filePath: string | null,
 ): ProjectEditorSnapshot {
+  reconcileMixerWithArrangement(data);
   return {
     filePath,
     version: data.getVersion(),
     globalOrc: data.getGlobalOrcSco().getGlobalOrc(),
     globalSco: data.getGlobalOrcSco().getGlobalSco(),
     orchestra: createOrchestraSnapshot(data),
+    mixer: createMixerSnapshot(data.getMixer()),
     projectProperties: createProjectPropertiesSnapshot(
       data.getProjectProperties(),
     ),
@@ -2063,6 +2708,14 @@ export function applyProjectDocumentPatch(
     }
   }
 
+  if (patch.mixer) {
+    changed = applyMixerPatchToData(data, patch.mixer) || changed;
+  }
+
+  if (patch.orchestra || patch.mixer) {
+    changed = reconcileMixerWithArrangement(data) || changed;
+  }
+
   if (patch.transport) {
     if (patch.transport.renderStartTime !== undefined && data.getRenderStartTime() !== patch.transport.renderStartTime) {
       data.setRenderStartTime(patch.transport.renderStartTime);
@@ -2146,6 +2799,508 @@ function snapshotToUdo(snapshot: UdoDefinitionSnapshot): OpcodeDefinition {
   return udo;
 }
 
+function createEffectFromXml(effectXml: string): Effect {
+  return Effect.loadFromXML(Element.parse(effectXml));
+}
+
+function findMixerChannelById(mixer: Mixer, channelId: string): Channel | null {
+  if (channelId === 'master') {
+    return mixer.getMaster();
+  }
+
+  const sourceChannel = mixer.getChannels().find(
+    (channel) => channel.getAssociation() === channelId || getMixerChannelSnapshotId(channel) === channelId,
+  );
+  if (sourceChannel) {
+    return sourceChannel;
+  }
+
+  const subChannel = mixer.getSubChannels().find(
+    (channel) => getMixerChannelSnapshotId(channel) === channelId,
+  );
+  if (subChannel) {
+    return subChannel;
+  }
+
+  return null;
+}
+
+function findMixerChainForChannel(
+  mixer: Mixer,
+  channelId: string,
+  chain: MixerChainKind,
+): Array<Effect | Send> | null {
+  const channel = findMixerChannelById(mixer, channelId);
+  if (!channel) {
+    return null;
+  }
+
+  if (channel === mixer.getMaster()) {
+    return chain === 'pre' ? channel.getPreEffects() : channel.getPostEffects();
+  }
+
+  if (mixer.getSubChannels().includes(channel)) {
+    return chain === 'pre' ? channel.getPreEffects() : channel.getPostEffects();
+  }
+
+  return chain === 'pre' ? channel.getPreEffects() : channel.getPostEffects();
+}
+
+export function applyEffectEditablePatchToEffect(
+  effect: Effect,
+  patch: EffectEditablePatch,
+): boolean {
+  let changed = false;
+
+  if (patch.effectXml !== undefined) {
+    const loaded = createEffectFromXml(patch.effectXml);
+    effect.setName(loaded.getName());
+    effect.setEnabled(loaded.isEnabled());
+    effect.setNumIns(loaded.getNumIns());
+    effect.setNumOuts(loaded.getNumOuts());
+    effect.setStyle(loaded.getStyle());
+    effect.setCode(loaded.getCode());
+    effect.setComments(loaded.getComments());
+    effect.getGraphicInterface().loadFromXML(loaded.getGraphicInterface().saveAsXML());
+    effect.getOpcodeList().clear();
+    effect.getOpcodeList().addAll(loaded.getOpcodeList());
+    changed = true;
+  }
+
+  if (patch.name !== undefined && effect.getName() !== patch.name) {
+    effect.setName(patch.name);
+    changed = true;
+  }
+  if (patch.enabled !== undefined && effect.isEnabled() !== patch.enabled) {
+    effect.setEnabled(patch.enabled);
+    changed = true;
+  }
+  if (patch.numIns !== undefined && effect.getNumIns() !== patch.numIns) {
+    effect.setNumIns(patch.numIns);
+    changed = true;
+  }
+  if (patch.numOuts !== undefined && effect.getNumOuts() !== patch.numOuts) {
+    effect.setNumOuts(patch.numOuts);
+    changed = true;
+  }
+  if (patch.style !== undefined && effect.getStyle() !== patch.style) {
+    effect.setStyle(patch.style as UDOStyle);
+    changed = true;
+  }
+  if (patch.code !== undefined && effect.getCode() !== patch.code) {
+    effect.setCode(patch.code);
+    changed = true;
+  }
+  if (patch.comments !== undefined && effect.getComments() !== patch.comments) {
+    effect.setComments(patch.comments);
+    changed = true;
+  }
+  if (patch.bsbInterface) {
+    const temp = new BlueSynthBuilder();
+    temp.setGraphicInterface(effect.getGraphicInterface());
+    temp.setOpcodeList(effect.getOpcodeList());
+    changed = applyBsbInterfacePatch(temp, patch.bsbInterface) || changed;
+    syncEffectParametersFromWidgets(effect);
+  }
+  if (patch.opcodeList) {
+    changed = applyEmbeddedOpcodeListPatch(effect.getOpcodeList(), patch.opcodeList) || changed;
+  }
+
+  return changed;
+}
+
+function syncEffectParametersFromWidgets(effect: Effect): void {
+  const params = effect.getParameters();
+  const gi = effect.getGraphicInterface();
+  const rootGroup = gi.getRootGroup();
+
+  const findParam = (name: string) => params.find((p) => p.getName() === name);
+
+  const visit = (widgets: BSBWidget[]) => {
+    for (const widget of widgets) {
+      if (widget instanceof BSBGroup) {
+        visit(widget.getChildren());
+        continue;
+      }
+      if (!widget.objectName) continue;
+
+      if (widget instanceof BSBXYController) {
+        const px = findParam(`${widget.objectName}X`);
+        const py = findParam(`${widget.objectName}Y`);
+        if (px) px.setFixedValue(widget.xValue);
+        if (py) py.setFixedValue(widget.yValue);
+      } else if (widget instanceof BSBDropdown) {
+        const param = findParam(widget.objectName);
+        if (param) param.setFixedValue(widget.selectedIndex);
+      } else {
+        const param = findParam(widget.objectName);
+        if (param) param.setFixedValue(widget.value);
+      }
+    }
+  };
+
+  visit(rootGroup.getChildren());
+}
+
+function applyMixerChannelEditablePatch(
+  channel: Channel,
+  patch: Partial<MixerChannelEditableFields>,
+): boolean {
+  let changed = false;
+
+  if (patch.name !== undefined && channel.getName() !== patch.name) {
+    channel.setName(patch.name);
+    changed = true;
+  }
+  if (patch.outChannel !== undefined && channel.getOutChannel() !== patch.outChannel) {
+    channel.setOutChannel(patch.outChannel);
+    changed = true;
+  }
+  if (patch.muted !== undefined && channel.isMuted() !== patch.muted) {
+    channel.setMuted(patch.muted);
+    changed = true;
+  }
+  if (patch.solo !== undefined && channel.isSolo() !== patch.solo) {
+    channel.setSolo(patch.solo);
+    changed = true;
+  }
+  if (patch.level !== undefined && channel.getLevel() !== patch.level) {
+    channel.setLevel(patch.level);
+    changed = true;
+  }
+  if (patch.volume !== undefined && channel.getVolume() !== patch.volume) {
+    channel.setVolume(patch.volume);
+    changed = true;
+  }
+  if (patch.pan !== undefined && channel.getPan() !== patch.pan) {
+    channel.setPan(patch.pan);
+    changed = true;
+  }
+
+  return changed;
+}
+
+function applyMixerPatchToChain(
+  chain: Array<Effect | Send>,
+  patch: MixerPatch,
+  preferredEntryId?: string,
+): boolean {
+  switch (patch.type) {
+    case 'addEffectFromLibrary': {
+      const effectXml = patch.effectXml;
+      if (!effectXml) {
+        return false;
+      }
+      const effect = createEffectFromXml(effectXml);
+      getMixerEntrySnapshotId(effect, patch.entryId ?? preferredEntryId);
+      const insertIndex = patch.insertIndex ?? chain.length;
+      chain.splice(Math.min(Math.max(insertIndex, 0), chain.length), 0, effect);
+      return true;
+    }
+    case 'addSend': {
+      const send = new Send();
+      if (patch.sendChannel !== undefined) {
+        send.setTargetChannelId(patch.sendChannel);
+      }
+      if (patch.level !== undefined) {
+        send.setLevel(patch.level);
+      }
+      if (preferredEntryId || patch.entryId) {
+        getMixerEntrySnapshotId(send, patch.entryId ?? preferredEntryId);
+      }
+      const insertIndex = patch.insertIndex ?? chain.length;
+      chain.splice(Math.min(Math.max(insertIndex, 0), chain.length), 0, send);
+      return true;
+    }
+    case 'updateSend': {
+      const index = chain.findIndex(
+        (entry) => entry instanceof Send && getMixerEntrySnapshotId(entry) === patch.entryId,
+      );
+      if (index < 0) {
+        return false;
+      }
+      const send = chain[index] as Send;
+      let changed = false;
+      if (patch.patch.sendChannel !== undefined && send.getTargetChannelId() !== patch.patch.sendChannel) {
+        send.setTargetChannelId(patch.patch.sendChannel);
+        changed = true;
+      }
+      if (patch.patch.level !== undefined && send.getLevel() !== patch.patch.level) {
+        send.setLevel(patch.patch.level);
+        changed = true;
+      }
+      if (patch.patch.enabled !== undefined && send.isEnabled() !== patch.patch.enabled) {
+        send.setEnabled(patch.patch.enabled);
+        changed = true;
+      }
+      return changed;
+    }
+    case 'updateEffect': {
+      const index = chain.findIndex(
+        (entry) => entry instanceof Effect && getMixerEntrySnapshotId(entry) === patch.entryId,
+      );
+      if (index < 0) {
+        return false;
+      }
+
+      const current = chain[index] as Effect;
+      if (patch.patch.effectXml !== undefined) {
+        const nextEffect = createEffectFromXml(patch.patch.effectXml);
+        getMixerEntrySnapshotId(nextEffect, patch.entryId);
+        chain[index] = nextEffect;
+        return true;
+      }
+
+      return applyEffectEditablePatchToEffect(current, patch.patch);
+    }
+    case 'removeChainEntry': {
+      const index = chain.findIndex((entry) => getMixerEntrySnapshotId(entry) === patch.entryId);
+      if (index < 0) {
+        return false;
+      }
+      chain.splice(index, 1);
+      return true;
+    }
+    case 'reorderChainEntry': {
+      if (
+        patch.from < 0 ||
+        patch.to < 0 ||
+        patch.from >= chain.length ||
+        patch.to >= chain.length ||
+        patch.from === patch.to
+      ) {
+        return false;
+      }
+
+      const [moved] = chain.splice(patch.from, 1);
+      chain.splice(patch.to, 0, moved);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
+  const mixer = data.getMixer();
+
+  switch (patch.type) {
+    case 'setMixerEnabled':
+      if (mixer.isEnabled() !== patch.value) {
+        mixer.setEnabled(patch.value);
+        return true;
+      }
+      return false;
+    case 'updateExtraRenderTime':
+      if (mixer.getExtraRenderTime() !== patch.value) {
+        mixer.setExtraRenderTime(patch.value);
+        return true;
+      }
+      return false;
+    case 'updateChannel': {
+      const channel = findMixerChannelById(mixer, patch.channelId);
+      if (!channel) {
+        return false;
+      }
+      return applyMixerChannelEditablePatch(channel, patch.patch);
+    }
+    case 'addSubChannel': {
+      const nextChannel = new Channel();
+      nextChannel.setName(patch.name ?? 'New Sub Channel');
+      nextChannel.setAssociation('');
+      getMixerChannelSnapshotId(nextChannel, patch.channelId);
+      const insertIndex =
+        patch.insertIndex === undefined
+          ? mixer.getSubChannels().length
+          : Math.min(Math.max(patch.insertIndex, 0), mixer.getSubChannels().length);
+      mixer.getSubChannels().splice(insertIndex, 0, nextChannel);
+      return true;
+    }
+    case 'removeSubChannel': {
+      const index = mixer.getSubChannels().findIndex(
+        (channel) => getMixerChannelSnapshotId(channel) === patch.channelId,
+      );
+      if (index < 0) {
+        return false;
+      }
+      mixer.getSubChannels().splice(index, 1);
+      return true;
+    }
+    case 'addEffectFromLibrary':
+    case 'addSend':
+    case 'updateSend':
+    case 'updateEffect':
+    case 'removeChainEntry':
+    case 'reorderChainEntry': {
+      const chain = findMixerChainForChannel(mixer, patch.channelId, patch.chain);
+      if (!chain) {
+        return false;
+      }
+      return applyMixerPatchToChain(
+        chain,
+        patch,
+        'entryId' in patch ? patch.entryId : undefined,
+      );
+    }
+  }
+}
+
+export function reconcileMixerSnapshotWithArrangement(
+  mixer: MixerSnapshot,
+  orchestra: OrchestraSnapshot,
+): MixerSnapshot {
+  const nextChannels: MixerChannelSnapshot[] = [];
+  const existingByAssociation = new Map(
+    mixer.channels
+      .filter((channel) => channel.association)
+      .map((channel) => [channel.association!, channel] as const),
+  );
+  const fallbackChannels = mixer.channels.filter((channel) => !channel.association);
+  let fallbackIndex = 0;
+
+  for (const row of orchestra.arrangement.rows) {
+    const existing = existingByAssociation.get(row.assignmentId) ?? fallbackChannels[fallbackIndex++];
+    if (existing) {
+      nextChannels.push({
+        ...existing,
+        association: row.assignmentId,
+        channelKind: 'instrument' as MixerChannelKind,
+      });
+    } else {
+      nextChannels.push({
+        id: row.assignmentId,
+        name: row.instrumentName,
+        channelKind: 'instrument' as MixerChannelKind,
+        association: row.assignmentId,
+        outChannel: Mixer.MASTER_CHANNEL,
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      });
+    }
+  }
+
+  const nextSubChannels = mixer.subChannels.map((channel) => ({
+    ...channel,
+    channelKind: 'subChannel' as MixerChannelKind,
+  }));
+
+  return {
+    ...mixer,
+    channels: nextChannels,
+    subChannels: nextSubChannels,
+    master: {
+      ...mixer.master,
+      channelKind: 'master' as MixerChannelKind,
+    },
+  };
+}
+
+export function reconcileMixerWithArrangement(data: BlueData): boolean {
+  const mixer = data.getMixer();
+  const orchestra = createOrchestraSnapshot(data);
+  const reconciled = reconcileMixerSnapshotWithArrangement(createMixerSnapshot(mixer), orchestra);
+
+  const sourceChannels = mixer.getChannels();
+  const sourceByAssociation = new Map(
+    sourceChannels
+      .filter((channel) => channel.getAssociation().trim().length > 0)
+      .map((channel) => [channel.getAssociation(), channel] as const),
+  );
+  const sourceFallbackChannels = sourceChannels.filter(
+    (channel) => channel.getAssociation().trim().length === 0,
+  );
+  let sourceFallbackIndex = 0;
+  let changed =
+    mixer.isEnabled() !== reconciled.enabled ||
+    mixer.getExtraRenderTime() !== reconciled.extraRenderTime ||
+    sourceChannels.length !== reconciled.channels.length ||
+    mixer.getSubChannels().length !== reconciled.subChannels.length ||
+    mixer.getMaster().getName() !== reconciled.master.name ||
+    mixer.getMaster().getOutChannel() !== reconciled.master.outChannel ||
+    mixer.getMaster().isMuted() !== reconciled.master.muted ||
+    mixer.getMaster().isSolo() !== reconciled.master.solo ||
+    mixer.getMaster().getLevel() !== reconciled.master.level ||
+    mixer.getMaster().getVolume() !== reconciled.master.volume ||
+    mixer.getMaster().getPan() !== reconciled.master.pan;
+  const nextSourceChannels = reconciled.channels.map((snapshot) => {
+    const current =
+      (snapshot.association
+        ? sourceByAssociation.get(snapshot.association)
+        : undefined) ?? sourceFallbackChannels[sourceFallbackIndex++];
+
+    const next = current ?? new Channel();
+    if (
+      !current ||
+      current.getAssociation().trim() !== (snapshot.association ?? '') ||
+      current.getName() !== snapshot.name ||
+      current.getOutChannel() !== snapshot.outChannel ||
+      current.isMuted() !== snapshot.muted ||
+      current.isSolo() !== snapshot.solo ||
+      current.getLevel() !== snapshot.level ||
+      current.getVolume() !== snapshot.volume ||
+      current.getPan() !== snapshot.pan
+    ) {
+      changed = true;
+    }
+    if (snapshot.association) {
+      next.setAssociation(snapshot.association);
+    }
+    next.setName(snapshot.name);
+    next.setOutChannel(snapshot.outChannel);
+    next.setMuted(snapshot.muted);
+    next.setSolo(snapshot.solo);
+    next.setLevel(snapshot.level);
+    next.setVolume(snapshot.volume);
+    next.setPan(snapshot.pan);
+    return next;
+  });
+
+  const nextSubChannels = reconciled.subChannels.map((snapshot, index) => {
+    const current = mixer.getSubChannels()[index] ?? new Channel();
+    if (
+      !mixer.getSubChannels()[index] ||
+      current.getName() !== snapshot.name ||
+      current.getOutChannel() !== snapshot.outChannel ||
+      current.isMuted() !== snapshot.muted ||
+      current.isSolo() !== snapshot.solo ||
+      current.getLevel() !== snapshot.level ||
+      current.getVolume() !== snapshot.volume ||
+      current.getPan() !== snapshot.pan
+    ) {
+      changed = true;
+    }
+    current.setName(snapshot.name);
+    current.setOutChannel(snapshot.outChannel);
+    current.setMuted(snapshot.muted);
+    current.setSolo(snapshot.solo);
+    current.setLevel(snapshot.level);
+    current.setVolume(snapshot.volume);
+    current.setPan(snapshot.pan);
+    return current;
+  });
+
+  if (changed) {
+    mixer.setEnabled(reconciled.enabled);
+    mixer.setExtraRenderTime(reconciled.extraRenderTime);
+    mixer.getChannels().splice(0, mixer.getChannels().length, ...nextSourceChannels);
+    mixer.getSubChannels().splice(0, mixer.getSubChannels().length, ...nextSubChannels);
+    mixer.getMaster().setName(reconciled.master.name);
+    mixer.getMaster().setOutChannel(reconciled.master.outChannel);
+    mixer.getMaster().setMuted(reconciled.master.muted);
+    mixer.getMaster().setSolo(reconciled.master.solo);
+    mixer.getMaster().setLevel(reconciled.master.level);
+    mixer.getMaster().setVolume(reconciled.master.volume);
+    mixer.getMaster().setPan(reconciled.master.pan);
+  }
+
+  return changed;
+}
+
 export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolean {
   const hasProjectProperties =
     patch.projectProperties !== undefined &&
@@ -2163,6 +3318,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     patch.blueLive !== undefined &&
     Object.keys(patch.blueLive).length > 0;
   const hasMidiInput = patch.midiInput !== undefined;
+  const hasMixer = patch.mixer !== undefined;
 
   return (
     patch.globalOrc === undefined &&
@@ -2173,6 +3329,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     !hasOrchestra &&
     !hasProjectUdo &&
     !hasBlueLive &&
-    !hasMidiInput
+    !hasMidiInput &&
+    !hasMixer
   );
 }

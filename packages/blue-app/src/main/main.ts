@@ -12,7 +12,7 @@ import {
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { BlueData } from '@blue/data';
+import { BlueData, Effect, Send, BSBGroup, BSBWidget } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
 import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
@@ -20,12 +20,29 @@ import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
 import { BlueLiveEngineSession } from './blue-live-engine';
 import { buildApplicationMenuTemplate } from './application-menu';
+import {
+  closeEffectEditorWindow,
+  closeEffectEditorWindowsForOwner,
+  openEffectEditorWindow,
+  openEffectInterfaceWindow,
+} from './effect-editor-window-manager';
+import {
+  getMixerEffectsLibrarySession,
+} from './mixer-effects-library';
 import { cleanupTempCsdSnapshots } from './render-command';
 import { getWindowTitle } from '../shared/window-title';
 import {
+  applyEffectEditablePatchToEffect,
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
+  createEffectEditorSnapshot,
+  getMixerChannelSnapshotId,
+  getMixerEntrySnapshotId,
   isEmptyProjectDocumentPatch,
+  type EffectEditorPatchRequest,
+  type EffectEditorRequest,
+  type EffectEditablePatch,
+  type EffectsLibraryPatch,
   type BlueLiveNoteTriggerRequest,
   type BlueLiveNoteTriggerResult,
   type BsbRealtimeControlUpdate,
@@ -59,6 +76,191 @@ function getCurrentProjectDocument() {
   }
 
   return createProjectEditorSnapshot(currentData, currentFilePath);
+}
+
+function getProjectMixerChannelBySnapshotId(channelId: string) {
+  if (!currentData) {
+    return null;
+  }
+
+  const mixer = currentData.getMixer();
+
+  if (channelId === 'master') {
+    return mixer.getMaster();
+  }
+
+  const sourceChannel = mixer.getChannels().find(
+    (ch) => ch.getAssociation() === channelId || getMixerChannelSnapshotId(ch) === channelId,
+  );
+  if (sourceChannel) {
+    return sourceChannel;
+  }
+
+  const subChannel = mixer.getSubChannels().find(
+    (ch) => getMixerChannelSnapshotId(ch) === channelId,
+  );
+  if (subChannel) {
+    return subChannel;
+  }
+
+  return null;
+}
+
+function getProjectEffectEntryByRequest(request: EffectEditorRequest) {
+  if (!currentData || request.ownerType !== 'project' || !request.projectRef) {
+    return null;
+  }
+
+  const channel = getProjectMixerChannelBySnapshotId(request.projectRef.channelId);
+  if (!channel) {
+    return null;
+  }
+
+  const chain = request.projectRef.chain === 'pre' ? channel.getPreEffects() : channel.getPostEffects();
+  const index = chain.findIndex((entry) => getMixerEntrySnapshotId(entry) === request.projectRef?.entryId);
+  if (index < 0) {
+    return null;
+  }
+
+  const entry = chain[index];
+  if (!(entry instanceof Effect)) {
+    return null;
+  }
+
+  return {
+    channel,
+    chain,
+    entry,
+    effectId: request.projectRef.entryId,
+  };
+}
+
+function getProjectEffectEditorSnapshot(request: EffectEditorRequest) {
+  const result = getProjectEffectEntryByRequest(request);
+  if (!result) {
+    return null;
+  }
+
+  return createEffectEditorSnapshot(result.entry, result.effectId, 'project', {
+    projectRef: request.projectRef,
+  });
+}
+
+function computeInterfaceBounds(effect: Effect): { maxW: number; maxH: number } {
+  let maxW = 1;
+  let maxH = 1;
+  const gi = effect.getGraphicInterface();
+  const rootGroup = gi.getRootGroup();
+
+  const visit = (widgets: BSBWidget[]) => {
+    for (const widget of widgets) {
+      if (widget instanceof BSBGroup) {
+        visit(widget.getChildren());
+        continue;
+      }
+      const ctor = widget.constructor.name;
+      const size = getWidgetSize(widget, ctor);
+      maxW = Math.max(maxW, widget.x + size.width);
+      maxH = Math.max(maxH, widget.y + size.height);
+    }
+  };
+
+  visit(rootGroup.getChildren());
+  return { maxW, maxH };
+}
+
+function getWidgetSize(widget: BSBWidget, ctor: string): { width: number; height: number } {
+  const w = widget as any;
+  const vde = w.valueDisplayEnabled === true;
+
+  switch (ctor) {
+    case 'BSBKnob': {
+      const kw = typeof w.knobWidth === 'number' ? w.knobWidth : 60;
+      const le = w.labelEnabled === true;
+      return { width: kw, height: kw + (le ? 16 : 0) + (vde ? 14 : 0) };
+    }
+    case 'BSBVSlider': {
+      const sh = typeof w.sliderHeight === 'number' ? w.sliderHeight : 150;
+      return { width: 50, height: sh + (vde ? 30 : 0) };
+    }
+    case 'BSBHSlider': {
+      const sw = typeof w.sliderWidth === 'number' ? w.sliderWidth : 150;
+      return { width: sw + (vde ? 50 : 0), height: 30 };
+    }
+    case 'BSBXYController': {
+      const cw = typeof w.width === 'number' ? w.width : 100;
+      const ch = typeof w.height === 'number' ? w.height : 100;
+      return { width: cw + (vde ? 50 : 0), height: ch + (vde ? 30 : 0) };
+    }
+    default:
+      return {
+        width: typeof w.width === 'number' ? w.width : 50,
+        height: typeof w.height === 'number' ? w.height : 24,
+      };
+  }
+}
+
+function applyProjectEffectEditorPatch(request: EffectEditorPatchRequest) {
+  if (!currentData) {
+    return null;
+  }
+
+  if (request.ownerType === 'library') {
+    return getMixerEffectsLibrarySession().updateEffect(request.effectId, request.patch);
+  }
+
+  const effectEntry = getProjectEffectEntryByRequest(request);
+  if (!effectEntry) {
+    return null;
+  }
+
+  applyEffectEditablePatchToEffect(effectEntry.entry, request.patch);
+
+  if (engineBridge?.isCurrentlyPlaying() && request.patch.bsbInterface) {
+    const params = effectEntry.entry.getParameters();
+    for (const param of params) {
+      const varName = param.getCompilationVarName();
+      if (varName) {
+        void engineBridge.setChannel(varName, param.getValue(0)).catch(() => {});
+      }
+    }
+  }
+
+  return createEffectEditorSnapshot(effectEntry.entry, effectEntry.effectId, 'project', {
+    projectRef: request.projectRef,
+  });
+}
+
+function maybeCloseRemovedProjectEffectEditors(patch: ProjectDocumentPatch): void {
+  if (!patch.mixer || !currentData) {
+    return;
+  }
+
+  if (patch.mixer.type !== 'removeChainEntry') {
+    return;
+  }
+
+  const channel = getProjectMixerChannelBySnapshotId(patch.mixer.channelId);
+  if (!channel) {
+    return;
+  }
+
+  const chain = patch.mixer.chain === 'pre' ? channel.getPreEffects() : channel.getPostEffects();
+  const { entryId } = patch.mixer;
+  const removed = chain.find((entry) => getMixerEntrySnapshotId(entry) === entryId);
+  if (!removed || !(removed instanceof Effect)) {
+    return;
+  }
+
+  closeEffectEditorWindow({
+    ownerType: 'project',
+    effectId: entryId,
+    projectRef: {
+      channelId: patch.mixer.channelId,
+      chain: patch.mixer.chain,
+      entryId,
+    },
+  });
 }
 
 function updateWindowTitle(): void {
@@ -113,6 +315,11 @@ function rebuildApplicationMenu(): void {
     onOpenSettings: () => {
       if (mainWindow) {
         openSettingsWindow(mainWindow);
+      }
+    },
+    onOpenEffectsLibrary: () => {
+      if (mainWindow) {
+        mainWindow.webContents.send('native-menu-command', { type: 'open-effects-library' });
       }
     },
     onFocusPanel: (panelId) => {
@@ -325,6 +532,8 @@ async function doQuit(): Promise<void> {
     engineBridge = null;
   }
 
+  closeEffectEditorWindowsForOwner('project');
+  closeEffectEditorWindowsForOwner('library');
   currentData = null;
   currentFilePath = null;
   currentProjectRevision = 0;
@@ -366,6 +575,7 @@ async function openFile(): Promise<void> {
     if (blueLiveSession && blueLiveSession.isRunning()) {
       await blueLiveSession.stop();
     }
+    closeEffectEditorWindowsForOwner('project');
 
     currentData = data;
     currentFilePath = filePath;
@@ -413,6 +623,7 @@ async function openFilePath(filePath: string): Promise<void> {
     if (blueLiveSession && blueLiveSession.isRunning()) {
       await blueLiveSession.stop();
     }
+    closeEffectEditorWindowsForOwner('project');
 
     currentData = data;
     currentFilePath = filePath;
@@ -440,6 +651,7 @@ async function newFile(): Promise<void> {
   if (blueLiveSession && blueLiveSession.isRunning()) {
     await blueLiveSession.stop();
   }
+  closeEffectEditorWindowsForOwner('project');
 
   const data = new BlueData();
   currentData = data;
@@ -903,6 +1115,63 @@ ipcMain.handle('settings:open', async () => {
   openSettingsWindow(mainWindow);
 });
 
+ipcMain.handle('open-effect-editor', async (_event, request: EffectEditorRequest) => {
+  openEffectEditorWindow(mainWindow, request);
+});
+
+ipcMain.handle('open-effect-interface', async (_event, request: EffectEditorRequest) => {
+  let interfaceWidth: number | undefined;
+  let interfaceHeight: number | undefined;
+
+  if (request.ownerType === 'project' && request.projectRef) {
+    const effectEntry = getProjectEffectEntryByRequest(request);
+    if (effectEntry) {
+      const bounds = computeInterfaceBounds(effectEntry.entry);
+      if (bounds.maxW > 1 || bounds.maxH > 1) {
+        interfaceWidth = bounds.maxW + 10;
+        interfaceHeight = bounds.maxH + 10;
+      }
+    }
+  }
+
+  openEffectInterfaceWindow(mainWindow, request, interfaceWidth, interfaceHeight);
+});
+
+ipcMain.handle('get-effect-editor-document', (_event, request: EffectEditorRequest) => {
+  if (request.ownerType === 'library') {
+    return getMixerEffectsLibrarySession().getEffectEditorSnapshot(request);
+  }
+
+  return getProjectEffectEditorSnapshot(request);
+});
+
+ipcMain.handle('update-effect-editor-document', (_event, request: EffectEditorPatchRequest) => {
+  return applyProjectEffectEditorPatch(request);
+});
+
+ipcMain.handle('get-effects-library', () => {
+  return getMixerEffectsLibrarySession().getSnapshot();
+});
+
+ipcMain.handle('reload-effects-library', () => {
+  return getMixerEffectsLibrarySession().reload();
+});
+
+ipcMain.handle('update-effects-library', (_event, patch: EffectsLibraryPatch) => {
+  const session = getMixerEffectsLibrarySession();
+  const snapshot = session.applyPatch(patch);
+
+  if (patch.type === 'removeEffect') {
+    closeEffectEditorWindow({
+      ownerType: 'library',
+      effectId: patch.effectId,
+      libraryRef: { libraryEffectId: patch.effectId },
+    });
+  }
+
+  return snapshot;
+});
+
 // ─── Evaluate Code IPC Handler ───
 
 ipcMain.handle('engine:evaluate-code', async (_event, request: { editorKind: string; text: string; sourcePanelId: string }) => {
@@ -945,6 +1214,21 @@ ipcMain.handle('engine:evaluate-code', async (_event, request: { editorKind: str
  */
 async function syncEngineWithProjectPatch(data: BlueData, patch: ProjectDocumentPatch) {
   if (!engineBridge || !engineBridge.isCurrentlyPlaying()) return;
+
+  if (patch.mixer) {
+    const mixerPatch = patch.mixer;
+
+    if (mixerPatch.type === 'updateChannel') {
+      const channel = getProjectMixerChannelBySnapshotId(mixerPatch.channelId);
+      if (channel) {
+        const levelParam = channel.getLevelParameter();
+        const varName = levelParam.getCompilationVarName();
+        if (varName && mixerPatch.patch.level !== undefined) {
+          await engineBridge.setChannel(varName, mixerPatch.patch.level);
+        }
+      }
+    }
+  }
 
   if (patch.orchestra) {
     const arrangement = data.getArrangement();
@@ -1117,6 +1401,7 @@ ipcMain.handle('commit-project-document-patches', (_event, patches: ProjectDocum
   }
 
   for (const patch of patches) {
+    maybeCloseRemovedProjectEffectEditors(patch);
     applyProjectDocumentPatch(currentData, patch);
     if (engineBridge && engineBridge.isCurrentlyPlaying()) {
       void syncEngineWithProjectPatch(currentData, patch).catch((error) => {
@@ -1140,6 +1425,41 @@ ipcMain.handle('send-bsb-realtime-control-update', (_event, update: BsbRealtimeC
   });
 });
 
+ipcMain.handle('send-mixer-realtime-level-update', (_event, update: import('../shared/project-editor').MixerRealtimeLevelUpdate) => {
+  if (!currentData || !engineBridge || !engineBridge.isCurrentlyPlaying()) {
+    return;
+  }
+
+  const channel = getProjectMixerChannelBySnapshotId(update.channelId);
+  if (!channel) return;
+
+  const varName = channel.getLevelParameter().getCompilationVarName();
+  if (varName) {
+    void engineBridge.setChannel(varName, update.level).catch(() => {});
+  }
+});
+
+ipcMain.handle('send-effect-realtime-update', (_event, update: import('../shared/project-editor').EffectRealtimeUpdate) => {
+  if (!currentData || !engineBridge || !engineBridge.isCurrentlyPlaying() || !update.bsbWidgetValues) {
+    return;
+  }
+
+  const effectEntry = getProjectEffectEntryByRequest({
+    ownerType: 'project',
+    effectId: update.entryId,
+    projectRef: { channelId: update.channelId, chain: update.chain, entryId: update.entryId },
+  });
+  if (!effectEntry) return;
+
+  const params = effectEntry.entry.getParameters();
+  for (const [objectName, value] of Object.entries(update.bsbWidgetValues)) {
+    const param = params.find((p) => p.getName() === objectName);
+    if (param?.getCompilationVarName()) {
+      void engineBridge.setChannel(param.getCompilationVarName()!, value).catch(() => {});
+    }
+  }
+});
+
 ipcMain.handle('update-project-document', (_event, patch) => {
   if (!currentData) {
     throw new Error('No project loaded');
@@ -1149,6 +1469,7 @@ ipcMain.handle('update-project-document', (_event, patch) => {
     throw new Error('Empty project document patch');
   }
 
+  maybeCloseRemovedProjectEffectEditors(patch);
   applyProjectDocumentPatch(currentData, patch);
 
   // Sync with engine in real-time if playing

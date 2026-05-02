@@ -108,7 +108,8 @@ export const PANEL_MAP = new Map(WORKBENCH_PANEL_REGISTRY.map((panel) => [panel.
 
 export type NativeMenuCommand =
   | { type: 'focus-panel'; panelId: string }
-  | { type: 'reset-layout' };
+  | { type: 'reset-layout' }
+  | { type: 'open-effects-library' };
 
 export function getPanel(id: string): PanelDescriptor | undefined {
   return PANEL_MAP.get(id);

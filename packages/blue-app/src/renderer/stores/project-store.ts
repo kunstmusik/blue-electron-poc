@@ -3,11 +3,16 @@ import { toast } from 'sonner';
 import {
   BlueSynthBuilder,
   BlueX7,
+  Effect,
+  Element,
   GenericInstrument,
   JavaScriptInstrument,
 } from '@blue/data';
 import {
   createEmptyProjectEditorSnapshot,
+  createEmptyMixerSnapshot,
+  createMixerEffectEntrySnapshot,
+  reconcileMixerSnapshotWithArrangement,
   type BlueLiveProjectSnapshot,
   type BlueLivePatch,
   type BlueSynthBuilderInstrumentSnapshot,
@@ -22,6 +27,13 @@ import {
   type MidiInputProcessorSnapshot,
   type InstrumentPatch,
   type InstrumentSnapshot,
+  type MixerChannelEditableFields,
+  type MixerChannelSnapshot,
+  type MixerChainEntrySnapshot,
+  type MixerEffectEntrySnapshot,
+  type MixerPatch,
+  type MixerSendEntrySnapshot,
+  type MixerSnapshot,
   type PresetGroupSnapshot,
   type PresetSnapshot,
   type ProjectDocumentPatch,
@@ -58,6 +70,7 @@ interface ProjectState {
   globalOrc: string;
   globalSco: string;
   orchestra: OrchestraSnapshot;
+  mixer: MixerSnapshot;
   projectProperties: ProjectPropertiesSnapshot;
   transport: ToolbarProjectTransportSnapshot;
   tablesText: string;
@@ -275,6 +288,7 @@ function applyProjectInfoToState(
     const nextProjectProperties = info.projectProperties
       ? mergeProjectProperties(state.projectProperties, info.projectProperties)
       : state.projectProperties;
+    const nextOrchestra = info.orchestra ?? state.orchestra;
     const nextTransport = info.transport
       ? {
           ...state.transport,
@@ -306,7 +320,12 @@ function applyProjectInfoToState(
       isDirty: preserveDirty ? state.isDirty : false,
       globalOrc: info.globalOrc ?? state.globalOrc,
       globalSco: info.globalSco ?? state.globalSco,
-      orchestra: info.orchestra ?? state.orchestra,
+      orchestra: nextOrchestra,
+      mixer: info.mixer
+        ? reconcileMixerSnapshotWithArrangement(info.mixer, nextOrchestra)
+        : info.orchestra
+          ? reconcileMixerSnapshotWithArrangement(state.mixer, nextOrchestra)
+          : state.mixer,
       projectProperties: nextProjectProperties,
       transport: nextTransport,
       tablesText: info.tablesText ?? state.tablesText,
@@ -341,6 +360,7 @@ function buildInitialState(): ProjectState {
     globalOrc: snapshot.globalOrc,
     globalSco: snapshot.globalSco,
     orchestra: snapshot.orchestra,
+    mixer: snapshot.mixer ?? createEmptyMixerSnapshot(),
     projectProperties: snapshot.projectProperties,
     transport: snapshot.transport,
     tablesText: snapshot.tablesText,
@@ -535,6 +555,251 @@ function applyBlueLivePatchToSnapshot(
   }
 
   return next;
+}
+
+function cloneMixerSnapshot(mixer: MixerSnapshot): MixerSnapshot {
+  return structuredClone(mixer);
+}
+
+function findMixerChannelSnapshotById(
+  mixer: MixerSnapshot,
+  channelId: string,
+): MixerChannelSnapshot | null {
+  if (channelId === 'master') {
+    return mixer.master;
+  }
+
+  const source = mixer.channels.find((channel) => channel.id === channelId);
+  if (source) {
+    return source;
+  }
+
+  return mixer.subChannels.find((channel) => channel.id === channelId) ?? null;
+}
+
+function findMixerChainEntrySnapshot(
+  channel: MixerChannelSnapshot,
+  chain: 'pre' | 'post',
+  entryId: string,
+): { chain: MixerChainEntrySnapshot[]; index: number; entry: MixerChainEntrySnapshot | null } {
+  const entries = chain === 'pre' ? channel.preChain : channel.postChain;
+  const index = entries.findIndex((entry) => entry.entryId === entryId);
+  return {
+    chain: entries,
+    index,
+    entry: index >= 0 ? entries[index] ?? null : null,
+  };
+}
+
+function createEffectEntrySnapshotFromXml(
+  effectXml: string,
+  entryId: string,
+  refs?: { projectRef?: { channelId: string; chain: 'pre' | 'post'; entryId: string } },
+): MixerEffectEntrySnapshot {
+  const effect = Effect.loadFromXML(Element.parse(effectXml));
+  return createMixerEffectEntrySnapshot(effect, entryId, refs);
+}
+
+function applyMixerPatchToSnapshot(
+  mixer: MixerSnapshot,
+  orchestra: OrchestraSnapshot,
+  patch: MixerPatch,
+): MixerSnapshot {
+  const next = cloneMixerSnapshot(mixer);
+
+  switch (patch.type) {
+    case 'setMixerEnabled':
+      next.enabled = patch.value;
+      break;
+    case 'updateExtraRenderTime':
+      next.extraRenderTime = patch.value;
+      break;
+    case 'updateChannel': {
+      const channel =
+        next.channels.find((candidate) => candidate.id === patch.channelId) ??
+        next.subChannels.find((candidate) => candidate.id === patch.channelId) ??
+        (next.master.id === patch.channelId ? next.master : null);
+      if (!channel) {
+        break;
+      }
+      next.channels = next.channels.map((candidate) =>
+        candidate.id === channel.id ? { ...candidate, ...patch.patch } : candidate,
+      );
+      next.subChannels = next.subChannels.map((candidate) =>
+        candidate.id === channel.id ? { ...candidate, ...patch.patch } : candidate,
+      );
+      if (next.master.id === channel.id) {
+        next.master = { ...next.master, ...patch.patch };
+      }
+      break;
+    }
+    case 'addSubChannel': {
+      const newId = patch.channelId ?? crypto.randomUUID();
+      const insertIndex = patch.insertIndex ?? next.subChannels.length;
+      const nextSubChannel: MixerChannelSnapshot = {
+        id: newId,
+        name: patch.name ?? 'New Sub Channel',
+        channelKind: 'subChannel',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      };
+      const subChannels = [...next.subChannels];
+      subChannels.splice(Math.min(Math.max(insertIndex, 0), subChannels.length), 0, nextSubChannel);
+      next.subChannels = subChannels;
+      break;
+    }
+    case 'removeSubChannel':
+      next.subChannels = next.subChannels.filter((channel) => channel.id !== patch.channelId);
+      break;
+    case 'addEffectFromLibrary':
+    case 'addSend':
+    case 'updateSend':
+    case 'updateEffect':
+    case 'removeChainEntry':
+    case 'reorderChainEntry': {
+      const channel = findMixerChannelSnapshotById(next, patch.channelId);
+      if (!channel) {
+        break;
+      }
+
+      const updateChain = (
+        entries: MixerChainEntrySnapshot[],
+        chainKind: 'pre' | 'post',
+      ): MixerChainEntrySnapshot[] => {
+        if (chainKind !== patch.chain) {
+          return entries;
+        }
+
+        switch (patch.type) {
+          case 'addEffectFromLibrary': {
+            const entryId = patch.entryId ?? crypto.randomUUID();
+            const nextEntries = [...entries];
+            const effectXml = patch.effectXml ?? new Effect().saveAsXML().toXml();
+            nextEntries.splice(
+              Math.min(Math.max(patch.insertIndex ?? nextEntries.length, 0), nextEntries.length),
+              0,
+              createEffectEntrySnapshotFromXml(effectXml, entryId, {
+                projectRef: {
+                  channelId: patch.channelId,
+                  chain: patch.chain,
+                  entryId,
+                },
+              }),
+            );
+            return nextEntries;
+          }
+          case 'addSend': {
+            const entryId = patch.entryId ?? crypto.randomUUID();
+            const nextEntries = [...entries];
+            nextEntries.splice(
+              Math.min(Math.max(patch.insertIndex ?? nextEntries.length, 0), nextEntries.length),
+              0,
+              {
+                entryId,
+                kind: 'send',
+                sendChannel: patch.sendChannel ?? '',
+                level: patch.level ?? 1,
+                enabled: true,
+              },
+            );
+            return nextEntries;
+          }
+          case 'updateSend':
+            return entries.map((entry) =>
+              entry.entryId === patch.entryId && entry.kind === 'send'
+                ? {
+                    ...entry,
+                    ...(patch.patch.sendChannel !== undefined ? { sendChannel: patch.patch.sendChannel } : null),
+                    ...(patch.patch.level !== undefined ? { level: patch.patch.level } : null),
+                    ...(patch.patch.enabled !== undefined ? { enabled: patch.patch.enabled } : null),
+                  }
+                : entry,
+            );
+          case 'updateEffect':
+            return entries.map((entry) => {
+              if (entry.entryId !== patch.entryId || entry.kind !== 'effect') {
+                return entry;
+              }
+
+              if (patch.patch.effectXml !== undefined) {
+                return createEffectEntrySnapshotFromXml(patch.patch.effectXml, patch.entryId, {
+                  projectRef: {
+                    channelId: patch.channelId,
+                    chain: patch.chain,
+                    entryId: patch.entryId,
+                  },
+                });
+              }
+
+              const nextEntry = { ...entry };
+              if (patch.patch.name !== undefined) nextEntry.name = patch.patch.name;
+              if (patch.patch.enabled !== undefined) nextEntry.enabled = patch.patch.enabled;
+              if (patch.patch.numIns !== undefined) nextEntry.numIns = patch.patch.numIns;
+              if (patch.patch.numOuts !== undefined) nextEntry.numOuts = patch.patch.numOuts;
+              if (patch.patch.style !== undefined) nextEntry.style = patch.patch.style;
+              if (patch.patch.code !== undefined) nextEntry.code = patch.patch.code;
+              if (patch.patch.comments !== undefined) nextEntry.comments = patch.patch.comments;
+              return nextEntry;
+            });
+          case 'removeChainEntry':
+            return entries.filter((entry) => entry.entryId !== patch.entryId);
+          case 'reorderChainEntry': {
+            const nextEntries = [...entries];
+            if (
+              patch.from < 0 ||
+              patch.to < 0 ||
+              patch.from >= nextEntries.length ||
+              patch.to >= nextEntries.length ||
+              patch.from === patch.to
+            ) {
+              return nextEntries;
+            }
+            const [moved] = nextEntries.splice(patch.from, 1);
+            nextEntries.splice(patch.to, 0, moved);
+            return nextEntries;
+          }
+          default:
+            return entries;
+        }
+      };
+
+      if (channel.id === next.master.id) {
+        next.master = {
+          ...next.master,
+          preChain: updateChain(next.master.preChain, 'pre'),
+          postChain: updateChain(next.master.postChain, 'post'),
+        };
+      } else {
+        next.channels = next.channels.map((candidate) =>
+          candidate.id === channel.id
+            ? {
+                ...candidate,
+                preChain: updateChain(candidate.preChain, 'pre'),
+                postChain: updateChain(candidate.postChain, 'post'),
+              }
+            : candidate,
+        );
+        next.subChannels = next.subChannels.map((candidate) =>
+          candidate.id === channel.id
+            ? {
+                ...candidate,
+                preChain: updateChain(candidate.preChain, 'pre'),
+                postChain: updateChain(candidate.postChain, 'post'),
+              }
+            : candidate,
+        );
+      }
+      break;
+    }
+  }
+
+  return reconcileMixerSnapshotWithArrangement(next, orchestra);
 }
 
 function createDefaultMidiInputSnapshot(): MidiInputProcessorSnapshot {
@@ -1844,6 +2109,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       patch.globalOrc === undefined &&
       patch.globalSco === undefined &&
       patch.orchestra === undefined &&
+      patch.mixer === undefined &&
       patch.tablesText === undefined &&
       patch.projectUdo === undefined &&
       patch.blueLive === undefined &&
@@ -1870,6 +2136,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
       if (patch.orchestra !== undefined) {
         next.orchestra = applyOrchestraPatchSnapshot(state.orchestra, patch.orchestra);
+      }
+
+      if (patch.mixer !== undefined) {
+        next.mixer = applyMixerPatchToSnapshot(
+          state.mixer ?? createEmptyMixerSnapshot(),
+          next.orchestra,
+          patch.mixer,
+        );
       }
 
       if (patch.projectProperties) {
@@ -1913,6 +2187,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         next.midiInput = applyMidiInputPatchToSnapshot(
           state.midiInput ?? createDefaultMidiInputSnapshot(),
           patch.midiInput,
+        );
+      }
+
+      if (patch.orchestra !== undefined || patch.mixer !== undefined) {
+        next.mixer = reconcileMixerSnapshotWithArrangement(
+          next.mixer,
+          next.orchestra,
         );
       }
 

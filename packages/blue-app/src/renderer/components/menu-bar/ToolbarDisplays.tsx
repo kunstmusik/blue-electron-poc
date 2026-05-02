@@ -9,7 +9,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import {
   PLAYBACK_DISPLAY_TICK_MS,
   createIdlePlaybackDisplayState,
@@ -251,9 +251,8 @@ function ToolbarFormatSubmenu({
 }): React.ReactElement {
   return (
     <ContextMenu.Sub>
-      <ContextMenu.SubTrigger className="toolbar-context-menu__item">
+      <ContextMenu.SubTrigger className="toolbar-context-menu__item toolbar-context-menu__subtrigger">
         <span>{label}</span>
-        <ChevronRight size={12} style={{ marginLeft: 'auto', flexShrink: 0 }} />
       </ContextMenu.SubTrigger>
       {portalContainer ? (
         <ContextMenu.Portal container={portalContainer}>

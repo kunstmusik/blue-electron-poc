@@ -31,6 +31,7 @@
     "dockview": "^5.2.0",
     "lucide-react": "^0.563.0",
     "react": "^19.2.4",
+    "react-arborist": "^3.5.0",
     "react-dom": "^19.2.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",

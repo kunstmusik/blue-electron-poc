@@ -11,6 +11,7 @@ import ProjectPropertiesPanel from './panels/ProjectPropertiesPanel';
 import TablesPanel from './panels/TablesPanel';
 import UserDefinedOpcodePanel from './panels/UserDefinedOpcodePanel';
 import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
+import MixerPanel from './panels/MixerPanel';
 import OutputPanel from './panels/output/OutputPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
@@ -46,6 +47,8 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <MidiInputPanel />
           ) : descriptor.id === 'VirtualKeyboardTopComponent' ? (
             <VirtualKeyboardPanel />
+          ) : descriptor.id === 'MixerTopComponent' ? (
+            <MixerPanel />
           ) : descriptor.id === 'OutputTopComponent' ? (
             <OutputPanel />
           ) : (

@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { ChevronDown, ChevronRight, Import, Plus } from 'lucide-react';
+import { ChevronDown, Import, Plus } from 'lucide-react';
 
 import type { UdoDefinitionSnapshot } from '../../../../../shared/project-editor';
 
@@ -207,7 +207,6 @@ export default function UdoTable({
                             disabled={!hasSingleSelection}
                           >
                             Export
-                            <ChevronRight size={10} className="editor-context-menu__arrow" />
                           </ContextMenu.SubTrigger>
                           <ContextMenu.Portal>
                             <ContextMenu.SubContent className="editor-context-menu">

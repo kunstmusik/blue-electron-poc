@@ -32,6 +32,7 @@ import {
 } from '../components/workbench/auxiliary-layout';
 import { getPanel } from '../components/workbench/panel-registry';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
+import { useUIStore } from './ui-store';
 
 interface WorkbenchState {
   api: DockviewApi | null;
@@ -365,6 +366,9 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
           return;
         case 'reset-layout':
           get().resetLayout();
+          return;
+        case 'open-effects-library':
+          useUIStore.getState().openEffectsLibrary();
           return;
       }
     },

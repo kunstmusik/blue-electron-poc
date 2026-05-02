@@ -48,6 +48,7 @@ export default defineConfig({
       input: {
         main: resolve(projectRoot, 'src/renderer/index.html'),
         settings: resolve(projectRoot, 'src/renderer/settings.html'),
+        effectEditor: resolve(projectRoot, 'src/renderer/effect-editor.html'),
       },
     },
   },

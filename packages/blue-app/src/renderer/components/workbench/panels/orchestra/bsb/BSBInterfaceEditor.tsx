@@ -14,6 +14,7 @@ import SplitPane from '../SplitPane';
 interface BSBInterfaceEditorProps {
   instrument: BlueSynthBuilderInstrumentSnapshot;
   onInstrumentPatch: (patch: InstrumentPatch) => void | Promise<void>;
+  showEditModeToggle?: boolean;
 }
 
 type RightPanelTab = 'properties' | 'grid';
@@ -21,6 +22,7 @@ type RightPanelTab = 'properties' | 'grid';
 function BSBInterfaceEditor({
   instrument,
   onInstrumentPatch,
+  showEditModeToggle = true,
 }: BSBInterfaceEditorProps) {
   const [selectedWidgetIds, setSelectedWidgetIds] = useState<Set<string>>(new Set());
   const [rightTab, setRightTab] = useState<RightPanelTab>('properties');
@@ -72,6 +74,7 @@ function BSBInterfaceEditor({
   );
 
   useEffect(() => {
+    if (!showEditModeToggle) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'e' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
@@ -80,24 +83,31 @@ function BSBInterfaceEditor({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [dispatchBsbPatch, instrument.editEnabled]);
+  }, [dispatchBsbPatch, instrument.editEnabled, showEditModeToggle]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-blue-bg">
-      <div className="flex items-center justify-between border-b border-blue-border px-3 py-1">
-        <BSBPresetBar instrument={instrument} onBsbInterfacePatch={dispatchBsbPatch} />
-        <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-gray-100">
-          <input
-            type="checkbox"
-            checked={editEnabled}
-            onChange={(e) =>
-              dispatchBsbPatch({ type: 'setEditEnabled', value: e.target.checked })
-            }
-            className="accent-blue-accent"
-          />
-          Edit Mode
-        </label>
-      </div>
+      {showEditModeToggle && (
+        <div className="flex items-center justify-between border-b border-blue-border px-3 py-1">
+          <BSBPresetBar instrument={instrument} onBsbInterfacePatch={dispatchBsbPatch} />
+          <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-gray-100">
+            <input
+              type="checkbox"
+              checked={editEnabled}
+              onChange={(e) =>
+                dispatchBsbPatch({ type: 'setEditEnabled', value: e.target.checked })
+              }
+              className="accent-blue-accent"
+            />
+            Edit Mode
+          </label>
+        </div>
+      )}
+      {!showEditModeToggle && instrument.presetGroup && (
+        <div className="flex items-center border-b border-blue-border px-3 py-1">
+          <BSBPresetBar instrument={instrument} onBsbInterfacePatch={dispatchBsbPatch} />
+        </div>
+      )}
 
       {editEnabled ? (
         <SplitPane

@@ -10,6 +10,7 @@ export interface ApplicationMenuTemplateOptions {
   onSaveFileAs: () => void;
   onRequestQuit: () => void;
   onOpenSettings: () => void;
+  onOpenEffectsLibrary: () => void;
   onFocusPanel: (panelId: string) => void;
   onToggleDevTools: () => void;
   onResetLayout: () => void;
@@ -33,6 +34,11 @@ function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): Menu
   const enabled = options.hasLoadedProject;
 
   return [
+    {
+      label: 'Effects Library...',
+      click: () => options.onOpenEffectsLibrary(),
+    },
+    { type: 'separator' },
     {
       label: 'Play',
       enabled,

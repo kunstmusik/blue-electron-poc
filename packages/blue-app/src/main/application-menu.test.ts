@@ -9,6 +9,7 @@ function createHandlers() {
     onSaveFileAs: vi.fn(),
     onRequestQuit: vi.fn(),
     onOpenSettings: vi.fn(),
+    onOpenEffectsLibrary: vi.fn(),
     onFocusPanel: vi.fn(),
     onToggleDevTools: vi.fn(),
     onResetLayout: vi.fn(),
@@ -51,10 +52,13 @@ describe('application menu template', () => {
     expect(getLabels(fileMenu)).toEqual(['New', 'Open...', 'Save', 'Save As...']);
 
     const projectMenu = getSubmenu(template[3]);
+    expect(projectMenu.find((item) => item.label === 'Effects Library...')).toBeTruthy();
     expect(projectMenu.find((item) => item.label === 'Play')?.enabled).toBe(true);
     expect(projectMenu.find((item) => item.label === 'Stop')?.enabled).toBe(true);
     projectMenu.find((item) => item.label === 'Play')?.click?.();
     expect(handlers.onPlay).toHaveBeenCalledTimes(1);
+    projectMenu.find((item) => item.label === 'Effects Library...')?.click?.();
+    expect(handlers.onOpenEffectsLibrary).toHaveBeenCalledTimes(1);
 
     const windowMenu = getSubmenu(template[4]);
     expect(windowMenu.map((item) => item.label).slice(0, 5)).toEqual(['Editors', 'Properties', 'Output', 'REPL', 'Toggle Dev Tools']);
@@ -90,6 +94,7 @@ describe('application menu template', () => {
     expect(handlers.onRequestQuit).toHaveBeenCalledTimes(1);
 
     const projectMenu = getSubmenu(template[2]);
+    expect(projectMenu.find((item) => item.label === 'Effects Library...')).toBeTruthy();
     expect(projectMenu.find((item) => item.label === 'Play')?.enabled).toBe(false);
     expect(projectMenu.find((item) => item.label === 'Generate CSD to Screen')?.enabled).toBe(false);
   });

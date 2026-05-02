@@ -42,7 +42,7 @@ function AddInstrumentSubmenu({
 }): React.ReactElement {
   return (
     <ContextMenu.Sub>
-      <ContextMenu.SubTrigger className="editor-context-menu__item">
+      <ContextMenu.SubTrigger className="editor-context-menu__item editor-context-menu__subtrigger">
         Add Instrument
       </ContextMenu.SubTrigger>
       <ContextMenu.Portal>

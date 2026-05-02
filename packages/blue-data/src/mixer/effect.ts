@@ -27,6 +27,7 @@ export class Effect implements BlueDataObject {
   private _graphicInterface = new BSBGraphicInterface();
   private _parameters: Parameter[] = [];
   private _opcodeList = new OpcodeList();
+  private _comments = "";
 
   getName(): string {
     return this._name;
@@ -61,6 +62,13 @@ export class Effect implements BlueDataObject {
   }
   setCode(code: string): void {
     this._code = code;
+  }
+
+  getComments(): string {
+    return this._comments;
+  }
+  setComments(comments: string): void {
+    this._comments = comments;
   }
 
   getStyle(): UDOStyle {
@@ -200,7 +208,16 @@ export class Effect implements BlueDataObject {
     elem.addElement("numIns").setText(this._numIns.toString());
     elem.addElement("numOuts").setText(this._numOuts.toString());
     if (this._code) elem.addElement("code").setText(this._code);
-    // graphicInterface would be saved here if needed
+    elem.addElement("comments").setText(this._comments);
+    elem.addElement(this._opcodeList.saveAsXML());
+    elem.addElement(this._graphicInterface.saveAsXML());
+
+    const parameterList = new Element("parameterList");
+    for (const parameter of this._parameters) {
+      parameterList.addElement(parameter.saveAsXML());
+    }
+    elem.addElement(parameterList);
+
     return elem;
   }
 
@@ -237,6 +254,9 @@ export class Effect implements BlueDataObject {
     const code = data.getTextString("code");
     if (code) effect._code = code;
 
+    const comments = data.getTextString("comments");
+    if (comments) effect._comments = comments;
+
     const opcodeListElem = data.getElement("opcodeList");
     if (opcodeListElem) {
       effect._opcodeList = OpcodeList.loadFromXML(opcodeListElem);
@@ -253,6 +273,14 @@ export class Effect implements BlueDataObject {
       data.getElement("parameterList") || data.getElement("bsbParameterList");
     if (paramListElem) {
       effect._parameters = Effect._loadParameters(paramListElem);
+    }
+
+    if (!effect._opcodeList) {
+      effect._opcodeList = new OpcodeList();
+    }
+
+    if (!effect._graphicInterface) {
+      effect._graphicInterface = new BSBGraphicInterface();
     }
 
     return effect;
@@ -280,7 +308,9 @@ export class Effect implements BlueDataObject {
     copy._numOuts = this._numOuts;
     copy._code = this._code;
     copy._style = this._style;
-    copy._graphicInterface = this._graphicInterface;
+    copy._comments = this._comments;
+    copy._graphicInterface = new BSBGraphicInterface();
+    copy._graphicInterface.loadFromXML(this._graphicInterface.saveAsXML());
     copy._parameters = this._parameters.map(param => param.deepCopy() as Parameter);
     copy._opcodeList = OpcodeList.loadFromXML(this._opcodeList.saveAsXML());
     return copy;

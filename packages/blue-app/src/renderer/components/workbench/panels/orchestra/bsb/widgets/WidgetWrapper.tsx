@@ -257,7 +257,6 @@ function WidgetWrapper({
               <ContextMenu.Sub>
                 <ContextMenu.SubTrigger className="editor-context-menu__item editor-context-menu__subtrigger">
                   Align
-                  <span className="editor-context-menu__arrow">▸</span>
                 </ContextMenu.SubTrigger>
                 <ContextMenu.Portal>
                   <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>
@@ -274,7 +273,6 @@ function WidgetWrapper({
               <ContextMenu.Sub>
                 <ContextMenu.SubTrigger className="editor-context-menu__item editor-context-menu__subtrigger" disabled={!canDistribute}>
                   Distribute
-                  <span className="editor-context-menu__arrow">▸</span>
                 </ContextMenu.SubTrigger>
                 <ContextMenu.Portal>
                   <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>

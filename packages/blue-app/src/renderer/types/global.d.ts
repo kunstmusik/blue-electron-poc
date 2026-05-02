@@ -1,9 +1,16 @@
 export {};
 
 import type {
+  EffectEditorPatchRequest,
+  EffectEditorRequest,
+  EffectEditorSnapshot,
   BsbRealtimeControlUpdate,
+  MixerRealtimeLevelUpdate,
+  EffectRealtimeUpdate,
   BlueLiveNoteTriggerRequest,
   BlueLiveNoteTriggerResult,
+  EffectsLibraryPatch,
+  EffectsLibrarySnapshot,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
@@ -50,11 +57,34 @@ declare global {
       updateProjectDocument: (
         patch: ProjectDocumentPatch,
       ) => Promise<ProjectEditorSnapshot | null>;
+      getEffectsLibrary: () => Promise<EffectsLibrarySnapshot>;
+      reloadEffectsLibrary: () => Promise<EffectsLibrarySnapshot>;
+      updateEffectsLibrary: (
+        patch: EffectsLibraryPatch,
+      ) => Promise<EffectsLibrarySnapshot>;
+      openEffectEditor: (
+        request: EffectEditorRequest,
+      ) => Promise<void>;
+      openEffectInterface: (
+        request: EffectEditorRequest,
+      ) => Promise<void>;
+      getEffectEditorDocument: (
+        request: EffectEditorRequest,
+      ) => Promise<EffectEditorSnapshot | null>;
+      updateEffectEditorDocument: (
+        request: EffectEditorPatchRequest,
+      ) => Promise<EffectEditorSnapshot | null>;
       commitProjectDocumentPatches: (
         patches: ProjectDocumentPatch[],
       ) => Promise<ProjectDocumentCommitReceipt>;
       sendBsbRealtimeControlUpdate: (
         update: BsbRealtimeControlUpdate,
+      ) => Promise<void>;
+      sendMixerRealtimeLevelUpdate: (
+        update: MixerRealtimeLevelUpdate,
+      ) => Promise<void>;
+      sendEffectRealtimeUpdate: (
+        update: EffectRealtimeUpdate,
       ) => Promise<void>;
       readClipboardText: () => Promise<string>;
       writeClipboardText: (text: string) => Promise<void>;
