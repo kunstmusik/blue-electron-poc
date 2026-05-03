@@ -1,0 +1,40 @@
+{
+  "name": "blue-cli",
+  "version": "0.0.1",
+  "description": "Node CLI for compiling Blue projects to Csound CSD output.",
+  "type": "commonjs",
+  "main": "./dist/blue-cli.cjs",
+  "bin": {
+    "blue-cli": "./dist/blue-cli.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+    "prepack": "pnpm build",
+    "test": "pnpm build && pnpm exec vitest run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "blue",
+    "csound",
+    "cli"
+  ],
+  "author": "Steven Yi",
+  "license": "GPL-2.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stevenyi/blue-electron"
+  },
+  "devDependencies": {
+    "commander": "^14.0.3",
+    "esbuild": "^0.28.0"
+  },
+  "dependencies": {
+    "quickjs-emscripten": "^0.32.0"
+  }
+}
