@@ -16,6 +16,11 @@ import type { Parameter, TempoMap } from '@blue/data';
 import { AutomationCurve, getEngineAutomationPoints } from '@blue/data';
 import type { PlaybackClockSnapshot } from '../shared/project-editor';
 import { formatRenderCommandLine, writeTempCsdSnapshot } from './render-command';
+import {
+  registerEngineProcess,
+  removeEngineProcessRecord,
+  type EngineSessionKind,
+} from './engine-process-registry';
 
 interface AutomationTimingContext {
   renderStartTime: number;
@@ -95,12 +100,21 @@ export class EngineBridge {
   private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
   private terminalCleanupPromise: Promise<void> | null = null;
   private workingDirectory: string | null = null;
+  private engineProcessRecordPath: string | null = null;
+  private readonly engineSessionKind: EngineSessionKind;
 
-  constructor(mainWindow: BrowserWindow, enginePath?: string, port?: number, pubPort?: number) {
+  constructor(
+    mainWindow: BrowserWindow,
+    enginePath?: string,
+    port?: number,
+    pubPort?: number,
+    engineSessionKind: EngineSessionKind = 'realtime',
+  ) {
     this.mainWindow = mainWindow;
     this.enginePath = enginePath || 'blue-engine';
     this.port = port || 5555;
     this.pubPort = pubPort || this.port + 1;
+    this.engineSessionKind = engineSessionKind;
   }
 
   setOutputCallback(cb: EngineOutputCallback | null): void {
@@ -271,6 +285,10 @@ export class EngineBridge {
     }
 
     this.engineProcess = null;
+    if (this.engineProcessRecordPath) {
+      void removeEngineProcessRecord(this.engineProcessRecordPath);
+      this.engineProcessRecordPath = null;
+    }
   }
 
   private async resetEngineResources(): Promise<void> {
@@ -414,6 +432,26 @@ export class EngineBridge {
       },
     );
 
+    if (typeof this.engineProcess.pid === 'number') {
+      try {
+        this.engineProcessRecordPath = await registerEngineProcess({
+          version: 1,
+          kind: this.engineSessionKind,
+          pid: this.engineProcess.pid,
+          ownerPid: process.pid,
+          enginePath,
+          spawnArgs,
+          controlEndpoint: endpoints.controlEndpoint,
+          pubEndpoint: endpoints.pubEndpoint,
+          shmName,
+          startedAt: Date.now(),
+        });
+      } catch (error) {
+        console.warn(`[EngineBridge] Failed to register engine process: ${error instanceof Error ? error.message : String(error)}`);
+        this.engineProcessRecordPath = null;
+      }
+    }
+
     this.engineProcess.stderr?.on('data', (data: Buffer) => {
       const text = data.toString();
       this.stderr += text;
@@ -437,6 +475,10 @@ export class EngineBridge {
       this.engineProcess = null;
       this.client = null;
       this.isPlaying = false;
+      if (this.engineProcessRecordPath) {
+        void removeEngineProcessRecord(this.engineProcessRecordPath);
+        this.engineProcessRecordPath = null;
+      }
 
       if (exitingClient) {
         void exitingClient.disconnect(false).catch(() => undefined);
@@ -775,6 +817,10 @@ export class EngineBridge {
     return 0;
   }
 
+  getClient(): EngineClient | null {
+    return this.client;
+  }
+
   isCurrentlyPlaying(): boolean {
     return this.isPlaying;
   }
@@ -782,16 +828,16 @@ export class EngineBridge {
   /**
    * Clean up all resources.
    */
-   dispose(): void {
-     this.playbackLock = false;
-     this.killEngine();
-   }
+  async dispose(): Promise<void> {
+    this.playbackLock = false;
+    await this.killEngine();
+  }
 
-   async killAndWait(): Promise<void> {
-     this.playbackLock = false;
-     await this.killEngine();
-   }
- }
+  async killAndWait(): Promise<void> {
+    this.playbackLock = false;
+    await this.killEngine();
+  }
+}
 
 /**
  * Parse a CSD string into its components.

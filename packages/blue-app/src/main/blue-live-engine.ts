@@ -2,6 +2,7 @@ import { BrowserWindow } from 'electron';
 import { EngineBridge, EngineOutputCallback } from './engine-bridge';
 import type { BlueData } from '@blue/data';
 import { LiveData, mapMidiTrigger } from '@blue/data';
+import type { EngineStateSnapshot } from '@blue/engine-client';
 import { formatRenderCommandLine, writeTempCsdSnapshot } from './render-command';
 import type {
   BlueLiveNoteTriggerRequest,
@@ -18,6 +19,11 @@ export interface BlueLiveStatusSnapshot {
   projectRevision?: number | null;
 }
 
+interface PendingTerminalStateCandidate {
+  snapshot: EngineStateSnapshot;
+  firstSeenAt: number;
+}
+
 export class BlueLiveEngineSession {
   private status: BlueLiveEngineStatus = 'idle';
   private message = '';
@@ -32,6 +38,12 @@ export class BlueLiveEngineSession {
   private namedInstrumentNumbers = new Map<string, number>();
   private projectDirectory: string | null = null;
   private projectData: BlueData | null = null;
+  private statePollingTimer: ReturnType<typeof setInterval> | null = null;
+  private engineStateUnsubscribe: (() => void) | null = null;
+  private awaitingTerminalState = false;
+  private lastEngineStateSequence = 0;
+  private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
+  private cleanupPromise: Promise<void> | null = null;
 
   constructor(mainWindow: BrowserWindow, enginePath?: string, port = 5560, pubPort = 5561) {
     this.mainWindow = mainWindow;
@@ -63,12 +75,167 @@ export class BlueLiveEngineSession {
     }
   }
 
+  private clearStateMonitoring(): void {
+    this.awaitingTerminalState = false;
+    this.lastEngineStateSequence = 0;
+    this.pendingPolledTerminalState = null;
+
+    if (this.statePollingTimer) {
+      clearInterval(this.statePollingTimer);
+      this.statePollingTimer = null;
+    }
+
+    if (this.engineStateUnsubscribe) {
+      this.engineStateUnsubscribe();
+      this.engineStateUnsubscribe = null;
+    }
+  }
+
+  private startStatePolling(sessionId: number): void {
+    if (this.statePollingTimer) {
+      clearInterval(this.statePollingTimer);
+    }
+
+    this.statePollingTimer = setInterval(() => {
+      void this.pollEngineState(sessionId);
+    }, 250);
+  }
+
+  private beginTerminalStateMonitoring(): void {
+    const client = this.bridge?.getClient();
+    if (!client) {
+      return;
+    }
+
+    this.clearStateMonitoring();
+    this.awaitingTerminalState = true;
+    this.engineStateUnsubscribe = client.onEngineState((snapshot) => {
+      void this.handleEngineState(snapshot, 'pubsub');
+    });
+    this.startStatePolling(this.sessionId);
+  }
+
+  private async pollEngineState(sessionId: number): Promise<void> {
+    if (sessionId !== this.sessionId || !this.awaitingTerminalState || !this.bridge) {
+      return;
+    }
+
+    const client = this.bridge.getClient();
+    if (!client) {
+      await this.handleEngineExit('poll');
+      return;
+    }
+
+    try {
+      const resp = await client.getEngineState();
+      if (resp.ok && resp.state) {
+        await this.handleEngineState(resp.state, 'poll');
+      }
+    } catch (error: unknown) {
+      if (sessionId === this.sessionId && this.awaitingTerminalState) {
+        console.warn(`[BlueLive] getEngineState poll failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+  }
+
+  private async handleEngineExit(source: 'poll'): Promise<void> {
+    if (!this.awaitingTerminalState) {
+      return;
+    }
+
+    await this.finalizeFromEngine({
+      state: 'stopped',
+      stopReason: 'error',
+      engineCreated: false,
+      running: false,
+      sampleFrames: 0,
+      sampleRate: 0,
+      ksmps: 0,
+      sequence: this.lastEngineStateSequence,
+      lastError: 'Blue Live engine exited unexpectedly',
+    }, source);
+  }
+
+  private async handleEngineState(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): Promise<void> {
+    if (!this.awaitingTerminalState) {
+      return;
+    }
+
+    if (snapshot.sequence < this.lastEngineStateSequence) {
+      return;
+    }
+
+    if (snapshot.sequence > this.lastEngineStateSequence) {
+      this.lastEngineStateSequence = snapshot.sequence;
+      if (snapshot.state !== 'stopped') {
+        this.pendingPolledTerminalState = null;
+      }
+    }
+
+    if (snapshot.state !== 'stopped') {
+      return;
+    }
+
+    if (source === 'pubsub') {
+      this.pendingPolledTerminalState = null;
+      await this.finalizeFromEngine(snapshot, source);
+      return;
+    }
+
+    const now = Date.now();
+    if (!this.pendingPolledTerminalState ||
+        this.pendingPolledTerminalState.snapshot.sequence !== snapshot.sequence) {
+      this.pendingPolledTerminalState = { snapshot, firstSeenAt: now };
+      return;
+    }
+
+    if (now - this.pendingPolledTerminalState.firstSeenAt >= 400) {
+      await this.finalizeFromEngine(snapshot, source);
+    }
+  }
+
+  private describeTerminalState(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): {
+    status: 'stopped' | 'error';
+    message: string;
+  } {
+    const sourceSuffix = source === 'poll' ? ' (reconciled via poll)' : '';
+
+    switch (snapshot.stopReason) {
+      case 'completed':
+        return { status: 'stopped', message: `Blue Live finished${sourceSuffix}` };
+      case 'stop-requested':
+      case 'destroyed':
+        return { status: 'stopped', message: `Blue Live stopped${sourceSuffix}` };
+      case 'error':
+        return {
+          status: 'error',
+          message: snapshot.lastError
+            ? `Blue Live error: ${snapshot.lastError}${sourceSuffix}`
+            : `Blue Live error${sourceSuffix}`,
+        };
+      case 'none':
+      default:
+        return { status: 'stopped', message: `Blue Live stopped${sourceSuffix}` };
+    }
+  }
+
+  private async finalizeFromEngine(snapshot: EngineStateSnapshot, source: 'pubsub' | 'poll'): Promise<void> {
+    if (!this.awaitingTerminalState) {
+      return;
+    }
+
+    this.clearStateMonitoring();
+    const { status, message } = this.describeTerminalState(snapshot, source);
+    await this.cleanup();
+    this.setStatus(status, message);
+  }
+
   async start(
     data: BlueData,
     revision: number,
     projectDirectory?: string | null,
   ): Promise<BlueLiveStatusSnapshot> {
-    if (this.status === 'starting' || this.status === 'running') {
+    if (this.status === 'starting' || this.status === 'running' || this.status === 'stopping') {
       return this.getSnapshot();
     }
 
@@ -93,7 +260,7 @@ export class BlueLiveEngineSession {
         'stdout',
       );
 
-      this.bridge = new EngineBridge(this.mainWindow, this.enginePath, this.port, this.pubPort);
+      this.bridge = new EngineBridge(this.mainWindow, this.enginePath, this.port, this.pubPort, 'blue-live');
       this.bridge.setWorkingDirectory(this.projectDirectory);
 
       this.bridge.setOutputCallback((text, type) => {
@@ -103,20 +270,27 @@ export class BlueLiveEngineSession {
       const started = await this.bridge.startEngine();
       if (!started) {
         this.setStatus('error', 'Failed to start Blue Live engine');
-        this.cleanup();
+        await this.cleanup();
+        return this.getSnapshot();
+      }
+
+      const client = this.bridge.getClient();
+      if (!client) {
+        this.setStatus('error', 'Blue Live engine client unavailable');
+        await this.cleanup();
         return this.getSnapshot();
       }
 
       for (const opt of liveOptions) {
         try {
-          await this.bridge['client']!.setOption(opt);
+          await client.setOption(opt);
         } catch (err) {
           console.warn(`[BlueLive] setOption skipped: ${opt}`);
         }
       }
 
       if (orchestra) {
-        const resp = await this.bridge['client']!.compileOrc(orchestra);
+        const resp = await client.compileOrc(orchestra);
         if (!resp.ok) {
           this.setStatus('error', `Blue Live orchestra compile failed: ${resp.message}`);
           await this.cleanup();
@@ -125,7 +299,7 @@ export class BlueLiveEngineSession {
       }
 
       if (runtimeScore) {
-        const resp = await this.bridge['client']!.readScore(runtimeScore);
+        const resp = await client.readScore(runtimeScore);
         if (!resp.ok) {
           this.setStatus('error', `Blue Live score failed: ${resp.message}`);
           await this.cleanup();
@@ -133,13 +307,14 @@ export class BlueLiveEngineSession {
         }
       }
 
-      const startResp = await this.bridge['client']!.start();
+      const startResp = await client.start();
       if (!startResp.ok) {
         this.setStatus('error', `Blue Live start failed: ${startResp.message}`);
         await this.cleanup();
         return this.getSnapshot();
       }
 
+      this.beginTerminalStateMonitoring();
       this.setStatus('running', 'Blue Live running');
       return this.getSnapshot();
     } catch (err) {
@@ -156,6 +331,7 @@ export class BlueLiveEngineSession {
     }
 
     this.setStatus('stopping', 'Stopping Blue Live...');
+    this.clearStateMonitoring();
     await this.cleanup();
     this.setStatus('stopped', 'Blue Live stopped');
     return this.getSnapshot();
@@ -171,7 +347,7 @@ export class BlueLiveEngineSession {
   }
 
   async sendAllNotesOff(): Promise<{ ok: boolean; message?: string }> {
-    const client = this.bridge?.['client'];
+    const client = this.bridge?.getClient();
     if (this.status !== 'running' || !client) {
       return { ok: false, message: 'Blue Live is not running' };
     }
@@ -185,7 +361,7 @@ export class BlueLiveEngineSession {
   }
 
   async evaluateOrchestra(text: string): Promise<{ ok: boolean; message?: string }> {
-    const client = this.bridge?.['client'];
+    const client = this.bridge?.getClient();
     if (this.status !== 'running' || !client) {
       return { ok: false, message: 'Blue Live is not running' };
     }
@@ -199,7 +375,7 @@ export class BlueLiveEngineSession {
   }
 
   async sendScore(text: string): Promise<{ ok: boolean; message?: string }> {
-    const client = this.bridge?.['client'];
+    const client = this.bridge?.getClient();
     if (this.status !== 'running' || !client) {
       return { ok: false, message: 'Blue Live is not running' };
     }
@@ -269,14 +445,26 @@ export class BlueLiveEngineSession {
   }
 
   private async cleanup(): Promise<void> {
-    this.namedInstrumentNumbers.clear();
-    this.projectData = null;
-    if (this.bridge) {
-      const bridge = this.bridge;
-      this.bridge = null;
-      await bridge.killAndWait();
+    if (this.cleanupPromise) {
+      return this.cleanupPromise;
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    const cleanup = (async () => {
+      this.clearStateMonitoring();
+      this.namedInstrumentNumbers.clear();
+      this.projectData = null;
+      if (this.bridge) {
+        const bridge = this.bridge;
+        this.bridge = null;
+        await bridge.killAndWait();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    })().finally(() => {
+      this.cleanupPromise = null;
+    });
+
+    this.cleanupPromise = cleanup;
+    return cleanup;
   }
 
   private getAllNotesOffScoreEvent(): string {

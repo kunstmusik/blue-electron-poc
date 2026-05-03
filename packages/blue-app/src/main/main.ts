@@ -20,6 +20,7 @@ import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
 import { BlueLiveEngineSession } from './blue-live-engine';
 import { buildApplicationMenuTemplate } from './application-menu';
+import { sweepStaleBlueEngineProcesses } from './engine-process-registry';
 import {
   closeEffectEditorWindow,
   closeEffectEditorWindowsForOwner,
@@ -59,6 +60,7 @@ let engineBridge: EngineBridge | null = null;
 let blueLiveSession: BlueLiveEngineSession | null = null;
 let isQuitting = false;
 let pendingQuit = false;
+let shutdownPromise: Promise<void> | null = null;
 let playbackStartPromise: Promise<boolean> | null = null;
 let javaScriptRuntimeReady: Promise<void> | null = null;
 
@@ -511,36 +513,48 @@ async function requestQuit(): Promise<void> {
  * Actually quit the app — clean up engine and exit.
  */
 async function doQuit(): Promise<void> {
-  isQuitting = true;
-
-  if (blueLiveSession) {
-    try {
-      await blueLiveSession.stop();
-    } catch {
-      // Ignore cleanup errors
-    }
+  if (shutdownPromise) {
+    return shutdownPromise;
   }
 
-  // Gracefully stop engine
-  if (engineBridge) {
-    try {
-      await engineBridge.stopPlayback();
-    } catch {
-      // Ignore cleanup errors
+  const shutdown = (async () => {
+    isQuitting = true;
+
+    if (blueLiveSession) {
+      try {
+        await blueLiveSession.stop();
+      } catch {
+        // Ignore cleanup errors
+      }
     }
-    engineBridge.dispose();
-    engineBridge = null;
-  }
 
-  closeEffectEditorWindowsForOwner('project');
-  closeEffectEditorWindowsForOwner('library');
-  currentData = null;
-  currentFilePath = null;
-  currentProjectRevision = 0;
-  rebuildApplicationMenu();
-  await cleanupTempCsdSnapshots();
+    // Gracefully stop engine
+    if (engineBridge) {
+      try {
+        await engineBridge.dispose();
+      } catch {
+        // Ignore cleanup errors
+      }
+      engineBridge = null;
+    }
 
-  app.quit();
+    blueLiveSession = null;
+
+    closeEffectEditorWindowsForOwner('project');
+    closeEffectEditorWindowsForOwner('library');
+    currentData = null;
+    currentFilePath = null;
+    currentProjectRevision = 0;
+    rebuildApplicationMenu();
+    await cleanupTempCsdSnapshots();
+
+    app.quit();
+  })().finally(() => {
+    shutdownPromise = null;
+  });
+
+  shutdownPromise = shutdown;
+  return shutdown;
 }
 
 // ─── File Operations ───
@@ -1189,7 +1203,7 @@ ipcMain.handle('engine:evaluate-code', async (_event, request: { editorKind: str
   }
 
   if (engineBridge?.isCurrentlyPlaying()) {
-    const client = (engineBridge as any).client;
+    const client = engineBridge.getClient();
     if (!client) {
       return { routedTo: 'none', ok: false, message: 'Realtime engine not connected' };
     }
@@ -1482,7 +1496,18 @@ ipcMain.handle('update-project-document', (_event, patch) => {
 
 // ─── App Lifecycle ───
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    const report = await sweepStaleBlueEngineProcesses();
+    if (report.inspected > 0 || report.removed > 0 || report.terminated > 0) {
+      console.log(
+        `[main] Blue engine startup sweep: inspected=${report.inspected}, removed=${report.removed}, terminated=${report.terminated}, kept=${report.kept}`,
+      );
+    }
+  } catch (error: unknown) {
+    console.warn(`[main] Blue engine startup sweep failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
   if (process.platform === 'darwin' && app.dock) {
     const dockIcon = getAppIcon();
     if (dockIcon) {
@@ -1511,6 +1536,14 @@ app.on('window-all-closed', () => {
   if (!isQuitting) {
     requestQuit();
   } else {
-    doQuit();
+    void doQuit();
   }
+});
+
+process.once('SIGINT', () => {
+  void doQuit();
+});
+
+process.once('SIGTERM', () => {
+  void doQuit();
 });
