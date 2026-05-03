@@ -2677,13 +2677,25 @@ export function applyProjectDocumentPatch(
         arrangement.addInstrument(createInstrumentFromSnapshot(orchestraPatch.instrument), undefined);
         changed = true;
         break;
-      case 'updateAssignment':
+      case 'updateAssignment': {
+        const oldId = orchestraPatch.assignmentId;
+        const newId = orchestraPatch.nextAssignmentId?.trim();
         changed =
-          arrangement.updateAssignment(orchestraPatch.assignmentId, {
+          arrangement.updateAssignment(oldId, {
             enabled: orchestraPatch.enabled,
-            nextArrangementId: orchestraPatch.nextAssignmentId,
+            nextArrangementId: newId,
           }) || changed;
+        if (newId && newId !== oldId) {
+          const channel = data.getMixer().getChannels().find(
+            (ch) => ch.getAssociation().trim() === oldId,
+          );
+          if (channel) {
+            channel.setAssociation(newId);
+            channel.setName(newId);
+          }
+        }
         break;
+      }
       case 'replaceInstrument':
         changed =
           arrangement.replaceInstrument(

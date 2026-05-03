@@ -32,6 +32,7 @@ import {
   getMixerEffectsLibrarySession,
 } from './mixer-effects-library';
 import { cleanupTempCsdSnapshots } from './render-command';
+import { saveGeneratedCsdToDisk } from './csd-export';
 import { getWindowTitle } from '../shared/window-title';
 import {
   applyEffectEditablePatchToEffect,
@@ -935,24 +936,11 @@ async function generateCsdToDisk(): Promise<void> {
   }
   try {
     await ensureJavaScriptRuntime();
-    const csdText = currentData.toCSD();
-    const projectBase = currentFilePath
-      ? path.basename(currentFilePath, '.blue')
-      : 'generated';
-    const projectDir = currentFilePath
-      ? path.dirname(currentFilePath)
-      : undefined;
-    const result = await dialog.showSaveDialog(mainWindow, {
-      defaultPath: projectDir ? path.join(projectDir, `${projectBase}.csd`) : `${projectBase}.csd`,
-      filters: [{ name: 'CSD Files', extensions: ['csd'] }],
+    await saveGeneratedCsdToDisk({
+      currentData,
+      currentFilePath,
+      mainWindow,
     });
-    if (result.canceled || !result.filePath) return;
-    let filePath = result.filePath;
-    if (!filePath.endsWith('.csd')) {
-      filePath += '.csd';
-    }
-    await fs.promises.writeFile(filePath, csdText, 'utf-8');
-    mainWindow.webContents.send('save-complete', { filePath });
   } catch (err) {
     mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
   }

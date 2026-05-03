@@ -1,0 +1,50 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { dialog, type BrowserWindow } from 'electron';
+import type { BlueData } from '@blue/data';
+
+export interface SaveGeneratedCsdToDiskRequest {
+  currentData: Pick<BlueData, 'toDiskCSD'>;
+  currentFilePath?: string | null;
+  mainWindow: Pick<BrowserWindow, 'webContents'>;
+  dialogApi?: Pick<typeof dialog, 'showSaveDialog'>;
+  writeFile?: typeof fs.writeFile;
+}
+
+export async function saveGeneratedCsdToDisk(
+  request: SaveGeneratedCsdToDiskRequest,
+): Promise<string | null> {
+  const dialogApi = request.dialogApi ?? dialog;
+  const writeFile = request.writeFile ?? fs.writeFile;
+  const projectBase = request.currentFilePath
+    ? path.basename(request.currentFilePath, '.blue')
+    : 'generated';
+  const projectDir = request.currentFilePath
+    ? path.dirname(request.currentFilePath)
+    : undefined;
+
+  const result = await dialogApi.showSaveDialog(
+    request.mainWindow as BrowserWindow,
+    {
+      defaultPath: projectDir
+        ? path.join(projectDir, `${projectBase}.csd`)
+        : `${projectBase}.csd`,
+      filters: [{ name: 'CSD Files', extensions: ['csd'] }],
+    },
+  );
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  let filePath = result.filePath;
+  if (!filePath.endsWith('.csd')) {
+    filePath += '.csd';
+  }
+
+  const csdText = request.currentData.toDiskCSD();
+  await writeFile(filePath, csdText, 'utf-8');
+  request.mainWindow.webContents.send('save-complete', { filePath });
+
+  return filePath;
+}

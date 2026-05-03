@@ -2094,9 +2094,20 @@ function applyOrchestraPatchSnapshot(
               candidate !== row && candidate.assignmentId === nextAssignmentId,
           );
           if (!duplicate && row.assignmentId !== nextAssignmentId) {
+            const oldId = row.assignmentId;
             row.assignmentId = nextAssignmentId;
             if (instrument) {
               instrument.assignmentId = nextAssignmentId;
+            }
+            const channel = next.channels.find(
+              (ch) => ch.association === oldId,
+            );
+            if (channel) {
+              next.channels = next.channels.map((ch) =>
+                ch.association === oldId
+                  ? { ...ch, association: nextAssignmentId, name: nextAssignmentId }
+                  : ch,
+              );
             }
           }
         }

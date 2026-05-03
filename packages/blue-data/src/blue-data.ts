@@ -58,6 +58,8 @@ import {
 import { getNotes } from "./utilities/score";
 import "./sound-objects/register-sound-object-types";
 
+type CsdRenderProfile = "realtime" | "disk";
+
 export class BlueData implements BlueDataObject {
   // Version
   private version = BLUE_VERSION;
@@ -455,9 +457,19 @@ export class BlueData implements BlueDataObject {
    *   </CsoundSynthesizer>
   */
   toCSD(): string {
+    return this.buildStandardCSD("realtime");
+  }
+
+  toDiskCSD(): string {
+    return this.buildStandardCSD("disk");
+  }
+
+  private buildStandardCSD(profile: CsdRenderProfile): string {
     const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
       this.createRenderSnapshot();
     let generationError: unknown = null;
+    const logPrefix =
+      profile === "disk" ? "[BlueData.toDiskCSD]" : "[BlueData.toCSD]";
 
     try {
       const channelIdAssignments = this.assignChannelIds(clonedMixer);
@@ -466,8 +478,8 @@ export class BlueData implements BlueDataObject {
       }
 
       // Build CsInstruments header (sr/ksmps/nchnls/0dbfs go here, not in CsOptions)
-      const orchestraHeader = this.buildOrchestraHeader();
-      const nchnls = this.getNchnls();
+      const orchestraHeader = this.buildOrchestraHeader(profile);
+      const nchnls = this.getNchnls(profile);
 
       // Global orchestra/sco from stored data
       let globalOrc = this.globalOrcSco.getGlobalOrc() || "";
@@ -510,8 +522,7 @@ export class BlueData implements BlueDataObject {
       const ftables = clonedTables.getAllTables();
 
       // Score → score events
-      const startTime = this.renderStartTime;
-      const endTime = this.renderEndTime;
+      const { startTime, endTime } = this.getRenderWindow(profile);
       const noteList = this.score.generateForCSD(compileData, startTime, endTime);
       compileData.setHandleParametersAndChannels(false);
 
@@ -597,6 +608,16 @@ export class BlueData implements BlueDataObject {
         this.addScoreNote(noteList, `i"BlueMixer" 0 ${globalDur}`);
       }
 
+      if (profile === "disk") {
+        this.appendParameterAutomationNotes(
+          parameters,
+          noteList,
+          clonedArrangement,
+          startTime,
+          startTime + globalDur,
+        );
+      }
+
       const arrangementGlobalOrc = processCommandBlocks(
         clonedArrangement.generateGlobalOrc(compileData),
       );
@@ -604,6 +625,8 @@ export class BlueData implements BlueDataObject {
       const initStatements = this.buildRuntimeInitStatements(
         parameters,
         stringChannels,
+        profile,
+        startTime,
       );
       if (initStatements.length > 0) {
         appendGlobalOrc(`${initStatements}\n`);
@@ -671,7 +694,7 @@ export class BlueData implements BlueDataObject {
         if (generationError === null) {
           throw cleanupError;
         }
-        console.warn('[BlueData.toCSD] Failed to dispose JavaScript runtime state:', cleanupError);
+        console.warn(`${logPrefix} Failed to dispose JavaScript runtime state:`, cleanupError);
       }
     }
   }
@@ -870,15 +893,25 @@ export class BlueData implements BlueDataObject {
   /**
    * Build the orchestra header (sr/ksmps/nchnls/0dbfs).
    */
-  private buildOrchestraHeader(): string {
+  private buildOrchestraHeader(profile: CsdRenderProfile = "realtime"): string {
     const props = this.projectProperties;
-    const nchnls = this.getNchnls();
+    const isDisk = profile === "disk";
+    const nchnls = this.getNchnls(profile);
 
     const lines: string[] = [];
-    if (props.sampleRate) lines.push(`sr=${props.sampleRate}`);
-    if (props.ksmps) lines.push(`ksmps=${props.ksmps}`);
+    if (isDisk) {
+      if (props.diskSampleRate) lines.push(`sr=${props.diskSampleRate}`);
+      if (props.diskKsmps) lines.push(`ksmps=${props.diskKsmps}`);
+    } else {
+      if (props.sampleRate) lines.push(`sr=${props.sampleRate}`);
+      if (props.ksmps) lines.push(`ksmps=${props.ksmps}`);
+    }
     lines.push(`nchnls=${nchnls}`);
-    if (props.useZeroDbFS) lines.push(`0dbfs=${props.zeroDbFS}`);
+    if (isDisk) {
+      if (props.diskUseZeroDbFS) lines.push(`0dbfs=${props.diskZeroDbFS}`);
+    } else if (props.useZeroDbFS) {
+      lines.push(`0dbfs=${props.zeroDbFS}`);
+    }
 
     return lines.join("\n");
   }
@@ -886,13 +919,25 @@ export class BlueData implements BlueDataObject {
   /**
    * Get the number of channels for real-time playback.
    */
-  private getNchnls(): number {
+  private getNchnls(profile: CsdRenderProfile = "realtime"): number {
     const props = this.projectProperties;
-    if (props.nchnls) {
-      const n = parseInt(props.nchnls, 10);
+    const channels = profile === "disk" ? props.diskChannels : props.channels;
+    if (channels) {
+      const n = parseInt(channels, 10);
       if (!isNaN(n)) return n;
     }
     return 2; // Default stereo
+  }
+
+  private getRenderWindow(profile: CsdRenderProfile): { startTime: number; endTime: number } {
+    if (profile === "disk" && this.projectProperties.diskAlwaysRenderEntireProject) {
+      return { startTime: 0, endTime: -1 };
+    }
+
+    return {
+      startTime: this.renderStartTime,
+      endTime: this.renderEndTime,
+    };
   }
 
   /**
@@ -945,9 +990,11 @@ export class BlueData implements BlueDataObject {
   private buildRuntimeInitStatements(
     parameters: Parameter[],
     stringChannels: Array<{ objectName: string; value: string; channelName: string }>,
+    profile: CsdRenderProfile = "realtime",
+    renderStartTime: number = this.renderStartTime,
   ): string {
-    const stringInits = this.buildStringChannelInits(stringChannels);
-    const paramInits = this.buildParameterInits(parameters);
+    const stringInits = this.buildStringChannelInits(stringChannels, profile);
+    const paramInits = this.buildParameterInits(parameters, profile, renderStartTime);
 
     return [stringInits, paramInits]
       .filter((section) => section.length > 0)
@@ -1282,7 +1329,11 @@ export class BlueData implements BlueDataObject {
    *   gk_blue_auto0 chnexport "gk_blue_auto0", 3
    *   ...
    */
-  private buildParameterInits(parameters: Parameter[]): string {
+  private buildParameterInits(
+    parameters: Parameter[],
+    profile: CsdRenderProfile = "realtime",
+    renderStartTime: number = this.renderStartTime,
+  ): string {
     const lines: string[] = [];
 
     for (const param of parameters) {
@@ -1291,14 +1342,16 @@ export class BlueData implements BlueDataObject {
 
       // Get initial value
       const initialVal = param.isAutomationEnabled()
-        ? param.getValue(this.renderStartTime)
+        ? param.getValue(renderStartTime)
         : param.getFixedValue();
 
       // Init statement
       lines.push(`${varName} init ${formatBlueNumber(initialVal)}`);
 
-      // Standard Csound channel export for engine-side channel bridging
-      lines.push(`${varName} chnexport "${varName}", 3`);
+      if (profile !== "disk") {
+        // Standard Csound channel export for engine-side channel bridging
+        lines.push(`${varName} chnexport "${varName}", 3`);
+      }
     }
 
     return lines.join("\n");
@@ -1379,12 +1432,15 @@ export class BlueData implements BlueDataObject {
    */
   private buildStringChannelInits(
     channels: Array<{ objectName: string; value: string; channelName: string }>,
+    profile: CsdRenderProfile = "realtime",
   ): string {
     const lines: string[] = [];
 
     for (const sc of channels) {
       lines.push(`${sc.channelName} = "${sc.value}"`);
-      lines.push(`${sc.channelName} chnexport "${sc.channelName}", 3`);
+      if (profile !== "disk") {
+        lines.push(`${sc.channelName} chnexport "${sc.channelName}", 3`);
+      }
     }
 
     return lines.join("\n");
