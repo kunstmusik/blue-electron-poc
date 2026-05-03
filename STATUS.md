@@ -1,8 +1,56 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-02
-**Branch**: `034-mixer-editor-core`
+**Date**: 2026-05-03
+**Branch**: `035-mixer-follow-up`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 035 Package
+
+Spec `035-mixer-follow-up` is complete and validated on branch `035-mixer-follow-up`.
+
+- Goal: deliver routing safety, advanced chain editing, session-local effects library workflow polish, and playback-aware/window-management refinements on top of the Spec 034 mixer editor core
+- Active feature context:
+  - `.specify/feature.json` points to `specs/035-mixer-follow-up`
+- Delivered scope:
+  - pure routing validation helpers (`validateMixerRouting`, `validateSendTarget`, `validateOutputTarget`, `getValidOutputTargets`, `getValidSendTargets`) in `packages/blue-app/src/shared/mixer-routing-validation.ts`
+  - routing targets use channel names (not snapshot IDs), matching Java Blue's name-based routing model
+  - `getValidOutputTargets`/`getValidSendTargets` implement Java Blue's `isPossibleOut` recursive cycle detection to prevent circular routing
+  - sends and outputs can only target Master + SubChannels (never instrument channels), matching Java Blue's combo box models
+  - four new `MixerFollowUpPatch` variants: `duplicateChainEntry`, `copyChainEntry`, `pasteChainEntries`, `moveChainEntryAcrossChains` with full main-process and renderer-snapshot patch handling
+  - mixer channel strip now uses validated output/send targets and displays routing warnings
+  - effects chain context menu now supports Duplicate for both effects and sends, and Copy works for all entry types
+  - effects-library session gains `importEffectFromXml`, `exportEffectToXml`, and reload-from-disk with discard confirmation UX
+  - import/export file dialog IPC wired through preload and global typing
+  - import-into-folder support: right-clicking a folder shows "Import from File" that imports into that category
+  - export uses effect name as default filename with `.effect` extension; import accepts both `.effect` and `.xml`
+  - "Export..." option added to effect context menu in the library tree
+  - playback-aware status badge in MixerPanel toolbar derived from existing playback and Blue Live stores
+  - effect-editor window manager gains `focusEffectEditorWindow` and `closeStaleEffectEditorWindows` for focus-or-open and missing-owner handling
+  - session mutation tracking (`hasSessionMutations`) in the effects library modal footer
+  - subchannel rename reconciliation: `outChannel` and `sendChannel` references are updated across all channels (instrument, subchannel, master) when a subchannel is renamed
+  - subchannel removal reconciliation: all `outChannel` and `sendChannel` references to the removed subchannel are reset to `"Master"` across all channels
+  - subchannel auto-naming uses Java Blue's `"SubChannelN"` pattern with collision avoidance
+  - `@blue/data` parity fixes: `Channel.MASTER` = `"Master"` (was `"master"`), `Channel._name` default = `"Channel"` (was `""`), `Send` field/methods renamed from `_targetChannelId`/`getTargetChannelId`/`setTargetChannelId` to `_sendChannel`/`getSendChannel`/`setSendChannel` matching Java
+  - `Channel` class gains Java-parity constants: `NAME`, `LEVEL`, `SOLO`, `MUTED`, `OUT_CHANNEL`
+  - `Send._sendChannel` default changed to `Channel.MASTER` (`"Master"`)
+- Validation:
+  - `pnpm --filter @blue/data test` — pass (719 tests)
+  - `pnpm --filter @blue/app test` — pass (480 tests, 2 skipped; pre-existing settings-window test failure unrelated)
+  - `pnpm --filter @blue/app build:main` — pass
+  - `pnpm --filter @blue/app build:preload` — pass
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `git diff --check` — pass
+- Handoff notes:
+  - SQLite and any other durable user-library storage redesign remain out of scope
+  - true signal metering from the engine remains deferred; playback-aware UI uses status badges only
+  - the one-window-per-owner model from Spec 034 is preserved and refined, not replaced
+  - subchannel rename/removal reconciliation covers `outChannel` and `sendChannel` on all channels, plus BSB SubChannelDropdown reconciliation remains deferred
+  - Java Blue has a known gap where `Send.sendChannel` is only reconciled on removal when the send editor happens to be open; our implementation reconciles all sends unconditionally
+- Completion status:
+  - implementation is complete and validated
+  - manual verification passed
+  - all 45 tasks checked off in tasks.md
+  - the branch is ready for handoff
 
 ## Spec 034 Package
 

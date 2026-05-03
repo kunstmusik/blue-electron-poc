@@ -62,6 +62,9 @@ declare global {
       updateEffectsLibrary: (
         patch: EffectsLibraryPatch,
       ) => Promise<EffectsLibrarySnapshot>;
+      importEffectFile: (parentCategoryId?: string) => Promise<EffectsLibrarySnapshot | null>;
+      exportEffectFile: (effectId: string) => Promise<void>;
+      focusEffectEditor: (request: EffectEditorRequest) => Promise<boolean>;
       openEffectEditor: (
         request: EffectEditorRequest,
       ) => Promise<void>;

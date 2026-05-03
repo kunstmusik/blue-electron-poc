@@ -55,6 +55,8 @@ export interface TreeContextActions {
   onCutCategory: (categoryId: string) => void;
   onCopyCategory: (categoryId: string) => void;
   onPaste: (targetCategoryId: string) => void;
+  onImportIntoCategory: (categoryId: string) => void;
+  onExportEffect: (effectId: string) => void;
   canPaste: boolean;
   isRoot: (id: string) => boolean;
   addToMixerLabel: string | null;
@@ -122,6 +124,13 @@ function CategoryMenu({
           >
             Paste
           </ContextMenu.Item>
+          <ContextMenu.Separator className="editor-context-menu__sep" />
+          <ContextMenu.Item
+            className="editor-context-menu__item"
+            onSelect={() => actions.onImportIntoCategory(catId)}
+          >
+            Import from File
+          </ContextMenu.Item>
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>
@@ -163,6 +172,13 @@ function EffectMenu({
             onSelect={() => actions.onRemoveEffect(effect.libraryEffectId)}
           >
             Remove Effect
+          </ContextMenu.Item>
+          <ContextMenu.Separator className="editor-context-menu__sep" />
+          <ContextMenu.Item
+            className="editor-context-menu__item"
+            onSelect={() => actions.onExportEffect(effect.libraryEffectId)}
+          >
+            Export...
           </ContextMenu.Item>
           {actions.addToMixerLabel && (
             <>

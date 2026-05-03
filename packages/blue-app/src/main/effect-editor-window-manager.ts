@@ -176,3 +176,32 @@ export function closeEffectEditorWindowsForOwner(ownerType: 'project' | 'library
   }
 }
 
+export function focusEffectEditorWindow(request: EffectEditorRequest): boolean {
+  for (const mode of ['edit', 'interface'] as const) {
+    const key = getWindowKey(request, mode);
+    const existing = effectEditorWindows.get(key);
+    if (existing && !existing.isDestroyed()) {
+      existing.focus();
+      existing.show();
+      return true;
+    }
+  }
+  return false;
+}
+
+export function closeStaleEffectEditorWindows(
+  validEffectIds: Set<string>,
+  ownerType: 'project' | 'library',
+): void {
+  for (const [key, window] of effectEditorWindows.entries()) {
+    if (!key.includes(`:${ownerType}:`)) continue;
+    const effectId = key.split(':').pop();
+    if (effectId && !validEffectIds.has(effectId)) {
+      if (!window.isDestroyed()) {
+        window.close();
+      }
+      effectEditorWindows.delete(key);
+    }
+  }
+}
+

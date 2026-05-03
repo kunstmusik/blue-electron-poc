@@ -1,31 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Mixer } from '@blue/data';
 
 import type {
   EffectEditorRequest,
   EffectsLibrarySnapshot,
   MixerChainKind,
   MixerPatch,
-  MixerSnapshot,
 } from '../../../../shared/project-editor';
 import { useProjectStore } from '../../../stores/project-store';
+import { usePlaybackStore } from '../../../stores/playback-store';
+import { useBlueLiveStore } from '../../../stores/blue-live-store';
+import { deriveMixerPlaybackUiState } from '../../../stores/mixer-playback-ui';
 import { useUIStore } from '../../../stores/ui-store';
 import ChannelStrip from './mixer/ChannelStrip';
-
-function getOutChannelOptions(mixer: MixerSnapshot): string[] {
-  const options: string[] = [Mixer.MASTER_CHANNEL];
-  for (const sub of mixer.subChannels) {
-    options.push(sub.name);
-  }
-  return options;
-}
 
 export default function MixerPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const mixer = useProjectStore((state) => state.mixer);
   const applyProjectDocumentPatch = useProjectStore((state) => state.applyProjectDocumentPatch);
   const openEffectsLibrary = useUIStore((state) => state.openEffectsLibrary);
+
+  const playbackStatus = usePlaybackStore((s) => s.status);
+  const blueLiveStatus = useBlueLiveStore((s) => s.status);
+
+  const playbackUi = useMemo(
+    () => deriveMixerPlaybackUiState({ playbackStatus, blueLiveStatus }),
+    [playbackStatus, blueLiveStatus],
+  );
 
   const [librarySnapshot, setLibrarySnapshot] = useState<EffectsLibrarySnapshot | null>(null);
 
@@ -65,8 +66,6 @@ export default function MixerPanel(): React.ReactElement {
     },
     [handleMixerPatch],
   );
-
-  const outChannelOptions = useMemo(() => getOutChannelOptions(mixer), [mixer]);
 
   if (!loaded) {
     return (
@@ -110,6 +109,11 @@ export default function MixerPanel(): React.ReactElement {
             <Plus className="h-3.5 w-3.5" />
             Add Subchannel
           </button>
+          {playbackUi.isPlaying || playbackUi.isBlueLiveActive ? (
+            <span className="mixer-playback-badge" title={playbackUi.statusLabel}>
+              {playbackUi.statusLabel}
+            </span>
+          ) : null}
         </div>
 
         <div className="mixer-main">
@@ -123,7 +127,6 @@ export default function MixerPanel(): React.ReactElement {
                     channel={channel}
                     isMaster={false}
                     isSubChannel={false}
-                    allOutChannels={outChannelOptions}
                     librarySnapshot={librarySnapshot}
                     onPatch={handleMixerPatch}
                     onOpenLibrary={handleOpenLibrary}
@@ -142,7 +145,6 @@ export default function MixerPanel(): React.ReactElement {
                     channel={channel}
                     isMaster={false}
                     isSubChannel
-                    allOutChannels={outChannelOptions}
                     librarySnapshot={librarySnapshot}
                     onPatch={handleMixerPatch}
                     onOpenLibrary={handleOpenLibrary}
@@ -161,7 +163,6 @@ export default function MixerPanel(): React.ReactElement {
               channel={mixer.master}
               isMaster
               isSubChannel={false}
-              allOutChannels={outChannelOptions}
               librarySnapshot={librarySnapshot}
               onPatch={handleMixerPatch}
               onOpenLibrary={handleOpenLibrary}

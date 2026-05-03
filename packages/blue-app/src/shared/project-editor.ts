@@ -295,6 +295,17 @@ export interface MixerEffectPatch {
   opcodeList?: EmbeddedOpcodeListPatch;
 }
 
+export type MixerFollowUpPatch =
+  | { type: 'duplicateChainEntry'; channelId: string; chain: MixerChainKind; entryId: string }
+  | { type: 'copyChainEntry'; channelId: string; chain: MixerChainKind; entryId: string }
+  | { type: 'pasteChainEntries'; channelId: string; chain: MixerChainKind; index?: number; payload: MixerChainClipboardPayload }
+  | { type: 'moveChainEntryAcrossChains'; fromChannelId: string; fromChain: MixerChainKind; toChannelId: string; toChain: MixerChainKind; entryId: string; index?: number };
+
+export interface MixerChainClipboardPayload {
+  sourceKind: 'project';
+  entries: MixerChainEntrySnapshot[];
+}
+
 export type MixerPatch =
   | { type: 'setMixerEnabled'; value: boolean }
   | { type: 'updateExtraRenderTime'; value: number }
@@ -306,7 +317,8 @@ export type MixerPatch =
   | { type: 'updateSend'; channelId: string; chain: MixerChainKind; entryId: string; patch: { sendChannel?: string; level?: number; enabled?: boolean } }
   | { type: 'updateEffect'; channelId: string; chain: MixerChainKind; entryId: string; patch: EffectEditablePatch }
   | { type: 'removeChainEntry'; channelId: string; chain: MixerChainKind; entryId: string }
-  | { type: 'reorderChainEntry'; channelId: string; chain: MixerChainKind; from: number; to: number };
+  | { type: 'reorderChainEntry'; channelId: string; chain: MixerChainKind; from: number; to: number }
+  | MixerFollowUpPatch;
 
 export interface EffectsLibraryCategorySnapshot {
   categoryId: string;
@@ -1120,7 +1132,7 @@ function createMixerSendEntrySnapshot(send: Send, entryId: string): MixerSendEnt
   return {
     entryId,
     kind: 'send',
-    sendChannel: send.getTargetChannelId(),
+    sendChannel: send.getSendChannel(),
     level: send.getLevel(),
     enabled: send.isEnabled(),
   };
@@ -2803,6 +2815,17 @@ function createEffectFromXml(effectXml: string): Effect {
   return Effect.loadFromXML(Element.parse(effectXml));
 }
 
+function generateUniqueSubChannelName(existingNames: ReadonlySet<string>): string {
+  let index = existingNames.size + 1;
+  while (true) {
+    const name = `SubChannel${index}`;
+    if (!existingNames.has(name)) {
+      return name;
+    }
+    index++;
+  }
+}
+
 function findMixerChannelById(mixer: Mixer, channelId: string): Channel | null {
   if (channelId === 'master') {
     return mixer.getMaster();
@@ -2823,6 +2846,38 @@ function findMixerChannelById(mixer: Mixer, channelId: string): Channel | null {
   }
 
   return null;
+}
+
+function reconcileSubChannelName(mixer: Mixer, oldName: string, newName: string): void {
+  const allChannels = [mixer.getMaster(), ...mixer.getChannels(), ...mixer.getSubChannels()];
+
+  for (const channel of allChannels) {
+    if (channel.getOutChannel() === oldName) {
+      channel.setOutChannel(newName);
+    }
+
+    for (const entry of [...channel.getPreEffects(), ...channel.getPostEffects()]) {
+      if (entry instanceof Send && entry.getSendChannel() === oldName) {
+        entry.setSendChannel(newName);
+      }
+    }
+  }
+}
+
+function reconcileSubChannelRemoved(mixer: Mixer, removedName: string): void {
+  const allChannels = [mixer.getMaster(), ...mixer.getChannels(), ...mixer.getSubChannels()];
+
+  for (const channel of allChannels) {
+    if (channel.getOutChannel() === removedName) {
+      channel.setOutChannel(Channel.MASTER);
+    }
+
+    for (const entry of [...channel.getPreEffects(), ...channel.getPostEffects()]) {
+      if (entry instanceof Send && entry.getSendChannel() === removedName) {
+        entry.setSendChannel(Channel.MASTER);
+      }
+    }
+  }
 }
 
 function findMixerChainForChannel(
@@ -2945,10 +3000,11 @@ function syncEffectParametersFromWidgets(effect: Effect): void {
 function applyMixerChannelEditablePatch(
   channel: Channel,
   patch: Partial<MixerChannelEditableFields>,
+  nameAlreadyApplied = false,
 ): boolean {
   let changed = false;
 
-  if (patch.name !== undefined && channel.getName() !== patch.name) {
+  if (!nameAlreadyApplied && patch.name !== undefined && channel.getName() !== patch.name) {
     channel.setName(patch.name);
     changed = true;
   }
@@ -3000,7 +3056,7 @@ function applyMixerPatchToChain(
     case 'addSend': {
       const send = new Send();
       if (patch.sendChannel !== undefined) {
-        send.setTargetChannelId(patch.sendChannel);
+        send.setSendChannel(patch.sendChannel);
       }
       if (patch.level !== undefined) {
         send.setLevel(patch.level);
@@ -3021,8 +3077,8 @@ function applyMixerPatchToChain(
       }
       const send = chain[index] as Send;
       let changed = false;
-      if (patch.patch.sendChannel !== undefined && send.getTargetChannelId() !== patch.patch.sendChannel) {
-        send.setTargetChannelId(patch.patch.sendChannel);
+      if (patch.patch.sendChannel !== undefined && send.getSendChannel() !== patch.patch.sendChannel) {
+        send.setSendChannel(patch.patch.sendChannel);
         changed = true;
       }
       if (patch.patch.level !== undefined && send.getLevel() !== patch.patch.level) {
@@ -3076,6 +3132,46 @@ function applyMixerPatchToChain(
       chain.splice(patch.to, 0, moved);
       return true;
     }
+    case 'duplicateChainEntry': {
+      const dupIndex = chain.findIndex((entry) => getMixerEntrySnapshotId(entry) === patch.entryId);
+      if (dupIndex < 0) return false;
+      const original = chain[dupIndex];
+      if (original instanceof Effect) {
+        const clone = createEffectFromXml(original.saveAsXML().toXml());
+        getMixerEntrySnapshotId(clone, crypto.randomUUID());
+        chain.splice(dupIndex + 1, 0, clone);
+      } else if (original instanceof Send) {
+        const clone = new Send();
+        clone.setSendChannel(original.getSendChannel());
+        clone.setLevel(original.getLevel());
+        clone.setEnabled(original.isEnabled());
+        getMixerEntrySnapshotId(clone, crypto.randomUUID());
+        chain.splice(dupIndex + 1, 0, clone);
+      }
+      return true;
+    }
+    case 'copyChainEntry': {
+      return true;
+    }
+    case 'pasteChainEntries': {
+      const insertIndex = patch.index ?? chain.length;
+      for (let i = 0; i < patch.payload.entries.length; i++) {
+        const entry = patch.payload.entries[i];
+        if (entry.kind === 'effect') {
+          const effect = createEffectFromXml(entry.effectXml);
+          getMixerEntrySnapshotId(effect, entry.entryId + '-paste-' + i);
+          chain.splice(Math.min(insertIndex + i, chain.length), 0, effect);
+        } else if (entry.kind === 'send') {
+          const send = new Send();
+          send.setSendChannel(entry.sendChannel);
+          send.setLevel(entry.level);
+          send.setEnabled(entry.enabled);
+          getMixerEntrySnapshotId(send, entry.entryId + '-paste-' + i);
+          chain.splice(Math.min(insertIndex + i, chain.length), 0, send);
+        }
+      }
+      return true;
+    }
     default:
       return false;
   }
@@ -3102,11 +3198,22 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
       if (!channel) {
         return false;
       }
-      return applyMixerChannelEditablePatch(channel, patch.patch);
+
+      if (patch.patch.name !== undefined && channel.getName() !== patch.patch.name) {
+        const oldName = channel.getName();
+        const isSubChannel = mixer.getSubChannels().includes(channel);
+        channel.setName(patch.patch.name);
+        if (isSubChannel) {
+          reconcileSubChannelName(mixer, oldName, patch.patch.name);
+        }
+      }
+
+      return applyMixerChannelEditablePatch(channel, patch.patch, true);
     }
     case 'addSubChannel': {
       const nextChannel = new Channel();
-      nextChannel.setName(patch.name ?? 'New Sub Channel');
+      const existingNames = new Set(mixer.getSubChannels().map((ch) => ch.getName()));
+      nextChannel.setName(patch.name ?? generateUniqueSubChannelName(existingNames));
       nextChannel.setAssociation('');
       getMixerChannelSnapshotId(nextChannel, patch.channelId);
       const insertIndex =
@@ -3123,7 +3230,9 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
       if (index < 0) {
         return false;
       }
+      const removedName = mixer.getSubChannels()[index].getName();
       mixer.getSubChannels().splice(index, 1);
+      reconcileSubChannelRemoved(mixer, removedName);
       return true;
     }
     case 'addEffectFromLibrary':
@@ -3131,7 +3240,10 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
     case 'updateSend':
     case 'updateEffect':
     case 'removeChainEntry':
-    case 'reorderChainEntry': {
+    case 'reorderChainEntry':
+    case 'duplicateChainEntry':
+    case 'copyChainEntry':
+    case 'pasteChainEntries': {
       const chain = findMixerChainForChannel(mixer, patch.channelId, patch.chain);
       if (!chain) {
         return false;
@@ -3141,6 +3253,21 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
         patch,
         'entryId' in patch ? patch.entryId : undefined,
       );
+    }
+    case 'moveChainEntryAcrossChains': {
+      const fromChain = findMixerChainForChannel(mixer, patch.fromChannelId, patch.fromChain);
+      if (!fromChain) return false;
+      const fromIndex = fromChain.findIndex((entry) => getMixerEntrySnapshotId(entry) === patch.entryId);
+      if (fromIndex < 0) return false;
+      const [removed] = fromChain.splice(fromIndex, 1);
+      const toChain = findMixerChainForChannel(mixer, patch.toChannelId, patch.toChain);
+      if (!toChain) {
+        fromChain.splice(fromIndex, 0, removed);
+        return false;
+      }
+      const insertIndex = patch.index ?? toChain.length;
+      toChain.splice(Math.min(Math.max(insertIndex, 0), toChain.length), 0, removed);
+      return true;
     }
   }
 }

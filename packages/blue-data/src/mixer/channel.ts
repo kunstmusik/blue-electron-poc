@@ -9,13 +9,18 @@ import { BlueDataObject } from "../blue-data-object";
 import { Parameter } from "../automation/parameter";
 
 export class Channel implements BlueDataObject {
-  static readonly MASTER = "master";
+  static readonly MASTER = "Master";
+  static readonly NAME = "name";
+  static readonly LEVEL = "level";
+  static readonly SOLO = "solo";
+  static readonly MUTED = "muted";
+  static readonly OUT_CHANNEL = "outChannel";
 
-  private _name = "";
-  private _outChannel = "Master";
+  private _name = "Channel";
+  private _outChannel = Channel.MASTER;
   private _muted = false;
   private _solo = false;
-  private _level = 0; // in dB
+  private _level = 0;
   private _volume = 1.0;
   private _pan = 0.5;
   private _preEffects = new EffectsChain();

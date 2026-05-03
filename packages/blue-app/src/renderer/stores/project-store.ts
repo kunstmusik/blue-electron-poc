@@ -29,6 +29,7 @@ import {
   type InstrumentSnapshot,
   type MixerChannelEditableFields,
   type MixerChannelSnapshot,
+  type MixerChainClipboardPayload,
   type MixerChainEntrySnapshot,
   type MixerEffectEntrySnapshot,
   type MixerPatch,
@@ -561,6 +562,17 @@ function cloneMixerSnapshot(mixer: MixerSnapshot): MixerSnapshot {
   return structuredClone(mixer);
 }
 
+function generateUniqueSubChannelName(existingNames: ReadonlySet<string>): string {
+  let index = existingNames.size + 1;
+  while (true) {
+    const name = `SubChannel${index}`;
+    if (!existingNames.has(name)) {
+      return name;
+    }
+    index++;
+  }
+}
+
 function findMixerChannelSnapshotById(
   mixer: MixerSnapshot,
   channelId: string,
@@ -575,6 +587,38 @@ function findMixerChannelSnapshotById(
   }
 
   return mixer.subChannels.find((channel) => channel.id === channelId) ?? null;
+}
+
+function reconcileSubChannelNameInSnapshot(mixer: MixerSnapshot, oldName: string, newName: string): void {
+  const allChannels = [...mixer.channels, ...mixer.subChannels, mixer.master];
+
+  for (const channel of allChannels) {
+    if (channel.outChannel === oldName) {
+      channel.outChannel = newName;
+    }
+
+    for (const entry of [...channel.preChain, ...channel.postChain]) {
+      if (entry.kind === 'send' && entry.sendChannel === oldName) {
+        entry.sendChannel = newName;
+      }
+    }
+  }
+}
+
+function reconcileSubChannelRemovedInSnapshot(mixer: MixerSnapshot, removedName: string): void {
+  const allChannels = [...mixer.channels, ...mixer.subChannels, mixer.master];
+
+  for (const channel of allChannels) {
+    if (channel.outChannel === removedName) {
+      channel.outChannel = 'Master';
+    }
+
+    for (const entry of [...channel.preChain, ...channel.postChain]) {
+      if (entry.kind === 'send' && entry.sendChannel === removedName) {
+        entry.sendChannel = 'Master';
+      }
+    }
+  }
 }
 
 function findMixerChainEntrySnapshot(
@@ -600,6 +644,34 @@ function createEffectEntrySnapshotFromXml(
   return createMixerEffectEntrySnapshot(effect, entryId, refs);
 }
 
+function applyChannelChainMutation(
+  mixer: MixerSnapshot,
+  channel: MixerChannelSnapshot,
+  mutatedChain: 'pre' | 'post',
+  preChain: MixerChainEntrySnapshot[],
+  postChain: MixerChainEntrySnapshot[],
+): void {
+  const updated = {
+    ...channel,
+    preChain: mutatedChain === 'pre' ? preChain : channel.preChain,
+    postChain: mutatedChain === 'post' ? postChain : channel.postChain,
+  };
+
+  if (channel.id === mixer.master.id) {
+    (mixer as { master: MixerChannelSnapshot }).master = updated;
+  } else {
+    const idx = mixer.channels.findIndex((c) => c.id === channel.id);
+    if (idx >= 0) {
+      mixer.channels[idx] = updated;
+      return;
+    }
+    const subIdx = mixer.subChannels.findIndex((c) => c.id === channel.id);
+    if (subIdx >= 0) {
+      mixer.subChannels[subIdx] = updated;
+    }
+  }
+}
+
 function applyMixerPatchToSnapshot(
   mixer: MixerSnapshot,
   orchestra: OrchestraSnapshot,
@@ -622,6 +694,12 @@ function applyMixerPatchToSnapshot(
       if (!channel) {
         break;
       }
+
+      const isSubChannel = next.subChannels.some((sc) => sc.id === channel.id);
+      if (isSubChannel && patch.patch.name !== undefined && patch.patch.name !== channel.name) {
+        reconcileSubChannelNameInSnapshot(next, channel.name, patch.patch.name);
+      }
+
       next.channels = next.channels.map((candidate) =>
         candidate.id === channel.id ? { ...candidate, ...patch.patch } : candidate,
       );
@@ -636,9 +714,11 @@ function applyMixerPatchToSnapshot(
     case 'addSubChannel': {
       const newId = patch.channelId ?? crypto.randomUUID();
       const insertIndex = patch.insertIndex ?? next.subChannels.length;
+      const existingNames = new Set(next.subChannels.map((ch) => ch.name));
+      const defaultName = generateUniqueSubChannelName(existingNames);
       const nextSubChannel: MixerChannelSnapshot = {
         id: newId,
-        name: patch.name ?? 'New Sub Channel',
+        name: patch.name ?? defaultName,
         channelKind: 'subChannel',
         outChannel: 'Master',
         muted: false,
@@ -654,15 +734,23 @@ function applyMixerPatchToSnapshot(
       next.subChannels = subChannels;
       break;
     }
-    case 'removeSubChannel':
+    case 'removeSubChannel': {
+      const removed = next.subChannels.find((sc) => sc.id === patch.channelId);
+      if (removed) {
+        reconcileSubChannelRemovedInSnapshot(next, removed.name);
+      }
       next.subChannels = next.subChannels.filter((channel) => channel.id !== patch.channelId);
       break;
+    }
     case 'addEffectFromLibrary':
     case 'addSend':
     case 'updateSend':
     case 'updateEffect':
     case 'removeChainEntry':
-    case 'reorderChainEntry': {
+    case 'reorderChainEntry':
+    case 'duplicateChainEntry':
+    case 'copyChainEntry':
+    case 'pasteChainEntries': {
       const channel = findMixerChannelSnapshotById(next, patch.channelId);
       if (!channel) {
         break;
@@ -703,7 +791,7 @@ function applyMixerPatchToSnapshot(
               {
                 entryId,
                 kind: 'send',
-                sendChannel: patch.sendChannel ?? '',
+                sendChannel: patch.sendChannel ?? 'Master',
                 level: patch.level ?? 1,
                 enabled: true,
               },
@@ -764,6 +852,42 @@ function applyMixerPatchToSnapshot(
             nextEntries.splice(patch.to, 0, moved);
             return nextEntries;
           }
+          case 'duplicateChainEntry': {
+            const dupIndex = entries.findIndex((e) => e.entryId === patch.entryId);
+            if (dupIndex < 0) return entries;
+            const original = entries[dupIndex];
+            const nextEntries = [...entries];
+            const clone: MixerChainEntrySnapshot =
+              original.kind === 'effect'
+                ? createEffectEntrySnapshotFromXml(original.effectXml, crypto.randomUUID(), {
+                    projectRef: { channelId: patch.channelId, chain: patch.chain, entryId: crypto.randomUUID() },
+                  })
+                : {
+                    ...original,
+                    entryId: crypto.randomUUID(),
+                  };
+            nextEntries.splice(dupIndex + 1, 0, clone);
+            return nextEntries;
+          }
+          case 'copyChainEntry':
+            return entries;
+          case 'pasteChainEntries': {
+            const nextEntries = [...entries];
+            const insertIndex = patch.index ?? nextEntries.length;
+            for (let i = 0; i < patch.payload.entries.length; i++) {
+              const entry = patch.payload.entries[i];
+              const pasted: MixerChainEntrySnapshot =
+                entry.kind === 'effect'
+                  ? createEffectEntrySnapshotFromXml(entry.effectXml, entry.entryId + '-paste-' + i, {
+                      projectRef: { channelId: patch.channelId, chain: patch.chain, entryId: entry.entryId + '-paste-' + i },
+                    })
+                  : { ...entry, entryId: entry.entryId + '-paste-' + i };
+              nextEntries.splice(Math.min(insertIndex + i, nextEntries.length), 0, pasted);
+            }
+            return nextEntries;
+          }
+          case 'moveChainEntryAcrossChains':
+            return entries;
           default:
             return entries;
         }
@@ -795,6 +919,24 @@ function applyMixerPatchToSnapshot(
             : candidate,
         );
       }
+      break;
+    }
+    case 'moveChainEntryAcrossChains': {
+      const fromChannel = findMixerChannelSnapshotById(next, patch.fromChannelId);
+      const toChannel = findMixerChannelSnapshotById(next, patch.toChannelId);
+      if (!fromChannel || !toChannel) break;
+
+      const fromEntries = patch.fromChain === 'pre' ? fromChannel.preChain : fromChannel.postChain;
+      const fromIndex = fromEntries.findIndex((e) => e.entryId === patch.entryId);
+      if (fromIndex < 0) break;
+
+      const [removed] = fromEntries.splice(fromIndex, 1);
+      const toEntries = patch.toChain === 'pre' ? toChannel.preChain : toChannel.postChain;
+      const insertIndex = patch.index ?? toEntries.length;
+      toEntries.splice(Math.min(insertIndex, toEntries.length), 0, removed);
+
+      applyChannelChainMutation(next, fromChannel, patch.fromChain, [...fromChannel.preChain], [...fromChannel.postChain]);
+      applyChannelChainMutation(next, toChannel, patch.toChain, [...toChannel.preChain], [...toChannel.postChain]);
       break;
     }
   }

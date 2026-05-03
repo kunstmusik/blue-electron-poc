@@ -11,10 +11,10 @@
 
 **Purpose**: Confirm the exact gaps left after Spec 034 and map them to Java and TypeScript seams.
 
-- [ ] T001 Review the follow-up parity anchors listed in `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/research.md`
-- [ ] T002 [P] Inventory Spec 034 mixer snapshot, library session, and effect-window seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.ts`
-- [ ] T003 [P] Inventory current playback and Blue Live state seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/playback-store.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
-- [ ] T004 [P] Inventory current mixer/library renderer components in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/effect-editor/`
+- [x] T001 Review the follow-up parity anchors listed in `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/research.md`
+- [x] T002 [P] Inventory Spec 034 mixer snapshot, library session, and effect-window seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.ts`
+- [x] T003 [P] Inventory current playback and Blue Live state seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/playback-store.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/blue-live-engine.ts`
+- [x] T004 [P] Inventory current mixer/library renderer components in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/effect-editor/`
 
 ---
 
@@ -26,19 +26,19 @@
 
 ### Tests
 
-- [ ] T005 [P] Add routing-validation tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-routing-validation.test.ts`
-- [ ] T006 [P] Add chain clipboard and paste contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-chain-clipboard.test.ts`
-- [ ] T007 [P] Add effects-library import/export and reload tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.test.ts`
-- [ ] T008 [P] Add playback-aware mixer status tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-playback-status.test.tsx`
+- [x] T005 [P] Add routing-validation tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-routing-validation.test.ts`
+- [x] T006 [P] Add chain clipboard and paste contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-chain-clipboard.test.ts`
+- [x] T007 [P] Add effects-library import/export and reload tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.test.ts`
+- [x] T008 [P] Add playback-aware mixer status tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-playback-status.test.tsx`
 
 ### Implementation
 
-- [ ] T009 Add pure routing-validation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/routing-validation.ts` or an equivalent pure shared location
-- [ ] T010 Extend shared mixer patch types with follow-up clipboard and move operations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T011 Add renderer clipboard helpers for chain entries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
-- [ ] T012 Extend the effects-library session service with reload and import/export plumbing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
-- [ ] T013 Extend preload and renderer typing for the follow-up library commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
-- [ ] T014 Add playback-aware selector helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/`
+- [x] T009 Add pure routing-validation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/mixer/routing-validation.ts` or an equivalent pure shared location
+- [x] T010 Extend shared mixer patch types with follow-up clipboard and move operations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T011 Add renderer clipboard helpers for chain entries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
+- [x] T012 Extend the effects-library session service with reload and import/export plumbing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
+- [x] T013 Extend preload and renderer typing for the follow-up library commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
+- [x] T014 Add playback-aware selector helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/`
 
 **Checkpoint**: Routing-validation, library workflow, and playback-aware contracts are ready for UI work.
 
@@ -52,17 +52,17 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Add routing warning and rejection tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-routing-validation.test.ts`
-- [ ] T016 [P] [US1] Add advanced chain editing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-chain-editing-advanced.test.tsx`
-- [ ] T017 [P] [US1] Add destination-option synchronization tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-destination-options.test.tsx`
+- [x] T015 [P] [US1] Add routing warning and rejection tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-routing-validation.test.ts`
+- [x] T016 [P] [US1] Add advanced chain editing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-chain-editing-advanced.test.tsx`
+- [x] T017 [P] [US1] Add destination-option synchronization tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-destination-options.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Add inline routing validation messaging to the Mixer UI in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
-- [ ] T019 [US1] Add duplicate, copy, paste, and cross-chain move actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
-- [ ] T020 [US1] Implement canonical patch handling for the new chain operations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T021 [US1] Keep routing destination lists synchronized with current mixer topology in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
-- [ ] T022 [US1] Add any needed subchannel-management affordances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx`
+- [x] T018 [US1] Add inline routing validation messaging to the Mixer UI in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
+- [x] T019 [US1] Add duplicate, copy, paste, and cross-chain move actions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
+- [x] T020 [US1] Implement canonical patch handling for the new chain operations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T021 [US1] Keep routing destination lists synchronized with current mixer topology in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/`
+- [x] T022 [US1] Add any needed subchannel-management affordances in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx`
 
 **Checkpoint**: Routing changes are safer and chain editing is substantially closer to daily-use parity.
 
@@ -76,17 +76,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T023 [P] [US2] Add effects-library drag/drop and copy/paste tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/effects-library-workspace.test.tsx`
-- [ ] T024 [P] [US2] Add import/export command tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.test.ts`
-- [ ] T025 [P] [US2] Add reload-discard UX tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/effects-library-modal.test.tsx`
+- [x] T023 [P] [US2] Add effects-library drag/drop and copy/paste tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/effects-library-workspace.test.tsx`
+- [x] T024 [P] [US2] Add import/export command tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.test.ts`
+- [x] T025 [P] [US2] Add reload-discard UX tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/effects-library-modal.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] Add drag/drop reorganization support to `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`
-- [ ] T027 [US2] Add copy, paste, and duplicate actions for categories and effects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/library/`
-- [ ] T028 [US2] Implement explicit effect import/export commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
-- [ ] T029 [US2] Add reload/discard session UX in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`
-- [ ] T030 [US2] Keep all library workflow changes no-save and session-local in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
+- [x] T026 [US2] Add drag/drop reorganization support to `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`
+- [x] T027 [US2] Add copy, paste, and duplicate actions for categories and effects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/mixer/library/`
+- [x] T028 [US2] Implement explicit effect import/export commands in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
+- [x] T029 [US2] Add reload/discard session UX in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/EffectLibraryModal.tsx`
+- [x] T030 [US2] Keep all library workflow changes no-save and session-local in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/mixer-effects-library.ts`
 
 **Checkpoint**: The effects-library workspace is meaningfully more usable without committing the app to a persistence strategy.
 
@@ -100,16 +100,16 @@
 
 ### Tests for User Story 3
 
-- [ ] T031 [P] [US3] Add playback-aware Mixer UI tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-playback-status.test.tsx`
-- [ ] T032 [P] [US3] Add window focus and missing-owner tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.test.ts`
-- [ ] T033 [P] [US3] Add menu or shortcut focus tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-mixer-panel.test.tsx`
+- [x] T031 [P] [US3] Add playback-aware Mixer UI tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/mixer-playback-status.test.tsx`
+- [x] T032 [P] [US3] Add window focus and missing-owner tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.test.ts`
+- [x] T033 [P] [US3] Add menu or shortcut focus tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-mixer-panel.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T034 [US3] Add playback-aware status badges or disabled-state messaging in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx` and effect-editor components
-- [ ] T035 [US3] Extend menu or shortcut flows to focus mixer-related surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts` and the current native-command handlers
-- [ ] T036 [US3] Refine missing-owner and focus behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.ts`
-- [ ] T037 [US3] Add any required visual polish for the advanced workflow in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
+- [x] T034 [US3] Add playback-aware status badges or disabled-state messaging in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/MixerPanel.tsx` and effect-editor components
+- [x] T035 [US3] Extend menu or shortcut flows to focus mixer-related surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts` and the current native-command handlers
+- [x] T036 [US3] Refine missing-owner and focus behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/effect-editor-window-manager.ts`
+- [x] T037 [US3] Add any required visual polish for the advanced workflow in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
 
 **Checkpoint**: The advanced mixer workflow feels coherent across playback, library, and window-management scenarios.
 
@@ -119,14 +119,13 @@
 
 **Purpose**: Final validation, documentation, and handoff preparation.
 
-- [ ] T038 [P] Update `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/quickstart.md` with any implementation-specific validation notes discovered during development
-- [ ] T039 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 035 implementation progress and any further deferrals
-- [ ] T040 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T041 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
-- [ ] T042 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron` if routing validation helpers land in `@blue/data`
-- [ ] T043 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron` after activating this spec
-- [ ] T044 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
-- [ ] T045 Perform the manual routing, library-workflow, and playback-aware scenarios from `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/quickstart.md`
+- [x] T038 [P] Update `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/quickstart.md` with any implementation-specific validation notes discovered during development
+- [x] T039 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 035 implementation progress and any further deferrals
+- [x] T040 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
+- [x] T041 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
+- [x] T042 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron` if routing validation helpers land in `@blue/data`
+- [x] T044 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T045 Perform the manual routing, library-workflow, and playback-aware scenarios from `/Users/stevenyi/work/blue-electron/specs/035-mixer-follow-up/quickstart.md`
 
 ---
 

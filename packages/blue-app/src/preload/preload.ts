@@ -42,6 +42,12 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('reload-effects-library') as Promise<EffectsLibrarySnapshot>,
   updateEffectsLibrary: (patch: EffectsLibraryPatch) =>
     ipcRenderer.invoke('update-effects-library', patch) as Promise<EffectsLibrarySnapshot>,
+  importEffectFile: (parentCategoryId?: string) =>
+    ipcRenderer.invoke('import-effect-file', parentCategoryId) as Promise<EffectsLibrarySnapshot | null>,
+  exportEffectFile: (effectId: string) =>
+    ipcRenderer.invoke('export-effect-file', effectId) as Promise<void>,
+  focusEffectEditor: (request: EffectEditorRequest) =>
+    ipcRenderer.invoke('focus-effect-editor', request) as Promise<boolean>,
   openEffectEditor: (request: EffectEditorRequest) =>
     ipcRenderer.invoke('open-effect-editor', request) as Promise<void>,
   openEffectInterface: (request: EffectEditorRequest) =>

@@ -24,6 +24,7 @@ import { sweepStaleBlueEngineProcesses } from './engine-process-registry';
 import {
   closeEffectEditorWindow,
   closeEffectEditorWindowsForOwner,
+  focusEffectEditorWindow,
   openEffectEditorWindow,
   openEffectInterfaceWindow,
 } from './effect-editor-window-manager';
@@ -1163,6 +1164,10 @@ ipcMain.handle('update-effect-editor-document', (_event, request: EffectEditorPa
   return applyProjectEffectEditorPatch(request);
 });
 
+ipcMain.handle('focus-effect-editor', (_event, request: EffectEditorRequest) => {
+  return focusEffectEditorWindow(request);
+});
+
 ipcMain.handle('get-effects-library', () => {
   return getMixerEffectsLibrarySession().getSnapshot();
 });
@@ -1184,6 +1189,33 @@ ipcMain.handle('update-effects-library', (_event, patch: EffectsLibraryPatch) =>
   }
 
   return snapshot;
+});
+
+ipcMain.handle('import-effect-file', async (_event, parentCategoryId?: string) => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Import Effect',
+    filters: [{ name: 'Effect Files', extensions: ['effect', 'xml'] }],
+    properties: ['openFile'],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const effectXml = fs.readFileSync(result.filePaths[0], 'utf-8');
+  const session = getMixerEffectsLibrarySession();
+  return session.importEffectFromXml(effectXml, parentCategoryId);
+});
+
+ipcMain.handle('export-effect-file', async (_event, effectId: string) => {
+  const session = getMixerEffectsLibrarySession();
+  const effect = session.findEffectForExport(effectId);
+  if (!effect) return;
+  const effectXml = effect.saveAsXML().toXml();
+  const defaultName = (effect.getName() || 'effect') + '.effect';
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Export Effect',
+    defaultPath: defaultName,
+    filters: [{ name: 'Effect Files', extensions: ['effect'] }],
+  });
+  if (result.canceled || !result.filePath) return;
+  fs.writeFileSync(result.filePath, effectXml, 'utf-8');
 });
 
 // ─── Evaluate Code IPC Handler ───

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type {
   EffectEditorRequest,
@@ -10,6 +10,12 @@ import type {
   MixerSnapshot,
   EffectsLibrarySnapshot,
 } from '../../../../../shared/project-editor';
+import {
+  getValidOutputTargets,
+  getValidSendTargets,
+  validateOutputTarget,
+  validateSendTarget,
+} from '../../../../../shared/mixer-routing-validation';
 import EffectsChainContextMenu from './EffectsChainContextMenu';
 
 const MIXER_SLIDER_WIDTH = 32;
@@ -22,7 +28,6 @@ interface ChannelStripProps {
   channel: MixerChannelSnapshot;
   isMaster: boolean;
   isSubChannel: boolean;
-  allOutChannels: string[];
   librarySnapshot: EffectsLibrarySnapshot | null;
   onPatch: (patch: Record<string, unknown>) => void;
   onOpenLibrary: (channelId: string, chain: MixerChainKind) => void;
@@ -295,16 +300,18 @@ function ChainList({
 
 function SendEditorDialog({
   send,
-  outChannels,
-  onPatch,
+  sendTargets,
+  mixer,
   channelId,
+  onPatch,
   chain,
   onClose,
 }: {
   send: MixerSendEntrySnapshot;
-  outChannels: string[];
-  onPatch: (patch: Record<string, unknown>) => void;
+  sendTargets: MixerChannelSnapshot[];
+  mixer: MixerSnapshot;
   channelId: string;
+  onPatch: (patch: Record<string, unknown>) => void;
   chain: MixerChainKind;
   onClose: () => void;
 }): React.ReactElement {
@@ -318,18 +325,21 @@ function SendEditorDialog({
           <span>Send Channel</span>
           <select
             value={send.sendChannel}
-            onChange={(e) =>
+            onChange={(e) => {
+              const target = e.target.value;
+              const issue = validateSendTarget(mixer, channelId, target);
+              if (issue && issue.severity === 'error') return;
               onPatch({
                 type: 'updateSend',
                 channelId,
                 chain,
                 entryId: send.entryId,
-                patch: { sendChannel: e.target.value },
-              })
-            }
+                patch: { sendChannel: target },
+              });
+            }}
           >
-            {outChannels.map((ch) => (
-              <option key={ch} value={ch}>{ch}</option>
+            {sendTargets.map((ch) => (
+              <option key={ch.id} value={ch.name}>{ch.name}</option>
             ))}
           </select>
         </label>
@@ -374,7 +384,6 @@ export default function ChannelStrip({
   channel,
   isMaster,
   isSubChannel,
-  allOutChannels,
   librarySnapshot,
   onPatch,
   onOpenLibrary,
@@ -392,6 +401,21 @@ export default function ChannelStrip({
 
   const sliderValue = getSliderValue(channel.level);
   const canRename = isSubChannel || channel.association != null;
+
+  const validOutputTargets = useMemo(
+    () => getValidOutputTargets(mixer, channel.id),
+    [mixer, channel.id],
+  );
+
+  const outputRoutingWarning = useMemo(
+    () => validateOutputTarget(mixer, channel.id, channel.outChannel),
+    [mixer, channel.id, channel.outChannel],
+  );
+
+  const validSendTargets = useMemo(
+    () => getValidSendTargets(mixer, channel.id),
+    [mixer, channel.id],
+  );
 
   const handleLevelChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,16 +453,24 @@ export default function ChannelStrip({
 
   const handleOutChannelChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onPatch({ type: 'updateChannel', channelId: channel.id, patch: { outChannel: e.target.value } });
+      const target = e.target.value;
+      const issue = validateOutputTarget(mixer, channel.id, target);
+      if (issue && issue.severity === 'error') return;
+      onPatch({ type: 'updateChannel', channelId: channel.id, patch: { outChannel: target } });
     },
-    [channel.id, onPatch],
+    [mixer, channel.id, onPatch],
   );
 
   const handleOpenInterface = useCallback(
     (entry: MixerEffectEntrySnapshot) => {
-      onOpenEffectInterface(buildEffectRequest(channel.id, entry));
+      const request = buildEffectRequest(channel.id, entry);
+      void window.blueAPI.focusEffectEditor(request).then((focused) => {
+        if (!focused) {
+          void window.blueAPI.openEffectInterface(request);
+        }
+      });
     },
-    [channel.id, onOpenEffectInterface],
+    [channel.id],
   );
 
   const handleOpenSendEditorForEntry = useCallback(
@@ -572,10 +604,15 @@ export default function ChannelStrip({
             value={channel.outChannel}
             onChange={handleOutChannelChange}
           >
-            {allOutChannels.map((ch) => (
-              <option key={ch} value={ch}>{ch}</option>
+            {validOutputTargets.map((ch) => (
+              <option key={ch.id} value={ch.name}>{ch.name}</option>
             ))}
           </select>
+          {outputRoutingWarning && (
+            <div className="mixer-routing-warning" title={outputRoutingWarning.message}>
+              ⚠
+            </div>
+          )}
         </div>
       )}
     </>
@@ -610,9 +647,10 @@ export default function ChannelStrip({
       {sendEditorEntry && (
         <SendEditorDialog
           send={sendEditorEntry}
-          outChannels={allOutChannels}
-          onPatch={onPatch}
+          sendTargets={validSendTargets}
+          mixer={mixer}
           channelId={channel.id}
+          onPatch={onPatch}
           chain={sendEditorChain}
           onClose={() => setSendEditorEntryId(null)}
         />

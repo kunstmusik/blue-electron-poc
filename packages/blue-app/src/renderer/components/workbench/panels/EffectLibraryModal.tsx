@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LibraryBig, RefreshCcw, X, Plus } from 'lucide-react';
+import { LibraryBig, RefreshCcw, X, Plus, Download, Upload } from 'lucide-react';
 
 import type {
   EffectsLibraryCategorySnapshot,
@@ -8,7 +8,6 @@ import type {
   EffectEditorSnapshot,
   EffectEditablePatch,
   LibraryEffectSnapshot,
-  MixerChainKind,
 } from '../../../../shared/project-editor';
 import { useProjectStore } from '../../../stores/project-store';
 import { useUIStore } from '../../../stores/ui-store';
@@ -57,6 +56,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
   const [selectedEffect, setSelectedEffect] = useState<LibraryEffectSnapshot | null>(null);
   const [effectEditorSnapshot, setEffectEditorSnapshot] = useState<EffectEditorSnapshot | null>(null);
   const [clipboard, setClipboard] = useState<ClipboardItem | null>(null);
+  const [hasSessionMutations, setHasSessionMutations] = useState(false);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
 
   const refreshSnapshot = useCallback(async () => {
@@ -64,10 +64,43 @@ export default function EffectLibraryModal(): React.ReactElement | null {
     try {
       const next = await window.blueAPI.getEffectsLibrary();
       setSnapshot(next);
+      setHasSessionMutations(false);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const handleImportEffect = useCallback(async () => {
+    const next = await window.blueAPI.importEffectFile();
+    if (next) {
+      setSnapshot(next);
+      setHasSessionMutations(true);
+    }
+  }, []);
+
+  const handleExportEffect = useCallback(async () => {
+    if (!selectedEffect) return;
+    await window.blueAPI.exportEffectFile(selectedEffect.libraryEffectId);
+  }, [selectedEffect]);
+
+  const handleReloadFromDisk = useCallback(async () => {
+    if (hasSessionMutations) {
+      const confirmed = window.confirm(
+        'Reload will discard all session-local changes. Continue?',
+      );
+      if (!confirmed) return;
+    }
+    setLoading(true);
+    try {
+      const next = await window.blueAPI.reloadEffectsLibrary();
+      setSnapshot(next);
+      setHasSessionMutations(false);
+      setSelectedEffect(null);
+      setEffectEditorSnapshot(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [hasSessionMutations]);
 
   useEffect(() => {
     if (!open) return;
@@ -133,12 +166,13 @@ export default function EffectLibraryModal(): React.ReactElement | null {
   const handleRename = useCallback(
     async (node: LibraryTreeNode, newName: string) => {
       if (node.kind === 'effect') {
-        const next = await window.blueAPI.updateEffectsLibrary({
-          type: 'renameEffect',
-          effectId: node.id,
-          name: newName,
-        });
-        setSnapshot(next);
+      const next = await window.blueAPI.updateEffectsLibrary({
+        type: 'renameEffect',
+        effectId: node.id,
+        name: newName,
+      });
+      setSnapshot(next);
+      setHasSessionMutations(true);
       } else {
         const next = await window.blueAPI.updateEffectsLibrary({
           type: 'renameCategory',
@@ -146,6 +180,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
           name: newName,
         });
         setSnapshot(next);
+        setHasSessionMutations(true);
       }
     },
     [],
@@ -175,6 +210,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         patch,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
       await refreshEffectEditor();
     },
     [selectedEffect, refreshEffectEditor],
@@ -187,6 +223,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         parentCategoryId: parentId,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
     },
     onRemoveCategory: async (categoryId: string) => {
       if (!window.confirm('Remove this group and all its contents?')) return;
@@ -195,6 +232,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         categoryId,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
       setSelectedEffect(null);
       setEffectEditorSnapshot(null);
     },
@@ -204,13 +242,17 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         parentCategoryId: parentId,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
     },
     onCutEffect: (effect: LibraryEffectSnapshot) => {
       setClipboard({ kind: 'effect', effect });
       void window.blueAPI.updateEffectsLibrary({
         type: 'removeEffect',
         effectId: effect.libraryEffectId,
-      }).then(setSnapshot);
+      }).then((next) => {
+        setSnapshot(next);
+        setHasSessionMutations(true);
+      });
       if (selectedEffect?.libraryEffectId === effect.libraryEffectId) {
         setSelectedEffect(null);
         setEffectEditorSnapshot(null);
@@ -226,6 +268,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         effectId,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
       if (selectedEffect?.libraryEffectId === effectId) {
         setSelectedEffect(null);
         setEffectEditorSnapshot(null);
@@ -239,6 +282,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
         categoryId,
       });
       setSnapshot(next);
+      setHasSessionMutations(true);
       setSelectedEffect(null);
       setEffectEditorSnapshot(null);
     },
@@ -255,6 +299,7 @@ export default function EffectLibraryModal(): React.ReactElement | null {
           sourceEffect: clipboard.effect,
         });
         setSnapshot(next);
+        setHasSessionMutations(true);
       } else {
         const next = await window.blueAPI.updateEffectsLibrary({
           type: 'pasteCategory',
@@ -262,7 +307,18 @@ export default function EffectLibraryModal(): React.ReactElement | null {
           sourceSnapshot: clipboard.snapshot,
         });
         setSnapshot(next);
+        setHasSessionMutations(true);
       }
+    },
+    onImportIntoCategory: async (categoryId: string) => {
+      const next = await window.blueAPI.importEffectFile(categoryId);
+      if (next) {
+        setSnapshot(next);
+        setHasSessionMutations(true);
+      }
+    },
+    onExportEffect: async (effectId: string) => {
+      await window.blueAPI.exportEffectFile(effectId);
     },
     canPaste: clipboard !== null,
     isRoot: (id: string) => id === 'root',
@@ -344,9 +400,22 @@ export default function EffectLibraryModal(): React.ReactElement | null {
                 Add to Mixer
               </button>
             )}
-            <button type="button" className="toolbar-text-button" onClick={() => void refreshSnapshot()}>
+            <button type="button" className="toolbar-text-button" onClick={() => void handleImportEffect()}>
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </button>
+            <button
+              type="button"
+              className="toolbar-text-button"
+              disabled={!selectedEffect}
+              onClick={() => void handleExportEffect()}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Export
+            </button>
+            <button type="button" className="toolbar-text-button" onClick={() => void handleReloadFromDisk()}>
               <RefreshCcw className="h-3.5 w-3.5" />
-              Reload
+              Reload from Disk
             </button>
             <button
               type="button"
@@ -372,6 +441,9 @@ export default function EffectLibraryModal(): React.ReactElement | null {
           <div className="inline-flex items-center gap-2">
             <LibraryBig className="h-3.5 w-3.5" />
             Session-only mutations. No writes to `~/.blue`.
+            {hasSessionMutations && (
+              <span className="text-amber-400">Unsaved changes</span>
+            )}
           </div>
           <div>{snapshot?.loaded ? 'Loaded' : 'Using fallback empty library'}</div>
         </div>

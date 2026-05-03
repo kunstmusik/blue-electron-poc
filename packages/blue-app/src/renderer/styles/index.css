@@ -1162,6 +1162,23 @@
   border-color: #3b82f6;
 }
 
+.mixer-routing-warning {
+  font-size: 10px;
+  color: #f59e0b;
+  margin-top: 1px;
+  cursor: help;
+}
+
+.mixer-playback-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  white-space: nowrap;
+}
+
 /* ── Send Editor Dialog ──────────────────── */
 
 .mixer-send-editor-backdrop {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BlueData, LiveData } from '@blue/data';
 import { BlueLiveEngineSession, resolveNamedInstrumentNumbers, normalizeScoreForEngineApi } from '../../main/blue-live-engine';
 
@@ -15,9 +15,25 @@ function createMockWindow(): any {
   return new MockBrowserWindow();
 }
 
+const trackedSessions: BlueLiveEngineSession[] = [];
+
+function trackSession(session: BlueLiveEngineSession): BlueLiveEngineSession {
+  trackedSessions.push(session);
+  return session;
+}
+
+afterEach(async () => {
+  while (trackedSessions.length > 0) {
+    const session = trackedSessions.pop();
+    if (session) {
+      await session.stop();
+    }
+  }
+});
+
 describe('BlueLiveEngineSession', () => {
   it('starts in idle status', () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const status = session.getStatus();
     expect(status.status).toBe('idle');
     expect(status.running).toBe(false);
@@ -25,39 +41,39 @@ describe('BlueLiveEngineSession', () => {
   });
 
   it('isRunning returns false initially', () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     expect(session.isRunning()).toBe(false);
   });
 
   it('stop returns current snapshot when not running', async () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const result = await session.stop();
     expect(result.status).toBe('idle');
   });
 
   it('sendAllNotesOff returns error when not running', async () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const result = await session.sendAllNotesOff();
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not running');
   });
 
   it('evaluateOrchestra returns error when not running', async () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const result = await session.evaluateOrchestra('instr 1\nendin');
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not running');
   });
 
   it('sendScore returns error when not running', async () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const result = await session.sendScore('i 1 0 1');
     expect(result.ok).toBe(false);
     expect(result.message).toContain('not running');
   });
 
   it('recompile from idle starts the engine', async () => {
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561);
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound', 5560, 5561));
     const data = new BlueData();
 
     const result = await session.recompile(data, 1);
@@ -82,7 +98,7 @@ describe('BlueLiveEngineSession buildLiveOptions (via LiveData)', () => {
     data.getLiveData().setCommandLineOverride(false);
     data.getLiveData().setCommandLine('--opcode-lib=/custom -b256');
 
-    const session = new BlueLiveEngineSession(createMockWindow(), 'csound');
+    const session = trackSession(new BlueLiveEngineSession(createMockWindow(), 'csound'));
     const status = session.getStatus();
     expect(status.status).toBe('idle');
   });

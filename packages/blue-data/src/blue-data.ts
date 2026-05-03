@@ -1569,7 +1569,7 @@ export class BlueData implements BlueDataObject {
         continue;
       }
 
-      const targetName = item.getTargetChannelId() || "Master";
+      const targetName = item.getSendChannel() || "Master";
       const amountExpr = this.getSendAmountExpression(item);
 
       for (let i = 0; i < signalVars.length; i++) {
@@ -1684,7 +1684,7 @@ export class BlueData implements BlueDataObject {
       }
 
       for (const send of channel.getSends()) {
-        const target = send.getTargetChannelId();
+        const target = send.getSendChannel();
         if (target && target !== "Master" && target !== name && byName.has(target)) {
           targets.add(target);
         }

@@ -520,6 +520,32 @@ export class MixerEffectsLibrarySession {
     return root.toXml();
   }
 
+  importEffectFromXml(effectXml: string, parentCategoryId?: string): EffectsLibrarySnapshot {
+    const parent =
+      parentCategoryId
+        ? this.findCategoryById(parentCategoryId)
+        : this.root;
+    if (!parent) return this.getSnapshot();
+
+    const effect = Effect.loadFromXML(Element.parse(effectXml));
+    const effectNode = createEffectNode(effect);
+    effectNode.effect.setName(
+      ensureUniqueEffectName(parent.effects, effect.getName() || 'Imported Effect'),
+    );
+    parent.effects.push(effectNode);
+    return this.getSnapshot();
+  }
+
+  exportEffectToXml(effectId: string): string | null {
+    const effect = this.findEffectById(effectId);
+    if (!effect) return null;
+    return effect.saveAsXML().toXml();
+  }
+
+  findEffectForExport(effectId: string): Effect | null {
+    return this.findEffectById(effectId);
+  }
+
   private findCategoryById(categoryId: string): LibraryCategoryNode | null {
     return this.findCategoryRecursive(this.root, categoryId);
   }

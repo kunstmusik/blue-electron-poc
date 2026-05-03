@@ -25,7 +25,7 @@ interface EffectsChainContextMenuProps {
   librarySnapshot: EffectsLibrarySnapshot | null;
 }
 
-let bufferedEffect: MixerEffectEntrySnapshot | null = null;
+let bufferedEntry: MixerChainEntrySnapshot | null = null;
 
 function MenuItem({
   children,
@@ -170,6 +170,7 @@ export default function EffectsChainContextMenu({
                 type: 'addSend',
                 channelId,
                 chain,
+                sendChannel: 'Master',
               });
             }}
           >
@@ -253,41 +254,62 @@ export default function EffectsChainContextMenu({
           <ContextMenu.Separator className="editor-context-menu__separator" />
 
           <MenuItem
-            disabled={!isEffect || !hasSelection}
+            disabled={!hasSelection}
             onSelect={() => {
-              if (isEffect && selected) {
-                bufferedEffect = { ...selected };
-                onPatch({
-                  type: 'removeChainEntry',
-                  channelId,
-                  chain,
-                  entryId: selected.entryId,
-                });
-              }
+              if (!selected) return;
+              onPatch({
+                type: 'duplicateChainEntry',
+                channelId,
+                chain,
+                entryId: selected.entryId,
+              });
+            }}
+          >
+            Duplicate
+          </MenuItem>
+
+          <ContextMenu.Separator className="editor-context-menu__separator" />
+
+          <MenuItem
+            disabled={!hasSelection}
+            onSelect={() => {
+              if (!selected) return;
+              bufferedEntry = { ...selected };
+              onPatch({
+                type: 'removeChainEntry',
+                channelId,
+                chain,
+                entryId: selected.entryId,
+              });
             }}
           >
             Cut
           </MenuItem>
           <MenuItem
-            disabled={!isEffect || !hasSelection}
+            disabled={!hasSelection}
             onSelect={() => {
-              if (isEffect && selected) {
-                bufferedEffect = { ...selected };
-              }
+              if (!selected) return;
+              bufferedEntry = { ...selected };
+              onPatch({
+                type: 'copyChainEntry',
+                channelId,
+                chain,
+                entryId: selected.entryId,
+              });
             }}
           >
             Copy
           </MenuItem>
           <MenuItem
-            disabled={bufferedEffect == null}
+            disabled={bufferedEntry == null}
             onSelect={() => {
-              if (bufferedEffect) {
+              if (bufferedEntry) {
                 onPatch({
                   type: 'addEffectFromLibrary',
                   channelId,
                   chain,
                   libraryEffectId: '__clipboard__',
-                  effectXml: bufferedEffect.effectXml,
+                  effectXml: bufferedEntry.effectXml,
                   entryId: crypto.randomUUID(),
                 });
               }
