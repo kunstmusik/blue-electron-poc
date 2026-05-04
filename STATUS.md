@@ -1,8 +1,56 @@
 # Project Status — blue-electron
 
 **Date**: 2026-05-04
-**Branch**: `036-score-editor-foundation`
+**Branch**: `037-score-object-editor-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 037 Package
+
+Spec `037-score-object-editor-parity` has a complete planning package on branch `037-score-object-editor-parity` and is ready for implementation handoff.
+
+- Goal: deliver the Java Blue-style auxiliary score editing surfaces by replacing the `SoundObjectPropertiesTopComponent` and `ScoreObjectEditorTopComponent` placeholders with real shared-properties and type-specific editor workflows for the TypeScript-supported score-object types plus `AudioClip`
+- Active feature context:
+  - `.specify/feature.json` points to `specs/037-score-object-editor-parity`
+- Planning artifacts:
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/contracts/score-object-editor-surfaces.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/tasks.md`
+- Planned scope:
+  - extend score row snapshots with stable score-object editor targets and canonical location metadata instead of renderer-generated selection ids only
+  - add on-demand `ScoreObjectEditorDocumentSnapshot` loading for the active selection through main/preload IPC, following the existing effect-editor pattern instead of inflating the always-on project snapshot
+  - extend shared `ScorePatch` handling for shared properties, sound-object behavior, note-processor chains, and type-specific editor mutations
+  - preserve stable `SoundObjectLibrary` identity and route `Instance` or library-backed editing to the underlying library object with explicit context badges
+  - implement a real shared properties surface for name, time, color, time behavior, repeat point, and note-processor-chain editing where supported
+  - implement a static renderer registry for code-backed, file or clip, structured, and fallback editor families, reusing existing CodeMirror and BSB-oriented surfaces where practical
+  - define explicit no-selection, multi-selection, removed-target, and unsupported-type fallback states, including Java-only gaps such as `ObjectBuilder`
+- Java anchors reviewed during planning:
+  - auxiliary surfaces: `SoundObjectPropertiesTopComponent`, `ScoreObjectEditorTopComponent`, and `AudioClipEditor`
+  - plugin inventory: `GenericScoreEditor`, `PythonEditor`, `JavaScriptObjectEditor`, `AudioFileEditor`, `SoundEditor`, `InstanceEditor`, `PatternEditor`, `PianoRollEditor`, `TrackerEditor`, `NotationEditor`, `LineEditor`, `ZakLineEditor`, `JMaskEditor`, `FrozenSoundObjectEditor`, and `ObjectBuilderEditor`
+- Current TypeScript gap notes captured by the planning review:
+  - score row snapshots still use renderer-generated `objectId` values and do not expose canonical editor-target metadata
+  - the score selection store tracks raw object ids only, with no canonical target or library-routing context
+  - shared score patch handling currently persists score time state only; auxiliary score-object editing needs new canonical patch variants
+  - `SoundObjectLibrary` does not yet expose stable runtime identity or reverse-lookup helpers needed for library-backed editing
+  - Dockview still reserves the score-object auxiliary panels, but `DockviewPanel.tsx` has not yet replaced their placeholder content
+  - Java-only types such as `ObjectBuilder` remain outside the TypeScript model port and must stay explicit fallbacks in this slice
+- Validation:
+  - `./.specify/scripts/bash/setup-plan.sh --json` — pass
+  - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass for `specs/037-score-object-editor-parity`
+  - `./.specify/scripts/bash/update-agent-context.sh` — pass
+  - `git diff --check` — pass
+- Handoff notes:
+  - start with the Phase 2 foundational tasks in `tasks.md`; the auxiliary panels depend on canonical target resolution and on-demand editor-document loading before UI work can be trusted
+  - reuse the effect-editor IPC pattern as the reference implementation for score-object editor document loading and refresh
+  - keep direct timeline manipulation, score manager, navigator, and other deep interaction workflows in Spec `038-score-editor-interactions`
+  - prefer `ScoreObject` terminology in new Electron-facing labels and docs wherever legacy Java IDs do not force `SoundObject` wording
+- Completion status:
+  - planning only; no implementation work has started for Spec 037
+  - `tasks.md` contains 50 ordered tasks across setup, foundational work, three user-story phases, and validation or polish
+  - the branch is ready for implementation handoff
 
 ## Spec 036 Package
 
