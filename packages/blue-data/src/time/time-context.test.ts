@@ -8,7 +8,6 @@ import { CurveType } from './curve-type';
 import { MeterMap } from './meter-map';
 import { Meter } from './meter';
 import { MeasureMeterPair } from './measure-meter-pair';
-import { SmpteFrameRate } from './smpte-frame-rate';
 
 describe('TimeContext compatibility', () => {
   it('deep copies the meter map in the copy constructor', () => {
@@ -38,23 +37,23 @@ describe('TimeContext compatibility', () => {
     meterMap.clear();
     meterMap.add(new MeasureMeterPair(1, new Meter(3, 4)));
     context.setMeterMap(meterMap);
-    context.setSmpteFrameRate(SmpteFrameRate.FPS_29_97_DF);
+    context.setSmpteFrameRate(29.97);
 
     const savedXml = context.saveAsXML().toXml();
     const reloaded = TimeContext.loadFromXML(Element.parse(savedXml));
 
     expect(reloaded.hasSameMusicalContext(context)).toBe(true);
-    expect(reloaded.getSmpteFrameRate()).toBe(SmpteFrameRate.FPS_29_97_DF);
+    expect(reloaded.getSmpteFrameRate()).toBe(29.97);
   });
 
   it('keeps TimeState copy data isolated', () => {
     const original = new TimeState();
-    original.setSmpteFrameRate(SmpteFrameRate.FPS_30_DF);
+    original.setSmpteFrameRate(30);
 
     const copy = new TimeState(original);
-    copy.setSmpteFrameRate(SmpteFrameRate.FPS_24);
+    copy.setSmpteFrameRate(24);
 
-    expect(original.getSmpteFrameRate()).toBe(SmpteFrameRate.FPS_30_DF);
-    expect(copy.getSmpteFrameRate()).toBe(SmpteFrameRate.FPS_24);
+    expect(original.getSmpteFrameRate()).toBe(30);
+    expect(copy.getSmpteFrameRate()).toBe(24);
   });
 });

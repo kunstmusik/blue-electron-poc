@@ -6,23 +6,16 @@
  */
 import { TempoMap } from './tempo-map';
 import { MeterMap } from './meter-map';
-import { SmpteFrameRate } from './smpte-frame-rate';
 import { Element } from '../serialization/xml-reader';
 
-function parseSmpteFrameRate(rateText: string | null | undefined): SmpteFrameRate | null {
+function parseSmpteFrameRateNumber(rateText: string | null | undefined): number | null {
   const normalized = rateText?.trim();
-  switch (normalized) {
-    case '24': return SmpteFrameRate.FPS_24;
-    case '25': return SmpteFrameRate.FPS_25;
-    case '29.97': return SmpteFrameRate.FPS_29_97;
-    case '30': return SmpteFrameRate.FPS_30;
-    case '29.97df': return SmpteFrameRate.FPS_29_97_DF;
-    case '30df': return SmpteFrameRate.FPS_30_DF;
-    default: {
-      const rate = parseFloat(normalized ?? '');
-      return Number.isNaN(rate) ? null : (rate as SmpteFrameRate);
-    }
-  }
+  if (!normalized) return null;
+  // Handle legacy drop-frame string values
+  if (normalized === '29.97df') return 29.97;
+  if (normalized === '30df') return 30;
+  const rate = parseFloat(normalized);
+  return Number.isNaN(rate) ? null : rate;
 }
 
 /** Default sample rate. */
@@ -32,7 +25,7 @@ export class TimeContext {
   private tempoMap = new TempoMap();
   private meterMap = new MeterMap();
   private sampleRate = DEFAULT_SAMPLE_RATE;
-  private smpteFrameRate: SmpteFrameRate = SmpteFrameRate.FPS_30;
+  private smpteFrameRate = 30;
 
   constructor(other?: TimeContext) {
     if (other) {
@@ -70,21 +63,17 @@ export class TimeContext {
     this.sampleRate = rate;
   }
 
-  getSmpteFrameRate(): SmpteFrameRate {
+  getSmpteFrameRate(): number {
     return this.smpteFrameRate;
   }
 
-  setSmpteFrameRate(rate: SmpteFrameRate): void {
+  setSmpteFrameRate(rate: number): void {
     this.smpteFrameRate = rate;
   }
 
   /** Get SMPTE frames per second as a number. */
   getSmpteFramesPerSecond(): number {
-    const rate = this.smpteFrameRate;
-    if (typeof rate === 'number') return rate;
-    if (rate === SmpteFrameRate.FPS_29_97_DF) return 29.97;
-    if (rate === SmpteFrameRate.FPS_30_DF) return 30;
-    return 30;
+    return this.smpteFrameRate;
   }
 
   /** Get beat duration in seconds (60 / BPM). */
@@ -153,7 +142,7 @@ export class TimeContext {
 
     const smpteElem = data.getElement('smpteFrameRate');
     if (smpteElem) {
-      const parsedRate = parseSmpteFrameRate(smpteElem.getTextString());
+      const parsedRate = parseSmpteFrameRateNumber(smpteElem.getTextString());
       if (parsedRate !== null) {
         ctx.smpteFrameRate = parsedRate;
       }

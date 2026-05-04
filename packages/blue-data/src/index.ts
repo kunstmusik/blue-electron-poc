@@ -47,6 +47,8 @@ export { TempoMap } from './time/tempo-map';
 export { TimeContext } from './time/time-context';
 export { TimeState } from './time/time-state';
 export { beatsToTimePosition, timePositionToBeats, convertTimePosition, secondsToTimePosition, timePositionToSeconds, framesToTimePosition, timePositionToFrames } from './time/time-utilities';
+export { ALL_SNAP_VALUES, getSnapValue, isValidSnapValueName, snapValueToBeats, closestSnapValueMatch } from './time/snap-value';
+export type { SnapValueName, SnapCategory, SnapValueDefinition } from './time/snap-value';
 
 // ─── Score ───
 export { Score } from './score/score';

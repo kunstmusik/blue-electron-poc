@@ -1,8 +1,58 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-03
+**Date**: 2026-05-04
 **Branch**: `036-score-editor-foundation`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 036 Package
+
+Spec `036-score-editor-foundation` is complete and validated on branch `036-score-editor-foundation`.
+
+- Goal: replace the `ScoreTopComponent` placeholder with a real Java Blue-style score shell, establish the score graph snapshot/patch bridge, deliver `TimeState` parity, mixed layer-group rendering, rulers, row visibility, snap/zoom state, and nested score-path navigation
+- Active feature context:
+  - `.specify/feature.json` points to `specs/036-score-editor-foundation`
+- Delivered scope:
+  - `@blue/data` `TimeState` expanded with Java-parity snap, zoom, ruler display, row visibility, SMPTE frame rate, and v1→v2 XML migration
+  - `@blue/data` `TimeContext` SMPTE frame rate simplified from enum to plain number, matching Java's raw numeric usage
+  - `@blue/data` snap-value definitions (`SnapValueName`, `snapValueToBeats`, `isValidSnapValueName`, `closestSnapValueMatch`)
+  - `toBeats(context)` fix on `TimeDuration` for correct beat conversion under time contexts
+  - `ProjectEditorSnapshot` extended with typed `ScoreDocumentSnapshot` (time state, markers, layer groups with per-layer items)
+  - `ProjectDocumentPatch` extended with `ScorePatch` (updateTimeState)
+  - Renderer project store score snapshot/patch dispatch
+  - Renderer score selection store (`score-selection-store.ts`): selected objects, clipboard, select/clearSelection/copySelected
+  - Project store score mutations: `moveScoreObjects`, `removeScoreObjects`, `addScoreObjects`, `setLayerMute`, `setLayerSolo`, `renameLayer`, `setLayerHeight`, `addLayer`, `removeLayer`, `setScoreObjectColor`, `resizeScoreObjects`
+  - Score shell: `ScorePanel.tsx` with split-pane layout, left header panel, scrollable timeline, ruler stack
+  - `ScoreToolbar` with snap toggle, snap value dropdown, mode selector, ruler config, manage button
+  - `ScorePathBar` with breadcrumb navigation and back button
+  - `ScoreRulerStack` with primary/secondary ruler, tempo/meter/marker rows, row visibility
+  - `ColumnHeader` ruler bars with beat/time display
+  - `LayerPanel` dispatching to `ScoreTimeCanvas`, `AudioLayerGroupCanvas`, `PatternsLayerGroupCanvas`
+  - `ScoreTimeCanvas` (PolyObject): Java Blue-style sound object bars (gradient fill, beveled borders, selected state), snap grid lines, click/shift-click/marquee selection, drag-to-move with snap, left/right edge resize with snap and cursor changes, context menus (sound object + empty area), cut/copy/paste, add sound object, align/center/right, follow the leader, reverse, set color, layer header with mute/solo/name edit/height context menu
+  - `useScorePathState` for nested PolyObject path traversal with per-path scroll restoration
+  - Spacer panels between layer groups with add-layer affordance
+  - Context menu CSS: flat `bg-[#1e1e3a]` style with `data-[highlighted]` hover
+  - Sound object tooltips (native title attribute on container)
+  - Sound object cursor logic: `w-resize`/`e-resize` on selected item edges, `move` on selected item body, `default` elsewhere
+  - Default sound object colors: `0xFF404040` (Java's `Color.DARK_GRAY`), default duration 4.0 beats
+  - Snap grid lines rendered inside each layer row behind objects
+  - Move snap uses `Math.round`; paste/start-position snap uses `Math.floor` (matching Java's `getSnapValueMove` vs `getSnapValueStart`)
+- Validation:
+  - `pnpm --filter @blue/data test` — pass
+  - `pnpm --filter @blue/app test` — 501 pass, 2 pre-existing settings-window failures
+  - `pnpm --filter @blue/app build:main` — pass
+  - `pnpm --filter @blue/app build:preload` — pass
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `git diff --check` — pass
+- Task status: all 51 tasks (T001-T051) checked off in tasks.md
+- Additional work beyond 036 scope (proto-038 interaction parity):
+  - selection, marquee, drag-to-move, left/right edge resize, cut/copy/paste, context menus, layer management, add sound object, align/follow-the-leader/reverse — these were implemented alongside the 036 shell but formally belong to spec 038
+- Handoff notes:
+  - Spec `037-score-object-editor-parity` is the planned next slice (ScoreObjectPropertiesTopComponent, ScoreObjectEditorTopComponent, type-specific editors)
+  - Spec `038-score-editor-interactions` will formalize the direct manipulation parity already prototyped
+  - Time pointer / playback cursor is not explicitly spec'd anywhere; it loosely falls under 038 US3 but should be scoped explicitly
+  - Score mutations are local-only (snapshot-based); no IPC patches yet for score object mutations
+  - `ObjectBuilder` and other Java-only sound object types require `@blue/data` model-port work before editor parity
+  - `.specify/feature.json` still points to `specs/036-score-editor-foundation`; update before starting 037
 
 ## Spec 036-038 Planning Package
 

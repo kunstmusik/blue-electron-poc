@@ -11,6 +11,7 @@ import {
 import {
   createEmptyProjectEditorSnapshot,
   createEmptyMixerSnapshot,
+  createEmptyScoreDocumentSnapshot,
   createMixerEffectEntrySnapshot,
   reconcileMixerSnapshotWithArrangement,
   type BlueLiveProjectSnapshot,
@@ -43,6 +44,8 @@ import {
   type OrchestraPatch,
   type OrchestraSnapshot,
   type ProjectUdoPatch,
+  type ScoreDocumentSnapshot,
+  type ScorePatch,
   type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
   type UdoDefinitionSnapshot,
@@ -79,6 +82,7 @@ interface ProjectState {
   generatedCsd: { text: string; title: string } | null;
   blueLive: BlueLiveProjectSnapshot | null;
   midiInput: MidiInputProcessorSnapshot | null;
+  score: ScoreDocumentSnapshot;
 }
 
 interface ProjectActions {
@@ -105,6 +109,17 @@ interface ProjectActions {
   generateCsdToScreen: () => Promise<void>;
   generateCsdToDisk: () => Promise<void>;
   flushPendingPatches: () => Promise<void>;
+  moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number }>) => void;
+  removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean }>) => void;
+  setLayerMute: (layerId: string, muted: boolean) => void;
+  setLayerSolo: (layerId: string, solo: boolean) => void;
+  renameLayer: (layerId: string, name: string) => void;
+  setLayerHeight: (layerId: string, heightIndex: number) => void;
+  addLayer: (groupId: string, layerIndex: number) => void;
+  removeLayer: (groupId: string, layerId: string) => void;
+  setScoreObjectColor: (objectIds: ReadonlySet<string>, color: number) => void;
+  resizeScoreObjects: (resizes: Array<{ objectId: string; targetStartBeats: number; targetDurationBeats: number }>) => void;
 }
 
 let latestProjectPatchRequestId = 0;
@@ -333,6 +348,7 @@ function applyProjectInfoToState(
       projectUdos: info.projectUdos ?? state.projectUdos,
       blueLive: info.blueLive ?? state.blueLive,
       midiInput: info.midiInput ?? state.midiInput,
+      score: info.score ?? state.score,
     };
   });
 }
@@ -369,6 +385,7 @@ function buildInitialState(): ProjectState {
     generatedCsd: null,
     blueLive: snapshot.blueLive ?? null,
     midiInput: snapshot.midiInput ?? null,
+    score: snapshot.score ?? createEmptyScoreDocumentSnapshot(),
   };
 }
 
@@ -2414,6 +2431,181 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   flushPendingPatches: async () => {
     await doFlushAsync();
+  },
+
+  moveScoreObjects: (moves) => {
+    set((state) => {
+      const score = state.score;
+      const newGroups = score.layerGroups.map((lg) => {
+        const newLayers = lg.layers.map((layer) => {
+          const newItems = layer.items.map((item) => {
+            const move = moves.find((m) => m.objectId === item.objectId);
+            if (!move) return item;
+            return { ...item, startBeats: Math.max(0, move.targetStartBeats) };
+          });
+          return { ...layer, items: newItems };
+        });
+        return { ...lg, layers: newLayers };
+      });
+      return { score: { ...score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  removeScoreObjects: (objectIds) => {
+    set((state) => {
+      const score = state.score;
+      const newGroups = score.layerGroups.map((lg) => {
+        const newLayers = lg.layers.map((layer) => ({
+          ...layer,
+          items: layer.items.filter((item) => !objectIds.has(item.objectId)),
+        }));
+        return { ...lg, layers: newLayers };
+      });
+      return { score: { ...score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  addScoreObjects: (objects) => {
+    set((state) => {
+      const score = state.score;
+      const groupIndex = score.layerGroups.findIndex((lg) =>
+        lg.groupType === 'polyObject' && objects.length > 0 && lg.groupId === objects[0].groupId,
+      );
+      if (groupIndex < 0) return state;
+      const lg = score.layerGroups[groupIndex];
+      const newLayers = lg.layers.map((layer, idx) => {
+        const layerObjects = objects.filter((o) => o.layerIndex === idx);
+        if (layerObjects.length === 0) return layer;
+        return {
+          ...layer,
+          items: [...layer.items, ...layerObjects.map((o, j) => ({
+            objectId: `pasted-${Date.now()}-${idx}-${j}`,
+            objectType: o.objectType,
+            name: o.name,
+            startBeats: o.startBeats,
+            durationBeats: o.durationBeats,
+            backgroundColor: o.backgroundColor,
+            isContainer: o.isContainer,
+          }))],
+        };
+      });
+      const newGroups = [...score.layerGroups];
+      newGroups[groupIndex] = { ...lg, layers: newLayers };
+      return { score: { ...score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  setLayerMute: (layerId, muted) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((l) =>
+          l.layerId === layerId ? { ...l, muted } : l
+        ),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  setLayerSolo: (layerId, solo) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((l) =>
+          l.layerId === layerId ? { ...l, solo } : l
+        ),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  renameLayer: (layerId, name) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((l) =>
+          l.layerId === layerId ? { ...l, name } : l
+        ),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  setLayerHeight: (layerId, heightIndex) => {
+    const LAYER_UNIT = 22;
+    const height = (heightIndex + 1) * LAYER_UNIT;
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((l) =>
+          l.layerId === layerId ? { ...l, height } : l
+        ),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  addLayer: (groupId, layerIndex) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => {
+        if (lg.groupId !== groupId) return lg;
+        const newLayer = {
+          layerId: `layer-${Date.now()}`,
+          name: 'Sound Layer',
+          height: 44,
+          muted: false,
+          solo: false,
+          items: [],
+        };
+        const layers = [...lg.layers];
+        layers.splice(layerIndex + 1, 0, newLayer);
+        return { ...lg, layers, layerCount: layers.length };
+      });
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  removeLayer: (groupId, layerId) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => {
+        if (lg.groupId !== groupId) return lg;
+        const layers = lg.layers.filter((l) => l.layerId !== layerId);
+        return { ...lg, layers, layerCount: layers.length };
+      });
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  setScoreObjectColor: (objectIds, color) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((layer) => ({
+          ...layer,
+          items: layer.items.map((item) =>
+            objectIds.has(item.objectId) ? { ...item, backgroundColor: color } : item
+          ),
+        })),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
+  },
+
+  resizeScoreObjects: (resizes) => {
+    set((state) => {
+      const newGroups = state.score.layerGroups.map((lg) => ({
+        ...lg,
+        layers: lg.layers.map((layer) => ({
+          ...layer,
+          items: layer.items.map((item) => {
+            const r = resizes.find((m) => m.objectId === item.objectId);
+            if (!r) return item;
+            return { ...item, startBeats: r.targetStartBeats, durationBeats: r.targetDurationBeats };
+          }),
+        })),
+      }));
+      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    });
   },
 };
 });

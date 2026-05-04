@@ -8,7 +8,6 @@ import { CurveType } from '../../src/time/curve-type';
 import { MeterMap } from '../../src/time/meter-map';
 import { MeasureMeterPair } from '../../src/time/measure-meter-pair';
 import { Meter } from '../../src/time/meter';
-import { SmpteFrameRate } from '../../src/time/smpte-frame-rate';
 
 export function createRuntimeBsbFixtureXml(): string {
   return `<instrument type="blue.orchestra.BlueSynthBuilder">
@@ -126,7 +125,7 @@ export function createRuntimeTimeContext(): TimeContext {
   meterMap.add(new MeasureMeterPair(5, new Meter(4, 4)));
   context.setMeterMap(meterMap);
 
-  context.setSmpteFrameRate(SmpteFrameRate.FPS_29_97_DF);
+  context.setSmpteFrameRate(29.97);
 
   return context;
 }

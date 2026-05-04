@@ -28,12 +28,102 @@ import {
   LiveObjectBins,
   LiveObjectSetList,
   Send,
+  Score,
+  PolyObject,
+  AudioLayerGroup,
+  PatternsLayerGroup,
+  TimeBase,
+  isValidSnapValueName,
 } from '@blue/data';
+import type { SnapValueName } from '@blue/data';
 import {
   getHSliderBankDisplaySize,
   getVSliderBankDisplaySize,
   BSB_LINE_SELECTOR_HEIGHT,
 } from './bsb-widget-layout';
+
+// ─── Score Snapshot Types ───
+
+export interface ScoreTimeStateSnapshot {
+  snapEnabled: boolean;
+  snapValue: string;
+  primaryTimeDisplay: string;
+  secondaryTimeDisplay: string;
+  secondaryRulerEnabled: boolean;
+  tempoRowVisible: boolean;
+  meterRowVisible: boolean;
+  markersRowVisible: boolean;
+  smpteFrameRate: number;
+  zoomIterations: number;
+}
+
+export interface MarkerSnapshot {
+  name: string;
+  time: number;
+  sourceIndex: number;
+}
+
+export interface ScoreRowObjectSnapshot {
+  objectId: string;
+  objectType: string;
+  name: string;
+  startBeats: number;
+  durationBeats: number;
+  backgroundColor: number;
+  isContainer: boolean;
+}
+
+export interface ScoreLayerSnapshot {
+  layerId: string;
+  name: string;
+  height: number;
+  muted?: boolean;
+  solo?: boolean;
+  items: ScoreRowObjectSnapshot[];
+}
+
+export interface PolyObjectLayerGroupSnapshot {
+  groupId: string;
+  groupType: 'polyObject';
+  name: string;
+  layerCount: number;
+  isOpenableContainer: boolean;
+  layers: ScoreLayerSnapshot[];
+}
+
+export interface AudioLayerGroupSnapshot {
+  groupId: string;
+  groupType: 'audio';
+  name: string;
+  layerCount: number;
+  isOpenableContainer: boolean;
+  layers: ScoreLayerSnapshot[];
+}
+
+export interface PatternsLayerGroupSnapshot {
+  groupId: string;
+  groupType: 'patterns';
+  name: string;
+  layerCount: number;
+  isOpenableContainer: boolean;
+  layers: ScoreLayerSnapshot[];
+}
+
+export type ScoreLayerGroupSnapshot =
+  | PolyObjectLayerGroupSnapshot
+  | AudioLayerGroupSnapshot
+  | PatternsLayerGroupSnapshot;
+
+export interface ScoreDocumentSnapshot {
+  timeState: ScoreTimeStateSnapshot;
+  markers: MarkerSnapshot[];
+  layerGroups: ScoreLayerGroupSnapshot[];
+}
+
+export type ScorePatch =
+  | { type: 'updateTimeState'; patch: Partial<ScoreTimeStateSnapshot> };
+
+// ─── End Score Snapshot Types ───
 
 export type TempoCurveTypeSnapshot = 'constant' | 'linear';
 
@@ -403,6 +493,7 @@ export interface ProjectEditorSnapshot {
   loaded: boolean;
   blueLive?: BlueLiveProjectSnapshot;
   midiInput?: MidiInputProcessorSnapshot;
+  score?: ScoreDocumentSnapshot;
 }
 
 export interface ProjectSummarySnapshot {
@@ -424,6 +515,7 @@ export interface ProjectDocumentPatch {
   projectUdo?: ProjectUdoPatch;
   blueLive?: BlueLivePatch;
   midiInput?: MidiInputPatch;
+  score?: ScorePatch;
 }
 
 export interface ProjectDocumentCommitReceipt {
@@ -712,6 +804,7 @@ export type ProjectLoadedPayload = ProjectSummarySnapshot &
       | 'loaded'
       | 'blueLive'
       | 'midiInput'
+      | 'score'
     >
   >;
 
@@ -771,6 +864,7 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
     tablesText: '',
     projectUdos: [],
     loaded: false,
+    score: createEmptyScoreDocumentSnapshot(),
   };
 }
 
@@ -1352,6 +1446,267 @@ export function createProjectPropertiesSnapshot(
   };
 }
 
+// ─── Score Snapshot Helpers ───
+
+const LAYER_GROUP_ID_MAP = new WeakMap<object, string>();
+let nextLayerGroupId = 1;
+
+function assignLayerGroupId(obj: object): string {
+  const existing = LAYER_GROUP_ID_MAP.get(obj);
+  if (existing) return existing;
+  const id = `lg-${nextLayerGroupId++}`;
+  LAYER_GROUP_ID_MAP.set(obj, id);
+  return id;
+}
+
+function createScoreTimeStateSnapshot(data: BlueData): ScoreTimeStateSnapshot {
+  const ts = data.getScore().getTimeState();
+  return {
+    snapEnabled: ts.isSnapEnabled(),
+    snapValue: ts.getSnapValue(),
+    primaryTimeDisplay: ts.getTimeDisplay(),
+    secondaryTimeDisplay: ts.getSecondaryTimeDisplay(),
+    secondaryRulerEnabled: ts.isSecondaryRulerEnabled(),
+    tempoRowVisible: ts.isTempoRowVisible(),
+    meterRowVisible: ts.isMeterRowVisible(),
+    markersRowVisible: ts.isMarkersRowVisible(),
+    smpteFrameRate: ts.getSmpteFrameRate(),
+    zoomIterations: ts.getZoomIterations(),
+  };
+}
+
+function createMarkerSnapshots(data: BlueData): MarkerSnapshot[] {
+  const markers: MarkerSnapshot[] = [];
+  const markersList = data.getMarkersList();
+  if (!markersList) return markers;
+  const elements = markersList.getMarkers();
+  for (let i = 0; i < elements.length; i++) {
+    const elem = elements[i];
+    if (!elem) continue;
+    const name = elem.getAttribute('name') ?? elem.getName() ?? '';
+    const timeText = elem.getTextString() ?? elem.getAttribute('time') ?? '0';
+    const time = parseFloat(timeText) || 0;
+    markers.push({ name, time, sourceIndex: i });
+  }
+  return markers;
+}
+
+function createScoreLayerGroupSnapshots(data: BlueData): ScoreLayerGroupSnapshot[] {
+  const score = data.getScore();
+  const context = score.getTimeContext();
+  const result: ScoreLayerGroupSnapshot[] = [];
+
+  for (let i = 0; i < score.length; i++) {
+    const lg = score[i];
+    if (!lg) continue;
+
+    if (lg instanceof PolyObject) {
+      result.push(createPolyObjectGroupSnapshot(lg, context));
+    } else if (lg instanceof AudioLayerGroup) {
+      result.push(createAudioLayerGroupSnapshot(lg, context));
+    } else if (lg instanceof PatternsLayerGroup) {
+      result.push(createPatternsLayerGroupSnapshot(lg));
+    }
+  }
+
+  return result;
+}
+
+function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/data').TimeContext): PolyObjectLayerGroupSnapshot {
+  const groupId = assignLayerGroupId(lg);
+  const layers: ScoreLayerSnapshot[] = [];
+
+  for (let i = 0; i < lg.length; i++) {
+    const layer = lg[i];
+    const items: ScoreRowObjectSnapshot[] = [];
+    for (let j = 0; j < layer.length; j++) {
+      const sObj = layer[j];
+      items.push({
+        objectId: `sobj-${i}-${j}`,
+        objectType: sObj.constructor.name,
+        name: sObj.getName(),
+        startBeats: sObj.getStartTime().toBeats(context),
+        durationBeats: sObj.getSubjectiveDuration().toBeats(context),
+        backgroundColor: sObj.getBackgroundColor(),
+        isContainer: sObj instanceof PolyObject,
+      });
+    }
+    layers.push({
+      layerId: `${groupId}-layer-${i}`,
+      name: layer.getName(),
+      height: 44,
+      items,
+    });
+  }
+
+  return {
+    groupId,
+    groupType: 'polyObject',
+    name: lg.getName(),
+    layerCount: lg.length,
+    isOpenableContainer: true,
+    layers,
+  };
+}
+
+function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@blue/data').TimeContext): AudioLayerGroupSnapshot {
+  const groupId = assignLayerGroupId(lg);
+  const layers: ScoreLayerSnapshot[] = [];
+
+  for (let i = 0; i < lg.length; i++) {
+    const layer = lg[i];
+    const items: ScoreRowObjectSnapshot[] = [];
+    for (let j = 0; j < layer.length; j++) {
+      const clip = layer[j];
+      items.push({
+        objectId: `aclp-${i}-${j}`,
+        objectType: 'AudioClip',
+        name: clip.getName(),
+        startBeats: clip.getStartTime().toBeats(context),
+        durationBeats: clip.getSubjectiveDuration().toBeats(context),
+        backgroundColor: 0x669966,
+        isContainer: false,
+      });
+    }
+    layers.push({
+      layerId: `${groupId}-layer-${i}`,
+      name: layer.getName(),
+      height: 44,
+      muted: layer.isMuted(),
+      solo: layer.isSolo(),
+      items,
+    });
+  }
+
+  return {
+    groupId,
+    groupType: 'audio',
+    name: lg.getName(),
+    layerCount: lg.length,
+    isOpenableContainer: false,
+    layers,
+  };
+}
+
+function createPatternsLayerGroupSnapshot(lg: PatternsLayerGroup): PatternsLayerGroupSnapshot {
+  const groupId = assignLayerGroupId(lg);
+  const layers: ScoreLayerSnapshot[] = [];
+
+  for (let i = 0; i < lg.length; i++) {
+    const layer = lg[i];
+    layers.push({
+      layerId: `${groupId}-layer-${i}`,
+      name: layer.getName(),
+      height: 44,
+      muted: layer.isMuted(),
+      solo: layer.isSolo(),
+      items: [],
+    });
+  }
+
+  return {
+    groupId,
+    groupType: 'patterns',
+    name: lg.getName(),
+    layerCount: lg.length,
+    isOpenableContainer: false,
+    layers,
+  };
+}
+
+export function createScoreDocumentSnapshot(data: BlueData): ScoreDocumentSnapshot {
+  return {
+    timeState: createScoreTimeStateSnapshot(data),
+    markers: createMarkerSnapshots(data),
+    layerGroups: createScoreLayerGroupSnapshots(data),
+  };
+}
+
+export function createEmptyScoreDocumentSnapshot(): ScoreDocumentSnapshot {
+  return {
+    timeState: {
+      snapEnabled: false,
+      snapValue: 'BEAT',
+      primaryTimeDisplay: 'BEATS',
+      secondaryTimeDisplay: 'TIME',
+      secondaryRulerEnabled: false,
+      tempoRowVisible: true,
+      meterRowVisible: true,
+      markersRowVisible: true,
+      smpteFrameRate: 24,
+      zoomIterations: 0,
+    },
+    markers: [],
+    layerGroups: [],
+  };
+}
+
+export function applyScoreTimeStatePatch(
+  data: BlueData,
+  patch: Partial<ScoreTimeStateSnapshot>,
+): boolean {
+  const ts = data.getScore().getTimeState();
+  let changed = false;
+
+  if (patch.snapEnabled !== undefined && ts.isSnapEnabled() !== patch.snapEnabled) {
+    ts.setSnapEnabled(patch.snapEnabled);
+    changed = true;
+  }
+  if (patch.snapValue !== undefined && isValidSnapValueName(patch.snapValue) && ts.getSnapValue() !== patch.snapValue) {
+    ts.setSnapValue(patch.snapValue as SnapValueName);
+    changed = true;
+  }
+  if (patch.primaryTimeDisplay !== undefined) {
+    const td = patch.primaryTimeDisplay as TimeBase;
+    if (Object.values(TimeBase).includes(td) && ts.getTimeDisplay() !== td) {
+      ts.setTimeDisplay(td);
+      changed = true;
+    }
+  }
+  if (patch.secondaryTimeDisplay !== undefined) {
+    const std = patch.secondaryTimeDisplay as TimeBase;
+    if (Object.values(TimeBase).includes(std) && ts.getSecondaryTimeDisplay() !== std) {
+      ts.setSecondaryTimeDisplay(std);
+      changed = true;
+    }
+  }
+  if (patch.secondaryRulerEnabled !== undefined && ts.isSecondaryRulerEnabled() !== patch.secondaryRulerEnabled) {
+    ts.setSecondaryRulerEnabled(patch.secondaryRulerEnabled);
+    changed = true;
+  }
+  if (patch.tempoRowVisible !== undefined && ts.isTempoRowVisible() !== patch.tempoRowVisible) {
+    ts.setTempoRowVisible(patch.tempoRowVisible);
+    changed = true;
+  }
+  if (patch.meterRowVisible !== undefined && ts.isMeterRowVisible() !== patch.meterRowVisible) {
+    ts.setMeterRowVisible(patch.meterRowVisible);
+    changed = true;
+  }
+  if (patch.markersRowVisible !== undefined && ts.isMarkersRowVisible() !== patch.markersRowVisible) {
+    ts.setMarkersRowVisible(patch.markersRowVisible);
+    changed = true;
+  }
+  if (patch.smpteFrameRate !== undefined && patch.smpteFrameRate > 0 && ts.getSmpteFrameRate() !== patch.smpteFrameRate) {
+    ts.setSmpteFrameRate(patch.smpteFrameRate);
+    changed = true;
+  }
+  if (patch.zoomIterations !== undefined && ts.getZoomIterations() !== patch.zoomIterations) {
+    ts.setZoomIterations(patch.zoomIterations);
+    changed = true;
+  }
+
+  return changed;
+}
+
+function isNonEmptyScorePatch(patch: ScorePatch): boolean {
+  if (patch.type === 'updateTimeState') {
+    return Object.keys(patch.patch).length > 0;
+  }
+  return false;
+}
+
+// ─── End Score Snapshot Helpers ───
+
 export function createProjectEditorSnapshot(
   data: BlueData,
   filePath: string | null,
@@ -1373,6 +1728,7 @@ export function createProjectEditorSnapshot(
     loaded: true,
     blueLive: createBlueLiveProjectSnapshot(data.getLiveData()),
     midiInput: createMidiInputProcessorSnapshot(data.getMidiInputProcessor()),
+    score: createScoreDocumentSnapshot(data),
   };
 }
 
@@ -2765,6 +3121,12 @@ export function applyProjectDocumentPatch(
     changed = applyMidiInputPatch(data, patch.midiInput) || changed;
   }
 
+  if (patch.score) {
+    if (patch.score.type === 'updateTimeState') {
+      changed = applyScoreTimeStatePatch(data, patch.score.patch) || changed;
+    }
+  }
+
   return changed;
 }
 
@@ -3458,6 +3820,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     Object.keys(patch.blueLive).length > 0;
   const hasMidiInput = patch.midiInput !== undefined;
   const hasMixer = patch.mixer !== undefined;
+  const hasScore = patch.score !== undefined && isNonEmptyScorePatch(patch.score);
 
   return (
     patch.globalOrc === undefined &&
@@ -3469,6 +3832,7 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     !hasProjectUdo &&
     !hasBlueLive &&
     !hasMidiInput &&
-    !hasMixer
+    !hasMixer &&
+    !hasScore
   );
 }

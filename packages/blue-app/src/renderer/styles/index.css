@@ -198,9 +198,7 @@
     padding: 0;
     border: 1px solid rgba(84, 108, 155, 0.28);
     border-radius: 8px;
-    background:
-      linear-gradient(180deg, rgba(45, 63, 102, 0.98), rgba(24, 36, 63, 0.98)),
-      linear-gradient(180deg, #243455, #16223f);
+    background: rgba(30, 30, 58, 0.98);
     box-shadow:
       0 14px 28px rgba(3, 7, 18, 0.3),
       inset 0 0 0 1px rgba(188, 207, 255, 0.04);
@@ -221,6 +219,7 @@
     color: inherit;
     user-select: none;
     background: transparent;
+    cursor: pointer;
   }
 
   .editor-context-menu__item[data-highlighted] {

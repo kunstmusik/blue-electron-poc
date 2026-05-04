@@ -13,6 +13,7 @@ import UserDefinedOpcodePanel from './panels/UserDefinedOpcodePanel';
 import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
 import MixerPanel from './panels/MixerPanel';
 import OutputPanel from './panels/output/OutputPanel';
+import ScorePanel from './panels/ScorePanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
   function DockviewPanel(props, ref) {
@@ -51,6 +52,8 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <MixerPanel />
           ) : descriptor.id === 'OutputTopComponent' ? (
             <OutputPanel />
+          ) : descriptor.id === 'ScoreTopComponent' ? (
+            <ScorePanel />
           ) : (
             <PlaceholderPanel descriptor={descriptor} showHeader={false} />
           )}

@@ -11,10 +11,10 @@
 
 **Purpose**: Confirm the Java parity anchors and the exact TypeScript seams before code changes begin.
 
-- [ ] T001 Review the Java score shell and path-controller anchors documented in `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/research.md`
-- [ ] T002 [P] Inventory current TypeScript score and time seams in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/poly-object.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/audio/audio-layer-group.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/patterns/patterns-layer-group.ts`
-- [ ] T003 [P] Inventory current snapshot and optimistic patch seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
-- [ ] T004 [P] Inventory current workbench routing and placeholder score behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [x] T001 Review the Java score shell and path-controller anchors documented in `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/research.md`
+- [x] T002 [P] Inventory current TypeScript score and time seams in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/poly-object.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/audio/audio-layer-group.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/patterns/patterns-layer-group.ts`
+- [x] T003 [P] Inventory current snapshot and optimistic patch seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T004 [P] Inventory current workbench routing and placeholder score behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
 
 ---
 
@@ -26,19 +26,19 @@
 
 ### Tests
 
-- [ ] T005 [P] Add Java-compatible score `TimeState` round-trip coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.test.ts`
-- [ ] T006 [P] Add shared score snapshot and `ScorePatch` contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-contract.test.ts`
-- [ ] T007 [P] Add score panel routing regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [x] T005 [P] Add Java-compatible score `TimeState` round-trip coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.test.ts`
+- [x] T006 [P] Add shared score snapshot and `ScorePatch` contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-contract.test.ts`
+- [x] T007 [P] Add score panel routing regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
 
 ### Implementation
 
-- [ ] T008 Add Java-compatible snap value definitions and exports in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/snap-value.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
-- [ ] T009 Expand `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts` to support snap state, time display, secondary ruler, row visibility, zoom iterations, and Java-compatible XML round-trip
-- [ ] T010 Extend `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` with `ScoreTimeStateSnapshot`, marker snapshots, score layer-group snapshots, and `ScorePatch`
-- [ ] T011 Implement score snapshot creation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` from canonical `BlueData.getScore()` and `BlueData.getMarkersList()`
-- [ ] T012 Implement `ScorePatch.updateTimeState` application in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T013 Update empty snapshot creation and empty-patch detection for `score` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T014 Extend `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts` to store the new `score` snapshot and dispatch `score` patches
+- [x] T008 Add Java-compatible snap value definitions and exports in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/snap-value.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
+- [x] T009 Expand `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts` to support snap state, time display, secondary ruler, row visibility, zoom iterations, and Java-compatible XML round-trip
+- [x] T010 Extend `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` with `ScoreTimeStateSnapshot`, marker snapshots, score layer-group snapshots, and `ScorePatch`
+- [x] T011 Implement score snapshot creation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts` from canonical `BlueData.getScore()` and `BlueData.getMarkersList()`
+- [x] T012 Implement `ScorePatch.updateTimeState` application in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T013 Update empty snapshot creation and empty-patch detection for `score` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T014 Extend `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts` to store the new `score` snapshot and dispatch `score` patches
 
 **Checkpoint**: Canonical score-shell snapshot data and score `TimeState` updates are ready for the renderer shell.
 
@@ -52,21 +52,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T015 [P] [US1] Add score shell rendering tests for mixed root layer groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel.test.tsx`
-- [ ] T016 [P] [US1] Add score panel open or focus regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
+- [x] T015 [P] [US1] Add score shell rendering tests for mixed root layer groups in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel.test.tsx`
+- [x] T016 [P] [US1] Add score panel open or focus regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/workbench-store.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T017 [US1] Route `ScoreTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
-- [ ] T018 [US1] Implement the main score shell panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
-- [ ] T019 [US1] Add score shell snapshot types and selectors in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/types.ts`
-- [ ] T020 [US1] Implement the top score-path bar and shell controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScorePathBar.tsx`
-- [ ] T021 [US1] Implement the mixed layer-group timeline stack in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
-- [ ] T022 [P] [US1] Implement `PolyObject` timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/PolyObjectTimeline.tsx`
-- [ ] T023 [P] [US1] Implement audio-layer timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/AudioLayerGroupTimeline.tsx`
-- [ ] T024 [P] [US1] Implement pattern-layer timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/PatternsLayerGroupTimeline.tsx`
-- [ ] T025 [US1] Add explicit empty and unsupported score-shell states in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
-- [ ] T026 [US1] Add score shell styling consistent with the workbench in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
+- [x] T017 [US1] Route `ScoreTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
+- [x] T018 [US1] Implement the main score shell panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
+- [x] T019 [US1] Add score shell snapshot types and selectors in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/types.ts`
+- [x] T020 [US1] Implement the top score-path bar and shell controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScorePathBar.tsx`
+- [x] T021 [US1] Implement the mixed layer-group timeline stack in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
+- [x] T022 [P] [US1] Implement `PolyObject` timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/PolyObjectTimeline.tsx`
+- [x] T023 [P] [US1] Implement audio-layer timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/AudioLayerGroupTimeline.tsx`
+- [x] T024 [P] [US1] Implement pattern-layer timeline and header rendering in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/layer-groups/PatternsLayerGroupTimeline.tsx`
+- [x] T025 [US1] Add explicit empty and unsupported score-shell states in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
+- [x] T026 [US1] Add score shell styling consistent with the workbench in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/styles.css`
 
 **Checkpoint**: `ScoreTopComponent` is independently usable as a real shell for mixed root score content.
 
@@ -80,17 +80,17 @@
 
 ### Tests for User Story 2
 
-- [ ] T027 [P] [US2] Add ruler and row-visibility rendering tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-rulers.test.tsx`
-- [ ] T028 [P] [US2] Add score time-state patch and reload coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-contract.test.ts`
+- [x] T027 [P] [US2] Add ruler and row-visibility rendering tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-rulers.test.tsx`
+- [x] T028 [P] [US2] Add score time-state patch and reload coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-contract.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Implement the ruler and row stack surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx`
-- [ ] T030 [US2] Implement score time formatting helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/score-time-format.ts`
-- [ ] T031 [US2] Wire score time-state controls and patch dispatch in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
-- [ ] T032 [US2] Render tempo, meter, and marker rows from canonical transport plus score state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx`
-- [ ] T033 [US2] Implement primary or secondary ruler display and row-visibility behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
-- [ ] T034 [US2] Persist supported score time-state changes through canonical `BlueData` round-trip in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T029 [US2] Implement the ruler and row stack surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx`
+- [x] T030 [US2] Implement score time formatting helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/score-time-format.ts`
+- [x] T031 [US2] Wire score time-state controls and patch dispatch in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T032 [US2] Render tempo, meter, and marker rows from canonical transport plus score state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx`
+- [x] T033 [US2] Implement primary or secondary ruler display and row-visibility behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreRulerStack.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
+- [x] T034 [US2] Persist supported score time-state changes through canonical `BlueData` round-trip in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/time-state.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
 
 **Checkpoint**: Rulers, row visibility, snap state, and zoom state are independently testable and survive reload.
 
@@ -104,15 +104,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T035 [P] [US3] Add nested path navigation and scroll-restoration tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-path-navigation.test.tsx`
-- [ ] T036 [P] [US3] Add nested score-shell regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel.test.tsx`
+- [x] T035 [P] [US3] Add nested path navigation and scroll-restoration tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-path-navigation.test.tsx`
+- [x] T036 [P] [US3] Add nested score-shell regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Implement renderer-local score path session state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
-- [ ] T038 [US3] Wire `PolyObject` open or back navigation through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScorePathBar.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
-- [ ] T039 [US3] Preserve and restore per-path scroll positions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
-- [ ] T040 [US3] Add invalid or removed path fallback behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
+- [x] T037 [US3] Implement renderer-local score path session state in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
+- [x] T038 [US3] Wire `PolyObject` open or back navigation through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScorePathBar.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx`
+- [x] T039 [US3] Preserve and restore per-path scroll positions in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/ScoreTimelineShell.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
+- [x] T040 [US3] Add invalid or removed path fallback behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/useScorePathState.ts`
 
 **Checkpoint**: Nested score-path navigation behaves independently and does not require the later auxiliary score-editor specs.
 
@@ -122,17 +122,17 @@
 
 **Purpose**: Final validation, documentation, and handoff preparation after implementation.
 
-- [ ] T041 [P] Update `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/quickstart.md` with any implementation-specific validation notes discovered during development
-- [ ] T042 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 036 implementation progress, validation results, and any remaining deferrals
-- [ ] T043 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T044 Run `pnpm --filter @blue/data build` from `/Users/stevenyi/work/blue-electron`
-- [ ] T045 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T046 Run `pnpm --filter @blue/app build:main` from `/Users/stevenyi/work/blue-electron`
-- [ ] T047 Run `pnpm --filter @blue/app build:preload` from `/Users/stevenyi/work/blue-electron`
-- [ ] T048 Run `pnpm --filter @blue/app build:renderer` from `/Users/stevenyi/work/blue-electron`
-- [ ] T049 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
-- [ ] T050 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
-- [ ] T051 Perform the manual score shell, ruler, and nested path scenarios from `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/quickstart.md`
+- [x] T041 [P] Update `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/quickstart.md` with any implementation-specific validation notes discovered during development
+- [x] T042 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 036 implementation progress, validation results, and any remaining deferrals
+- [x] T043 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
+- [x] T044 Run `pnpm --filter @blue/data build` from `/Users/stevenyi/work/blue-electron`
+- [x] T045 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
+- [x] T046 Run `pnpm --filter @blue/app build:main` from `/Users/stevenyi/work/blue-electron`
+- [x] T047 Run `pnpm --filter @blue/app build:preload` from `/Users/stevenyi/work/blue-electron`
+- [x] T048 Run `pnpm --filter @blue/app build:renderer` from `/Users/stevenyi/work/blue-electron`
+- [x] T049 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
+- [x] T050 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T051 Perform the manual score shell, ruler, and nested path scenarios from `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/quickstart.md`
 
 ---
 
