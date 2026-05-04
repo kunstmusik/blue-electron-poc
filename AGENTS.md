@@ -1,6 +1,6 @@
 # blue-electron Development Guidelines
 
-Auto-generated from all feature plans. Last updated: 2026-04-29
+Auto-generated from all feature plans. Last updated: 2026-05-03
 
 ## Active Technologies
 - React 19.x, Electron, dockview 5.2.0 + collapsed auxiliary-group planning for the workbench shell (013-collapsed-sidebar-research)
@@ -36,6 +36,8 @@ Auto-generated from all feature plans. Last updated: 2026-04-29
 - In-memory project model and generated CSD text from `@blue/data` (031-blue-data-csd-render-parity)
 - TypeScript 5.8.x, strict mode + existing `@blue/data` instrument, mixer, automation, and time classes; Vitest; pure XML/model helpers (032-blue-data-runtime-model-parity)
 - In-memory project model, generated orchestra fragments, and `.blue` XML round-trip through `@blue/data` (032-blue-data-runtime-model-parity)
+- TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + existing `@blue/data` score and time classes (`Score`, `PolyObject`, `AudioLayerGroup`, `PatternsLayerGroup`, `TimeContext`, `TimeState`, `MeterMap`, `TempoMap`, `MarkersList`), shared `ProjectEditorSnapshot`/`ProjectDocumentPatch`, Zustand 5.x renderer stores, Dockview 5.2.0 workbench shell, existing workbench panel routing, Vitest 4.x (036-score-editor-foundation)
+- main-process in-memory `BlueData` remains canonical; renderer consumes serializable score shell snapshots and dispatches explicit `score` patches for canonical time-state updates; nested score-path session state remains renderer-local and is not persisted into the project documen (036-score-editor-foundation)
 
 - TypeScript 5.8.x, React 19.x, Electron 35.x, strict renderer/main/preload packages, pure TypeScript `@blue/data` + `PresetGroup`/`Preset` BSB preset model, Zustand 5.x project store with BSB interface/opcode-list patch support, Dockview 5.2.0, CodeMirror 6, `BsbInterfacePatch` union type for structured BSB mutations (022-bsb-interface-parity)
 - BSB Interface tab now renders an editable widget canvas with selection, property-sheet editing, grid settings, preset application, and Java-style split-view UDO editor (UDOTable + UDOEditor); snapshot contract extended with `widgetTree`, `gridSettings`, `editEnabled`, `presetGroup`, `opcodeListText`; widget-specific rendering (Slider, Knob, Toggle, etc.) deferred to SPEC 023 (022-bsb-interface-parity)
@@ -72,6 +74,6 @@ TypeScript 5.x, strict mode: Follow standard conventions
 <!-- MANUAL ADDITIONS END -->
 
 ## Recent Changes
+- 036-score-editor-foundation: Added TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages + existing `@blue/data` score and time classes (`Score`, `PolyObject`, `AudioLayerGroup`, `PatternsLayerGroup`, `TimeContext`, `TimeState`, `MeterMap`, `TempoMap`, `MarkersList`), shared `ProjectEditorSnapshot`/`ProjectDocumentPatch`, Zustand 5.x renderer stores, Dockview 5.2.0 workbench shell, existing workbench panel routing, Vitest 4.x
 - 032-blue-data-runtime-model-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` instrument, mixer, automation, and time classes; Vitest; pure XML/model helpers
 - 031-blue-data-csd-render-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` render classes, arrangement models, mixer models, Vitest, pure XML/model helpers
-- 030-blue-data-note-processing-parity: Added TypeScript 5.8.x, strict mode + existing `@blue/data` note, score utility, and note processor classes; Vitest; pure XML parsing helpers
