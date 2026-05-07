@@ -157,8 +157,13 @@
   - plugin-style ScoreObject editor registry
   - editors for TypeScript-supported score-object types plus `AudioClip`
   - library and `Instance` editing behavior
-- `038-score-editor-interactions`
-  - direct manipulation parity
-  - clipboard, nudge, align, and drag-drop actions
-  - manager dialogs, navigator, playback-follow polish
-  - remaining score parity gaps surfaced after the first two specs land
+- `038-score-object-editor-tier1-parity`
+  - `External`, `PolyObject`, and `TrackerObject` follow-up editors
+  - moderate-gap auxiliary editor parity built on the Spec 037 shell
+- `039-score-object-editor-tier2-parity`
+  - `Sound`, `PianoRoll`, and `JMask` follow-up editors
+  - heavyweight remaining score-object editor parity work
+- `040-score-editor-management-navigation`
+  - shell-level `Manage` workflow and manager dialogs
+  - marker and navigator workflows plus playback-follow polish
+  - remaining shell-level parity gaps after the editor specs land

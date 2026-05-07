@@ -130,18 +130,20 @@
 
 - Treat note processor chains as opaque XML blobs in the renderer: rejected because the data layer already exposes typed processor identity and unsupported-processor preservation, which is a better fit for a user-facing properties workflow.
 
-## Decision: Keep direct manipulation, score manager, navigator, and other deep interaction workflows in Spec 038
+## Decision: Keep later score-object follow-up and shell management/navigation workflows out of Spec 037
 
-**Rationale**: Spec 036 already landed part of the direct-manipulation groundwork, and Spec 038 is explicitly reserved for score interaction parity. Spec 037 should stay focused on the auxiliary editing surfaces and not absorb timeline manipulation or manager dialogs.
+**Rationale**: Spec 037 should stay focused on the first auxiliary editor shell. The remaining score-object editor work now lives in Specs 038 and 039, while the shell management/navigation follow-up now lives in Spec 040.
 
 **Sources Reviewed**:
 
-- `/Users/stevenyi/work/blue-electron/specs/038-score-editor-interactions/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md`
 - `/Users/stevenyi/work/blue-electron/STATUS.md`
 
 **Alternatives considered**:
 
-- Fold remaining timeline manipulation and manager workflows into this slice: rejected because it would blur the boundary between auxiliary editing parity and the already-planned interaction follow-up.
+- Fold the remaining editor and shell follow-up work into this slice: rejected because it would blur the boundary between the auxiliary editor foundation and the later grouped follow-up specs.
 
 ## Planned Editor Families
 

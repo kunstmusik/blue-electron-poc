@@ -1,12 +1,24 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-04
-**Branch**: `037-score-object-editor-parity`
+**Date**: 2026-05-07
+**Branch**: `038-score-object-editor-tier1-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
+
+## Spec 038 Package
+
+Spec `038-score-object-editor-tier1-parity` is the current active handoff branch.
+
+- Goal: begin the grouped Tier 1 score-object editor follow-up for `External`, `PolyObject`, and `TrackerObject`
+- Active feature context:
+  - `.specify/feature.json` points to `specs/038-score-object-editor-tier1-parity`
+- Handoff notes:
+  - the full Spec 038 task breakdown already exists under `specs/038-score-object-editor-tier1-parity/`
+  - Specs `039-score-object-editor-tier2-parity` and `040-score-editor-management-navigation` remain planned follow-ups behind 038
+  - next recommended step is implementation work for Spec 038, starting with the editor-document and renderer tasks for `External`, `PolyObject`, and `TrackerObject`
 
 ## Spec 037 Package
 
-Spec `037-score-object-editor-parity` is implemented and validated on branch `037-score-object-editor-parity`.
+Spec `037-score-object-editor-parity` is complete, closed, and validated on branch `037-score-object-editor-parity`.
 
 - Goal: deliver the Java Blue-style auxiliary score editing surfaces by replacing the `SoundObjectPropertiesTopComponent` and `ScoreObjectEditorTopComponent` placeholders with real shared-properties and type-specific editor workflows for the TypeScript-supported score-object types plus `AudioClip`
 - Active feature context:
@@ -39,7 +51,10 @@ Spec `037-score-object-editor-parity` is implemented and validated on branch `03
 - Handoff notes:
   - core implementation is complete and builds/tests/manual validation pass
   - structured editor families (PolyObject, PatternObject, PianoRoll, etc.) currently show a structured deferral message; per-type editor content belongs to future specs
-  - Spec `038-score-editor-interactions` is the planned next slice for direct manipulation parity
+  - post-037 planning review: Spec `037-score-object-editor-parity` can be treated as closed
+  - the old interaction draft has been re-sequenced behind the remaining score-object editor work
+  - the next planned slices are now `038-score-object-editor-tier1-parity` for `External`, `PolyObject`, and `TrackerObject`, followed by `039-score-object-editor-tier2-parity` for `Sound`, `PianoRoll`, and `JMask`
+  - the broader shell follow-up has been rewritten as `040-score-editor-management-navigation`, focused on the still-missing `Manage` workflow, score/layer-group manager dialogs, marker or navigator flows, playback-follow/time-pointer polish, and any remaining placeholder score-adjacent panels
 
 ## Spec 036 Package
 
@@ -81,22 +96,22 @@ Spec `036-score-editor-foundation` is complete and validated on branch `036-scor
   - `pnpm --filter @blue/app build:renderer` — pass
   - `git diff --check` — pass
 - Task status: all 51 tasks (T001-T051) checked off in tasks.md
-- Additional work beyond 036 scope (proto-038 interaction parity):
-  - selection, marquee, drag-to-move, left/right edge resize, cut/copy/paste, context menus, layer management, add sound object, align/follow-the-leader/reverse — these were implemented alongside the 036 shell but formally belong to spec 038
+- Additional work beyond 036 scope (early interaction parity that predated the spec rework):
+  - selection, marquee, drag-to-move, left/right edge resize, cut/copy/paste, context menus, layer management, add sound object, align/follow-the-leader/reverse — these were implemented alongside the 036 shell and removed most of the original direct-manipulation scope that the old interaction draft assumed was still pending
 - Handoff notes:
   - Spec `037-score-object-editor-parity` is the planned next slice (ScoreObjectPropertiesTopComponent, ScoreObjectEditorTopComponent, type-specific editors)
-  - Spec `038-score-editor-interactions` will formalize the direct manipulation parity already prototyped
-  - Time pointer / playback cursor is not explicitly spec'd anywhere; it loosely falls under 038 US3 but should be scoped explicitly
+  - later shell-level follow-up now lives in Spec `040-score-editor-management-navigation`
+  - Time pointer / playback cursor is not explicitly spec'd anywhere; it now belongs in the later `040-score-editor-management-navigation` shell follow-up
   - Score mutations are local-only (snapshot-based); no IPC patches yet for score object mutations
   - `ObjectBuilder` and other Java-only sound object types require `@blue/data` model-port work before editor parity
   - `.specify/feature.json` still points to `specs/036-score-editor-foundation`; update before starting 037
 
-## Spec 036-038 Planning Package
+## Spec 036-040 Planning Package
 
-Score editor implementation has been split into three planned specs after reviewing the Java Blue score data and UI alongside the current TypeScript renderer and project-bridge gaps. Spec `036-score-editor-foundation` now has a complete plan, data model, contract, quickstart, and task breakdown ready for implementation handoff.
+Score editor implementation is now split into five planned specs after reprioritizing the remaining score-object editor gaps ahead of the broader shell management/navigation follow-up. Spec `036-score-editor-foundation` and Spec `037-score-object-editor-parity` are complete, and Specs `038`-`040` now capture the remaining planned work.
 
 - Active feature context:
-  - `.specify/feature.json` points to `specs/036-score-editor-foundation`
+  - `.specify/feature.json` points to `specs/038-score-object-editor-tier1-parity`
 - Planning artifacts:
   - `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/spec.md`
   - `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/plan.md`
@@ -106,34 +121,56 @@ Score editor implementation has been split into three planned specs after review
   - `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/quickstart.md`
   - `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/tasks.md`
   - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/spec.md`
-  - `/Users/stevenyi/work/blue-electron/specs/038-score-editor-interactions/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/contracts/score-object-editor-tier1-surfaces.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/tasks.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/contracts/score-object-editor-tier2-surfaces.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/tasks.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/plan.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/research.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/data-model.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/contracts/score-editor-management-navigation-surfaces.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/quickstart.md`
+  - `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/tasks.md`
 - Planned split:
   - `036-score-editor-foundation`: score graph bridge, `TimeState` parity needed by the score shell, Java-style `ScoreTopComponent` layout, mixed layer-group rendering, rulers, row visibility, snap or zoom state, and nested score-path navigation
   - `037-score-object-editor-parity`: `ScoreObjectPropertiesTopComponent` (with Java `SoundObjectPropertiesTopComponent` retained only as a reference anchor), plugin-style `ScoreObjectEditorTopComponent`, editors for the score-object types already supported by the TypeScript port plus `AudioClip`, and `Instance` or library-editing behavior
-  - `038-score-editor-interactions`: direct manipulation parity, clipboard or nudge actions, management dialogs, navigator and marker workflows, and remaining score-editor follow-up gaps
+  - `038-score-object-editor-tier1-parity`: grouped Tier 1 follow-up for `External`, `PolyObject`, and `TrackerObject`, closing the moderate remaining score-object editor gaps with existing model data
+  - `039-score-object-editor-tier2-parity`: grouped Tier 2 follow-up for `Sound`, `PianoRoll`, and `JMask`, covering the heavyweight remaining score-object editors
+  - `040-score-editor-management-navigation`: shell-level `Manage` workflow, score/layer-group manager dialogs, marker/navigator flows, playback-follow or time-pointer polish, and any score-adjacent placeholder cleanup left after the editor slices
 - Java anchors reviewed during planning:
   - score shell: `ScoreTopComponent`, `ScoreController`, `ScorePath`, `ScoreObjectBar`, `TimeBar`, `MarkersBar`, `MeterRegionBar`, `TempoEditorControl`, `TempoEditorPanel`
   - layer-group UI: `LayerGroupUIProvider`, `PolyObjectUIProvider`, `AudioLayerGroupUIProvider`, `PatternsLayerGroupUIProvider`
   - auxiliary editor surfaces: `SoundObjectPropertiesTopComponent`, `ScoreObjectEditorTopComponent`, registered `ScoreObjectEditor` plugins, and `AudioClipEditor`
-  - interaction follow-up: score mouse and drop listeners, score or layer-group manager dialogs, navigator dialog, and score object action classes
-- Current TypeScript gap notes captured by the planning review:
-  - `packages/blue-app/src/shared/project-editor.ts` still has no score graph snapshot or score patch contract
-  - `packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx` still routes `ScoreTopComponent` to a placeholder surface
-  - `packages/blue-data/src/time/time-state.ts` currently preserves only SMPTE frame rate, while Java `TimeState` also drives snap, zoom, ruler display, and row visibility
-  - the TypeScript port already has many score-object models, but Java editor inventory still includes types such as `ObjectBuilder` that are not yet first-class in `@blue/data`
+  - interaction and shell follow-up: score mouse and drop listeners, score or layer-group manager dialogs, navigator dialog, marker workflows, and score object action classes
+- Current gap notes after the spec rework:
+  - Tier 1 editor parity is still missing for `External`, `PolyObject`, and `TrackerObject`
+  - Tier 2 editor parity is still missing for `Sound`, `PianoRoll`, and `JMask`
+  - shell-level score management/navigation remains incomplete: the `Manage` workflow is still a stub, marker/navigator tooling is limited, and playback-follow/time-pointer behavior still needs explicit scope
+  - Java-only score-object types such as `ObjectBuilder` still require targeted `@blue/data` model-port work beyond the app-layer score specs
 - Handoff notes:
   - start with Spec `036-score-editor-foundation`; the score editor cannot be treated as pure UI because the canonical renderer or main score document bridge does not exist yet
   - Spec `036-score-editor-foundation/tasks.md` contains 51 ordered tasks across setup, foundational bridge work, three user-story phases, and validation or polish
   - Spec `037-score-object-editor-parity` assumes the selection and score snapshot contract from Spec 036
   - Spec `037-score-object-editor-parity` should use `ScoreObject` naming for new Electron-facing labels, IDs, and documentation wherever the Java legacy name is not required as an anchor
-  - Spec `038-score-editor-interactions` assumes the shell and auxiliary surfaces from Specs 036 and 037 are already stable
+  - Specs `038-score-object-editor-tier1-parity` and `039-score-object-editor-tier2-parity` intentionally schedule the remaining score-object editor gaps before the shell-level follow-up
+  - Spec `040-score-editor-management-navigation` assumes the shell and auxiliary surfaces from Specs 036 and 037 are stable and that the remaining score-object editor work has already been planned first
   - if Java-only score-object types such as `ObjectBuilder` need to become fully editable, that may still require targeted `@blue/data` model-port work beyond the app-layer score specs
 - Completion status:
-  - planning only; no implementation work has started for Specs 036-038
-  - Spec `036-score-editor-foundation` planning artifacts validate with `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks`
-  - agent context was refreshed with `./.specify/scripts/bash/update-agent-context.sh codex`
-  - the branch is ready for score-editor planning handoff
-  - next recommended step is implementation work for Spec `036-score-editor-foundation` starting with the Phase 2 score bridge and `TimeState` tasks
+  - planning only for Specs 038-040; no implementation work has started for those follow-up slices
+  - the reprioritized score follow-up sequence is now documented and internally cross-referenced
+  - the branch is ready for score-editor follow-up planning handoff
+  - next recommended step is implementation work for Spec `038-score-object-editor-tier1-parity`, starting with the `External`, `PolyObject`, and `TrackerObject` editor-document and renderer tasks
 
 ## Spec 035 Package
 

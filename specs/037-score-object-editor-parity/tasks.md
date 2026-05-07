@@ -179,7 +179,7 @@
 
 ### Handoff Notes
 
-- Keep direct timeline manipulation, score managers, and navigator workflows out of this slice; they belong to Spec 038.
+- Keep later score-object follow-up work plus shell-level score management/navigation out of this slice; they belong to Specs 038, 039, and 040.
 - Use the Java auxiliary score editor classes listed in `research.md` as the parity source whenever panel behavior is unclear.
 - Keep score-object writes flowing through canonical score patches so the score shell and auxiliary panels stay synchronized.
 - Prefer family-based React editor components when the TypeScript models share clear field shapes; reserve per-type bespoke editors for the truly specialized objects.

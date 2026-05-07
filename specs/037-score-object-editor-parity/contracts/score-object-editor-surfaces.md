@@ -2,7 +2,7 @@
 
 ## Scope
 
-This contract describes the shared TypeScript surface for Spec 037 between `@blue/data`, the shared project snapshot and patch layer, Electron main or preload IPC, and the renderer auxiliary score panels. It covers shared ScoreObject properties, type-specific editor routing, and deliberate fallback behavior. Direct timeline manipulation and manager workflows remain outside this contract and belong to Spec 038.
+This contract describes the shared TypeScript surface for Spec 037 between `@blue/data`, the shared project snapshot and patch layer, Electron main or preload IPC, and the renderer auxiliary score panels. It covers shared ScoreObject properties, type-specific editor routing, and deliberate fallback behavior. Later grouped score-object follow-up work and shell-level management/navigation workflows remain outside this contract.
 
 ## Score Shell Snapshot Extension
 
