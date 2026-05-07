@@ -1,9 +1,10 @@
 import { useRef, useCallback, useState, useEffect } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import type { PolyObjectLayerGroupSnapshot, ScoreLayerSnapshot, ScoreRowObjectSnapshot } from '../types';
-import { DEFAULT_ROW_HEIGHT } from '../types';
+import type { PolyObjectLayerGroupSnapshot, ScoreLayerGroupSnapshot, ScoreLayerSnapshot, ScoreRowObjectSnapshot } from '../types';
+import { DEFAULT_ROW_HEIGHT, GROUP_SPACER } from '../types';
 import { useScoreSelectionStore, type ScoreObjectClipboardEntry } from '../../../../../stores/score-selection-store';
 import { useProjectStore } from '../../../../../stores/project-store';
+import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 
@@ -75,6 +76,83 @@ function findLayerAtY(
   return null;
 }
 
+function buildGlobalLayerData(layerGroups: ScoreLayerGroupSnapshot[]): {
+  layerMap: Array<{ groupId: string; localIndex: number; acceptsScoreObject: boolean }>;
+  groupStartIndexById: Map<string, number>;
+  groupYOffsetById: Map<string, number>;
+} {
+  const layerMap: Array<{ groupId: string; localIndex: number; acceptsScoreObject: boolean }> = [];
+  const groupStartIndexById = new Map<string, number>();
+  const groupYOffsetById = new Map<string, number>();
+
+  let yOff = 0;
+  for (const group of layerGroups) {
+    groupStartIndexById.set(group.groupId, layerMap.length);
+    groupYOffsetById.set(group.groupId, yOff);
+
+    const acceptsScoreObject = group.groupType === 'polyObject';
+    for (let li = 0; li < group.layers.length; li++) {
+      const h = group.layers[li].height || DEFAULT_ROW_HEIGHT;
+      layerMap.push({ groupId: group.groupId, localIndex: li, acceptsScoreObject });
+      yOff += h;
+    }
+
+    yOff += GROUP_SPACER;
+  }
+
+  return { layerMap, groupStartIndexById, groupYOffsetById };
+}
+
+function getGlobalLayerIndexForY(layerGroups: ScoreLayerGroupSnapshot[], y: number): number {
+  let runningY = 0;
+  let runningIndex = 0;
+  const totalLayers = layerGroups.reduce((sum, group) => sum + group.layers.length, 0);
+
+  for (const group of layerGroups) {
+    for (const layer of group.layers) {
+      const h = layer.height || DEFAULT_ROW_HEIGHT;
+      if (y <= runningY + h) {
+        return runningIndex;
+      }
+      runningY += h;
+      runningIndex += 1;
+    }
+
+    if (runningIndex < totalLayers && y <= runningY + GROUP_SPACER) {
+      return runningIndex;
+    }
+
+    runningY += GROUP_SPACER;
+  }
+
+  return Math.max(totalLayers - 1, 0);
+}
+
+function getLayerAdjustBounds(
+  layerMap: Array<{ acceptsScoreObject: boolean }>,
+  startLayerIndex: number,
+): { min: number; max: number } {
+  let min = -startLayerIndex;
+  for (let i = startLayerIndex - 1; i >= 0; i--) {
+    if (layerMap[i].acceptsScoreObject) {
+      continue;
+    }
+    min = i + 1 - startLayerIndex;
+    break;
+  }
+
+  let max = layerMap.length - 1 - startLayerIndex;
+  for (let i = startLayerIndex + 1; i < layerMap.length; i++) {
+    if (layerMap[i].acceptsScoreObject) {
+      continue;
+    }
+    max = i - 1 - startLayerIndex;
+    break;
+  }
+
+  return { min, max };
+}
+
 function collectAllItemIds(group: PolyObjectLayerGroupSnapshot): string[] {
   const ids: string[] = [];
   for (const layer of group.layers) {
@@ -111,7 +189,7 @@ export default function ScoreTimeCanvas({
   const addScoreObjects = useProjectStore((s) => s.addScoreObjects);
   const setScoreObjectColor = useProjectStore((s) => s.setScoreObjectColor);
   const resizeScoreObjects = useProjectStore((s) => s.resizeScoreObjects);
-
+  const currentScore = useProjectStore((s) => s.score);
   const containerRef = useRef<HTMLDivElement>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ xBeats: number; layerIndex: number } | null>(null);
   const [contextMenuOnObject, setContextMenuOnObject] = useState(false);
@@ -123,8 +201,13 @@ export default function ScoreTimeCanvas({
     startClientX: number;
     startClientY: number;
     startBeats: number;
+    startGlobalLayer: number;
+    startGroupYOffset: number;
+    minLayerAdjust: number;
+    maxLayerAdjust: number;
     additive: boolean;
-    originalPositions: Array<{ objectId: string; startBeats: number; durationBeats: number }>;
+    globalLayerMap: Array<{ groupId: string; localIndex: number }>;
+    originalPositions: Array<{ objectId: string; startBeats: number; durationBeats: number; globalLayerIndex: number }>;
   } | null>(null);
   const [cursorOverride, setCursorOverride] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
@@ -177,13 +260,17 @@ export default function ScoreTimeCanvas({
       if (e.shiftKey) {
         gestureRef.current = {
           mode: 'marquee', startClientX: e.clientX, startClientY: e.clientY,
-          startBeats: 0, additive: true, originalPositions: [],
+          startBeats: 0, startGlobalLayer: 0, startGroupYOffset: 0,
+          minLayerAdjust: 0, maxLayerAdjust: 0,
+          additive: true, globalLayerMap: [], originalPositions: [],
         };
       } else {
         clearSelection();
         gestureRef.current = {
           mode: 'marquee', startClientX: e.clientX, startClientY: e.clientY,
-          startBeats: 0, additive: false, originalPositions: [],
+          startBeats: 0, startGlobalLayer: 0, startGroupYOffset: 0,
+          minLayerAdjust: 0, maxLayerAdjust: 0,
+          additive: false, globalLayerMap: [], originalPositions: [],
         };
       }
       setMarquee(null);
@@ -205,12 +292,53 @@ export default function ScoreTimeCanvas({
     const onLeftEdge = localX > 0 && localX < RESIZE_EDGE_PX;
     const onRightEdge = localX > itemWidth - RESIZE_EDGE_PX && localX < itemWidth;
 
-    const origPositions: Array<{ objectId: string; startBeats: number; durationBeats: number }> = [];
-    for (const layer of group.layers) {
-      for (const obj of layer.items) {
-        if (selectedObjectIds.has(obj.objectId) || obj.objectId === item.objectId) {
-          origPositions.push({ objectId: obj.objectId, startBeats: obj.startBeats, durationBeats: obj.durationBeats });
+    const { layerMap, groupStartIndexById, groupYOffsetById } = buildGlobalLayerData(currentScore.layerGroups);
+    const globalLayerMap = layerMap.map(({ groupId, localIndex }) => ({ groupId, localIndex }));
+    const currentGroupGlobalStart = groupStartIndexById.get(group.groupId) ?? 0;
+    const currentGroupYOffset = groupYOffsetById.get(group.groupId) ?? 0;
+    const totalGlobalLayers = globalLayerMap.length;
+
+    const origPositions: Array<{ objectId: string; startBeats: number; durationBeats: number; globalLayerIndex: number }> = [];
+    const selectedIds = new Set(selectedObjectIds);
+    selectedIds.add(item.objectId);
+
+    if (onLeftEdge || onRightEdge) {
+      for (let li = 0; li < group.layers.length; li++) {
+        for (const obj of group.layers[li].items) {
+          if (selectedIds.has(obj.objectId)) {
+            origPositions.push({ objectId: obj.objectId, startBeats: obj.startBeats, durationBeats: obj.durationBeats, globalLayerIndex: currentGroupGlobalStart + li });
+          }
         }
+      }
+    } else {
+      for (const lg of currentScore.layerGroups) {
+        const groupStart = groupStartIndexById.get(lg.groupId) ?? 0;
+        for (let li = 0; li < lg.layers.length; li++) {
+          for (const obj of lg.layers[li].items) {
+            if (selectedIds.has(obj.objectId)) {
+              origPositions.push({ objectId: obj.objectId, startBeats: obj.startBeats, durationBeats: obj.durationBeats, globalLayerIndex: groupStart + li });
+            }
+          }
+        }
+      }
+    }
+
+    const startGlobalLayer = currentGroupGlobalStart + hit.index;
+    let minLayerAdj = 0;
+    let maxLayerAdj = 0;
+    if (!onLeftEdge && !onRightEdge && origPositions.length > 0) {
+      minLayerAdj = Number.NEGATIVE_INFINITY;
+      maxLayerAdj = Number.POSITIVE_INFINITY;
+      for (const pos of origPositions) {
+        const bounds = getLayerAdjustBounds(layerMap, pos.globalLayerIndex);
+        minLayerAdj = Math.max(minLayerAdj, bounds.min);
+        maxLayerAdj = Math.min(maxLayerAdj, bounds.max);
+      }
+      if (!Number.isFinite(minLayerAdj)) {
+        minLayerAdj = 0;
+      }
+      if (!Number.isFinite(maxLayerAdj)) {
+        maxLayerAdj = totalGlobalLayers - 1;
       }
     }
 
@@ -220,7 +348,12 @@ export default function ScoreTimeCanvas({
         startClientX: e.clientX,
         startClientY: e.clientY,
         startBeats: xBeats,
+        startGlobalLayer,
+        startGroupYOffset: currentGroupYOffset,
+        minLayerAdjust: 0,
+        maxLayerAdjust: 0,
         additive: false,
+        globalLayerMap,
         originalPositions: origPositions,
       };
     } else {
@@ -229,11 +362,16 @@ export default function ScoreTimeCanvas({
         startClientX: e.clientX,
         startClientY: e.clientY,
         startBeats: xBeats,
+        startGlobalLayer,
+        startGroupYOffset: currentGroupYOffset,
+        minLayerAdjust: minLayerAdj,
+        maxLayerAdjust: maxLayerAdj,
         additive: false,
+        globalLayerMap,
         originalPositions: origPositions,
       };
     }
-  }, [toLocalXY, pixelsPerBeat, group.layers, select, clearSelection, selectedObjectIds, clipboard, snapBeatValueStart, addScoreObjects]);
+  }, [toLocalXY, pixelsPerBeat, group.layers, select, clearSelection, selectedObjectIds, clipboard, snapBeatValueStart, addScoreObjects, currentScore]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!gestureRef.current) {
@@ -275,16 +413,33 @@ export default function ScoreTimeCanvas({
       const end = toLocalXY(e.clientX, e.clientY);
       setMarquee({ startX: start.x, startY: start.y, endX: end.x, endY: end.y });
     } else if (g.mode === 'move') {
-      const { x } = toLocalXY(e.clientX, e.clientY);
+      const { x, y } = toLocalXY(e.clientX, e.clientY);
       const currentBeats = x / pixelsPerBeat;
       const rawDelta = currentBeats - g.startBeats;
-      const snappedDelta = snapBeatValueMove(rawDelta);
       const minOriginal = Math.min(...g.originalPositions.map((p) => p.startBeats));
-      const clampedDelta = Math.max(-minOriginal, snappedDelta);
-      const moves = g.originalPositions.map((pos) => ({
-        objectId: pos.objectId,
-        targetStartBeats: pos.startBeats + clampedDelta,
-      }));
+      let delta = Math.max(-minOriginal, rawDelta);
+      if (snapEnabled && snapBeats > 0) {
+        const absPos = minOriginal + delta;
+        const snappedAbsPos = Math.round(absPos / snapBeats) * snapBeats;
+        delta = snappedAbsPos - minOriginal;
+      }
+
+      const globalY = y + g.startGroupYOffset;
+      const currentGlobalLayer = getGlobalLayerIndexForY(currentScore.layerGroups, globalY);
+
+      const rawLayerAdj = currentGlobalLayer - g.startGlobalLayer;
+      const layerAdjust = Math.max(g.minLayerAdjust, Math.min(g.maxLayerAdjust, rawLayerAdj));
+
+      const moves = g.originalPositions.map((pos) => {
+        const targetGlobalLayer = pos.globalLayerIndex + layerAdjust;
+        const target = g.globalLayerMap[targetGlobalLayer];
+        return {
+          objectId: pos.objectId,
+          targetStartBeats: pos.startBeats + delta,
+          targetLayerIndex: target.localIndex,
+          targetGroupId: target.groupId,
+        };
+      });
       moveScoreObjects(moves);
     } else if (g.mode === 'resizeRight' || g.mode === 'resizeLeft') {
       const { x } = toLocalXY(e.clientX, e.clientY);
@@ -311,7 +466,7 @@ export default function ScoreTimeCanvas({
         resizeScoreObjects(resizes);
       }
     }
-  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove]);
+  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove, currentScore, snapEnabled, snapBeats]);
 
   const handleMouseUp = useCallback(() => {
     if (!gestureRef.current) {
@@ -333,21 +488,48 @@ export default function ScoreTimeCanvas({
       if (!g.additive) {
         clearSelection();
       }
-      let yOff = 0;
-      for (const layer of group.layers) {
-        const h = layer.height || DEFAULT_ROW_HEIGHT;
-        const layerTop = yOff;
-        const layerBottom = yOff + h;
-        if (layerBottom > top && layerTop < bottom) {
-          for (const item of layer.items) {
-            const itemEnd = item.startBeats + item.durationBeats;
-            if (item.startBeats < endBeats && itemEnd > startBeats) {
-              hitIds.push(item.objectId);
-            }
+
+      const currentGroupIndex = currentScore.layerGroups.findIndex(
+        (lg) => lg.groupId === group.groupId,
+      );
+
+      for (let gi = 0; gi < currentScore.layerGroups.length; gi++) {
+        const lg = currentScore.layerGroups[gi];
+
+        let yShift = 0;
+        const lo = Math.min(gi, currentGroupIndex);
+        const hi = Math.max(gi, currentGroupIndex);
+        for (let k = lo; k < hi; k++) {
+          const h = currentScore.layerGroups[k].layers.reduce(
+            (s, l) => s + (l.height || DEFAULT_ROW_HEIGHT), 0,
+          ) + GROUP_SPACER;
+          if (gi > currentGroupIndex) {
+            yShift += h;
+          } else {
+            yShift -= h;
           }
         }
-        yOff += h;
+
+        const shiftedTop = top - yShift;
+        const shiftedBottom = bottom - yShift;
+
+        let yOff = 0;
+        for (const layer of lg.layers) {
+          const h = layer.height || DEFAULT_ROW_HEIGHT;
+          const layerTop = yOff;
+          const layerBottom = yOff + h;
+          if (layerBottom > shiftedTop && layerTop < shiftedBottom) {
+            for (const item of layer.items) {
+              const itemEnd = item.startBeats + item.durationBeats;
+              if (item.startBeats < endBeats && itemEnd > startBeats) {
+                hitIds.push(item.objectId);
+              }
+            }
+          }
+          yOff += h;
+        }
       }
+
       if (hitIds.length > 0) {
         setSelection(hitIds);
       }
@@ -355,7 +537,7 @@ export default function ScoreTimeCanvas({
 
     gestureRef.current = null;
     setMarquee(null);
-  }, [marquee, pixelsPerBeat, group.layers, clearSelection, setSelection]);
+  }, [marquee, pixelsPerBeat, group.groupId, currentScore, clearSelection, setSelection]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const { x, y } = toLocalXY(e.clientX, e.clientY);
@@ -480,6 +662,7 @@ export default function ScoreTimeCanvas({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (isTextEditingTarget(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key === 'c') {
         e.preventDefault();
@@ -501,6 +684,30 @@ export default function ScoreTimeCanvas({
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [handleCopy, handleCut, handleRemove, handleContextMenuPaste, selectedObjectIds]);
+
+  const handleMouseUpRef = useRef(handleMouseUp);
+  handleMouseUpRef.current = handleMouseUp;
+  const handleMouseMoveRef = useRef(handleMouseMove);
+  handleMouseMoveRef.current = handleMouseMove;
+
+  useEffect(() => {
+    const onMouseUp = () => {
+      if (gestureRef.current) {
+        handleMouseUpRef.current();
+      }
+    };
+    const onMouseMove = (e: MouseEvent) => {
+      if (gestureRef.current) {
+        handleMouseMoveRef.current(e as unknown as React.MouseEvent);
+      }
+    };
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove', onMouseMove);
+    return () => {
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('mousemove', onMouseMove);
+    };
+  }, []);
 
   const marqueeStyle = marquee ? {
     left: Math.min(marquee.startX, marquee.endX),
@@ -543,7 +750,7 @@ export default function ScoreTimeCanvas({
               style={{
                 height: layer.height || DEFAULT_ROW_HEIGHT,
                 backgroundColor: '#000000',
-                borderBottom: '1px solid rgba(64,64,64,0.6)',
+                borderBottom: '1px solid #2a2a2a',
               }}
             >
               <SnapLinesLayer

@@ -12,6 +12,8 @@ import OutputPanel from './panels/output/OutputPanel';
 import MidiInputPanel from './panels/MidiInputPanel';
 import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
 import MixerPanel from './panels/MixerPanel';
+import ScoreObjectPropertiesPanel from './panels/ScoreObjectPropertiesPanel';
+import ScoreObjectEditorPanel from './panels/ScoreObjectEditorPanel';
 import PlaceholderPanel from './panels/PlaceholderPanel';
 
 interface AuxiliarySlideoutProps {
@@ -143,6 +145,10 @@ export default function AuxiliarySlideout({
           <VirtualKeyboardPanel />
         ) : descriptor.id === 'MixerTopComponent' ? (
           <MixerPanel />
+        ) : descriptor.id === 'SoundObjectPropertiesTopComponent' ? (
+          <ScoreObjectPropertiesPanel />
+        ) : descriptor.id === 'ScoreObjectEditorTopComponent' ? (
+          <ScoreObjectEditorPanel />
         ) : (
           <PlaceholderPanel descriptor={descriptor} showHeader={false} />
         )}

@@ -13,7 +13,7 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { TimeBehavior } from './time-behavior';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class AudioFile extends AbstractSoundObject {
   private _soundFileName = '';
@@ -23,6 +23,12 @@ export class AudioFile extends AbstractSoundObject {
 
   constructor(other?: AudioFile) {
     super();
+    this.setName('Audio File');
+    this._soundFileName = '';
+    this._csoundPostCode = '\touts\taChannel1, aChannel1';
+    this._useCustomWindowSize = false;
+    this._windowSize = 8;
+    this._backgroundColor = 0x404040;
     if (other) {
       this.copyFrom(other);
       this._soundFileName = other._soundFileName;
@@ -85,13 +91,7 @@ export class AudioFile extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'AudioFile');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.AudioFile');
     elem.addElement('soundFileName').setText(this._soundFileName);
     elem.addElement('csoundPostCode').setText(this._csoundPostCode);
     return elem;

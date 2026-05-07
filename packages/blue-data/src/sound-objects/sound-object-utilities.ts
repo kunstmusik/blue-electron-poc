@@ -21,10 +21,15 @@ export interface BasicSoundObject {
   setName(name: string): void;
   getName(): string;
   setStartTime(value: TimePosition): void;
+  getStartTime(): TimePosition;
   setSubjectiveDuration(value: TimeDuration): void;
+  getSubjectiveDuration(): TimeDuration;
   setTimeBehavior(behavior: TimeBehavior): void;
+  getTimeBehavior(): TimeBehavior;
   setBackgroundColor(color: number): void;
+  getBackgroundColor(): number;
   setRepeatPoint(rp: TimeDuration | null): void;
+  getRepeatPoint(): TimeDuration | null;
   setNoteProcessorChain(chain: NoteProcessorChain): void;
   getNoteProcessorChain(): NoteProcessorChain;
 }
@@ -167,4 +172,43 @@ export function initBasicFromXML(sObj: BasicSoundObject, data: Element): void {
   if (npcElement) {
     sObj.setNoteProcessorChain(NoteProcessorChain.loadFromXML(npcElement));
   }
+}
+
+function timeBehaviorToType(tb: TimeBehavior): number {
+  switch (tb) {
+    case TimeBehavior.SCALE: return 0;
+    case TimeBehavior.REPEAT_CLASSIC: return 1;
+    case TimeBehavior.NONE: return 2;
+    case TimeBehavior.REPEAT: return 3;
+    case TimeBehavior.NOT_SUPPORTED: return -1;
+    default: return 0;
+  }
+}
+
+export function getBasicXML(sObj: BasicSoundObject, javaType: string): Element {
+  const elem = new Element('soundObject');
+  elem.setAttribute('type', javaType);
+
+  elem.addElement(sObj.getStartTime().saveAsXML().setName('startTime'));
+  elem.addElement(sObj.getSubjectiveDuration().saveAsXML().setName('subjectiveDuration'));
+  elem.addElement('name').setText(sObj.getName());
+  elem.addElement('backgroundColor').setText(sObj.getBackgroundColor().toString());
+
+  const tb = sObj.getTimeBehavior();
+  if (tb !== TimeBehavior.NOT_SUPPORTED) {
+    elem.addElement('timeBehavior').setText(timeBehaviorToType(tb).toString());
+    const rp = sObj.getRepeatPoint();
+    if (rp) {
+      elem.addElement(rp.saveAsXML().setName('repeatPoint'));
+    } else {
+      elem.addElement('repeatPoint').setText('-1.0');
+    }
+  }
+
+  const npc = sObj.getNoteProcessorChain();
+  if (npc) {
+    elem.addElement(npc.saveAsXML().setName('noteProcessorChain'));
+  }
+
+  return elem;
 }

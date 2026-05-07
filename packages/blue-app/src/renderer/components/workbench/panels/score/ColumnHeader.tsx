@@ -18,9 +18,9 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
   const smpteFrameRate = timeState.smpteFrameRate || 24;
 
   return (
-    <div className="sticky top-0 z-10 bg-[#1a1a2e] border-b border-blue-border/40">
-      {timeState.tempoRowVisible && tempoMap.enabled && (
-        <div className="h-5 border-b border-blue-border/20 flex items-center px-2 text-[9px] text-blue-muted overflow-hidden" style={{ minWidth: contentWidth }}>
+    <div className="sticky top-0 z-10 bg-[#1a1a2e] border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
+      {timeState.tempoRowVisible && (
+        <div className={`h-5 border-b border-blue-border/20 flex items-center px-2 text-[9px] overflow-hidden ${tempoMap.enabled ? 'text-green-400' : 'text-blue-muted'}`} style={{ minWidth: contentWidth }}>
           {tempoMap.points.length === 1
             ? `${tempoMap.points[0].tempo} BPM`
             : `${tempoMap.points[0].tempo} → ${tempoMap.points[tempoMap.points.length - 1].tempo} BPM (${tempoMap.points.length} pts)`}
@@ -28,7 +28,7 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
       )}
 
       <MeterRegionBar meters={meters} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.meterRowVisible} />
-      <MarkersBar markers={markers} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} />
+      <MarkersBar markers={markers} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} />
 
       <TimeBar
         timeDisplay={timeState.primaryTimeDisplay}

@@ -24,11 +24,12 @@ export function useIPCListeners(): void {
   const resetTab = useOutputStore((s) => s.resetTab);
   const setBlueLiveStatus = useBlueLiveStore((s) => s.setStatusFromSnapshot);
   const resetBlueLive = useBlueLiveStore((s) => s.reset);
+  const recentFiles = useSettingsStore((s) => s.recentFiles);
 
   useEffect(() => {
     if (!window.blueAPI) return;
 
-    window.blueAPI.onProjectLoaded((info) => {
+    const unsubProjectLoaded = window.blueAPI.onProjectLoaded((info) => {
       resetPlayback();
       resetBlueLive();
       setProjectInfo(info);
@@ -39,27 +40,34 @@ export function useIPCListeners(): void {
       toast.success(`Loaded: ${info.title || 'Project'}`);
     });
 
-    window.blueAPI.onPlaybackStatus((status) => {
+    const unsubProjectClosed = window.blueAPI.onProjectClosed(() => {
+      resetPlayback();
+      resetBlueLive();
+      useProjectStore.getState().clearProject();
+      setActivePanel('welcome');
+    });
+
+    const unsubPlaybackStatus = window.blueAPI.onPlaybackStatus((status) => {
       setStatus(status);
     });
 
-    window.blueAPI.onPlaybackClock((clock) => {
+    const unsubPlaybackClock = window.blueAPI.onPlaybackClock((clock) => {
       acceptPlaybackClock(clock);
     });
 
-    window.blueAPI.onPlaybackError((error) => {
+    const unsubPlaybackError = window.blueAPI.onPlaybackError((error) => {
       setError(error);
     });
 
-    window.blueAPI.onNativeMenuCommand((command) => {
+    const unsubNativeMenuCommand = window.blueAPI.onNativeMenuCommand((command) => {
       handleNativeMenuCommand(command);
     });
 
-    window.blueAPI.onSaveComplete(() => {
+    const unsubSaveComplete = window.blueAPI.onSaveComplete(() => {
       toast.success('File saved successfully');
     });
 
-    window.blueAPI.onSaveError((error) => {
+    const unsubSaveError = window.blueAPI.onSaveError((error) => {
       toast.error(`Save error: ${error}`);
     });
 
@@ -97,6 +105,14 @@ export function useIPCListeners(): void {
     window.addEventListener('storage', handleStorage);
 
     return () => {
+      unsubProjectLoaded();
+      unsubProjectClosed();
+      unsubPlaybackStatus();
+      unsubPlaybackClock();
+      unsubPlaybackError();
+      unsubNativeMenuCommand();
+      unsubSaveComplete();
+      unsubSaveError();
       unsubOutput();
       unsubSelect();
       unsubReset();
@@ -121,4 +137,12 @@ export function useIPCListeners(): void {
     setBlueLiveStatus,
     resetBlueLive,
   ]);
+
+  useEffect(() => {
+    if (!window.blueAPI || typeof window.blueAPI.setRecentFiles !== 'function') {
+      return;
+    }
+
+    void window.blueAPI.setRecentFiles(recentFiles.slice());
+  }, [recentFiles]);
 }

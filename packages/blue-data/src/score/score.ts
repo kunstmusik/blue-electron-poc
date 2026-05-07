@@ -35,6 +35,10 @@ export class Score extends Array<LayerGroup<Layer>> {
         this.push(layerGroup.deepCopyLG() as LayerGroup<Layer>);
       }
       this.timeContext.setSmpteFrameRate(this.timeState.getSmpteFrameRate());
+    } else {
+      const rootPolyObject = new PolyObject(true);
+      rootPolyObject.newLayerAt(-1);
+      this.push(rootPolyObject);
     }
   }
 
@@ -106,6 +110,7 @@ export class Score extends Array<LayerGroup<Layer>> {
 
   static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): Score {
     const score = new Score();
+    score.length = 0;
 
     const nodes = data.getElements();
 
@@ -124,9 +129,8 @@ export class Score extends Array<LayerGroup<Layer>> {
           score.npc = NoteProcessorChain.loadFromXML(node);
           break;
         case 'soundObject': {
-          // Check if this is a PolyObject (contains soundLayer elements)
           const type = node.getAttribute('type');
-          if (type === 'PolyObject' || node.hasElement('soundLayer')) {
+          if (type === 'blue.soundObject.PolyObject' || type === 'PolyObject' || node.hasElement('soundLayer')) {
             score.push(PolyObject.loadFromXML(node, objRefMap));
           }
           break;

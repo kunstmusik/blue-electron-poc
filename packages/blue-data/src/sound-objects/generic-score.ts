@@ -15,7 +15,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 import { SoundObject, SoundObjectStatic } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 import { applyNoteProcessorChain, applyTimeBehavior, getNotes, setScoreStart } from '../utilities/score';
 
 export class GenericScore extends AbstractSoundObject implements SoundObject {
@@ -24,6 +24,8 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
   constructor() {
     super();
     this.setName('GenericScore');
+    this._scoreText = 'i1 0 2 3 4 5';
+    this._backgroundColor = 0x404040;
   }
 
   /** Get the raw score text. */
@@ -66,25 +68,20 @@ export class GenericScore extends AbstractSoundObject implements SoundObject {
   // ─── XML Serialization ───
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'GenericScore');
-
-    // Basic sound object properties
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
-
-    // GenericScore-specific
-    elem.addElement('scoreText').setText(this._scoreText);
-
+    const elem = getBasicXML(this, 'blue.soundObject.GenericScore');
+    elem.addElement('score').setText(this._scoreText);
     return elem;
   }
 
   static loadFromXML(data: Element): GenericScore {
     const sObj = new GenericScore();
     initBasicFromXML(sObj, data);
+
+    const score = data.getTextString('score');
+    if (score !== null) {
+      sObj.setScoreText(score);
+      return sObj;
+    }
 
     const scoreText = data.getTextString('scoreText');
     if (scoreText !== null) {

@@ -7,7 +7,7 @@
  */
 
 /** Current application version. */
-export const BLUE_VERSION = '2.10.0';
+export const BLUE_VERSION = '2.10.1';
 
 /** Default sample rate if not specified. */
 export const DEFAULT_SAMPLE_RATE = '44100';

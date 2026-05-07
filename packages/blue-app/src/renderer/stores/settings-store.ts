@@ -20,6 +20,7 @@ interface SettingsActions {
   setEnginePath: (path: string) => void;
   addRecentFile: (path: string) => void;
   removeRecentFile: (path: string) => void;
+  getRecentFiles: () => string[];
   setWindowBounds: (bounds: SettingsState['windowBounds']) => void;
   setMidiInputDevice: (device: string) => void;
   setMidiOutputDevice: (device: string) => void;
@@ -101,6 +102,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>()(
         set((state) => ({
           recentFiles: state.recentFiles.filter((f) => f !== path),
         })),
+
+      getRecentFiles: () => get().recentFiles.slice(),
 
       setWindowBounds: (windowBounds) => set({ windowBounds }),
 

@@ -12,7 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class External extends AbstractSoundObject {
   private _commandLine = '';
@@ -21,6 +21,9 @@ export class External extends AbstractSoundObject {
 
   constructor(other?: External) {
     super();
+    this.setName('External');
+    this._syntaxType = 'Python';
+    this._backgroundColor = 0x404040;
     if (other) {
       this.copyFrom(other);
       this._commandLine = other._commandLine;
@@ -51,13 +54,7 @@ export class External extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'External');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.External');
     elem.addElement('text').setText(this._text);
     elem.addElement('commandLine').setText(this._commandLine);
     elem.addElement('syntaxType').setText(this._syntaxType);

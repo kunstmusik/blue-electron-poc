@@ -68,7 +68,7 @@ describe('Instance', () => {
 
       const objRefMap = new ObjRefSaveMap();
       const xml = inst.saveAsXML(objRefMap);
-      expect(xml.getAttribute('type')).toBe('Instance');
+      expect(xml.getAttribute('type')).toBe('blue.soundObject.Instance');
 
       const refElem = xml.getElement('soundObjectReference');
       expect(refElem).not.toBeNull();

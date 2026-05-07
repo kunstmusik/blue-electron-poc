@@ -183,12 +183,21 @@ export class MeterMap {
     // beat is 1-based, compute fractional part as ticks
     const fullBeats = Math.floor(remainingBeats / beatScale);
     const fractionalBeat = remainingBeats - fullBeats * beatScale;
-    const ticks = Math.round(fractionalBeat * ppq / beatScale);
+    let ticks = Math.round(fractionalBeat * ppq / beatScale);
 
-    const bar = entry.measure + measuresFromEntry;
-    const beat = fullBeats + 1;
+    let bar = entry.measure + measuresFromEntry;
+    let beat = fullBeats + 1;
 
-    return { bar, beat, ticks: Math.min(ticks, ppq - 1) };
+    if (ticks >= ppq) {
+      ticks = 0;
+      beat += 1;
+      if (beat > meter.numBeats) {
+        beat = 1;
+        bar += 1;
+      }
+    }
+
+    return { bar, beat, ticks };
   }
 
   /**
@@ -205,13 +214,50 @@ export class MeterMap {
 
   /**
    * Convert absolute beats to a BBF position.
-   * Returns {bar, beat, fraction} where fraction is 0-99.
+   * Returns {bar, beat, fraction} where fraction is canonical hundredths.
+   * Rounding overflow carries to the next beat, matching Java Blue 2.10.2.
    */
   beatsToBBF(beats: number): { bar: number; beat: number; fraction: number } {
-    const bbt = this.beatsToBBT(beats);
-    // Convert ticks to fraction (0-99)
-    const fraction = Math.round(bbt.ticks * 100 / DEFAULT_PPQ);
-    return { bar: bbt.bar, beat: bbt.beat, fraction: Math.min(fraction, 99) };
+    if (this.entries.length === 0) {
+      throw new Error('MeterMap is empty');
+    }
+    if (beats < 0) {
+      throw new Error(`Invalid beats: ${beats} (must be >= 0)`);
+    }
+
+    let entryIndex = 0;
+    for (let i = this.entries.length - 1; i >= 0; i--) {
+      if (beats >= this.measureStartBeats[i]) {
+        entryIndex = i;
+        break;
+      }
+    }
+
+    const entry = this.entries[entryIndex];
+    const meter = entry.meter;
+    const startBeat = this.measureStartBeats[entryIndex];
+    const beatsPerMeasure = meter.getBeatsPerMeasure();
+    const beatScale = meter.getBeatScale();
+
+    const beatsFromEntry = beats - startBeat;
+    const measuresFromEntry = Math.floor(beatsFromEntry / beatsPerMeasure);
+    const remainingBeats = beatsFromEntry - measuresFromEntry * beatsPerMeasure;
+
+    const beatWithFraction = 1 + (remainingBeats / beatScale);
+    let beat = Math.floor(beatWithFraction);
+    let fraction = Math.round((beatWithFraction - beat) * 100);
+    let bar = entry.measure + measuresFromEntry;
+
+    if (fraction >= 100) {
+      fraction = 0;
+      beat += 1;
+      if (beat > meter.numBeats) {
+        beat = 1;
+        bar += 1;
+      }
+    }
+
+    return { bar, beat, fraction };
   }
 
   equals(other: MeterMap): boolean {

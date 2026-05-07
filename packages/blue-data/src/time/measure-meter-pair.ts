@@ -36,13 +36,14 @@ export class MeasureMeterPair {
 
   saveAsXML(): Element {
     const elem = new Element('measureMeterPair');
-    elem.addElement('measure').setText(this.measure.toString());
+    elem.addElement('measureNumber').setText(this.measure.toString());
     elem.addElement(this.meter.saveAsXML());
     return elem;
   }
 
   static loadFromXML(data: Element): MeasureMeterPair {
-    const measure = parseInt(data.getTextString('measure') ?? '1', 10);
+    const measureText = data.getTextString('measureNumber') ?? data.getTextString('measure') ?? '1';
+    const measure = parseInt(measureText, 10);
     const meterElem = data.getElement('meter');
     const meter = meterElem ? Meter.loadFromXML(meterElem) : new Meter();
     return new MeasureMeterPair(measure || 1, meter);

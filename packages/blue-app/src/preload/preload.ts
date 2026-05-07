@@ -11,11 +11,15 @@ import type {
   BlueLiveNoteTriggerResult,
   EffectsLibraryPatch,
   EffectsLibrarySnapshot,
+  PolyObjectLayerGroupSnapshot,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
   PlaybackClockSnapshot,
+  ScoreObjectEditorRequest,
+  ScoreObjectEditorDocumentSnapshot,
+  ScoreObjectLocationRef,
 } from '../shared/project-editor';
 import type { NativeMenuCommand } from '../shared/workbench-menu';
 import type { EngineOutputPayload } from '../shared/io-provider';
@@ -28,6 +32,7 @@ contextBridge.exposeInMainWorld('blueAPI', {
   openBsbFileSelector: (currentValue?: string) => ipcRenderer.invoke('open-bsb-file-selector', currentValue),
   setBsbFileSelectorPath: (filePath: string) => ipcRenderer.invoke('set-bsb-file-selector-path', filePath),
   copyBsbFileSelectorToMediaFolder: (currentValue?: string) => ipcRenderer.invoke('copy-bsb-file-selector-to-media-folder', currentValue),
+  setRecentFiles: (files: string[]) => ipcRenderer.invoke('set-recent-files', files) as Promise<string[]>,
   saveFile: () => ipcRenderer.invoke('save-file'),
   saveFileAs: () => ipcRenderer.invoke('save-file-as'),
 
@@ -58,6 +63,10 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('update-effect-editor-document', request) as Promise<EffectEditorSnapshot | null>,
   commitProjectDocumentPatches: (patches: ProjectDocumentPatch[]) =>
     ipcRenderer.invoke('commit-project-document-patches', patches) as Promise<ProjectDocumentCommitReceipt>,
+  getScoreObjectEditorDocument: (request: ScoreObjectEditorRequest) =>
+    ipcRenderer.invoke('get-score-object-editor-document', request) as Promise<ScoreObjectEditorDocumentSnapshot | null>,
+  getNestedPolyObjectSnapshot: (location: ScoreObjectLocationRef) =>
+    ipcRenderer.invoke('get-nested-poly-object-snapshot', location) as Promise<PolyObjectLayerGroupSnapshot | null>,
   sendBsbRealtimeControlUpdate: (update: BsbRealtimeControlUpdate) =>
     ipcRenderer.invoke('send-bsb-realtime-control-update', update) as Promise<void>,
   sendMixerRealtimeLevelUpdate: (update: import('../shared/project-editor').MixerRealtimeLevelUpdate) =>
@@ -92,25 +101,44 @@ contextBridge.exposeInMainWorld('blueAPI', {
 
   // Event listeners
   onProjectLoaded: (callback: (info: ProjectLoadedPayload) => void) => {
-    ipcRenderer.on('project-loaded', (_event, info) => callback(info as ProjectLoadedPayload));
+    const handler = (_event: Electron.IpcRendererEvent, info: unknown) => callback(info as ProjectLoadedPayload);
+    ipcRenderer.on('project-loaded', handler);
+    return () => { ipcRenderer.removeListener('project-loaded', handler); };
+  },
+  onProjectClosed: (callback: () => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('project-closed', handler);
+    return () => { ipcRenderer.removeListener('project-closed', handler); };
   },
   onPlaybackStatus: (callback: (status: unknown) => void) => {
-    ipcRenderer.on('playback-status', (_event, status) => callback(status));
+    const handler = (_event: Electron.IpcRendererEvent, status: unknown) => callback(status);
+    ipcRenderer.on('playback-status', handler);
+    return () => { ipcRenderer.removeListener('playback-status', handler); };
   },
   onPlaybackClock: (callback: (clock: PlaybackClockSnapshot) => void) => {
-    ipcRenderer.on('playback-clock', (_event, clock) => callback(clock as PlaybackClockSnapshot));
+    const handler = (_event: Electron.IpcRendererEvent, clock: unknown) => callback(clock as PlaybackClockSnapshot);
+    ipcRenderer.on('playback-clock', handler);
+    return () => { ipcRenderer.removeListener('playback-clock', handler); };
   },
   onPlaybackError: (callback: (error: string) => void) => {
-    ipcRenderer.on('playback-error', (_event, error) => callback(error));
+    const handler = (_event: Electron.IpcRendererEvent, error: unknown) => callback(error as string);
+    ipcRenderer.on('playback-error', handler);
+    return () => { ipcRenderer.removeListener('playback-error', handler); };
   },
   onNativeMenuCommand: (callback: (command: NativeMenuCommand) => void) => {
-    ipcRenderer.on('native-menu-command', (_event, command) => callback(command as NativeMenuCommand));
+    const handler = (_event: Electron.IpcRendererEvent, command: unknown) => callback(command as NativeMenuCommand);
+    ipcRenderer.on('native-menu-command', handler);
+    return () => { ipcRenderer.removeListener('native-menu-command', handler); };
   },
   onSaveComplete: (callback: (info: unknown) => void) => {
-    ipcRenderer.on('save-complete', (_event, info) => callback(info));
+    const handler = (_event: Electron.IpcRendererEvent, info: unknown) => callback(info);
+    ipcRenderer.on('save-complete', handler);
+    return () => { ipcRenderer.removeListener('save-complete', handler); };
   },
   onSaveError: (callback: (error: string) => void) => {
-    ipcRenderer.on('save-error', (_event, error) => callback(error));
+    const handler = (_event: Electron.IpcRendererEvent, error: unknown) => callback(error as string);
+    ipcRenderer.on('save-error', handler);
+    return () => { ipcRenderer.removeListener('save-error', handler); };
   },
 
   onEngineOutput: (callback: (payload: EngineOutputPayload) => void) => {

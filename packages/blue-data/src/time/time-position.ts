@@ -10,7 +10,7 @@
  * - BEATS (BeatTime): csoundBeats — quarter note = 1 beat
  * - BBT (BBTTime): bar (1-based), beat (1-based), ticks — via MeterMap
  * - BBST (BBSTTime): bar, beat, sixteenth (1-4), ticks — via MeterMap
- * - BBF (BBFTime): bar, beat, fraction (0-99) — via MeterMap
+ * - BBF (BBFTime): bar, beat, fraction (0-99 canonical hundredths) — via MeterMap
  * - TIME (TimeValue): hours, minutes, seconds, milliseconds
  * - SECONDS (SecondsValue): totalSeconds
  * - FRAME (FrameValue): frameNumber — via sampleRate
@@ -36,7 +36,7 @@ export class TimePosition {
   // BBSTTime additional fields
   private readonly _sixteenth: number;
 
-  // BBFTime additional fields
+  // BBFTime additional fields (canonical hundredths)
   private readonly _fraction: number;
 
   // TimeValue fields
@@ -98,7 +98,7 @@ export class TimePosition {
     return new TimePosition(TimeBase.BBST, { bar, beat, sixteenth, ticks });
   }
 
-  /** Create a BBFTime position (1-based bar, beat, fraction 0-99). */
+  /** Create a BBFTime position (1-based bar, beat, fraction 0-99 canonical hundredths). */
   static bbf(bar: number, beat: number, fraction: number): TimePosition {
     if (bar < 1) throw new Error(`Invalid bar: ${bar} (must be >= 1)`);
     if (beat < 1) throw new Error(`Invalid beat: ${beat} (must be >= 1)`);

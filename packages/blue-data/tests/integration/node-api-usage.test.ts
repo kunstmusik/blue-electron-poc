@@ -120,17 +120,18 @@ describe('Node.js library API', () => {
     expect(data.getProjectProperties().title).toBe('API Test Project');
     expect(data.getProjectProperties().author).toBe('API User');
 
-    // Audio clips
-    expect(data.getScore()[0]).toBeInstanceOf(AudioLayerGroup);
-    const ag = data.getScore()[0] as AudioLayerGroup;
+    // Root PolyObject at [0], audio at [1], patterns at [2]
+    expect(data.getScore()[0]).toBeInstanceOf(PolyObject);
+    expect(data.getScore()[1]).toBeInstanceOf(AudioLayerGroup);
+    const ag = data.getScore()[1] as AudioLayerGroup;
     expect(ag.length).toBe(1);
     expect(ag[0].getName()).toBe('Audio Track');
     expect(ag[0].length).toBe(1);
     expect(ag[0][0].getAudioFile()).toBe('/samples/kick.wav');
 
     // Pattern layers
-    expect(data.getScore()[1]).toBeInstanceOf(PatternsLayerGroup);
-    const pg = data.getScore()[1] as PatternsLayerGroup;
+    expect(data.getScore()[2]).toBeInstanceOf(PatternsLayerGroup);
+    const pg = data.getScore()[2] as PatternsLayerGroup;
     expect(pg.length).toBe(1);
     expect(pg[0].getPatternData().isPatternSet(0)).toBe(true);
     expect(pg[0].getPatternData().isPatternSet(1)).toBe(false);
@@ -309,7 +310,9 @@ describe('Node.js library API', () => {
 
     // Inspect
     const reloadedScore = data.getScore();
-    expect(reloadedScore.length).toBe(1);
+    expect(reloadedScore.length).toBe(2);
     expect(reloadedScore[0]).toBeInstanceOf(PolyObject);
+    expect(reloadedScore[1]).toBeInstanceOf(PolyObject);
+    expect((reloadedScore[1] as PolyObject).getName()).toBe('Main Score');
   });
 });

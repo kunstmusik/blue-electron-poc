@@ -6,6 +6,7 @@ import { AbstractSoundObject } from './abstract-sound-object';
 import { NoteList } from './note-list';
 import { Note } from './note';
 import { TimeContext } from '../time/time-context';
+import { TimeDuration } from '../time/time-duration';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
@@ -15,7 +16,8 @@ import { replaceAll } from '../utilities/text';
 import { Scale } from './piano-roll/scale';
 import { PianoNote } from './piano-roll/piano-note';
 import { FieldDef } from './piano-roll/field-def';
-import { initBasicFromXML } from './sound-object-utilities';
+import { FieldType } from './piano-roll/field-type';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 import { applyTimeBehavior, setScoreStart } from '../utilities/score';
 
 const GENERATE_FREQUENCY = 0;
@@ -33,6 +35,15 @@ export class PianoRoll extends AbstractSoundObject {
 
   constructor(other?: PianoRoll) {
     super();
+    this.setName('PianoRoll');
+    this._timeBehavior = TimeBehavior.REPEAT;
+    this._repeatPoint = TimeDuration.beats(4);
+    if (!other) {
+      const ampField = new FieldDef();
+      ampField.setFieldName('AMP');
+      ampField.setFieldType(FieldType.CONTINUOUS);
+      this._fieldDefinitions = [ampField];
+    }
     if (other) {
       this.copyFrom(other);
       this._scale = new Scale(other._scale);
@@ -196,13 +207,7 @@ endin
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'PianoRoll');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.PianoRoll');
     elem.addElement('noteTemplate').setText(this._noteTemplate);
     elem.addElement('instrumentId').setText(this._instrumentId);
     elem.addElement('scale').setText('');

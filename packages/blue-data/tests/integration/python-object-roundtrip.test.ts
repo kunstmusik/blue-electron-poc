@@ -25,7 +25,7 @@ describe('PythonObject', () => {
   it('creates with defaults', () => {
     const obj = new PythonObject();
     expect(obj.getName()).toBe('PythonObject');
-    expect(obj.getPythonCode()).toBe('');
+    expect(obj.getPythonCode()).toBe('score = "i1 0 2 3 4 5"');
     expect(obj.isOnLoadProcessable()).toBe(false);
   });
 
@@ -78,8 +78,8 @@ describe('PythonObject', () => {
 describe('JavaScriptObject', () => {
   it('creates with defaults', () => {
     const obj = new JavaScriptObject();
-    expect(obj.getName()).toBe('JavaScriptObject');
-    expect(obj.getJavaScriptCode()).toBe('');
+    expect(obj.getName()).toBe('javaScriptObject');
+    expect(obj.getJavaScriptCode()).toBe('score = "i1 0 2 3 4 5";');
   });
 
   it('sets and gets properties', () => {

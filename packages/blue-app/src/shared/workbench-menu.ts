@@ -24,7 +24,7 @@ export const WORKBENCH_PANEL_REGISTRY: PanelDescriptor[] = [
 
   {
     id: 'SoundObjectPropertiesTopComponent',
-    title: 'Sound Object Properties',
+    title: 'Score Object Properties',
     mode: 'properties',
     openAtStartup: false,
     auxiliaryGroupId: 'properties-main',
@@ -109,7 +109,10 @@ export const PANEL_MAP = new Map(WORKBENCH_PANEL_REGISTRY.map((panel) => [panel.
 export type NativeMenuCommand =
   | { type: 'focus-panel'; panelId: string }
   | { type: 'reset-layout' }
-  | { type: 'open-effects-library' };
+  | { type: 'open-effects-library' }
+  | { type: 'toggle-follow-playback' }
+  | { type: 'toggle-loop-rendering' }
+  | { type: 'show-not-yet-implemented' };
 
 export function getPanel(id: string): PanelDescriptor | undefined {
   return PANEL_MAP.get(id);

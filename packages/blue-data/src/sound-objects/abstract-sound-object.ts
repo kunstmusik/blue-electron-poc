@@ -20,8 +20,8 @@ import { ObjRefSaveMap } from '../serialization/obj-ref-map';
 export abstract class AbstractSoundObject implements SoundObject {
   protected _name = '';
   protected _startTime = TimePosition.beats(0);
-  protected _subjectiveDuration = TimeDuration.beats(0);
-  protected _backgroundColor = 0x666699; // Default dark gray-blue
+  protected _subjectiveDuration = TimeDuration.beats(4);
+  protected _backgroundColor = 0x404040;
   protected _timeBehavior = TimeBehavior.SCALE;
   protected _repeatPoint: TimeDuration | null = null;
   protected _npc = new NoteProcessorChain();

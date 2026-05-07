@@ -12,13 +12,14 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class LineObject extends AbstractSoundObject {
   private _lines: LineData[] = [];
 
   constructor(other?: LineObject) {
     super();
+    this.setName('LineObject');
     if (other) {
       this.copyFrom(other);
       this._lines = other._lines.map((l) => ({ ...l }));
@@ -41,13 +42,7 @@ export class LineObject extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'LineObject');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.LineObject');
     for (const line of this._lines) {
       const lineElem = elem.addElement('line');
       lineElem.setAttribute('varName', line.varName);

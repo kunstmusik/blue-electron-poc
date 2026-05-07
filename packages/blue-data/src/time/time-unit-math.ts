@@ -103,11 +103,15 @@ export function beatsToDuration(beats: number, targetBase: TimeBase, context: Ti
       const beatScale = meter.getBeatScale();
       const ppq = 960;
       const bars = Math.floor(beats / beatsPerMeasure);
-      const remaining = beats - bars * beatsPerMeasure;
-      const totalTicks = Math.round(remaining * ppq / beatScale);
-      const sixteenth = Math.floor(totalTicks / (ppq / 4));
-      const ticks = totalTicks % (ppq / 4);
-      return TimeDuration.bbst(bars, 0, Math.min(sixteenth, 3), ticks);
+      const remainingBeats = beats - bars * beatsPerMeasure;
+      const scaledBeat = remainingBeats / beatScale;
+      const wholeBeat = Math.floor(scaledBeat);
+      const fractionalBeat = scaledBeat - wholeBeat;
+      const totalTicks = Math.round(fractionalBeat * ppq);
+      const ticksPerSixteenth = ppq / 4;
+      const sixteenth = Math.floor(totalTicks / ticksPerSixteenth);
+      const ticks = totalTicks % ticksPerSixteenth;
+      return TimeDuration.bbst(bars, wholeBeat, sixteenth, ticks);
     }
 
     case TimeBase.BBF: {

@@ -33,6 +33,8 @@ import {
 import { getPanel } from '../components/workbench/panel-registry';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
 import { useUIStore } from './ui-store';
+import { usePlaybackStore } from './playback-store';
+import { useProjectStore } from './project-store';
 
 interface WorkbenchState {
   api: DockviewApi | null;
@@ -369,6 +371,17 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
           return;
         case 'open-effects-library':
           useUIStore.getState().openEffectsLibrary();
+          return;
+        case 'toggle-follow-playback':
+          usePlaybackStore.getState().toggleFollowPlayback();
+          return;
+        case 'toggle-loop-rendering':
+          useProjectStore.getState().setLoopRendering(
+            !useProjectStore.getState().transport.loopRendering,
+          );
+          return;
+        case 'show-not-yet-implemented':
+          window.alert('not yet implemented');
           return;
       }
     },

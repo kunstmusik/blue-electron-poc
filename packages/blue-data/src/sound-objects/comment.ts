@@ -10,13 +10,15 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { TimeBehavior } from './time-behavior';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class Comment extends AbstractSoundObject {
   private _commentText = '';
 
   constructor(other?: Comment) {
     super();
+    this.setName('Comment');
+    this._backgroundColor = 0x404040;
     if (other) {
       this.copyFrom(other);
       this._commentText = other._commentText;
@@ -41,13 +43,7 @@ export class Comment extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'Comment');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.Comment');
     elem.addElement('commentText').setText(this._commentText);
     return elem;
   }

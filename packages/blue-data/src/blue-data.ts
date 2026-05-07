@@ -735,7 +735,12 @@ export class BlueData implements BlueDataObject {
       assignParameterNames(parameters);
       const stringChannels = this.collectStringChannels(clonedArrangement);
       const stringInits = this.buildStringChannelInits(stringChannels);
-      const paramInits = this.buildParameterInits(parameters);
+      const paramInits = this.buildParameterInits(
+        parameters,
+        "realtime",
+        this.renderStartTime,
+        false,
+      );
       const runtimeInitStatements = [stringInits, paramInits]
         .filter((section) => section.length > 0)
         .join("\n");
@@ -1333,6 +1338,7 @@ export class BlueData implements BlueDataObject {
     parameters: Parameter[],
     profile: CsdRenderProfile = "realtime",
     renderStartTime: number = this.renderStartTime,
+    useRenderStartValue: boolean = true,
   ): string {
     const lines: string[] = [];
 
@@ -1340,10 +1346,10 @@ export class BlueData implements BlueDataObject {
       const varName = param.getCompilationVarName();
       if (!varName) continue;
 
-      // Get initial value
-      const initialVal = param.isAutomationEnabled()
-        ? param.getValue(renderStartTime)
-        : param.getFixedValue();
+      const initialVal =
+        param.isAutomationEnabled() && useRenderStartValue
+          ? param.getValue(renderStartTime)
+          : param.getFixedValue();
 
       // Init statement
       lines.push(`${varName} init ${formatBlueNumber(initialVal)}`);

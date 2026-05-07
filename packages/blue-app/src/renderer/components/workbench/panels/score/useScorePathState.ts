@@ -1,8 +1,10 @@
 import { useState, useCallback, useRef } from 'react';
+import type { ScoreObjectLocationRef } from './types';
 
 export interface ScorePathSegment {
   groupId: string | null;
   label: string;
+  location?: ScoreObjectLocationRef;
 }
 
 interface ScorePathSession {
@@ -52,12 +54,12 @@ export function useScorePathState() {
     });
   }, [session.scrollByGroupId]);
 
-  const navigateToGroup = useCallback((groupId: string, label: string) => {
+  const navigateToGroup = useCallback((groupId: string, label: string, location?: ScoreObjectLocationRef) => {
     saveCurrentScroll();
     setSession((prev) => ({
       ...prev,
       activeGroupId: groupId,
-      segments: [...prev.segments, { groupId, label }],
+      segments: [...prev.segments, { groupId, label, location }],
     }));
     restoreScroll(groupId);
   }, [saveCurrentScroll, restoreScroll]);

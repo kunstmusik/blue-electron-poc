@@ -87,8 +87,8 @@ function createTempoMapAdapter(snapshot: TempoMapSnapshot): TempoMapAdapter {
 
   if (!snapshot.enabled) {
     const adapter = {
-      beatsToSeconds: (beat) => beat,
-      secondsToBeats: (seconds) => seconds,
+    beatsToSeconds: (beat: number) => beat,
+    secondsToBeats: (seconds: number) => seconds,
     };
     tempoMapAdapterCache.set(snapshot, adapter);
     return adapter;
@@ -97,8 +97,8 @@ function createTempoMapAdapter(snapshot: TempoMapSnapshot): TempoMapAdapter {
   const points = normalizeTempoPoints(snapshot);
   if (points.length === 0) {
     const adapter = {
-      beatsToSeconds: (beat) => beat,
-      secondsToBeats: (seconds) => seconds,
+    beatsToSeconds: (beat: number) => beat,
+    secondsToBeats: (seconds: number) => seconds,
     };
     tempoMapAdapterCache.set(snapshot, adapter);
     return adapter;
@@ -275,18 +275,27 @@ function beatsToMeterPosition(beat: number, snapshot: MeterMapSnapshot): MeterPo
   const remainingBeats = beatsFromEntry - measuresFromEntry * entry.beatsPerMeasure;
   const fullBeats = Math.floor(remainingBeats / entry.beatScale);
   const fractionalBeat = remainingBeats - fullBeats * entry.beatScale;
-  const ticks = Math.round((fractionalBeat * DEFAULT_PPQ) / entry.beatScale);
-  const bar = entry.measure + measuresFromEntry;
-  const beatNumber = fullBeats + 1;
-  const clampedTicks = Math.min(ticks, DEFAULT_PPQ - 1);
+  let ticks = Math.round((fractionalBeat * DEFAULT_PPQ) / entry.beatScale);
+  let bar = entry.measure + measuresFromEntry;
+  let beatNumber = fullBeats + 1;
+
+  if (ticks >= DEFAULT_PPQ) {
+    ticks = 0;
+    beatNumber += 1;
+    if (beatNumber > entry.numBeats) {
+      beatNumber = 1;
+      bar += 1;
+    }
+  }
+
   const sixteenthTicks = DEFAULT_PPQ / 4;
-  const sixteenth = Math.floor(clampedTicks / sixteenthTicks) + 1;
-  const fraction = Math.round((clampedTicks * 100) / DEFAULT_PPQ);
+  const sixteenth = Math.floor(ticks / sixteenthTicks) + 1;
+  const fraction = Math.round((ticks * 100) / DEFAULT_PPQ);
 
   return {
     bar,
     beat: beatNumber,
-    ticks: clampedTicks,
+    ticks,
     sixteenth: Math.min(sixteenth, 4),
     fraction: Math.min(fraction, 99),
   };

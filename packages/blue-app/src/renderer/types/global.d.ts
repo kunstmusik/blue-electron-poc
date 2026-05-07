@@ -11,11 +11,15 @@ import type {
   BlueLiveNoteTriggerResult,
   EffectsLibraryPatch,
   EffectsLibrarySnapshot,
+  PolyObjectLayerGroupSnapshot,
   ProjectDocumentCommitReceipt,
   ProjectDocumentPatch,
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
   PlaybackClockSnapshot,
+  ScoreObjectEditorRequest,
+  ScoreObjectEditorDocumentSnapshot,
+  ScoreObjectLocationRef,
 } from '../../shared/project-editor';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
 import type { EngineOutputPayload } from '../../shared/io-provider';
@@ -51,6 +55,7 @@ declare global {
       openBsbFileSelector: (currentValue?: string) => Promise<string | null>;
       setBsbFileSelectorPath: (filePath: string) => Promise<string | null>;
       copyBsbFileSelectorToMediaFolder: (currentValue?: string) => Promise<string | null>;
+      setRecentFiles: (files: string[]) => Promise<string[]>;
       saveFile: () => Promise<string | null>;
       saveFileAs: () => Promise<string | null>;
       getProjectDocument: () => Promise<ProjectEditorSnapshot | null>;
@@ -80,6 +85,12 @@ declare global {
       commitProjectDocumentPatches: (
         patches: ProjectDocumentPatch[],
       ) => Promise<ProjectDocumentCommitReceipt>;
+      getScoreObjectEditorDocument: (
+        request: ScoreObjectEditorRequest,
+      ) => Promise<ScoreObjectEditorDocumentSnapshot | null>;
+      getNestedPolyObjectSnapshot: (
+        location: ScoreObjectLocationRef,
+      ) => Promise<PolyObjectLayerGroupSnapshot | null>;
       sendBsbRealtimeControlUpdate: (
         update: BsbRealtimeControlUpdate,
       ) => Promise<void>;
@@ -100,13 +111,14 @@ declare global {
       importCsoundUdo: () => Promise<string | null>;
       exportBlueUdo: (xmlText: string) => Promise<void>;
       exportCsoundUdo: (codeText: string, udoName: string) => Promise<void>;
-      onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => void;
-      onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => void;
-      onPlaybackClock: (cb: (clock: PlaybackClockSnapshot) => void) => void;
-      onPlaybackError: (cb: (error: string) => void) => void;
-      onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => void;
-      onSaveComplete: (cb: (info: { filePath: string }) => void) => void;
-      onSaveError: (cb: (error: string) => void) => void;
+      onProjectLoaded: (cb: (info: ProjectLoadedPayload) => void) => () => void;
+      onProjectClosed: (cb: () => void) => () => void;
+      onPlaybackStatus: (cb: (status: { status: string; message?: string }) => void) => () => void;
+      onPlaybackClock: (cb: (clock: PlaybackClockSnapshot) => void) => () => void;
+      onPlaybackError: (cb: (error: string) => void) => () => void;
+      onNativeMenuCommand: (cb: (command: NativeMenuCommand) => void) => () => void;
+      onSaveComplete: (cb: (info: { filePath: string }) => void) => () => void;
+      onSaveError: (cb: (error: string) => void) => () => void;
       onEngineOutput: (cb: (payload: EngineOutputPayload) => void) => () => void;
       onEngineOutputSelect: (cb: (payload: { tabName: string }) => void) => () => void;
       onEngineOutputReset: (cb: (payload: { tabName: string }) => void) => () => void;

@@ -10,6 +10,7 @@ export interface ScoreObjectClipboardEntry {
   isContainer: boolean;
   layerIndex: number;
   groupId: string;
+  editorTarget?: import('../shared/project-editor').ScoreObjectEditorTargetSnapshot;
 }
 
 interface ScoreSelectionState {

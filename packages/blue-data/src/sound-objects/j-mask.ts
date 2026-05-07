@@ -12,7 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class JMask extends AbstractSoundObject {
   private _seedUsed = false;
@@ -20,6 +20,7 @@ export class JMask extends AbstractSoundObject {
 
   constructor(other?: JMask) {
     super();
+    this.setName('JMask');
     if (other) {
       this.copyFrom(other);
       this._seedUsed = other._seedUsed;
@@ -45,13 +46,7 @@ export class JMask extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'JMask');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.JMask');
     elem.addElement('seedUsed').setText(this._seedUsed.toString());
     elem.addElement('seed').setText(this._seed.toString());
     return elem;

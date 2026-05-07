@@ -8,9 +8,18 @@ import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 
 describe('Score model compatibility', () => {
   describe('default score', () => {
-    it('has empty layer groups', () => {
+    it('has one root PolyObject layer group', () => {
       const score = new Score();
-      expect(score.length).toBe(0);
+      expect(score.length).toBe(1);
+      expect(score[0]).toBeInstanceOf(PolyObject);
+      expect((score[0] as PolyObject).getName()).toBe('SoundObject Layer Group');
+    });
+
+    it('root PolyObject has one default SoundLayer', () => {
+      const score = new Score();
+      const root = score[0] as PolyObject;
+      expect(root.length).toBe(1);
+      expect(root[0]).toBeInstanceOf(SoundLayer);
     });
 
     it('has default time context', () => {
@@ -51,6 +60,27 @@ describe('Score model compatibility', () => {
       const elem = Element.parse(xml);
       const score = Score.loadFromXML(elem);
       expect(score.length).toBe(1);
+    });
+
+    it('loads soundObject with Java fully-qualified PolyObject type', () => {
+      const xml = `<score>
+        <soundObject type="blue.soundObject.PolyObject" name="Java Poly">
+          <startTime type="BEATS"><csoundBeats>0.0</csoundBeats></startTime>
+          <subjectiveDuration type="BEATS"><csoundBeats>4.0</csoundBeats></subjectiveDuration>
+          <name>Java Poly</name>
+          <backgroundColor>-16777216</backgroundColor>
+          <soundLayer name="Layer 1">
+            <soundObject type="blue.soundObject.GenericScore">
+              <name>Score 1</name>
+              <scoreText>i1 0 1 440</scoreText>
+            </soundObject>
+          </soundLayer>
+        </soundObject>
+      </score>`;
+      const elem = Element.parse(xml);
+      const score = Score.loadFromXML(elem);
+      expect(score.length).toBe(1);
+      expect((score[0] as PolyObject).getName()).toBe('Java Poly');
     });
 
     it('loads nested GenericScore with Java full class name', () => {
@@ -110,7 +140,7 @@ describe('Score model compatibility', () => {
       let found = false;
       while (children.hasMoreElements()) {
         const child = children.next();
-        if (child.getName() === 'polyObject') {
+        if (child.getName() === 'soundObject' && child.getAttribute('type') === 'blue.soundObject.PolyObject') {
           found = true;
         }
       }
@@ -132,11 +162,10 @@ describe('Score model compatibility', () => {
       score.push(poly);
 
       const copy = new Score(score);
-      expect(copy.length).toBe(1);
+      expect(copy.length).toBe(2);
 
-      // Mutate copy
-      (copy[0] as PolyObject).setName('Modified');
-      expect((score[0] as PolyObject).getName()).toBe('Original');
+      (copy[1] as PolyObject).setName('Modified');
+      expect((score[1] as PolyObject).getName()).toBe('Original');
     });
   });
 });

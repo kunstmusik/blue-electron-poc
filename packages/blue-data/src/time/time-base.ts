@@ -6,7 +6,7 @@
  * - BEATS: Csound beats (quarter note = 1 beat)
  * - BBT: Bars.Beats.Ticks (1-based position)
  * - BBST: Bars.Beats.Sixteenths.Ticks (1-based position)
- * - BBF: Bars.Beats.Fraction (1-based position, fraction 0-99)
+ * - BBF: Bars.Beats.Fraction (1-based position, fraction 0-99 canonical hundredths)
  * - TIME: Hours:Minutes:Seconds.Milliseconds
  * - SMPTE: SMPTE timecode (display only)
  * - SECONDS: Raw seconds

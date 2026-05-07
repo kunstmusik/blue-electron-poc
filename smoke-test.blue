@@ -1,0 +1,617 @@
+<blueData version="2.10.1">  <projectProperties>    <title>Smoke Test</title>
+    <author>blue-electron</author>
+    <notes></notes>
+    <sampleRate>44100</sampleRate>
+    <ksmps>64</ksmps>
+    <channels>2</channels>
+    <useZeroDbFS>false</useZeroDbFS>
+    <zeroDbFS>32768</zeroDbFS>
+    <diskSampleRate>44100</diskSampleRate>
+    <diskKsmps>64</diskKsmps>
+    <diskChannels>2</diskChannels>
+    <diskUseZeroDbFS>false</diskUseZeroDbFS>
+    <diskZeroDbFS>32768</diskZeroDbFS>
+    <useAudioOut>true</useAudioOut>
+    <useAudioIn>false</useAudioIn>
+    <useMidiIn>false</useMidiIn>
+    <useMidiOut>false</useMidiOut>
+    <noteAmpsEnabled>true</noteAmpsEnabled>
+    <outOfRangeEnabled>true</outOfRangeEnabled>
+    <warningsEnabled>true</warningsEnabled>
+    <benchmarkEnabled>true</benchmarkEnabled>
+    <advancedSettings></advancedSettings>
+    <completeOverride>false</completeOverride>
+    <fileName></fileName>
+    <askOnRender>false</askOnRender>
+    <diskNoteAmpsEnabled>true</diskNoteAmpsEnabled>
+    <diskOutOfRangeEnabled>true</diskOutOfRangeEnabled>
+    <diskWarningsEnabled>true</diskWarningsEnabled>
+    <diskBenchmarkEnabled>true</diskBenchmarkEnabled>
+    <diskAdvancedSettings></diskAdvancedSettings>
+    <diskCompleteOverride>false</diskCompleteOverride>
+    <diskAlwaysRenderEntireProject>false</diskAlwaysRenderEntireProject>
+    <mediaFolder></mediaFolder>
+    <copyToMediaFileOnImport>true</copyToMediaFileOnImport>
+  </projectProperties>
+  <arrangement>    <instrumentAssignment arrangementId="1" isEnabled="true">      <instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">        <name>All Widgets Synth</name>
+        <comment></comment>
+        <globalOrc></globalOrc>
+        <globalSco></globalSco>
+        <instrumentText>
+  ifreq = p4
+  iamp = p5
+  aenv linseg 0, 0.01, 1, p3-0.02, 1, 0.01, 0
+  aout poscil aenv * iamp * &lt;volume&gt;, ifreq * &lt;pitch&gt;
+  outs aout, aout
+</instrumentText>
+        <alwaysOnInstrumentText></alwaysOnInstrumentText>
+        <graphicInterface editEnabled="true">          <gridSettings>            <width>10</width>
+            <height>10</height>
+            <gridStyle>DOT</gridStyle>
+            <snapGridEnabled>true</snapGridEnabled>
+          </gridSettings>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBGroup">            <objectName></objectName>
+            <x>0</x>
+            <y>0</y>
+            <groupName>Group</groupName>
+            <backgroundColor>0x00000033</backgroundColor>
+            <borderColor>0x000000ff</borderColor>
+            <labelTextColor>0xffffffff</labelTextColor>
+            <titleEnabled>true</titleEnabled>
+            <width>20</width>
+            <height>20</height>
+            <font>              <name>Roboto</name>
+              <size>12.0</size>
+              <style>0</style>
+            </font>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">              <objectName>volume</objectName>
+              <x>10</x>
+              <y>10</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>0</minimum>
+              <maximum>1</maximum>
+              <value>0.5</value>
+              <bdresolution>0.001</bdresolution>
+              <sliderWidth>200</sliderWidth>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSlider" version="2">              <objectName>filter</objectName>
+              <x>230</x>
+              <y>10</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>100</minimum>
+              <maximum>15000</maximum>
+              <value>5000</value>
+              <bdresolution>1</bdresolution>
+              <sliderHeight>130</sliderHeight>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">              <objectName>pitch</objectName>
+              <x>310</x>
+              <y>10</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>0.5</minimum>
+              <maximum>2</maximum>
+              <value>1</value>
+              <knobWidth>50</knobWidth>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+              <label>label</label>
+              <labelEnabled>false</labelEnabled>
+              <font>                <name>Roboto</name>
+                <size>12.0</size>
+                <style>0</style>
+              </font>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBCheckBox">              <objectName>enabled</objectName>
+              <x>10</x>
+              <y>80</y>
+              <automationAllowed>true</automationAllowed>
+              <label>Enabled</label>
+              <selected>true</selected>
+              <randomizable>true</randomizable>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBLabel" version="2">              <objectName></objectName>
+              <x>120</x>
+              <y>80</y>
+              <label>BSB Label Widget</label>
+              <font>                <name>Roboto</name>
+                <size>12.0</size>
+                <style>0</style>
+              </font>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBDropdown" version="2">              <objectName>waveform</objectName>
+              <x>10</x>
+              <y>150</y>
+              <automationAllowed>true</automationAllowed>
+              <selectedIndex>0</selectedIndex>
+              <fontSize>12</fontSize>
+              <randomizable>true</randomizable>
+              <bsbDropdownItemList>                <bsbDropdownItem uniqueId="uid-sine">                  <name>Sine</name>
+                  <value>poscil</value>
+                </bsbDropdownItem>
+                <bsbDropdownItem uniqueId="uid-saw">                  <name>Sawtooth</name>
+                  <value>vco2</value>
+                </bsbDropdownItem>
+                <bsbDropdownItem uniqueId="uid-sqr">                  <name>Square</name>
+                  <value>vco2sq</value>
+                </bsbDropdownItem>
+              </bsbDropdownItemList>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBXYController" version="2">              <objectName>xypad</objectName>
+              <x>250</x>
+              <y>150</y>
+              <automationAllowed>true</automationAllowed>
+              <xValue>0.5</xValue>
+              <yValue>0.5</yValue>
+              <xMin>0</xMin>
+              <xMax>1</xMax>
+              <yMin>0</yMin>
+              <yMax>1</yMax>
+              <width>120</width>
+              <height>100</height>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBValue">              <objectName>baseFreq</objectName>
+              <x>10</x>
+              <y>220</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>20</minimum>
+              <maximum>20000</maximum>
+              <defaultValue>0</defaultValue>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBTextField">              <objectName>scoreText</objectName>
+              <x>120</x>
+              <y>220</y>
+              <value>i1 0 1 440 0.5</value>
+              <textFieldWidth>180</textFieldWidth>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBFileSelector">              <objectName>sampleFile</objectName>
+              <x>10</x>
+              <y>290</y>
+              <fileName>test.wav</fileName>
+              <textFieldWidth>200</textFieldWidth>
+              <stringChannelEnabled>false</stringChannelEnabled>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">              <objectName>hbank</objectName>
+              <x>250</x>
+              <y>290</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>0</minimum>
+              <maximum>1</maximum>
+              <bdresolution>0.01</bdresolution>
+              <sliderWidth>80</sliderWidth>
+              <gap>2</gap>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderWidth>100</sliderWidth>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderWidth>100</sliderWidth>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderWidth>100</sliderWidth>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderWidth>100</sliderWidth>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSliderBank">              <objectName>vbank</objectName>
+              <x>360</x>
+              <y>290</y>
+              <automationAllowed>true</automationAllowed>
+              <minimum>0</minimum>
+              <maximum>1</maximum>
+              <bdresolution>0.01</bdresolution>
+              <sliderHeight>80</sliderHeight>
+              <gap>2</gap>
+              <valueDisplayEnabled>true</valueDisplayEnabled>
+              <randomizable>true</randomizable>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderHeight>100</sliderHeight>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderHeight>100</sliderHeight>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderHeight>100</sliderHeight>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBVSlider" version="2">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0</value>
+                <bdresolution>0.1</bdresolution>
+                <sliderHeight>100</sliderHeight>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+              </bsbObject>
+            </bsbObject>
+            <bsbObject type="blue.orchestra.blueSynthBuilder.BSBGroup">              <objectName></objectName>
+              <x>10</x>
+              <y>360</y>
+              <groupName>Group Container</groupName>
+              <backgroundColor>0x00000033</backgroundColor>
+              <borderColor>0x000000ff</borderColor>
+              <labelTextColor>0xffffffff</labelTextColor>
+              <titleEnabled>true</titleEnabled>
+              <width>420</width>
+              <height>80</height>
+              <font>                <name>Roboto</name>
+                <size>12.0</size>
+                <style>0</style>
+              </font>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">                <objectName>innerKnob</objectName>
+                <x>10</x>
+                <y>10</y>
+                <automationAllowed>true</automationAllowed>
+                <minimum>0</minimum>
+                <maximum>1</maximum>
+                <value>0.5</value>
+                <knobWidth>40</knobWidth>
+                <valueDisplayEnabled>true</valueDisplayEnabled>
+                <randomizable>true</randomizable>
+                <label>label</label>
+                <labelEnabled>false</labelEnabled>
+                <font>                  <name>Roboto</name>
+                  <size>12.0</size>
+                  <style>0</style>
+                </font>
+              </bsbObject>
+            </bsbObject>
+          </bsbObject>
+        </graphicInterface>
+        <parameterList/>
+        <opcodeList/>
+      </instrument>
+    </instrumentAssignment>
+  </arrangement>
+  <mixer enabled="true">    <channelList list="channels"/>
+    <channelList list="subChannels"/>
+    <channel>      <name>Master</name>
+      <outChannel>Master</outChannel>
+      <level>0</level>
+      <volume>1</volume>
+      <pan>0.5</pan>
+      <muted>false</muted>
+      <solo>false</solo>
+      <effectsChain bin="pre"/>
+      <effectsChain bin="post"/>
+      <parameter uniqueId="1923368354" name="Volume" label="dB" min="-96.0" max="12.0" bdresolution="-1" automationEnabled="false" value="0.0">        <line name="" version="2" max="12.0" min="-96.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+      </parameter>
+    </channel>
+    <extraRenderTime>0</extraRenderTime>
+  </mixer>
+  <tables></tables>
+  <soundObjectLibrary/>
+  <globalOrcSco/>
+  <opcodeList/>
+  <liveData>    <commandLine>csound -Wdo devaudio -L stdin</commandLine>
+    <commandLineEnabled>false</commandLineEnabled>
+    <commandLineOverride>false</commandLineOverride>
+    <liveObjectBins columns="1" rows="8">      <bin>        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+      </bin>
+    </liveObjectBins>
+    <liveObjectSetList/>
+    <repeat>4</repeat>
+    <tempo>60</tempo>
+    <repeatEnabled>false</repeatEnabled>
+    <liveCodeText></liveCodeText>
+  </liveData>
+  <score>    <timeContext>      <tempoMap>        <enabled>false</enabled>
+        <visible>false</visible>
+        <tempoPoint tempo="60" curve="CONSTANT">          <timePosition type="BEATS">            <csoundBeats>0</csoundBeats>
+          </timePosition>
+        </tempoPoint>
+      </tempoMap>
+      <meterMap>        <measureMeterPair>          <measureNumber>1</measureNumber>
+          <meter>            <numBeats>4</numBeats>
+            <beatLength>4</beatLength>
+          </meter>
+        </measureMeterPair>
+      </meterMap>
+      <smpteFrameRate>30</smpteFrameRate>
+    </timeContext>
+    <timeState version="2">      <zoomIterations>0</zoomIterations>
+      <snapEnabled>false</snapEnabled>
+      <snapValue>BEAT</snapValue>
+      <timeDisplay>BEATS</timeDisplay>
+      <secondaryTimeDisplay>TIME</secondaryTimeDisplay>
+      <secondaryRulerEnabled>false</secondaryRulerEnabled>
+      <tempoRowVisible>true</tempoRowVisible>
+      <meterRowVisible>true</meterRowVisible>
+      <markersRowVisible>true</markersRowVisible>
+      <smpteFrameRate>24</smpteFrameRate>
+    </timeState>
+    <noteProcessorChain/>
+    <soundObject type="blue.soundObject.PolyObject">      <startTime type="BEATS">        <csoundBeats>0</csoundBeats>
+      </startTime>
+      <subjectiveDuration type="BEATS">        <csoundBeats>4</csoundBeats>
+      </subjectiveDuration>
+      <name>Root</name>
+      <backgroundColor>6710937</backgroundColor>
+      <timeBehavior>2</timeBehavior>
+      <repeatPoint>-1.0</repeatPoint>
+      <noteProcessorChain/>
+      <defaultHeightIndex>0</defaultHeightIndex>
+      <soundLayer name="Layer 0" muted="false" solo="false" heightIndex="0">        <noteProcessorChain/>
+        <soundObject type="blue.soundObject.GenericScore">          <startTime type="BEATS">            <csoundBeats>0</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>GenericScore</name>
+          <backgroundColor>16737945</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <score>i1 0 1 440 0.5</score>
+        </soundObject>
+        <soundObject type="blue.soundObject.PythonObject" onLoadProcessable="false">          <startTime type="BEATS">            <csoundBeats>4</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>PythonObject</name>
+          <backgroundColor>6750105</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <pythonCode># python code
+print("hello")</pythonCode>
+        </soundObject>
+        <soundObject type="blue.soundObject.JavaScriptObject" onLoadProcessable="false">          <startTime type="BEATS">            <csoundBeats>8</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>JavaScriptObject</name>
+          <backgroundColor>6724095</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <javaScriptCode>// js code
+console.log("hello")</javaScriptCode>
+        </soundObject>
+        <soundObject type="blue.soundObject.Comment">          <startTime type="BEATS">            <csoundBeats>12</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>Comment</name>
+          <backgroundColor>16764006</backgroundColor>
+          <noteProcessorChain/>
+          <commentText>This is a comment</commentText>
+        </soundObject>
+        <soundObject type="blue.soundObject.External">          <startTime type="BEATS">            <csoundBeats>16</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>External</name>
+          <backgroundColor>13395711</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <text>external text</text>
+          <commandLine>echo</commandLine>
+          <syntaxType>Python</syntaxType>
+        </soundObject>
+        <soundObject type="blue.soundObject.AudioFile">          <startTime type="BEATS">            <csoundBeats>20</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>AudioFile</name>
+          <backgroundColor>6750156</backgroundColor>
+          <noteProcessorChain/>
+          <soundFileName>test.wav</soundFileName>
+          <csoundPostCode>	outs	aChannel1, aChannel1</csoundPostCode>
+        </soundObject>
+        <soundObject type="blue.soundObject.Sound">          <startTime type="BEATS">            <csoundBeats>24</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>Sound</name>
+          <backgroundColor>16750950</backgroundColor>
+          <noteProcessorChain/>
+          <comment>BSB sound</comment>
+        </soundObject>
+        <soundObject type="blue.soundObject.LineObject">          <startTime type="BEATS">            <csoundBeats>28</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>LineObject</name>
+          <backgroundColor>10053375</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+        </soundObject>
+        <soundObject type="blue.soundObject.ZakLineObject">          <startTime type="BEATS">            <csoundBeats>32</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>ZakLineObject</name>
+          <backgroundColor>6737151</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <zakSpace>0</zakSpace>
+        </soundObject>
+        <soundObject type="blue.soundObject.PatternObject">          <startTime type="BEATS">            <csoundBeats>36</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>PatternObject</name>
+          <backgroundColor>16737996</backgroundColor>
+          <timeBehavior>3</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <beats>4</beats>
+          <subDivisions>4</subDivisions>
+          <patterns/>
+        </soundObject>
+        <soundObject type="blue.soundObject.PianoRoll">          <startTime type="BEATS">            <csoundBeats>40</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>PianoRoll</name>
+          <backgroundColor>13434726</backgroundColor>
+          <timeBehavior>3</timeBehavior>
+          <repeatPoint type="BEATS">            <csoundBeats>4</csoundBeats>
+          </repeatPoint>
+          <noteProcessorChain/>
+          <noteTemplate>i &lt;INSTR_ID&gt; &lt;START&gt; &lt;DUR&gt; &lt;FREQ&gt; &lt;AMP&gt;</noteTemplate>
+          <instrumentId>1</instrumentId>
+          <scale></scale>
+          <scale>            <scaleName>12TET</scaleName>
+            <baseFrequency>261.625565</baseFrequency>
+            <octave>2</octave>
+            <ratios>              <ratio>1</ratio>
+              <ratio>1.0594630943592953</ratio>
+              <ratio>1.122462048309373</ratio>
+              <ratio>1.1892071150027212</ratio>
+              <ratio>1.2599210498948734</ratio>
+              <ratio>1.3348398541700346</ratio>
+              <ratio>1.4142135623730954</ratio>
+              <ratio>1.498307076876682</ratio>
+              <ratio>1.5874010519682</ratio>
+              <ratio>1.6817928305074297</ratio>
+              <ratio>1.7817974362806794</ratio>
+              <ratio>1.887748625363388</ratio>
+            </ratios>
+          </scale>
+          <pchGenerationMethod>0</pchGenerationMethod>
+          <transposition>0</transposition>
+          <fieldDef name="AMP" fieldType="CONTINUOUS" min="0" max="1" default="1"/>
+        </soundObject>
+        <soundObject type="blue.soundObject.TrackerObject">          <startTime type="BEATS">            <csoundBeats>44</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>TrackerObject</name>
+          <backgroundColor>6750054</backgroundColor>
+          <timeBehavior>3</timeBehavior>
+          <repeatPoint type="BEATS">            <csoundBeats>16</csoundBeats>
+          </repeatPoint>
+          <noteProcessorChain/>
+          <stepsPerBeat>4</stepsPerBeat>
+          <tracks/>
+        </soundObject>
+        <soundObject type="blue.soundObject.JMask">          <startTime type="BEATS">            <csoundBeats>48</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>JMask</name>
+          <backgroundColor>16737894</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <seedUsed>false</seedUsed>
+          <seed>0</seed>
+        </soundObject>
+      </soundLayer>
+    </soundObject>
+  </score>
+  <scratchPadData>    <isWordWrapEnabled>true</isWordWrapEnabled>
+    <scratchText></scratchText>
+  </scratchPadData>
+  <noteProcessorChainMap/>
+  <renderStartTime>0</renderStartTime>
+  <renderEndTime>-1</renderEndTime>
+  <markersList/>
+  <loopRendering>false</loopRendering>
+  <midiInputProcessor>    <keyMapping>PCH</keyMapping>
+    <velMapping>MIDI</velMapping>
+    <pitchConstant></pitchConstant>
+    <ampConstant></ampConstant>
+    <scale>      <scaleName>12TET</scaleName>
+      <baseFrequency>261.625565</baseFrequency>
+      <octave>2</octave>
+      <ratios>        <ratio>1</ratio>
+        <ratio>1.0594630943592953</ratio>
+        <ratio>1.122462048309373</ratio>
+        <ratio>1.1892071150027212</ratio>
+        <ratio>1.2599210498948734</ratio>
+        <ratio>1.3348398541700346</ratio>
+        <ratio>1.4142135623730954</ratio>
+        <ratio>1.498307076876682</ratio>
+        <ratio>1.5874010519682</ratio>
+        <ratio>1.6817928305074297</ratio>
+        <ratio>1.7817974362806794</ratio>
+        <ratio>1.887748625363388</ratio>
+      </ratios>
+    </scale>
+  </midiInputProcessor>
+  <pluginData/>
+</blueData>

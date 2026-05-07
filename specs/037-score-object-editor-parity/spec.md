@@ -2,7 +2,7 @@
 
 **Feature Branch**: `037-score-object-editor-parity`  
 **Created**: 2026-05-03  
-**Status**: Draft  
+**Status**: Complete  
 **Input**: User description: "Continue the planned score work after the score shell lands by implementing the Java Blue ScoreObject editor and ScoreObject properties auxiliary surfaces."
 
 ## User Scenarios & Testing *(mandatory)*

@@ -5,18 +5,26 @@ function createHandlers() {
   return {
     onNewFile: vi.fn(),
     onOpenFile: vi.fn(),
+    onOpenRecentProject: vi.fn(),
+    onCloseProject: vi.fn(),
+    onRevertProject: vi.fn(),
     onSaveFile: vi.fn(),
     onSaveFileAs: vi.fn(),
+    onGenerateCsdToScreen: vi.fn(),
+    onGenerateCsdToDisk: vi.fn(),
     onRequestQuit: vi.fn(),
     onOpenSettings: vi.fn(),
     onOpenEffectsLibrary: vi.fn(),
     onFocusPanel: vi.fn(),
     onToggleDevTools: vi.fn(),
     onResetLayout: vi.fn(),
-    onPlay: vi.fn(),
-    onStop: vi.fn(),
-    onGenerateCsdToScreen: vi.fn(),
-    onGenerateCsdToDisk: vi.fn(),
+    onToggleFollowPlayback: vi.fn(),
+    onToggleFollowPlaybackOnRenderStart: vi.fn(),
+    onToggleLoopRendering: vi.fn(),
+    onToggleBlueLive: vi.fn(),
+    onRecompileBlueLive: vi.fn(),
+    onBlueLiveAllNotesOff: vi.fn(),
+    onNotYetImplemented: vi.fn(),
   };
 }
 
@@ -34,10 +42,13 @@ describe('application menu template', () => {
     const template = buildApplicationMenuTemplate({
       hasLoadedProject: true,
       isDarwin: true,
+      recentProjects: ['/one.blue', '/two.blue'],
+      canRevertProject: true,
+      followPlaybackEnabled: true,
       ...handlers,
     });
 
-    expect(template.map((item) => item.label)).toEqual(['Blue', 'File', 'Edit', 'Project', 'Window']);
+    expect(template.map((item) => item.label)).toEqual(['Blue', 'File', 'Edit', 'Project', 'Tools', 'Window']);
 
     const blueMenu = getSubmenu(template[0]);
     expect(blueMenu.map((item) => item.label)).toContain('About Blue');
@@ -49,18 +60,25 @@ describe('application menu template', () => {
     expect(handlers.onOpenSettings).toHaveBeenCalledTimes(1);
 
     const fileMenu = getSubmenu(template[1]);
-    expect(getLabels(fileMenu)).toEqual(['New', 'Open...', 'Save', 'Save As...']);
+    expect(getLabels(fileMenu)).toEqual(['New Project', 'Open Project', 'Open Example Project', 'Import CSD File', 'Import from ORC/SCO', 'Import MIDI File', 'Close Project', 'Revert', 'Save', 'Save as...', 'Render to Disk', 'Render to Disk and Play', 'Render to Disk and Open', 'Save Libraries', 'Recent Projects']);
+
+    const recentMenu = getSubmenu(fileMenu.find((item) => item.label === 'Recent Projects'));
+    expect(getLabels(recentMenu)).toEqual(['one.blue', 'two.blue']);
+    recentMenu[0]?.click?.();
+    expect(handlers.onOpenRecentProject).toHaveBeenCalledWith('/one.blue');
 
     const projectMenu = getSubmenu(template[3]);
-    expect(projectMenu.find((item) => item.label === 'Effects Library...')).toBeTruthy();
-    expect(projectMenu.find((item) => item.label === 'Play')?.enabled).toBe(true);
-    expect(projectMenu.find((item) => item.label === 'Stop')?.enabled).toBe(true);
-    projectMenu.find((item) => item.label === 'Play')?.click?.();
-    expect(handlers.onPlay).toHaveBeenCalledTimes(1);
-    projectMenu.find((item) => item.label === 'Effects Library...')?.click?.();
+    expect(projectMenu.find((item) => item.label === 'Generate CSD to Screen')).toBeTruthy();
+    expect(projectMenu.find((item) => item.label === 'Blue Live')).toBeTruthy();
+    projectMenu.find((item) => item.label === 'Generate CSD to Screen')?.click?.();
+    expect(handlers.onGenerateCsdToScreen).toHaveBeenCalledTimes(1);
+
+    const toolsMenu = getSubmenu(template[4]);
+    expect(toolsMenu.find((item) => item.label === 'Effects Library')).toBeTruthy();
+    toolsMenu.find((item) => item.label === 'Effects Library')?.click?.();
     expect(handlers.onOpenEffectsLibrary).toHaveBeenCalledTimes(1);
 
-    const windowMenu = getSubmenu(template[4]);
+    const windowMenu = getSubmenu(template[5]);
     expect(windowMenu.map((item) => item.label).slice(0, 5)).toEqual(['Editors', 'Properties', 'Output', 'REPL', 'Toggle Dev Tools']);
     expect(windowMenu.find((item) => item.label === 'Reset Default Layout')).toBeTruthy();
 
@@ -75,13 +93,19 @@ describe('application menu template', () => {
     const template = buildApplicationMenuTemplate({
       hasLoadedProject: false,
       isDarwin: false,
+      recentProjects: [],
+      canRevertProject: false,
+      followPlaybackEnabled: true,
       ...handlers,
     });
 
-    expect(template.map((item) => item.label)).toEqual(['File', 'Edit', 'Project', 'Window']);
+    expect(template.map((item) => item.label)).toEqual(['File', 'Edit', 'Project', 'Tools', 'Window']);
 
     const fileMenu = getSubmenu(template[0]);
-    expect(getLabels(fileMenu)).toEqual(['New', 'Open...', 'Save', 'Save As...', 'Settings...', 'Quit']);
+    expect(getLabels(fileMenu)).toEqual(['New Project', 'Open Project', 'Open Example Project', 'Import CSD File', 'Import from ORC/SCO', 'Import MIDI File', 'Close Project', 'Revert', 'Save', 'Save as...', 'Render to Disk', 'Render to Disk and Play', 'Render to Disk and Open', 'Save Libraries', 'Recent Projects', 'Settings...', 'Quit']);
+
+    const recentMenu = getSubmenu(fileMenu.find((item) => item.label === 'Recent Projects'));
+    expect(getLabels(recentMenu)).toEqual(['No Recent Projects']);
 
     const settingsItem = fileMenu.find((item) => item.label === 'Settings...');
     expect(settingsItem?.accelerator).toBe('CmdOrCtrl+,');
@@ -94,8 +118,10 @@ describe('application menu template', () => {
     expect(handlers.onRequestQuit).toHaveBeenCalledTimes(1);
 
     const projectMenu = getSubmenu(template[2]);
-    expect(projectMenu.find((item) => item.label === 'Effects Library...')).toBeTruthy();
-    expect(projectMenu.find((item) => item.label === 'Play')?.enabled).toBe(false);
     expect(projectMenu.find((item) => item.label === 'Generate CSD to Screen')?.enabled).toBe(false);
+    expect(projectMenu.find((item) => item.label === 'Blue Live')?.enabled).toBe(false);
+
+    const toolsMenu = getSubmenu(template[3]);
+    expect(toolsMenu.find((item) => item.label === 'Effects Library')).toBeTruthy();
   });
 });

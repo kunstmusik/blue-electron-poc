@@ -8,12 +8,14 @@
  */
 import { AbstractSoundObject } from './abstract-sound-object';
 import { NoteList } from './note-list';
+import { TimeBehavior } from './time-behavior';
 import { TimeContext } from '../time/time-context';
+import { TimeDuration } from '../time/time-duration';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 import { Pattern } from './pattern/pattern';
 import { getNotes, applyTimeBehavior, applyNoteProcessorChain, setScoreStart } from '../utilities/score';
 
@@ -24,6 +26,8 @@ export class PatternObject extends AbstractSoundObject {
 
   constructor(other?: PatternObject) {
     super();
+    this.setName('Pattern');
+    this._timeBehavior = TimeBehavior.REPEAT;
     if (other) {
       this.copyFrom(other);
       this._beats = other._beats;
@@ -108,19 +112,7 @@ export class PatternObject extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'PatternObject');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
-
-    if (this._repeatPoint) {
-      elem.addElement('repeatPoint').setText(this._repeatPoint.getValue().toString());
-    }
-
-    elem.addElement(this.getNoteProcessorChain().saveAsXML().setName('noteProcessorChain'));
+    const elem = getBasicXML(this, 'blue.soundObject.PatternObject');
     elem.addElement('beats').setText(this._beats.toString());
     elem.addElement('subDivisions').setText(this._subDivisions.toString());
 

@@ -24,6 +24,7 @@ import { LayerGroupDataEvent, LayerGroupDataEventType } from '../score/layers/la
 import { LayerGroupListener } from '../score/layers/layer-group-listener';
 import { ScoreObjectListener, ScoreObjectEvent, ScoreEventType } from '../score/score-object-event';
 import { Layer } from '../score/layers/layer';
+import { getBasicXML, initBasicFromXML } from './sound-object-utilities';
 import { GenericScore } from './generic-score';
 import { Comment } from './comment';
 import { CSDSoundObject } from './csd-sound-object';
@@ -110,14 +111,14 @@ export class PolyObject extends Array<SoundLayer>
   implements SoundObject, ScoreObjectLayerGroup<SoundLayer>, AutomatableLayerGroup {
 
   // ScoreObject properties
-  protected _name = 'SoundObject Layer Group';
+  protected _name = 'polyObject';
   protected _startTime = TimePosition.beats(0);
   protected _subjectiveDuration = TimeDuration.beats(4);
   protected _backgroundColor = 0x666699;
   protected _cloneSourceHashCode = 0;
 
   // SoundObject properties
-  private _timeBehavior = TimeBehavior.NONE; // NONE for root PolyObject
+  private _timeBehavior = TimeBehavior.SCALE;
   private _repeatPoint: TimeDuration | null = null;
   private _npc = new NoteProcessorChain();
   private _listeners: ScoreObjectListener[] = [];
@@ -128,9 +129,13 @@ export class PolyObject extends Array<SoundLayer>
 
   constructor(isRoot = false) {
     super();
+    this._backgroundColor = 0x666699;
     if (isRoot) {
       this._name = 'SoundObject Layer Group';
       this._timeBehavior = TimeBehavior.NONE;
+    } else {
+      this._name = 'polyObject';
+      this._timeBehavior = TimeBehavior.SCALE;
     }
   }
 
@@ -237,29 +242,23 @@ export class PolyObject extends Array<SoundLayer>
   // ─── XML Serialization ───
 
   saveAsXML(objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('polyObject');
-    elem.setAttribute('type', 'PolyObject');
-    elem.setAttribute('name', this._name);
-    elem.setAttribute('timeBehavior', this._timeBehavior);
-    elem.setAttribute('startTime', this._startTime.getValue().toString());
-    elem.setAttribute('duration', this._subjectiveDuration.getValue().toString());
-    elem.setAttribute('backgroundColor', this._backgroundColor.toString());
-    elem.setAttribute('defaultHeightIndex', this._defaultHeightIndex.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.PolyObject');
+    elem.addElement('defaultHeightIndex').setText(this._defaultHeightIndex.toString());
 
     for (const layer of this) {
       const layerElem = new Element('soundLayer');
       layerElem.setAttribute('name', layer.getName());
+      layerElem.setAttribute('muted', 'false');
+      layerElem.setAttribute('solo', 'false');
+      layerElem.setAttribute('heightIndex', '0');
+      layerElem.addElement('noteProcessorChain');
 
       for (const sObj of layer) {
-        const sObjXml = sObj.saveAsXML(objRefMap);
-        sObjXml.setName('soundObject');
-        layerElem.addElement(sObjXml);
+        layerElem.addElement(sObj.saveAsXML(objRefMap));
       }
 
       elem.addElement(layerElem);
     }
-
-    elem.addElement(this._npc.saveAsXML().setName('noteProcessorChain'));
 
     return elem;
   }
@@ -267,28 +266,33 @@ export class PolyObject extends Array<SoundLayer>
   static loadFromXML(data: Element, _objRefMap?: ObjRefLoadMap): PolyObject {
     const pObj = new PolyObject(false);
 
-    // Attributes
-    const nameAttr = data.getAttribute('name');
-    if (nameAttr) pObj._name = nameAttr;
+    const startAttr = data.getAttribute('startTime');
+    if (startAttr) {
+      const nameAttr = data.getAttribute('name');
+      if (nameAttr) pObj._name = nameAttr;
 
-    const tbAttr = data.getAttribute('timeBehavior');
-    if (tbAttr && Object.values(TimeBehavior).includes(tbAttr as TimeBehavior)) {
-      pObj._timeBehavior = tbAttr as TimeBehavior;
+      const tbAttr = data.getAttribute('timeBehavior');
+      if (tbAttr && Object.values(TimeBehavior).includes(tbAttr as TimeBehavior)) {
+        pObj._timeBehavior = tbAttr as TimeBehavior;
+      }
+
+      pObj._startTime = TimePosition.beats(parseFloat(startAttr));
+
+      const durAttr = data.getAttribute('duration');
+      if (durAttr) pObj._subjectiveDuration = TimeDuration.beats(parseFloat(durAttr));
+
+      const colorAttr = data.getAttribute('backgroundColor');
+      if (colorAttr) pObj._backgroundColor = parseInt(colorAttr, 10);
+
+      const dhiAttr = data.getAttribute('defaultHeightIndex');
+      if (dhiAttr) pObj._defaultHeightIndex = parseInt(dhiAttr, 10);
+    } else {
+      initBasicFromXML(pObj, data);
+
+      const dhiText = data.getTextString('defaultHeightIndex');
+      if (dhiText) pObj._defaultHeightIndex = parseInt(dhiText, 10);
     }
 
-    const startAttr = data.getAttribute('startTime');
-    if (startAttr) pObj._startTime = TimePosition.beats(parseFloat(startAttr));
-
-    const durAttr = data.getAttribute('duration');
-    if (durAttr) pObj._subjectiveDuration = TimeDuration.beats(parseFloat(durAttr));
-
-    const colorAttr = data.getAttribute('backgroundColor');
-    if (colorAttr) pObj._backgroundColor = parseInt(colorAttr, 10);
-
-    const dhiAttr = data.getAttribute('defaultHeightIndex');
-    if (dhiAttr) pObj._defaultHeightIndex = parseInt(dhiAttr, 10);
-
-    // Child elements
     const nodes = data.getElements();
     while (nodes.hasMoreElements()) {
       const node = nodes.next();

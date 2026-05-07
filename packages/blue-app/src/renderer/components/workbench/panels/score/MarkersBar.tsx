@@ -2,15 +2,16 @@ import type { MarkerSnapshot } from '../../../../../shared/project-editor';
 
 interface Props {
   markers: MarkerSnapshot[];
+  totalBeats: number;
   pixelsPerBeat: number;
   rowVisible: boolean;
 }
 
-export default function MarkersBar({ markers, pixelsPerBeat, rowVisible }: Props) {
+export default function MarkersBar({ markers, totalBeats, pixelsPerBeat, rowVisible }: Props) {
   if (!rowVisible) return null;
 
   return (
-    <div className="relative h-5 border-b border-blue-border/30 overflow-hidden">
+    <div className="relative h-5 border-b border-blue-border/30 overflow-hidden" style={{ minWidth: totalBeats * pixelsPerBeat }}>
       {markers.map((marker, i) => {
         const left = marker.time * pixelsPerBeat;
         return (

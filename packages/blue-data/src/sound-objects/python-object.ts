@@ -12,7 +12,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class PythonObject extends AbstractSoundObject {
   private _pythonCode = '';
@@ -21,6 +21,8 @@ export class PythonObject extends AbstractSoundObject {
   constructor() {
     super();
     this.setName('PythonObject');
+    this._pythonCode = 'score = "i1 0 2 3 4 5"';
+    this._backgroundColor = 0x404040;
   }
 
   getPythonCode(): string { return this._pythonCode; }
@@ -44,17 +46,9 @@ export class PythonObject extends AbstractSoundObject {
   // ─── XML ───
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'PythonObject');
-
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.PythonObject');
     elem.addElement('pythonCode').setText(this._pythonCode);
     elem.setAttribute('onLoadProcessable', this._onLoadProcessable.toString());
-
     return elem;
   }
 

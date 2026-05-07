@@ -7,12 +7,14 @@
  */
 import { AbstractSoundObject } from './abstract-sound-object';
 import { NoteList } from './note-list';
+import { TimeBehavior } from './time-behavior';
 import { TimeContext } from '../time/time-context';
+import { TimeDuration } from '../time/time-duration';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class TrackerObject extends AbstractSoundObject {
   private _stepsPerBeat = 4;
@@ -20,6 +22,9 @@ export class TrackerObject extends AbstractSoundObject {
 
   constructor(other?: TrackerObject) {
     super();
+    this.setName('Tracker');
+    this._timeBehavior = TimeBehavior.REPEAT;
+    this._repeatPoint = TimeDuration.beats(16);
     if (other) {
       this.copyFrom(other);
       this._stepsPerBeat = other._stepsPerBeat;
@@ -46,13 +51,7 @@ export class TrackerObject extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'TrackerObject');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.TrackerObject');
     elem.addElement('stepsPerBeat').setText(this._stepsPerBeat.toString());
 
     const tracksElem = elem.addElement('tracks');

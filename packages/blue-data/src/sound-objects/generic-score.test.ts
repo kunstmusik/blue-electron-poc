@@ -6,7 +6,7 @@ describe('GenericScore', () => {
   describe('default state', () => {
     it('has empty score text', () => {
       const gs = new GenericScore();
-      expect(gs.getScoreText()).toBe('');
+      expect(gs.getScoreText()).toBe('i1 0 2 3 4 5');
     });
 
     it('has default name GenericScore', () => {
@@ -16,11 +16,11 @@ describe('GenericScore', () => {
   });
 
   describe('loadFromXML', () => {
-    it('loads scoreText from XML', () => {
+    it('loads score from XML', () => {
       const xml = `<soundObject type="GenericScore">
         <name>My Score</name>
-        <scoreText>i1 0 1 440
-i2 1 2 880</scoreText>
+        <score>i1 0 1 440
+i2 1 2 880</score>
       </soundObject>`;
       const elem = Element.parse(xml);
       const gs = GenericScore.loadFromXML(elem);
@@ -31,7 +31,7 @@ i2 1 2 880</scoreText>
     it('handles empty scoreText', () => {
       const xml = `<soundObject type="GenericScore">
         <name>Empty</name>
-        <scoreText></scoreText>
+        <score></score>
       </soundObject>`;
       const elem = Element.parse(xml);
       const gs = GenericScore.loadFromXML(elem);
@@ -40,15 +40,15 @@ i2 1 2 880</scoreText>
   });
 
   describe('saveAsXML', () => {
-    it('saves scoreText in Java-compatible format', () => {
+    it('saves score in Java-compatible format', () => {
       const gs = new GenericScore();
       gs.setName('Test');
       gs.setScoreText('i1 0 1 440');
 
       const xml = gs.saveAsXML();
       expect(xml.getName()).toBe('soundObject');
-      expect(xml.getAttribute('type')).toBe('GenericScore');
-      expect(xml.getElement('scoreText')?.getTextString()).toBe('i1 0 1 440');
+      expect(xml.getAttribute('type')).toBe('blue.soundObject.GenericScore');
+      expect(xml.getElement('score')?.getTextString()).toBe('i1 0 1 440');
     });
   });
 

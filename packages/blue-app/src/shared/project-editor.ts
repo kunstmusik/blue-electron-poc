@@ -34,6 +34,36 @@ import {
   PatternsLayerGroup,
   TimeBase,
   isValidSnapValueName,
+  SoundObject,
+  SoundObjectLibrary,
+  Instance,
+  AbstractSoundObject,
+  TimeBehavior,
+  NoteProcessorChain,
+  AudioClip,
+  TimePosition,
+  TimeDuration,
+  TimeContext,
+  GenericScore,
+  PythonObject,
+  JavaScriptObject,
+  Comment,
+  External,
+  AudioFile,
+  FrozenSoundObject,
+  PatternObject,
+  Pattern,
+  LineObject,
+  ZakLineObject,
+  PianoRoll,
+  TrackerObject,
+  NotationObject,
+  JMask,
+  Sound,
+  createSoundObject,
+  convertTimePosition,
+  beatsToTimePosition,
+  beatsToDuration,
 } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import {
@@ -55,6 +85,8 @@ export interface ScoreTimeStateSnapshot {
   markersRowVisible: boolean;
   smpteFrameRate: number;
   zoomIterations: number;
+  scoreObjectUpdateMode?: 'UPDATE_ALL' | 'UPDATE_MATCHING' | null;
+  markerUpdateMode?: 'UPDATE_ALL' | 'UPDATE_MATCHING' | null;
 }
 
 export interface MarkerSnapshot {
@@ -71,6 +103,7 @@ export interface ScoreRowObjectSnapshot {
   durationBeats: number;
   backgroundColor: number;
   isContainer: boolean;
+  editorTarget: ScoreObjectEditorTargetSnapshot;
 }
 
 export interface ScoreLayerSnapshot {
@@ -120,8 +153,191 @@ export interface ScoreDocumentSnapshot {
   layerGroups: ScoreLayerGroupSnapshot[];
 }
 
+// ─── Score Object Editor Target Types ───
+
+export interface ScoreObjectLocationRef {
+  rootGroupIndex: number;
+  containerPath: Array<{ layerIndex: number; objectIndex: number }>;
+  layerIndex: number;
+  objectIndex: number;
+}
+
+export interface ScoreObjectLibraryEntryRef {
+  libraryId: string;
+  libraryIndex: number;
+  objectType: string;
+}
+
+export interface ScoreObjectEditorTargetSnapshot {
+  selectionId: string;
+  selectedObjectType: string;
+  editorObjectType: string;
+  ownerKind: 'timeline' | 'library';
+  displayContext: 'timeline' | 'library' | 'instance';
+  location?: ScoreObjectLocationRef;
+  sourceInstanceLocation?: ScoreObjectLocationRef;
+  library?: ScoreObjectLibraryEntryRef;
+  supportsTimeBehavior: boolean;
+  supportsRepeatPoint: boolean;
+  supportsNoteProcessorChain: boolean;
+}
+
+// ─── Score Object Editor Document Types ───
+
+export interface TimeConversionMeterEntry {
+  measure: number;
+  numBeats: number;
+  beatLength: number;
+}
+
+export interface TimeConversionContext {
+  meterEntries: TimeConversionMeterEntry[];
+  tempoEnabled: boolean;
+  initialTempo: number;
+  sampleRate: number;
+}
+
+export interface TimeValueSnapshot {
+  value: number;
+  timeBase: string;
+  displayText: string;
+}
+
+export interface NoteProcessorEntrySnapshot {
+  processorType: string;
+  displayName: string;
+  supported: boolean;
+  summary: string;
+  serializedXml: string;
+}
+
+export interface NoteProcessorChainSnapshot {
+  processors: NoteProcessorEntrySnapshot[];
+  hasUnsupportedProcessors: boolean;
+}
+
+export interface SharedScoreObjectPropertiesSnapshot {
+  target: ScoreObjectEditorTargetSnapshot;
+  name: string;
+  startTime: TimeValueSnapshot;
+  subjectiveDuration: TimeValueSnapshot;
+  endTimeDisplay: string;
+  backgroundColor: number;
+  timeBehavior?: string;
+  repeatPoint?: TimeValueSnapshot | null;
+  noteProcessorChain?: NoteProcessorChainSnapshot | null;
+}
+
+export type TypeSpecificScoreObjectEditorSnapshot =
+  | {
+      kind: 'code';
+      target: ScoreObjectEditorTargetSnapshot;
+      syntax: 'text' | 'csound-score' | 'python' | 'javascript';
+      text: string;
+      auxiliaryFlags?: Record<string, string | number | boolean>;
+    }
+  | {
+      kind: 'audioClip';
+      target: ScoreObjectEditorTargetSnapshot;
+      audioFile: string;
+      numChannels: number;
+      audioDuration: number;
+      fileStartTime: number;
+      fadeIn: number;
+      fadeInType: string;
+      fadeOut: number;
+      fadeOutType: string;
+      looping: boolean;
+    }
+  | {
+      kind: 'file';
+      target: ScoreObjectEditorTargetSnapshot;
+      objectType: string;
+      filePath: string;
+      csoundPostCode?: string;
+      numChannels?: number;
+      originalObjectType?: string;
+      auxiliaryFlags?: Record<string, string | number | boolean>;
+    }
+  | {
+      kind: 'structured';
+      target: ScoreObjectEditorTargetSnapshot;
+      editorFamily: string;
+      payloadSummary: string;
+      payload: Record<string, unknown>;
+    }
+  | {
+      kind: 'fallback';
+      target: ScoreObjectEditorTargetSnapshot;
+      reason: 'no-selection' | 'multiple-selection' | 'unsupported' | 'removed-target';
+      message: string;
+    };
+
+export interface ScoreObjectEditorDocumentSnapshot {
+  target: ScoreObjectEditorTargetSnapshot;
+  shared: SharedScoreObjectPropertiesSnapshot;
+  editor: TypeSpecificScoreObjectEditorSnapshot;
+  timeContext: TimeConversionContext;
+}
+
+export interface ScoreObjectEditorRequest {
+  target: ScoreObjectEditorTargetSnapshot;
+}
+
+// ─── End Score Object Editor Document Types ───
+
 export type ScorePatch =
-  | { type: 'updateTimeState'; patch: Partial<ScoreTimeStateSnapshot> };
+  | { type: 'updateTimeState'; patch: Partial<ScoreTimeStateSnapshot> }
+  | {
+      type: 'updateSharedProperties';
+      target: ScoreObjectEditorTargetSnapshot;
+      patch: {
+        name?: string;
+        backgroundColor?: number;
+        startTime?: { value: number; timeBase: string };
+        subjectiveDuration?: { value: number; timeBase: string };
+      };
+    }
+  | {
+      type: 'updateSoundObjectBehavior';
+      target: ScoreObjectEditorTargetSnapshot;
+      patch: {
+        timeBehavior?: string;
+        repeatPoint?: { value: number; timeBase: string } | null;
+      };
+    }
+  | {
+      type: 'replaceNoteProcessorChain';
+      target: ScoreObjectEditorTargetSnapshot;
+      chain: NoteProcessorChainSnapshot | null;
+    }
+  | {
+      type: 'updateTypeSpecificEditor';
+      target: ScoreObjectEditorTargetSnapshot;
+      patch: Record<string, unknown>;
+    }
+  | {
+      type: 'addScoreObjects';
+      groupId: string;
+      objects: Array<{
+        layerIndex: number;
+        objectType: string;
+        name: string;
+        startBeats: number;
+        durationBeats: number;
+        backgroundColor: number;
+      }>;
+    }
+  | {
+      type: 'addLayer';
+      groupId: string;
+      layerIndex: number;
+    }
+  | {
+      type: 'removeLayer';
+      groupId: string;
+      layerIndex: number;
+    };
 
 // ─── End Score Snapshot Types ───
 
@@ -482,6 +698,7 @@ export type BlueLivePatch =
 export interface ProjectEditorSnapshot {
   filePath: string | null;
   version: string;
+  sessionId: number;
   globalOrc: string;
   globalSco: string;
   orchestra: OrchestraSnapshot;
@@ -510,7 +727,9 @@ export interface ProjectDocumentPatch {
   orchestra?: OrchestraPatch;
   mixer?: MixerPatch;
   projectProperties?: Partial<ProjectPropertiesSnapshot>;
-  transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>>;
+  transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>> & {
+    tempoMap?: Partial<TempoMapSnapshot>;
+  };
   tablesText?: string;
   projectUdo?: ProjectUdoPatch;
   blueLive?: BlueLivePatch;
@@ -520,6 +739,7 @@ export interface ProjectDocumentPatch {
 
 export interface ProjectDocumentCommitReceipt {
   revision: number;
+  sessionId: number;
 }
 
 export type BsbRealtimeControlKind = 'value' | 'selected' | 'selectedIndex' | 'xy' | 'sliderBank';
@@ -793,6 +1013,7 @@ export type ProjectLoadedPayload = ProjectSummarySnapshot &
   Partial<
     Pick<
       ProjectEditorSnapshot,
+      | 'sessionId'
       | 'globalOrc'
       | 'globalSco'
       | 'orchestra'
@@ -855,6 +1076,7 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
   return {
     filePath: null,
     version: '',
+    sessionId: 0,
     globalOrc: '',
     globalSco: '',
     orchestra: createEmptyOrchestraSnapshot(false),
@@ -1501,9 +1723,9 @@ function createScoreLayerGroupSnapshots(data: BlueData): ScoreLayerGroupSnapshot
     if (!lg) continue;
 
     if (lg instanceof PolyObject) {
-      result.push(createPolyObjectGroupSnapshot(lg, context));
+      result.push(createPolyObjectGroupSnapshot(lg, context, i));
     } else if (lg instanceof AudioLayerGroup) {
-      result.push(createAudioLayerGroupSnapshot(lg, context));
+      result.push(createAudioLayerGroupSnapshot(lg, context, i));
     } else if (lg instanceof PatternsLayerGroup) {
       result.push(createPatternsLayerGroupSnapshot(lg));
     }
@@ -1512,7 +1734,7 @@ function createScoreLayerGroupSnapshots(data: BlueData): ScoreLayerGroupSnapshot
   return result;
 }
 
-function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/data').TimeContext): PolyObjectLayerGroupSnapshot {
+function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/data').TimeContext, rootGroupIndex: number): PolyObjectLayerGroupSnapshot {
   const groupId = assignLayerGroupId(lg);
   const layers: ScoreLayerSnapshot[] = [];
 
@@ -1521,6 +1743,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
     const items: ScoreRowObjectSnapshot[] = [];
     for (let j = 0; j < layer.length; j++) {
       const sObj = layer[j];
+      const location: ScoreObjectLocationRef = { rootGroupIndex, containerPath: [], layerIndex: i, objectIndex: j };
       items.push({
         objectId: `sobj-${i}-${j}`,
         objectType: sObj.constructor.name,
@@ -1529,6 +1752,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
         durationBeats: sObj.getSubjectiveDuration().toBeats(context),
         backgroundColor: sObj.getBackgroundColor(),
         isContainer: sObj instanceof PolyObject,
+        editorTarget: buildEditorTargetSnapshot(sObj, `sobj-${i}-${j}`, location),
       });
     }
     layers.push({
@@ -1549,7 +1773,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
   };
 }
 
-function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@blue/data').TimeContext): AudioLayerGroupSnapshot {
+function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@blue/data').TimeContext, rootGroupIndex: number): AudioLayerGroupSnapshot {
   const groupId = assignLayerGroupId(lg);
   const layers: ScoreLayerSnapshot[] = [];
 
@@ -1558,6 +1782,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
     const items: ScoreRowObjectSnapshot[] = [];
     for (let j = 0; j < layer.length; j++) {
       const clip = layer[j];
+      const location: ScoreObjectLocationRef = { rootGroupIndex, containerPath: [], layerIndex: i, objectIndex: j };
       items.push({
         objectId: `aclp-${i}-${j}`,
         objectType: 'AudioClip',
@@ -1566,6 +1791,17 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
         durationBeats: clip.getSubjectiveDuration().toBeats(context),
         backgroundColor: 0x669966,
         isContainer: false,
+        editorTarget: {
+          selectionId: `aclp-${i}-${j}`,
+          selectedObjectType: 'AudioClip',
+          editorObjectType: 'AudioClip',
+          ownerKind: 'timeline',
+          displayContext: 'timeline',
+          location,
+          supportsTimeBehavior: false,
+          supportsRepeatPoint: false,
+          supportsNoteProcessorChain: false,
+        },
       });
     }
     layers.push({
@@ -1641,6 +1877,543 @@ export function createEmptyScoreDocumentSnapshot(): ScoreDocumentSnapshot {
   };
 }
 
+function buildEditorTargetSnapshot(
+  sObj: SoundObject,
+  selectionId: string,
+  location: ScoreObjectLocationRef,
+): ScoreObjectEditorTargetSnapshot {
+  const isInstance = sObj instanceof Instance;
+  const lib = isInstance ? (sObj as Instance).getSoundObject() : null;
+  const libraryId = isInstance ? (sObj as Instance).getLibraryId() : null;
+
+  if (isInstance && lib) {
+    return {
+      selectionId,
+      selectedObjectType: 'Instance',
+      editorObjectType: lib.constructor.name,
+      ownerKind: 'library',
+      displayContext: 'instance',
+      sourceInstanceLocation: location,
+      supportsTimeBehavior: true,
+      supportsRepeatPoint: true,
+      supportsNoteProcessorChain: true,
+    };
+  }
+
+  const isSoundObject = sObj instanceof AbstractSoundObject;
+  return {
+    selectionId,
+    selectedObjectType: sObj.constructor.name,
+    editorObjectType: sObj.constructor.name,
+    ownerKind: 'timeline',
+    displayContext: 'timeline',
+    location,
+    supportsTimeBehavior: isSoundObject,
+    supportsRepeatPoint: isSoundObject,
+    supportsNoteProcessorChain: isSoundObject,
+  };
+}
+
+function getCodeText(sObj: SoundObject): string {
+  if (sObj instanceof GenericScore) return sObj.getScoreText();
+  if (sObj instanceof PythonObject) return sObj.getPythonCode();
+  if (sObj instanceof JavaScriptObject) return sObj.getJavaScriptCode();
+  if (sObj instanceof Comment) return sObj.getText();
+  if (sObj instanceof External) return sObj.getText();
+  return '';
+}
+
+export function setCodeText(sObj: SoundObject, text: string): boolean {
+  if (sObj instanceof GenericScore) { sObj.setScoreText(text); return true; }
+  if (sObj instanceof PythonObject) { sObj.setPythonCode(text); return true; }
+  if (sObj instanceof JavaScriptObject) { sObj.setJavaScriptCode(text); return true; }
+  if (sObj instanceof Comment) { sObj.setText(text); return true; }
+  if (sObj instanceof External) { sObj.setText(text); return true; }
+  return false;
+}
+
+const CODE_BACKED_TYPES = new Set([
+  'GenericScore', 'PythonObject', 'JavaScriptObject', 'Comment', 'External',
+]);
+
+const FILE_BACKED_TYPES = new Set([
+  'AudioFile', 'FrozenSoundObject',
+]);
+
+const STRUCTURED_TYPES = new Set([
+  'PolyObject', 'PatternObject', 'PianoRoll', 'TrackerObject',
+  'NotationObject', 'LineObject', 'ZakLineObject', 'JMask',
+]);
+
+function getEditorFamily(objectType: string): TypeSpecificScoreObjectEditorSnapshot['kind'] {
+  if (objectType === 'AudioClip') return 'audioClip';
+  if (CODE_BACKED_TYPES.has(objectType)) return 'code';
+  if (FILE_BACKED_TYPES.has(objectType)) return 'file';
+  if (STRUCTURED_TYPES.has(objectType)) return 'structured';
+  if (objectType === 'Sound') return 'structured';
+  return 'fallback';
+}
+
+function getSyntaxForType(objectType: string): 'text' | 'csound-score' | 'python' | 'javascript' {
+  switch (objectType) {
+    case 'PythonObject': return 'python';
+    case 'JavaScriptObject': return 'javascript';
+    case 'GenericScore': return 'csound-score';
+    default: return 'text';
+  }
+}
+
+function resolveEditorTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): { sObj: SoundObject | AudioClip; isLibraryOwned: boolean } | null {
+  const score = data.getScore();
+  const context = score.getTimeContext();
+
+  let sObj: SoundObject | AudioClip | null = null;
+  let isLibraryOwned = false;
+
+  if (target.ownerKind === 'library' && target.displayContext === 'instance') {
+    isLibraryOwned = true;
+    const lib = data.getSoundObjectLibrary();
+    if (target.library) {
+      sObj = lib.getObjectById(target.library.libraryId) ?? null;
+    } else {
+      const instLoc = target.sourceInstanceLocation;
+      if (instLoc) {
+        const lg = score[instLoc.rootGroupIndex];
+        if (lg && lg instanceof PolyObject) {
+          const layer = lg[instLoc.layerIndex];
+          if (layer) {
+            const inst = layer[instLoc.objectIndex];
+            if (inst instanceof Instance) {
+              sObj = inst.getSoundObject();
+            }
+          }
+        }
+      }
+    }
+  } else {
+    const loc = target.location;
+    if (!loc) return null;
+    const lg = score[loc.rootGroupIndex];
+    if (!lg) return null;
+
+    if (lg instanceof PolyObject) {
+      const layer = lg[loc.layerIndex];
+      if (layer) {
+        sObj = layer[loc.objectIndex] ?? null;
+      }
+    } else if (lg instanceof AudioLayerGroup) {
+      const layer = lg[loc.layerIndex];
+      if (layer) {
+        sObj = layer[loc.objectIndex] ?? null;
+      }
+    }
+  }
+
+  return sObj ? { sObj, isLibraryOwned } : null;
+}
+
+function formatTimeDisplay(startTime: number, duration: number): string {
+  const end = startTime + duration;
+  return `${end.toFixed(4)}`;
+}
+
+function createTimeValueSnapshot(value: number, timeBase: string): TimeValueSnapshot {
+  return {
+    value,
+    timeBase,
+    displayText: `${value.toFixed(4)}`,
+  };
+}
+
+function createTimeConversionContext(context: import('@blue/data').TimeContext): TimeConversionContext {
+  const meterMap = context.getMeterMap();
+  const meterEntries: TimeConversionMeterEntry[] = [];
+  for (let i = 0; i < meterMap.size(); i++) {
+    const entry = meterMap.get(i);
+    meterEntries.push({
+      measure: entry.measure,
+      numBeats: entry.meter.numBeats,
+      beatLength: entry.meter.beatLength,
+    });
+  }
+  const tempoMap = context.getTempoMap();
+  const tempoPoints = tempoMap.getTempoPoints();
+  return {
+    meterEntries,
+    tempoEnabled: tempoMap.isEnabled(),
+    initialTempo: tempoPoints.length > 0 ? tempoPoints[0].tempo : 60,
+    sampleRate: context.getSampleRate(),
+  };
+}
+
+function createNoteProcessorChainSnapshot(chain: NoteProcessorChain): NoteProcessorChainSnapshot {
+  const processors: NoteProcessorEntrySnapshot[] = [];
+  let hasUnsupported = false;
+  for (const proc of chain.getProcessors()) {
+    const typeName = proc.constructor.name;
+    const isUnsupported = typeName === 'UnsupportedProcessor';
+    if (isUnsupported) hasUnsupported = true;
+    processors.push({
+      processorType: typeName,
+      displayName: typeName,
+      supported: !isUnsupported,
+      summary: typeName,
+      serializedXml: '',
+    });
+  }
+  return { processors, hasUnsupportedProcessors: hasUnsupported };
+}
+
+export function createScoreObjectEditorDocument(
+  data: BlueData,
+  request: ScoreObjectEditorRequest,
+): ScoreObjectEditorDocumentSnapshot | null {
+  const target = request.target;
+  const resolved = resolveEditorTarget(data, target);
+  if (!resolved) {
+    const fallbackDisplay = data.getScore().getTimeState().getTimeDisplay() as string;
+    return {
+      target,
+      shared: {
+        target,
+        name: '',
+        startTime: createTimeValueSnapshot(0, fallbackDisplay),
+        subjectiveDuration: createTimeValueSnapshot(0, fallbackDisplay),
+        endTimeDisplay: '0.0000',
+        backgroundColor: 0,
+      },
+      editor: { kind: 'fallback', target, reason: 'removed-target', message: 'Score object no longer exists.' },
+      timeContext: createTimeConversionContext(data.getScore().getTimeContext()),
+    };
+  }
+
+  const { sObj, isLibraryOwned } = resolved;
+  const score = data.getScore();
+  const context = score.getTimeContext();
+  const primaryDisplay = score.getTimeState().getTimeDisplay() as string;
+  const isSoundObject = sObj instanceof AbstractSoundObject;
+
+  const startTime = sObj instanceof AudioClip
+    ? sObj.getStartTime().toBeats(context)
+    : (sObj as SoundObject).getStartTime().toBeats(context);
+  const startTimeBase = String(sObj instanceof AudioClip
+    ? sObj.getStartTime().getTimeBase()
+    : (sObj as SoundObject).getStartTime().getTimeBase());
+  const duration = sObj instanceof AudioClip
+    ? sObj.getSubjectiveDuration().toBeats(context)
+    : (sObj as SoundObject).getSubjectiveDuration().toBeats(context);
+  const durationBase = String(sObj instanceof AudioClip
+    ? sObj.getSubjectiveDuration().getTimeBase()
+    : (sObj as SoundObject).getSubjectiveDuration().getTimeBase());
+
+  const shared: SharedScoreObjectPropertiesSnapshot = {
+    target,
+    name: sObj.getName(),
+    startTime: createTimeValueSnapshot(startTime, startTimeBase),
+    subjectiveDuration: createTimeValueSnapshot(duration, durationBase),
+    endTimeDisplay: formatTimeDisplay(startTime, duration),
+    backgroundColor: sObj.getBackgroundColor(),
+  };
+
+  if (isSoundObject && !(sObj instanceof AudioClip)) {
+    const so = sObj as AbstractSoundObject;
+    shared.timeBehavior = so.getTimeBehavior();
+    const rp = so.getRepeatPoint();
+    const rpBase = rp ? String(rp.getTimeBase()) : primaryDisplay;
+    shared.repeatPoint = rp ? createTimeValueSnapshot(rp.toBeats(context), rpBase) : null;
+    shared.noteProcessorChain = createNoteProcessorChainSnapshot(so.getNoteProcessorChain());
+  }
+
+  const objectType = target.editorObjectType;
+  const family = getEditorFamily(objectType);
+
+  let editor: TypeSpecificScoreObjectEditorSnapshot;
+
+  switch (family) {
+    case 'code': {
+      editor = {
+        kind: 'code',
+        target,
+        syntax: getSyntaxForType(objectType),
+        text: getCodeText(sObj as SoundObject),
+      };
+      break;
+    }
+    case 'audioClip': {
+      const clip = sObj as AudioClip;
+      editor = {
+        kind: 'audioClip',
+        target,
+        audioFile: clip.getAudioFile ? clip.getAudioFile() : '',
+        numChannels: clip.getNumChannels ? clip.getNumChannels() : 0,
+        audioDuration: clip.getAudioDuration ? clip.getAudioDuration() : 0,
+        fileStartTime: clip.getFileStartTime ? clip.getFileStartTime() : 0,
+        fadeIn: clip.getFadeIn ? clip.getFadeIn() : 0,
+        fadeInType: clip.getFadeInType ? String(clip.getFadeInType()) : 'LINEAR',
+        fadeOut: clip.getFadeOut ? clip.getFadeOut() : 0,
+        fadeOutType: clip.getFadeOutType ? String(clip.getFadeOutType()) : 'LINEAR',
+        looping: clip.isLooping ? clip.isLooping() : false,
+      };
+      break;
+    }
+    case 'file': {
+      if (sObj instanceof AudioFile) {
+        const af = sObj as AudioFile;
+        editor = {
+          kind: 'file',
+          target,
+          objectType,
+          filePath: af.getSoundFileName(),
+          csoundPostCode: af.getCsoundPostCode(),
+        };
+      } else if (sObj instanceof FrozenSoundObject) {
+        const fso = sObj as FrozenSoundObject;
+        const inner = fso.getFrozenSoundObject();
+        editor = {
+          kind: 'file',
+          target,
+          objectType,
+          filePath: fso.getFrozenWaveFileName(),
+          numChannels: fso.getNumChannels(),
+          originalObjectType: inner?.constructor.name ?? '',
+        };
+      } else {
+        editor = {
+          kind: 'file',
+          target,
+          objectType,
+          filePath: '',
+        };
+      }
+      break;
+    }
+    case 'structured': {
+      if (sObj instanceof PatternObject) {
+        const po = sObj as PatternObject;
+        const numSteps = po.getBeats() * po.getSubDivisions();
+        const patterns: Array<{
+          patternName: string;
+          patternScore: string;
+          muted: boolean;
+          solo: boolean;
+          values: boolean[];
+        }> = [];
+        for (let i = 0; i < po.size(); i++) {
+          const p = po.getPattern(i);
+          patterns.push({
+            patternName: p.patternName,
+            patternScore: p.patternScore,
+            muted: p.muted,
+            solo: p.solo,
+            values: [...p.values],
+          });
+        }
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${po.size()} pattern(s), ${po.getBeats()} beats, ${po.getSubDivisions()} sub`,
+          payload: {
+            beats: po.getBeats(),
+            subDivisions: po.getSubDivisions(),
+            numSteps,
+            patterns,
+          },
+        };
+      } else if (sObj instanceof LineObject) {
+        const lo = sObj as LineObject;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${lo.getLines().length} line(s)`,
+          payload: {
+            lines: lo.getLines().map(l => ({
+              varName: l.varName,
+              color: l.color,
+              points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+            })),
+          },
+        };
+      } else if (sObj instanceof ZakLineObject) {
+        const zlo = sObj as ZakLineObject;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${zlo.getLines().length} zak line(s), zak space: ${zlo.getZakSpace()}`,
+          payload: {
+            zakSpace: zlo.getZakSpace(),
+            lines: zlo.getLines().map(l => ({
+              channel: l.channel,
+              color: l.color,
+              points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+            })),
+          },
+        };
+      } else if (sObj instanceof PianoRoll) {
+        const pr = sObj as PianoRoll;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${pr.getNotes().length} notes`,
+          payload: {
+            instrumentId: pr.getInstrumentId(),
+            noteTemplate: pr.getNoteTemplate(),
+            pchGenerationMethod: pr.getPchGenerationMethod(),
+            transposition: pr.getTransposition(),
+          },
+        };
+      } else if (sObj instanceof TrackerObject) {
+        const to = sObj as TrackerObject;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${to.getTrackData().length} track(s)`,
+          payload: {
+            stepsPerBeat: to.getStepsPerBeat(),
+            trackData: to.getTrackData().map(t => [...t]),
+          },
+        };
+      } else if (sObj instanceof NotationObject) {
+        const no = sObj as NotationObject;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: 'notation',
+          payload: {
+            staffData: no.getStaffData(),
+          },
+        };
+      } else if (sObj instanceof JMask) {
+        const jm = sObj as JMask;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `seed: ${jm.isSeedUsed() ? jm.getSeed() : 'random'}`,
+          payload: {
+            seedUsed: jm.isSeedUsed(),
+            seed: jm.getSeed(),
+          },
+        };
+      } else if (sObj instanceof Sound) {
+        const snd = sObj as Sound;
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: 'BSB instrument',
+          payload: {
+            comment: snd.getComment(),
+          },
+        };
+      } else {
+        editor = {
+          kind: 'structured',
+          target,
+          editorFamily: objectType,
+          payloadSummary: `${objectType} editor`,
+          payload: {},
+        };
+      }
+      break;
+    }
+    default: {
+      editor = {
+        kind: 'fallback',
+        target,
+        reason: 'unsupported',
+        message: `Editor for ${objectType} is not yet supported.`,
+      };
+      break;
+    }
+  }
+
+  return { target, shared, editor, timeContext: createTimeConversionContext(context) };
+}
+
+export function createFallbackEditorDocument(
+  reason: TypeSpecificScoreObjectEditorSnapshot extends { kind: 'fallback'; reason: infer R } ? R : never,
+  message: string,
+): ScoreObjectEditorDocumentSnapshot {
+  const target: ScoreObjectEditorTargetSnapshot = {
+    selectionId: '',
+    selectedObjectType: '',
+    editorObjectType: '',
+    ownerKind: 'timeline',
+    displayContext: 'timeline',
+    supportsTimeBehavior: false,
+    supportsRepeatPoint: false,
+    supportsNoteProcessorChain: false,
+  };
+  return {
+    target,
+    shared: {
+      target,
+      name: '',
+      startTime: createTimeValueSnapshot(0, 'beats'),
+      subjectiveDuration: createTimeValueSnapshot(0, 'beats'),
+      endTimeDisplay: '0.0000',
+      backgroundColor: 0,
+    },
+    editor: { kind: 'fallback', target, reason, message },
+    timeContext: { meterEntries: [{ measure: 1, numBeats: 4, beatLength: 4 }], tempoEnabled: false, initialTempo: 60, sampleRate: 44100 },
+  };
+}
+
+function applyTimebaseUpdate(
+  data: BlueData,
+  oldTimeBase: TimeBase,
+  newTimeBase: TimeBase,
+  scoreObjectMode: 'UPDATE_ALL' | 'UPDATE_MATCHING',
+  markerMode: 'UPDATE_ALL' | 'UPDATE_MATCHING' | null,
+): void {
+  const score = data.getScore();
+  const context = score.getTimeContext();
+
+  if (scoreObjectMode != null) {
+    for (const layerGroup of score) {
+      for (const layer of layerGroup) {
+        if (!Array.isArray(layer)) continue;
+        for (const sObj of layer as unknown as import('@blue/data').ScoreObject[]) {
+          if (!('getStartTime' in sObj)) continue;
+          const updateStart = scoreObjectMode === 'UPDATE_ALL'
+            || sObj.getStartTime().getTimeBase() === oldTimeBase;
+          if (updateStart) {
+            sObj.setStartTime(convertTimePosition(sObj.getStartTime(), newTimeBase, context));
+          }
+          const updateDuration = scoreObjectMode === 'UPDATE_ALL'
+            || sObj.getSubjectiveDuration().getTimeBase() === oldTimeBase;
+          if (updateDuration) {
+            const durBeats = sObj.getSubjectiveDuration().toBeats(context);
+            sObj.setSubjectiveDuration(beatsToDuration(durBeats, newTimeBase, context));
+          }
+          if ('getRepeatPoint' in sObj && 'setRepeatPoint' in sObj) {
+            const so = sObj as AbstractSoundObject;
+            const rp = so.getRepeatPoint();
+            if (rp) {
+              const shouldUpdate = scoreObjectMode === 'UPDATE_ALL'
+                || rp.getTimeBase() === oldTimeBase;
+              if (shouldUpdate) {
+                const rpBeats = rp.toBeats(context);
+                so.setRepeatPoint(beatsToDuration(rpBeats, newTimeBase, context));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (markerMode != null) {
+    // TODO: Implement marker timebase update when MarkersList is ported to @blue/data
+  }
+}
+
 export function applyScoreTimeStatePatch(
   data: BlueData,
   patch: Partial<ScoreTimeStateSnapshot>,
@@ -1656,9 +2429,11 @@ export function applyScoreTimeStatePatch(
     ts.setSnapValue(patch.snapValue as SnapValueName);
     changed = true;
   }
+  let oldTimeDisplay: TimeBase | undefined;
   if (patch.primaryTimeDisplay !== undefined) {
     const td = patch.primaryTimeDisplay as TimeBase;
     if (Object.values(TimeBase).includes(td) && ts.getTimeDisplay() !== td) {
+      oldTimeDisplay = ts.getTimeDisplay();
       ts.setTimeDisplay(td);
       changed = true;
     }
@@ -1695,12 +2470,20 @@ export function applyScoreTimeStatePatch(
     changed = true;
   }
 
+  if (oldTimeDisplay !== undefined && patch.scoreObjectUpdateMode != null) {
+    const newBase = patch.primaryTimeDisplay as TimeBase;
+    applyTimebaseUpdate(data, oldTimeDisplay, newBase, patch.scoreObjectUpdateMode, patch.markerUpdateMode ?? null);
+  }
+
   return changed;
 }
 
 function isNonEmptyScorePatch(patch: ScorePatch): boolean {
   if (patch.type === 'updateTimeState') {
     return Object.keys(patch.patch).length > 0;
+  }
+  if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor') {
+    return true;
   }
   return false;
 }
@@ -1710,11 +2493,13 @@ function isNonEmptyScorePatch(patch: ScorePatch): boolean {
 export function createProjectEditorSnapshot(
   data: BlueData,
   filePath: string | null,
+  sessionId = 0,
 ): ProjectEditorSnapshot {
   reconcileMixerWithArrangement(data);
   return {
     filePath,
     version: data.getVersion(),
+    sessionId,
     globalOrc: data.getGlobalOrcSco().getGlobalOrc(),
     globalSco: data.getGlobalOrcSco().getGlobalSco(),
     orchestra: createOrchestraSnapshot(data),
@@ -2973,6 +3758,327 @@ function applyBlueLivePatch(data: BlueData, patch: BlueLivePatch): boolean {
   }
 }
 
+function findPolyObjectByGroupId(score: import('@blue/data').Score, groupId: string): PolyObject | null {
+  for (let i = 0; i < score.length; i++) {
+    const lg = score[i];
+    if (lg instanceof PolyObject) {
+      if (assignLayerGroupId(lg) === groupId) return lg;
+      const found = findPolyObjectByGroupIdRecursive(lg, groupId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findPolyObjectByGroupIdRecursive(pObj: PolyObject, groupId: string): PolyObject | null {
+  for (const layer of pObj) {
+    for (const sObj of layer) {
+      if (sObj instanceof PolyObject) {
+        if (assignLayerGroupId(sObj) === groupId) return sObj;
+        const found = findPolyObjectByGroupIdRecursive(sObj, groupId);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
+}
+
+function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: 'addScoreObjects' }): boolean {
+  const score = data.getScore();
+
+  const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
+  if (!targetGroup) return false;
+
+  for (const obj of patch.objects) {
+    const sObj = createSoundObject(obj.objectType);
+    if (!sObj) continue;
+
+    if (sObj instanceof AbstractSoundObject) {
+      sObj.setName(obj.name);
+      sObj.setStartTime(TimePosition.beats(obj.startBeats));
+      sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
+      sObj.setBackgroundColor(obj.backgroundColor);
+    } else if (sObj instanceof PolyObject) {
+      sObj.setName(obj.name);
+      sObj.setStartTime(TimePosition.beats(obj.startBeats));
+      sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
+      sObj.setBackgroundColor(obj.backgroundColor);
+    }
+
+    if (obj.layerIndex >= 0 && obj.layerIndex < targetGroup.length) {
+      targetGroup[obj.layerIndex].push(sObj);
+    }
+  }
+
+  return true;
+}
+
+function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
+  if (patch.type === 'addScoreObjects') {
+    return applyAddScoreObjectsPatch(data, patch);
+  }
+
+  if (patch.type === 'addLayer') {
+    const score = data.getScore();
+    const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
+    if (!targetGroup) return false;
+    targetGroup.newLayerAt(patch.layerIndex + 1);
+    return true;
+  }
+
+  if (patch.type === 'removeLayer') {
+    const score = data.getScore();
+    const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
+    if (!targetGroup) return false;
+    if (patch.layerIndex >= 0 && patch.layerIndex < targetGroup.length) {
+      targetGroup.removeLayers(patch.layerIndex, patch.layerIndex);
+    }
+    return true;
+  }
+
+  if (patch.type === 'updateTimeState') {
+    return applyScoreTimeStatePatch(data, patch.patch);
+  }
+
+  const target = (patch as { target: ScoreObjectEditorTargetSnapshot }).target;
+  const resolved = resolveEditorTarget(data, target);
+  if (!resolved) return false;
+
+  const { sObj } = resolved;
+  const score = data.getScore();
+  const context = score.getTimeContext();
+
+  switch (patch.type) {
+    case 'updateSharedProperties': {
+      const p = patch.patch;
+      if (p.name !== undefined) sObj.setName(p.name);
+      if (p.backgroundColor !== undefined) {
+        if (sObj instanceof AudioClip) {
+          sObj.setBackgroundColor(p.backgroundColor);
+        } else if (sObj instanceof AbstractSoundObject) {
+          sObj.setBackgroundColor(p.backgroundColor);
+        }
+      }
+      if (p.startTime !== undefined) {
+        const tb = p.startTime.timeBase as TimeBase;
+        const tp = beatsToTimePosition(p.startTime.value, tb, context);
+        if (sObj instanceof AudioClip) {
+          sObj.setStartTime(tp);
+        } else if (sObj instanceof AbstractSoundObject) {
+          sObj.setStartTime(tp);
+        }
+      }
+      if (p.subjectiveDuration !== undefined) {
+        const tb = p.subjectiveDuration.timeBase as TimeBase;
+        const td = beatsToDuration(p.subjectiveDuration.value, tb, context);
+        if (sObj instanceof AudioClip) {
+          sObj.setSubjectiveDuration(td);
+        } else if (sObj instanceof AbstractSoundObject) {
+          sObj.setSubjectiveDuration(td);
+        }
+      }
+      return true;
+    }
+    case 'updateSoundObjectBehavior': {
+      if (!(sObj instanceof AbstractSoundObject)) return false;
+      const p = patch.patch;
+      if (p.timeBehavior !== undefined) {
+        sObj.setTimeBehavior(p.timeBehavior as TimeBehavior);
+      }
+      if (p.repeatPoint !== undefined) {
+        if (p.repeatPoint === null) {
+          sObj.setRepeatPoint(null);
+        } else {
+          const tb = p.repeatPoint.timeBase as TimeBase;
+          sObj.setRepeatPoint(beatsToDuration(p.repeatPoint.value, tb, context));
+        }
+      }
+      return true;
+    }
+    case 'replaceNoteProcessorChain': {
+      if (!(sObj instanceof AbstractSoundObject)) return false;
+      if (patch.chain === null) {
+        sObj.setNoteProcessorChain(new NoteProcessorChain());
+      } else {
+        // For now, preserve existing chain — full replacement requires processor reification
+        // which is deferred to a later iteration.
+      }
+      return true;
+    }
+    case 'updateTypeSpecificEditor': {
+      if (patch.patch.text !== undefined) {
+        return setCodeText(sObj as SoundObject, patch.patch.text as string);
+      }
+      if (sObj instanceof AudioClip) {
+        const clip = sObj as AudioClip;
+        const p = patch.patch;
+        if (p.audioFile !== undefined) clip.setAudioFile(p.audioFile as string);
+        if (p.fileStartTime !== undefined) clip.setFileStartTime(p.fileStartTime as number);
+        if (p.fadeIn !== undefined) clip.setFadeIn(p.fadeIn as number);
+        if (p.fadeOut !== undefined) clip.setFadeOut(p.fadeOut as number);
+        if (p.looping !== undefined) clip.setLooping(null, p.looping as boolean);
+        return true;
+      }
+      if (sObj instanceof AudioFile) {
+        const af = sObj as AudioFile;
+        const p = patch.patch;
+        if (p.filePath !== undefined) af.setSoundFileName(p.filePath as string);
+        if (p.csoundPostCode !== undefined) af.setCsoundPostCode(p.csoundPostCode as string);
+        return true;
+      }
+      if (sObj instanceof FrozenSoundObject) {
+        const fso = sObj as FrozenSoundObject;
+        const p = patch.patch;
+        if (p.filePath !== undefined) fso.setFrozenWaveFileName(p.filePath as string);
+        return true;
+      }
+      if (sObj instanceof PatternObject) {
+        const po = sObj as PatternObject;
+        const p = patch.patch;
+        if (p.beats !== undefined) po.setBeats(p.beats as number);
+        if (p.subDivisions !== undefined) po.setSubDivisions(p.subDivisions as number);
+        if (Array.isArray(p.patterns)) {
+          const newPatterns = p.patterns as Array<{
+            patternName: string;
+            patternScore: string;
+            muted: boolean;
+            solo: boolean;
+            values: boolean[];
+          }>;
+          while (po.size() > 0) {
+            (po as unknown as { _patterns: Pattern[] })._patterns.pop();
+          }
+          for (const sp of newPatterns) {
+            const np = new Pattern(sp.values.length);
+            np.patternName = sp.patternName;
+            np.patternScore = sp.patternScore;
+            np.muted = sp.muted;
+            np.solo = sp.solo;
+            np.values = [...sp.values];
+            po.addPattern(np);
+          }
+        }
+        if (p.toggleStep !== undefined) {
+          const { patternIndex, stepIndex } = p.toggleStep as { patternIndex: number; stepIndex: number };
+          if (patternIndex >= 0 && patternIndex < po.size()) {
+            const pat = po.getPattern(patternIndex);
+            if (stepIndex >= 0 && stepIndex < pat.values.length) {
+              pat.values[stepIndex] = !pat.values[stepIndex];
+            }
+          }
+        }
+        if (p.updatePatternScore !== undefined) {
+          const { patternIndex, patternScore } = p.updatePatternScore as { patternIndex: number; patternScore: string };
+          if (patternIndex >= 0 && patternIndex < po.size()) {
+            po.getPattern(patternIndex).patternScore = patternScore;
+          }
+        }
+        if (p.updatePatternName !== undefined) {
+          const { patternIndex, patternName } = p.updatePatternName as { patternIndex: number; patternName: string };
+          if (patternIndex >= 0 && patternIndex < po.size()) {
+            po.getPattern(patternIndex).patternName = patternName;
+          }
+        }
+        if (p.toggleMute !== undefined) {
+          const idx = p.toggleMute as number;
+          if (idx >= 0 && idx < po.size()) {
+            po.getPattern(idx).muted = !po.getPattern(idx).muted;
+          }
+        }
+        if (p.toggleSolo !== undefined) {
+          const idx = p.toggleSolo as number;
+          if (idx >= 0 && idx < po.size()) {
+            po.getPattern(idx).solo = !po.getPattern(idx).solo;
+          }
+        }
+        if (p.addPattern !== undefined) {
+          const numSteps = po.getBeats() * po.getSubDivisions();
+          po.addPattern(new Pattern(numSteps));
+        }
+        return true;
+      }
+      if (sObj instanceof ZakLineObject) {
+        const zlo = sObj as ZakLineObject;
+        const p = patch.patch;
+        if (p.zakSpace !== undefined) zlo.setZakSpace(p.zakSpace as number);
+        if (Array.isArray(p.lines)) {
+          const newLines = p.lines as Array<{ channel: number; color: number; points: Array<{ x: number; y: number }> }>;
+          (zlo as unknown as { _lines: typeof newLines })._lines = newLines.map(l => ({
+            channel: l.channel,
+            color: l.color,
+            points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+          }));
+        }
+        return true;
+      }
+      if (sObj instanceof TrackerObject) {
+        const to = sObj as TrackerObject;
+        const p = patch.patch;
+        if (p.stepsPerBeat !== undefined) to.setStepsPerBeat(p.stepsPerBeat as number);
+        if (p.trackData !== undefined) to.setTrackData((p.trackData as string[][]).map(t => [...t]));
+        if (p.updateTrackCell !== undefined) {
+          const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
+          const td = to.getTrackData();
+          if (trackIndex >= 0 && trackIndex < td.length) {
+            if (stepIndex >= 0 && stepIndex < td[trackIndex].length) {
+              td[trackIndex][stepIndex] = value;
+            }
+          }
+        }
+        if (p.addTrack !== undefined) {
+          const numSteps = (to.getTrackData()[0]?.length ?? 16);
+          to.addTrack(new Array(numSteps).fill(''));
+        }
+        return true;
+      }
+      if (sObj instanceof LineObject) {
+        const lo = sObj as LineObject;
+        const p = patch.patch;
+        if (p.lines !== undefined) {
+          const inner = lo as unknown as { _lines: Array<{ varName: string; color: number; points: Array<{ x: number; y: number }> }> };
+          inner._lines = (p.lines as Array<{ varName: string; color: number; points: Array<{ x: number; y: number }> }>).map(l => ({
+            varName: l.varName,
+            color: l.color,
+            points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+          }));
+        }
+        return true;
+      }
+      if (sObj instanceof NotationObject) {
+        const no = sObj as NotationObject;
+        const p = patch.patch;
+        if (p.staffData !== undefined) no.setStaffData(p.staffData as string);
+        return true;
+      }
+      if (sObj instanceof JMask) {
+        const jm = sObj as JMask;
+        const p = patch.patch;
+        if (p.seedUsed !== undefined) jm.setSeedUsed(p.seedUsed as boolean);
+        if (p.seed !== undefined) jm.setSeed(p.seed as number);
+        return true;
+      }
+      if (sObj instanceof PianoRoll) {
+        const pr = sObj as PianoRoll;
+        const p = patch.patch;
+        if (p.instrumentId !== undefined) pr.setInstrumentId(p.instrumentId as string);
+        if (p.noteTemplate !== undefined) pr.setNoteTemplate(p.noteTemplate as string);
+        if (p.pchGenerationMethod !== undefined) pr.setPchGenerationMethod(p.pchGenerationMethod as number);
+        if (p.transposition !== undefined) pr.setTransposition(p.transposition as number);
+        return true;
+      }
+      if (sObj instanceof Sound) {
+        const snd = sObj as Sound;
+        const p = patch.patch;
+        if (p.comment !== undefined) snd.setComment(p.comment as string);
+        return true;
+      }
+      return false;
+    }
+    default:
+      return false;
+  }
+}
+
 export function applyProjectDocumentPatch(
   data: BlueData,
   patch: ProjectDocumentPatch,
@@ -3111,6 +4217,11 @@ export function applyProjectDocumentPatch(
       data.setLoopRendering(patch.transport.loopRendering);
       changed = true;
     }
+
+    if (patch.transport.tempoMap?.enabled !== undefined) {
+      data.getScore().getTimeContext().getTempoMap().setEnabled(patch.transport.tempoMap.enabled);
+      changed = true;
+    }
   }
 
   if (patch.blueLive) {
@@ -3122,9 +4233,7 @@ export function applyProjectDocumentPatch(
   }
 
   if (patch.score) {
-    if (patch.score.type === 'updateTimeState') {
-      changed = applyScoreTimeStatePatch(data, patch.score.patch) || changed;
-    }
+    changed = applyScoreObjectPatch(data, patch.score) || changed;
   }
 
   return changed;
@@ -3835,4 +4944,68 @@ export function isEmptyProjectDocumentPatch(patch: ProjectDocumentPatch): boolea
     !hasMixer &&
     !hasScore
   );
+}
+
+export function createNestedPolyObjectSnapshot(
+  data: BlueData,
+  location: ScoreObjectLocationRef,
+): PolyObjectLayerGroupSnapshot | null {
+  const score = data.getScore();
+  const context = score.getTimeContext();
+  const lg = score[location.rootGroupIndex];
+  if (!lg || !(lg instanceof PolyObject)) return null;
+
+  const layer = lg[location.layerIndex];
+  if (!layer) return null;
+
+  const sObj = layer[location.objectIndex];
+  if (!(sObj instanceof PolyObject)) return null;
+
+  const parentPath: ScoreObjectLocationRef = {
+    rootGroupIndex: location.rootGroupIndex,
+    containerPath: [...location.containerPath, { layerIndex: location.layerIndex, objectIndex: location.objectIndex }],
+    layerIndex: 0,
+    objectIndex: 0,
+  };
+
+  const groupId = assignLayerGroupId(sObj);
+  const layers: ScoreLayerSnapshot[] = [];
+
+  for (let i = 0; i < sObj.length; i++) {
+    const subLayer = sObj[i];
+    const items: ScoreRowObjectSnapshot[] = [];
+    for (let j = 0; j < subLayer.length; j++) {
+      const nestedObj = subLayer[j];
+      const itemLocation: ScoreObjectLocationRef = {
+        ...parentPath,
+        layerIndex: i,
+        objectIndex: j,
+      };
+      items.push({
+        objectId: `sobj-${i}-${j}`,
+        objectType: nestedObj.constructor.name,
+        name: nestedObj.getName(),
+        startBeats: nestedObj.getStartTime().toBeats(context),
+        durationBeats: nestedObj.getSubjectiveDuration().toBeats(context),
+        backgroundColor: nestedObj.getBackgroundColor(),
+        isContainer: nestedObj instanceof PolyObject,
+        editorTarget: buildEditorTargetSnapshot(nestedObj, `sobj-${i}-${j}`, itemLocation),
+      });
+    }
+    layers.push({
+      layerId: `${groupId}-layer-${i}`,
+      name: subLayer.getName(),
+      height: 44,
+      items,
+    });
+  }
+
+  return {
+    groupId,
+    groupType: 'polyObject',
+    name: sObj.getName(),
+    layerCount: sObj.length,
+    isOpenableContainer: true,
+    layers,
+  };
 }

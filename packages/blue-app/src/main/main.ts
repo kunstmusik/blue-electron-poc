@@ -39,6 +39,8 @@ import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
   createEffectEditorSnapshot,
+  createScoreObjectEditorDocument,
+  createNestedPolyObjectSnapshot,
   getMixerChannelSnapshotId,
   getMixerEntrySnapshotId,
   isEmptyProjectDocumentPatch,
@@ -51,6 +53,10 @@ import {
   type BsbRealtimeControlUpdate,
   type ProjectDocumentCommitReceipt,
   type ProjectDocumentPatch,
+  type ScoreObjectEditorRequest,
+  type ScoreObjectEditorDocumentSnapshot,
+  type ScoreObjectLocationRef,
+  type PolyObjectLayerGroupSnapshot,
 } from '../shared/project-editor';
 import { BlueSynthBuilder } from '@blue/data';
 
@@ -65,6 +71,9 @@ let pendingQuit = false;
 let shutdownPromise: Promise<void> | null = null;
 let playbackStartPromise: Promise<boolean> | null = null;
 let javaScriptRuntimeReady: Promise<void> | null = null;
+let recentProjectFiles: string[] = [];
+let currentProjectSessionId = 0;
+let currentFollowPlaybackEnabled = true;
 
 // Set application name early (before ready) so macOS menu bar shows "Blue".
 // NOTE: In dev mode (running `electron` CLI directly), macOS may still show
@@ -79,7 +88,7 @@ function getCurrentProjectDocument() {
     return null;
   }
 
-  return createProjectEditorSnapshot(currentData, currentFilePath);
+  return createProjectEditorSnapshot(currentData, currentFilePath, currentProjectSessionId);
 }
 
 function getProjectMixerChannelBySnapshotId(channelId: string) {
@@ -273,6 +282,15 @@ function updateWindowTitle(): void {
   }
 }
 
+function syncRecentProjectFiles(files: string[]): void {
+  recentProjectFiles = [...files];
+  rebuildApplicationMenu();
+}
+
+function getRecentProjectFilesSnapshot(): string[] {
+  return [...recentProjectFiles];
+}
+
 function getCurrentProjectDirectory(): string | null {
   return currentFilePath ? path.dirname(currentFilePath) : null;
 }
@@ -281,26 +299,44 @@ function hasLoadedProject(): boolean {
   return Boolean(currentData);
 }
 
-async function confirmSaveBeforeReplace(): Promise<boolean> {
+async function confirmSaveBeforeReplace(options: { quitAfterSave?: boolean } = {}): Promise<boolean> {
   if (!currentData) return true;
-  if (!currentFilePath) return true;
 
   const result = await dialog.showMessageBox(mainWindow!, {
     type: 'question',
     title: 'Save Changes?',
     message: 'Save changes before proceeding?',
-    detail: `File: ${path.basename(currentFilePath)}`,
+    detail: currentFilePath
+      ? `File: ${path.basename(currentFilePath)}`
+      : 'This project has not been saved yet.',
     buttons: ['Save', "Don't Save", 'Cancel'],
     defaultId: 0,
     cancelId: 2,
   });
 
   if (result.response === 0) {
-    doSave(currentFilePath);
+    if (options.quitAfterSave) {
+      pendingQuit = true;
+    }
+
+    if (currentFilePath) {
+      doSave(currentFilePath);
+    } else {
+      await saveFileAs();
+      if (!currentFilePath) {
+        if (options.quitAfterSave) {
+          pendingQuit = false;
+        }
+        return false;
+      }
+    }
     return true;
   }
 
   if (result.response === 1) {
+    if (options.quitAfterSave) {
+      doQuit();
+    }
     return true;
   }
 
@@ -311,10 +347,18 @@ function rebuildApplicationMenu(): void {
   const menu = Menu.buildFromTemplate(buildApplicationMenuTemplate({
     hasLoadedProject: hasLoadedProject(),
     isDarwin: process.platform === 'darwin',
+    recentProjects: getRecentProjectFilesSnapshot(),
+    canRevertProject: Boolean(currentFilePath),
+    followPlaybackEnabled: currentFollowPlaybackEnabled,
     onNewFile: () => { void handleNewFile(); },
     onOpenFile: () => { void handleOpenFile(); },
+    onOpenRecentProject: (filePath) => { void openRecentProject(filePath); },
+    onCloseProject: () => { void closeProject(); },
+    onRevertProject: () => { void revertProject(); },
     onSaveFile: () => { void saveFile(); },
     onSaveFileAs: () => { void saveFileAs(); },
+    onGenerateCsdToScreen: () => { void generateCsdToScreen(); },
+    onGenerateCsdToDisk: () => { void generateCsdToDisk(); },
     onRequestQuit: () => { void requestQuit(); },
     onOpenSettings: () => {
       if (mainWindow) {
@@ -337,10 +381,13 @@ function rebuildApplicationMenu(): void {
         mainWindow.webContents.send('native-menu-command', { type: 'reset-layout' });
       }
     },
-    onPlay: () => { void togglePlay(); },
-    onStop: () => { void stopPlayback(); },
-    onGenerateCsdToScreen: () => { void generateCsdToScreen(); },
-    onGenerateCsdToDisk: () => { void generateCsdToDisk(); },
+    onToggleFollowPlayback: () => { currentFollowPlaybackEnabled = !currentFollowPlaybackEnabled; mainWindow?.webContents.send('native-menu-command', { type: 'toggle-follow-playback' }); rebuildApplicationMenu(); },
+    onToggleFollowPlaybackOnRenderStart: () => { mainWindow?.webContents.send('native-menu-command', { type: 'show-not-yet-implemented' }); },
+    onToggleLoopRendering: () => { mainWindow?.webContents.send('native-menu-command', { type: 'toggle-loop-rendering' }); },
+    onToggleBlueLive: () => { void blueLiveToggle(); },
+    onRecompileBlueLive: () => { void blueLiveRecompile(); },
+    onBlueLiveAllNotesOff: () => { void blueLiveAllNotesOff(); },
+    onNotYetImplemented: () => { mainWindow?.webContents.send('native-menu-command', { type: 'show-not-yet-implemented' }); },
   }));
 
   Menu.setApplicationMenu(menu);
@@ -470,44 +517,14 @@ async function requestQuit(): Promise<void> {
     await engineBridge.stopPlayback();
   }
 
-  if (currentData && currentFilePath) {
-    // Ask user to save before quitting
-    const result = await dialog.showMessageBox(mainWindow!, {
-      type: 'question',
-      title: 'Save Before Quit?',
-      message: 'Would you like to save the project before exiting?',
-      detail: currentFilePath
-        ? `File: ${path.basename(currentFilePath)}`
-        : 'This project has not been saved yet.',
-      buttons: ['Save', "Don't Save", 'Cancel'],
-      defaultId: 0,
-      cancelId: 2,
-    });
-
-    if (result.response === 0) {
-      // Save → Quit
-      if (currentFilePath) {
-        doSave(currentFilePath);
-      } else {
-        await saveFileAs();
-        // If user cancels the save dialog, abort quit
-        if (!currentFilePath) {
-          isQuitting = false;
-          return;
-        }
-      }
-      // Save complete → proceed with quit
-      pendingQuit = true;
-    } else if (result.response === 1) {
-      // Don't Save → Quit immediately
-      doQuit();
-    } else {
-      // Cancel → Abort quit
-      isQuitting = false;
-    }
-  } else {
-    // No project loaded → quit immediately
+  if (!currentData) {
     doQuit();
+    return;
+  }
+
+  if (!(await confirmSaveBeforeReplace({ quitAfterSave: true }))) {
+    isQuitting = false;
+    return;
   }
 }
 
@@ -596,6 +613,7 @@ async function openFile(): Promise<void> {
     currentData = data;
     currentFilePath = filePath;
     currentProjectRevision = 0;
+    currentProjectSessionId += 1;
     rebuildApplicationMenu();
     updateWindowTitle();
 
@@ -616,7 +634,7 @@ async function openFile(): Promise<void> {
     }
 
     mainWindow.webContents.send('project-loaded', {
-      ...createProjectEditorSnapshot(data, filePath),
+      ...createProjectEditorSnapshot(data, filePath, currentProjectSessionId),
       title: data.getProjectProperties().title || path.basename(filePath),
       author: data.getProjectProperties().author,
       sampleRate: data.getProjectProperties().sampleRate,
@@ -644,11 +662,12 @@ async function openFilePath(filePath: string): Promise<void> {
     currentData = data;
     currentFilePath = filePath;
     currentProjectRevision = 0;
+    currentProjectSessionId += 1;
     rebuildApplicationMenu();
     updateWindowTitle();
 
     mainWindow.webContents.send('project-loaded', {
-      ...createProjectEditorSnapshot(data, filePath),
+      ...createProjectEditorSnapshot(data, filePath, currentProjectSessionId),
       title: data.getProjectProperties().title || path.basename(filePath),
       author: data.getProjectProperties().author,
       sampleRate: data.getProjectProperties().sampleRate,
@@ -673,15 +692,42 @@ async function newFile(): Promise<void> {
   currentData = data;
   currentFilePath = null;
   currentProjectRevision = 0;
+  currentProjectSessionId += 1;
   rebuildApplicationMenu();
   updateWindowTitle();
 
   mainWindow.webContents.send('project-loaded', {
-    ...createProjectEditorSnapshot(data, null),
+    ...createProjectEditorSnapshot(data, null, currentProjectSessionId),
     title: 'Untitled',
     author: '',
     sampleRate: '44100',
   });
+}
+
+async function closeProject(): Promise<void> {
+  if (!mainWindow) return;
+
+  if (!(await confirmSaveBeforeReplace())) return;
+
+  currentData = null;
+  currentFilePath = null;
+  currentProjectRevision = 0;
+  currentProjectSessionId += 1;
+  rebuildApplicationMenu();
+  updateWindowTitle();
+  mainWindow.webContents.send('project-closed');
+}
+
+async function revertProject(): Promise<void> {
+  if (!currentFilePath) return;
+  if (!(await confirmSaveBeforeReplace())) return;
+  await openFilePath(currentFilePath);
+}
+
+async function openRecentProject(filePath: string): Promise<void> {
+  if (!mainWindow) return;
+  if (!(await confirmSaveBeforeReplace())) return;
+  await openFilePath(filePath);
 }
 
 async function saveFile(): Promise<void> {
@@ -913,6 +959,34 @@ async function stopPlayback(): Promise<void> {
   await engineBridge.stopPlayback();
 }
 
+async function blueLiveToggle(): Promise<ReturnType<BlueLiveEngineSession['start'] | BlueLiveEngineSession['stop']> | { status: string; running: boolean; sessionId: number; message?: string }> {
+  if (!blueLiveSession || !currentData) {
+    return { status: 'idle', running: false, sessionId: 0, message: 'No project loaded' };
+  }
+
+  if (blueLiveSession.isRunning()) {
+    return blueLiveSession.stop();
+  }
+
+  currentProjectRevision++;
+  mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
+  mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
+  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory());
+}
+
+async function blueLiveRecompile(): Promise<void> {
+  if (!blueLiveSession || !currentData) return;
+  currentProjectRevision++;
+  mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
+  mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
+  await blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory());
+}
+
+async function blueLiveAllNotesOff(): Promise<void> {
+  if (!blueLiveSession) return;
+  await blueLiveSession.sendAllNotesOff();
+}
+
 async function generateCsdToScreen(): Promise<void> {
   if (!mainWindow) return;
   if (!currentData) {
@@ -1012,6 +1086,19 @@ ipcMain.handle('get-project-info', () => {
     nchnls: currentData.getProjectProperties().nchnls,
     version: currentData.getVersion(),
   };
+});
+
+ipcMain.handle('set-recent-files', (_event, files: string[]) => {
+  if (!Array.isArray(files)) {
+    return getRecentProjectFilesSnapshot();
+  }
+
+  syncRecentProjectFiles(files.filter((filePath) => typeof filePath === 'string'));
+  return getRecentProjectFilesSnapshot();
+});
+
+ipcMain.handle('get-recent-files', () => {
+  return getRecentProjectFilesSnapshot();
 });
 
 ipcMain.handle('import-blue-udo', async () => {
@@ -1445,8 +1532,18 @@ ipcMain.handle('commit-project-document-patches', (_event, patches: ProjectDocum
   }
 
   currentProjectRevision += 1;
-  const receipt: ProjectDocumentCommitReceipt = { revision: currentProjectRevision };
+  const receipt: ProjectDocumentCommitReceipt = { revision: currentProjectRevision, sessionId: currentProjectSessionId };
   return receipt;
+});
+
+ipcMain.handle('get-score-object-editor-document', (_event, request: ScoreObjectEditorRequest): ScoreObjectEditorDocumentSnapshot | null => {
+  if (!currentData) return null;
+  return createScoreObjectEditorDocument(currentData, request);
+});
+
+ipcMain.handle('get-nested-poly-object-snapshot', (_event, location: ScoreObjectLocationRef): PolyObjectLayerGroupSnapshot | null => {
+  if (!currentData) return null;
+  return createNestedPolyObjectSnapshot(currentData, location);
 });
 
 ipcMain.handle('send-bsb-realtime-control-update', (_event, update: BsbRealtimeControlUpdate) => {

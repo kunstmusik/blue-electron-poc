@@ -8,35 +8,34 @@ import { ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 
 type SoundObjectLoader = (data: Element, objRefMap?: ObjRefLoadMap) => SoundObject | null;
+type SoundObjectFactory = () => SoundObject;
 
 const registry = new Map<string, SoundObjectLoader>();
+const factories = new Map<string, SoundObjectFactory>();
 
-/**
- * Normalize a Java full class name to its short name.
- * E.g., "blue.soundObject.GenericScore" → "GenericScore"
- */
 export function normalizeClassName(type: string | null): string {
   if (!type) return '';
   const shortName = type.split('.').pop() || type;
   return shortName;
 }
 
-/**
- * Register a SoundObject type for XML deserialization.
- */
 export function registerSoundObjectType(typeName: string, loader: SoundObjectLoader): void {
   registry.set(typeName, loader);
 }
 
-/**
- * Load a SoundObject from XML by dispatching to the registered loader.
- * Accepts both short names and Java full class names.
- */
+export function registerSoundObjectFactory(typeName: string, factory: SoundObjectFactory): void {
+  factories.set(typeName, factory);
+}
+
+export function createSoundObject(typeName: string): SoundObject | null {
+  const factory = factories.get(typeName) ?? factories.get(normalizeClassName(typeName));
+  return factory ? factory() : null;
+}
+
 export function loadSoundObjectFromXML(data: Element, objRefMap?: ObjRefLoadMap): SoundObject | null {
   const rawType = data.getAttribute('type');
   if (!rawType) return null;
 
-  // Try exact match first, then normalized short name
   const loader = registry.get(rawType) ?? registry.get(normalizeClassName(rawType));
   if (loader) {
     return loader(data, objRefMap);

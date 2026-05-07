@@ -165,6 +165,34 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().isDirty).toBe(true);
   });
 
+  it('clears the active project session when the project is closed', () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      sessionId: 12,
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+    });
+
+    useProjectStore.getState().clearProject();
+
+    const state = useProjectStore.getState();
+    expect(state.loaded).toBe(false);
+    expect(state.filePath).toBeNull();
+    expect(state.sessionId).toBe(0);
+  });
+
   it('T349: sends realtime updates for live BSB value changes', async () => {
     mockBlueAPI.sendBsbRealtimeControlUpdate.mockResolvedValue(undefined);
 
@@ -733,6 +761,60 @@ describe('Toolbar Shell', () => {
     expect(selection.startText).toBe('8.00 / 0:04.000');
     expect(selection.endText).toBe('12.00 / 0:06.000');
     expect(selection.durationText).toBe('4.00 / 0:02.000');
+  });
+
+  it('formats BBF with canonical hundredths in the toolbar', () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    const transport = {
+      ...snapshot.transport,
+      renderStartTime: 0.05,
+      tempoMap: {
+        enabled: false,
+        points: [],
+      },
+      meterMap: {
+        entries: [{ measure: 1, numBeats: 4, beatLength: 4 }],
+      },
+    };
+    const playback = {
+      status: 'idle' as const,
+      hasClock: false,
+      elapsedSeconds: 0,
+      source: 'idle-anchor' as const,
+    };
+
+    const playhead = buildPlayheadDisplayState(transport, playback, {
+      primaryMode: TimeBase.BBF,
+    });
+
+    expect(playhead.primaryText).toBe('1.1.05');
+  });
+
+  it('formats the user-reported BBF duration example as canonical hundredths', () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    const transport = {
+      ...snapshot.transport,
+      renderStartTime: 2.05,
+      tempoMap: {
+        enabled: false,
+        points: [],
+      },
+      meterMap: {
+        entries: [{ measure: 1, numBeats: 4, beatLength: 4 }],
+      },
+    };
+    const playback = {
+      status: 'idle' as const,
+      hasClock: false,
+      elapsedSeconds: 0,
+      source: 'idle-anchor' as const,
+    };
+
+    const playhead = buildPlayheadDisplayState(transport, playback, {
+      primaryMode: TimeBase.BBF,
+    });
+
+    expect(playhead.primaryText).toBe('1.3.05');
   });
 
   it('formats the playhead using alternate display modes', () => {

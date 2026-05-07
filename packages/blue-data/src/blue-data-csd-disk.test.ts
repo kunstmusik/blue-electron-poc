@@ -126,7 +126,7 @@ beforeAll(async () => {
 });
 
 describe.skipIf(!hasRhythmicFixture())('disk CSD parity', () => {
-  it('matches the Java Blue 2.10.0 disk export prologue for rhythmic/01.blue', async () => {
+  it('matches the Java Blue 2.10.1 disk export prologue for rhythmic/01.blue', async () => {
     const source = fs.readFileSync(RHYTHMIC_BLUE_PATH, 'utf-8');
     const data = await BlueData.loadFromString(source);
     const generated = data.toDiskCSD();

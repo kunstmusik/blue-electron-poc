@@ -14,6 +14,8 @@ import VirtualKeyboardPanel from './panels/VirtualKeyboardPanel';
 import MixerPanel from './panels/MixerPanel';
 import OutputPanel from './panels/output/OutputPanel';
 import ScorePanel from './panels/ScorePanel';
+import ScoreObjectPropertiesPanel from './panels/ScoreObjectPropertiesPanel';
+import ScoreObjectEditorPanel from './panels/ScoreObjectEditorPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
   function DockviewPanel(props, ref) {
@@ -54,6 +56,10 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <OutputPanel />
           ) : descriptor.id === 'ScoreTopComponent' ? (
             <ScorePanel />
+          ) : descriptor.id === 'SoundObjectPropertiesTopComponent' ? (
+            <ScoreObjectPropertiesPanel />
+          ) : descriptor.id === 'ScoreObjectEditorTopComponent' ? (
+            <ScoreObjectEditorPanel />
           ) : (
             <PlaceholderPanel descriptor={descriptor} showHeader={false} />
           )}

@@ -12,13 +12,19 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { TimeBehavior } from './time-behavior';
+import { TimeDuration } from '../time/time-duration';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 
 export class NotationObject extends AbstractSoundObject {
   private _staffData = '';
 
   constructor(other?: NotationObject) {
     super();
+    this.setName('Notation Object');
+    this._subjectiveDuration = TimeDuration.beats(2);
+    this._backgroundColor = 0x404040;
+    this._timeBehavior = TimeBehavior.SCALE;
     if (other) {
       this.copyFrom(other);
       this._staffData = other._staffData;
@@ -40,13 +46,7 @@ export class NotationObject extends AbstractSoundObject {
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'NotationObject');
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.NotationObject');
     elem.addElement('staffData').setText(this._staffData);
     return elem;
   }

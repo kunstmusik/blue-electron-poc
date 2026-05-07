@@ -74,7 +74,7 @@ describe('AuxiliarySlideout', () => {
     const slideout: AuxiliarySlideoutView = {
       edge: 'right',
       groupInstanceId: 'properties-main',
-      panelId: 'SoundObjectPropertiesTopComponent',
+      panelId: 'AudioFilePlayerTopComponent',
       size: 320,
     };
 

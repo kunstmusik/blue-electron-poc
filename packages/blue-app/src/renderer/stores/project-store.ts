@@ -45,6 +45,7 @@ import {
   type OrchestraSnapshot,
   type ProjectUdoPatch,
   type ScoreDocumentSnapshot,
+  type ScoreLayerSnapshot,
   type ScorePatch,
   type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
@@ -68,8 +69,10 @@ interface ProjectState {
   sampleRate: string;
   version: string;
   filePath: string | null;
+  sessionId: number;
   isLoading: boolean;
   isDirty: boolean;
+  lastScorePatch: ScorePatch | null;
   loaded: boolean;
   globalOrc: string;
   globalSco: string;
@@ -109,7 +112,7 @@ interface ProjectActions {
   generateCsdToScreen: () => Promise<void>;
   generateCsdToDisk: () => Promise<void>;
   flushPendingPatches: () => Promise<void>;
-  moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number }>) => void;
+  moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>) => void;
   removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
   addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean }>) => void;
   setLayerMute: (layerId: string, muted: boolean) => void;
@@ -117,12 +120,13 @@ interface ProjectActions {
   renameLayer: (layerId: string, name: string) => void;
   setLayerHeight: (layerId: string, heightIndex: number) => void;
   addLayer: (groupId: string, layerIndex: number) => void;
-  removeLayer: (groupId: string, layerId: string) => void;
+  removeLayer: (groupId: string, layerIndex: number) => void;
   setScoreObjectColor: (objectIds: ReadonlySet<string>, color: number) => void;
   resizeScoreObjects: (resizes: Array<{ objectId: string; targetStartBeats: number; targetDurationBeats: number }>) => void;
 }
 
 let latestProjectPatchRequestId = 0;
+let latestProjectSessionId = 0;
 let pendingPatches: ProjectDocumentPatch[] = [];
 let pendingPatchTimer: ReturnType<typeof setTimeout> | null = null;
 let storeGet: any;
@@ -141,7 +145,9 @@ const doFlushAsync = async (): Promise<void> => {
   try {
     const receipt = await window.blueAPI.commitProjectDocumentPatches(patches);
     if (receipt?.revision !== undefined) {
-      latestProjectPatchRequestId = receipt.revision;
+      if (receipt.sessionId === latestProjectSessionId) {
+        latestProjectPatchRequestId = receipt.revision;
+      }
     }
   } catch (err: unknown) {
     toast.error(`Failed to save project changes: ${err instanceof Error ? err.message : String(err)}`);
@@ -203,6 +209,17 @@ export const __testClearPendingPatches = (): void => {
   pendingPatches = [];
   pendingFlushPromise = null;
 };
+
+function resetTransientProjectMutationState(): void {
+  latestProjectPatchRequestId = 0;
+  latestProjectSessionId = 0;
+  pendingPatches = [];
+  if (pendingPatchTimer) {
+    clearTimeout(pendingPatchTimer);
+    pendingPatchTimer = null;
+  }
+  pendingFlushPromise = null;
+}
 
 function buildRealtimeControlUpdate(
   patch: ProjectDocumentPatch,
@@ -295,12 +312,19 @@ function applyProjectInfoToState(
 ): void {
   if (!info) {
     if (!preserveDirty) {
+      resetTransientProjectMutationState();
       storeSet(buildInitialState());
     }
     return;
   }
 
   storeSet((state: ProjectState) => {
+    const incomingSessionId = info.sessionId ?? state.sessionId;
+    if (incomingSessionId !== latestProjectSessionId) {
+      resetTransientProjectMutationState();
+      latestProjectSessionId = incomingSessionId;
+    }
+
     const nextProjectProperties = info.projectProperties
       ? mergeProjectProperties(state.projectProperties, info.projectProperties)
       : state.projectProperties;
@@ -327,6 +351,7 @@ function applyProjectInfoToState(
       sampleRate: info.sampleRate ?? summary.sampleRate,
       version: info.version ?? state.version,
       filePath: info.filePath ?? state.filePath,
+      sessionId: incomingSessionId,
       loaded:
         info.loaded ??
         (info.filePath !== undefined
@@ -371,8 +396,10 @@ function buildInitialState(): ProjectState {
     sampleRate: snapshot.projectProperties.sampleRate,
     version: snapshot.version,
     filePath: snapshot.filePath,
+    sessionId: snapshot.sessionId,
     isLoading: false,
     isDirty: false,
+    lastScorePatch: null,
     loaded: snapshot.loaded,
     globalOrc: snapshot.globalOrc,
     globalSco: snapshot.globalSco,
@@ -996,6 +1023,69 @@ function applyMidiInputPatchToSnapshot(
   }
 
   return next;
+}
+
+function applyScorePatchToSnapshot(
+  score: ScoreDocumentSnapshot,
+  patch: ScorePatch,
+): ScoreDocumentSnapshot {
+  if (patch.type === 'addLayer') {
+    const nextLayerGroups = score.layerGroups.map((lg) => {
+      if (lg.groupId !== patch.groupId) return lg;
+      const newLayer: ScoreLayerSnapshot = {
+        layerId: `layer-${Date.now()}`,
+        name: '',
+        height: 44,
+        muted: false,
+        solo: false,
+        items: [],
+      };
+      const layers = [...lg.layers];
+      layers.splice(patch.layerIndex + 1, 0, newLayer);
+      return { ...lg, layers, layerCount: layers.length };
+    });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'removeLayer') {
+    const nextLayerGroups = score.layerGroups.map((lg) => {
+      if (lg.groupId !== patch.groupId) return lg;
+      const layers = lg.layers.filter((_l, i) => i !== patch.layerIndex);
+      return { ...lg, layers, layerCount: layers.length };
+    });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'updateTimeState') {
+    const { patch: tsPatch } = patch;
+    return {
+      ...score,
+      timeState: { ...score.timeState, ...tsPatch },
+    };
+  }
+
+  if (patch.type !== 'updateSharedProperties') return score;
+
+  const { selectionId } = patch.target;
+  const { name, startTime, subjectiveDuration, backgroundColor } = patch.patch;
+
+  const nextLayerGroups = score.layerGroups.map((lg) => ({
+    ...lg,
+    layers: lg.layers.map((layer) => ({
+      ...layer,
+      items: layer.items.map((item) => {
+        if (item.objectId !== selectionId) return item;
+        const next = { ...item };
+        if (name !== undefined) next.name = name;
+        if (backgroundColor !== undefined) next.backgroundColor = backgroundColor;
+        if (startTime !== undefined) next.startBeats = startTime.value;
+        if (subjectiveDuration !== undefined) next.durationBeats = subjectiveDuration.value;
+        return next;
+      }),
+    })),
+  }));
+
+  return { ...score, layerGroups: nextLayerGroups };
 }
 
 function cloneInstrumentSnapshotForMutation<T extends InstrumentSnapshot>(instrument: T): T {
@@ -2257,9 +2347,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     }
   },
 
-  setProjectInfo: (info) => {
-    applyProjectInfoToState(info, false);
-  },
+    setProjectInfo: (info) => {
+      applyProjectInfoToState(info, false);
+    },
 
   setLoading: (isLoading) => set({ isLoading }),
 
@@ -2267,7 +2357,21 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   markClean: () => set({ isDirty: false }),
 
-  clearProject: () => set(buildInitialState()),
+    clearProject: () => {
+      resetTransientProjectMutationState();
+      set(buildInitialState());
+    },
+
+  revertProject: async () => {
+    try {
+      const snapshot = await window.blueAPI.getProjectDocument();
+      if (snapshot) {
+        applyProjectInfoToState(snapshot, true);
+      }
+    } catch (err: unknown) {
+      toast.error(`Failed to revert project: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  },
 
   applyProjectDocumentPatch: async (patch) => {
     if (!get().loaded) {
@@ -2284,6 +2388,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       patch.projectUdo === undefined &&
       patch.blueLive === undefined &&
       patch.midiInput === undefined &&
+      (!patch.score) &&
       (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
       (!patch.transport || Object.keys(patch.transport).length === 0)
     ) {
@@ -2337,7 +2442,9 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         next.transport = {
           ...state.transport,
           ...patch.transport,
-          tempoMap: state.transport.tempoMap,
+          tempoMap: patch.transport.tempoMap
+            ? { ...state.transport.tempoMap, ...patch.transport.tempoMap }
+            : state.transport.tempoMap,
         };
       }
 
@@ -2358,6 +2465,11 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           state.midiInput ?? createDefaultMidiInputSnapshot(),
           patch.midiInput,
         );
+      }
+
+      if (patch.score !== undefined) {
+        next.score = applyScorePatchToSnapshot(state.score, patch.score);
+        next.lastScorePatch = patch.score;
       }
 
       if (patch.orchestra !== undefined || patch.mixer !== undefined) {
@@ -2430,20 +2542,44 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
   },
 
   flushPendingPatches: async () => {
-    await doFlushAsync();
+    if (pendingPatchTimer) {
+      clearTimeout(pendingPatchTimer);
+      pendingPatchTimer = null;
+    }
+    await startFlush();
   },
 
   moveScoreObjects: (moves) => {
     set((state) => {
       const score = state.score;
+      const moveMap = new Map(moves.map((m) => [m.objectId, m]));
+
+      const movedIds = new Set(moves.map((m) => m.objectId));
+
+      const additionsByGroupAndLayer = new Map<string, Map<number, typeof score.layerGroups[number]['layers'][number]['items']>>();
+
+      for (const lg of score.layerGroups) {
+        for (let li = 0; li < lg.layers.length; li++) {
+          for (const item of lg.layers[li].items) {
+            const move = moveMap.get(item.objectId);
+            if (!move) continue;
+            const targetGroupId = move.targetGroupId ?? lg.groupId;
+            const targetLi = move.targetLayerIndex ?? li;
+            let groupMap = additionsByGroupAndLayer.get(targetGroupId);
+            if (!groupMap) { groupMap = new Map(); additionsByGroupAndLayer.set(targetGroupId, groupMap); }
+            let list = groupMap.get(targetLi);
+            if (!list) { list = []; groupMap.set(targetLi, list); }
+            list.push({ ...item, startBeats: Math.max(0, move.targetStartBeats) });
+          }
+        }
+      }
+
       const newGroups = score.layerGroups.map((lg) => {
-        const newLayers = lg.layers.map((layer) => {
-          const newItems = layer.items.map((item) => {
-            const move = moves.find((m) => m.objectId === item.objectId);
-            if (!move) return item;
-            return { ...item, startBeats: Math.max(0, move.targetStartBeats) };
-          });
-          return { ...layer, items: newItems };
+        const groupAdditions = additionsByGroupAndLayer.get(lg.groupId);
+        const newLayers = lg.layers.map((layer, li) => {
+          const kept = layer.items.filter((item) => !movedIds.has(item.objectId));
+          const additions = groupAdditions?.get(li) ?? [];
+          return { ...layer, items: [...kept, ...additions] };
         });
         return { ...lg, layers: newLayers };
       });
@@ -2478,21 +2614,57 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         if (layerObjects.length === 0) return layer;
         return {
           ...layer,
-          items: [...layer.items, ...layerObjects.map((o, j) => ({
-            objectId: `pasted-${Date.now()}-${idx}-${j}`,
-            objectType: o.objectType,
-            name: o.name,
-            startBeats: o.startBeats,
-            durationBeats: o.durationBeats,
-            backgroundColor: o.backgroundColor,
-            isContainer: o.isContainer,
-          }))],
+          items: [...layer.items, ...layerObjects.map((o, j) => {
+            const objectId = `pasted-${Date.now()}-${idx}-${j}`;
+            const objectIndex = layer.items.length + j;
+            const isSObj = o.objectType !== 'AudioClip';
+            return {
+              objectId,
+              objectType: o.objectType,
+              name: o.name,
+              startBeats: o.startBeats,
+              durationBeats: o.durationBeats,
+              backgroundColor: o.backgroundColor,
+              isContainer: o.isContainer,
+              editorTarget: {
+                selectionId: objectId,
+                selectedObjectType: o.objectType,
+                editorObjectType: o.objectType,
+                ownerKind: 'timeline' as const,
+                displayContext: 'timeline' as const,
+                location: {
+                  rootGroupIndex: groupIndex,
+                  containerPath: [],
+                  layerIndex: idx,
+                  objectIndex,
+                },
+                supportsTimeBehavior: isSObj,
+                supportsRepeatPoint: isSObj,
+                supportsNoteProcessorChain: isSObj,
+              },
+            };
+          })],
         };
       });
       const newGroups = [...score.layerGroups];
       newGroups[groupIndex] = { ...lg, layers: newLayers };
       return { score: { ...score, layerGroups: newGroups }, isDirty: true };
     });
+
+    get().applyProjectDocumentPatch({
+      score: {
+        type: 'addScoreObjects',
+        groupId: objects[0].groupId,
+        objects: objects.map((o) => ({
+          layerIndex: o.layerIndex,
+          objectType: o.objectType,
+          name: o.name,
+          startBeats: o.startBeats,
+          durationBeats: o.durationBeats,
+          backgroundColor: o.backgroundColor,
+        })),
+      },
+    }).then(() => __testFlushPendingPatches());
   },
 
   setLayerMute: (layerId, muted) => {
@@ -2546,33 +2718,20 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
   },
 
   addLayer: (groupId, layerIndex) => {
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => {
-        if (lg.groupId !== groupId) return lg;
-        const newLayer = {
-          layerId: `layer-${Date.now()}`,
-          name: 'Sound Layer',
-          height: 44,
-          muted: false,
-          solo: false,
-          items: [],
-        };
-        const layers = [...lg.layers];
-        layers.splice(layerIndex + 1, 0, newLayer);
-        return { ...lg, layers, layerCount: layers.length };
-      });
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    const patch: ProjectDocumentPatch = {
+      score: { type: 'addLayer', groupId, layerIndex },
+    };
+    get().applyProjectDocumentPatch(patch).then(() => {
+      __testFlushPendingPatches();
     });
   },
 
-  removeLayer: (groupId, layerId) => {
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => {
-        if (lg.groupId !== groupId) return lg;
-        const layers = lg.layers.filter((l) => l.layerId !== layerId);
-        return { ...lg, layers, layerCount: layers.length };
-      });
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+  removeLayer: (groupId, layerIndex) => {
+    const patch: ProjectDocumentPatch = {
+      score: { type: 'removeLayer', groupId, layerIndex },
+    };
+    get().applyProjectDocumentPatch(patch).then(() => {
+      __testFlushPendingPatches();
     });
   },
 

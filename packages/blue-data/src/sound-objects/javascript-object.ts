@@ -7,7 +7,7 @@ import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
-import { initBasicFromXML } from './sound-object-utilities';
+import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
 import { getJavaScriptCompileContext } from '../javascript-runtime';
 
@@ -76,7 +76,9 @@ export class JavaScriptObject extends AbstractSoundObject {
 
   constructor() {
     super();
-    this.setName('JavaScriptObject');
+    this.setName('javaScriptObject');
+    this._javaScriptCode = 'score = "i1 0 2 3 4 5";';
+    this._backgroundColor = 0x404040;
   }
 
   getJavaScriptCode(): string { return this._javaScriptCode; }
@@ -113,17 +115,9 @@ export class JavaScriptObject extends AbstractSoundObject {
   // ─── XML ───
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
-    const elem = new Element('soundObject');
-    elem.setAttribute('type', 'JavaScriptObject');
-
-    elem.addElement('name').setText(this._name);
-    elem.addElement('startTime').setText(this._startTime.getValue().toString());
-    elem.addElement('subjectiveDuration').setText(this._subjectiveDuration.getValue().toString());
-    elem.addElement('timeBehavior').setText(this._timeBehavior);
-    elem.addElement('backgroundColor').setText(this._backgroundColor.toString());
+    const elem = getBasicXML(this, 'blue.soundObject.JavaScriptObject');
     elem.addElement('javaScriptCode').setText(this._javaScriptCode);
     elem.setAttribute('onLoadProcessable', this._onLoadProcessable.toString());
-
     return elem;
   }
 

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import type { TimebaseUpdateMode } from '../components/workbench/panels/score/RulerConfigDialog';
-import { TimeBase, TimePosition, TimeDuration, TimeContext } from '@blue/data';
+import { TimeBase, TimePosition, TimeDuration, TimeContext, BlueData, GenericScore } from '@blue/data';
+import { applyScoreTimeStatePatch, applyProjectDocumentPatch } from '../../shared/project-editor';
+import type { ScoreObjectEditorTargetSnapshot } from '../../shared/project-editor';
 
 interface MockScoreObject {
   startTime: TimePosition;
@@ -190,6 +192,368 @@ describe('Ruler Config Timebase Update Logic', () => {
         { updateStart: false, updateDuration: false },
       ]);
       expect(result.updatedMarkers).toEqual([true, true]);
+    });
+  });
+
+  describe('applyScoreTimeStatePatch converts sound object time bases', () => {
+    function getFirstLayer(score: import('@blue/data').Score) {
+      return (score[0] as import('@blue/data').PolyObject)[0];
+    }
+
+    it('UPDATE_ALL converts all score objects to new time base', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const ctx = score.getTimeContext();
+
+      const layer = getFirstLayer(score);
+      const gs = new GenericScore();
+      gs.setName('test');
+      gs.setStartTime(TimePosition.beats(4));
+      gs.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs);
+
+      const initialBase = gs.getStartTime().getTimeBase();
+      expect(initialBase).toBe(TimeBase.BEATS);
+
+      const changed = applyScoreTimeStatePatch(data, {
+        primaryTimeDisplay: TimeBase.BBT,
+        scoreObjectUpdateMode: 'UPDATE_ALL',
+      });
+
+      expect(changed).toBe(true);
+      expect(gs.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gs.getStartTime().toBeats(ctx)).toBeCloseTo(4, 2);
+      expect(gs.getSubjectiveDuration().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gs.getSubjectiveDuration().toBeats(ctx)).toBeCloseTo(2, 2);
+    });
+
+    it('UPDATE_MATCHING only converts matching time bases', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gs1 = new GenericScore();
+      gs1.setName('beats-obj');
+      gs1.setStartTime(TimePosition.beats(2));
+      gs1.setSubjectiveDuration(TimeDuration.beats(1));
+      layer.push(gs1);
+
+      const gs2 = new GenericScore();
+      gs2.setName('seconds-obj');
+      gs2.setStartTime(TimePosition.seconds(2));
+      gs2.setSubjectiveDuration(TimeDuration.seconds(1));
+      layer.push(gs2);
+
+      applyScoreTimeStatePatch(data, {
+        primaryTimeDisplay: TimeBase.BBT,
+        scoreObjectUpdateMode: 'UPDATE_MATCHING',
+      });
+
+      expect(gs1.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gs2.getStartTime().getTimeBase()).toBe(TimeBase.SECONDS);
+    });
+
+    it('null mode does not convert any score objects', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gs = new GenericScore();
+      gs.setName('test');
+      gs.setStartTime(TimePosition.beats(4));
+      gs.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs);
+
+      applyScoreTimeStatePatch(data, {
+        primaryTimeDisplay: TimeBase.BBT,
+        scoreObjectUpdateMode: null,
+      });
+
+      expect(gs.getStartTime().getTimeBase()).toBe(TimeBase.BEATS);
+    });
+
+    it('UPDATE_MATCHING preserves start and duration independently', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const ctx = score.getTimeContext();
+      const layer = getFirstLayer(score);
+
+      const gs = new GenericScore();
+      gs.setName('mixed');
+      gs.setStartTime(TimePosition.seconds(2.0));
+      gs.setSubjectiveDuration(TimeDuration.beats(3.0));
+      layer.push(gs);
+
+      applyScoreTimeStatePatch(data, {
+        primaryTimeDisplay: TimeBase.BBT,
+        scoreObjectUpdateMode: 'UPDATE_MATCHING',
+      });
+
+      expect(gs.getStartTime().getTimeBase()).toBe(TimeBase.SECONDS);
+      expect(gs.getSubjectiveDuration().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gs.getSubjectiveDuration().toBeats(ctx)).toBeCloseTo(3, 2);
+    });
+
+    it('UPDATE_MATCHING with repeat point: only converts matching repeat point', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gs = new GenericScore();
+      gs.setName('with-rp');
+      gs.setStartTime(TimePosition.beats(4));
+      gs.setSubjectiveDuration(TimeDuration.beats(2));
+      gs.setRepeatPoint(TimeDuration.seconds(1.5));
+      layer.push(gs);
+
+      const gs2 = new GenericScore();
+      gs2.setName('with-rp2');
+      gs2.setStartTime(TimePosition.beats(8));
+      gs2.setSubjectiveDuration(TimeDuration.beats(2));
+      gs2.setRepeatPoint(TimeDuration.beats(1.5));
+      layer.push(gs2);
+
+      applyScoreTimeStatePatch(data, {
+        primaryTimeDisplay: TimeBase.BBT,
+        scoreObjectUpdateMode: 'UPDATE_MATCHING',
+      });
+
+      expect(gs.getRepeatPoint()!.getTimeBase()).toBe(TimeBase.SECONDS);
+      expect(gs2.getRepeatPoint()!.getTimeBase()).toBe(TimeBase.BBT);
+    });
+  });
+
+  describe('full pipeline via applyProjectDocumentPatch', () => {
+    function getFirstLayer(score: import('@blue/data').Score) {
+      return (score[0] as import('@blue/data').PolyObject)[0];
+    }
+
+    it('UPDATE_MATCHING through ScorePatch only converts matching objects', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gsMatching = new GenericScore();
+      gsMatching.setName('beats-obj');
+      gsMatching.setStartTime(TimePosition.beats(2));
+      gsMatching.setSubjectiveDuration(TimeDuration.beats(1));
+      layer.push(gsMatching);
+
+      const gsNonMatching = new GenericScore();
+      gsNonMatching.setName('seconds-obj');
+      gsNonMatching.setStartTime(TimePosition.seconds(2));
+      gsNonMatching.setSubjectiveDuration(TimeDuration.seconds(1));
+      layer.push(gsNonMatching);
+
+      const changed = applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTimeState',
+          patch: {
+            primaryTimeDisplay: TimeBase.BBT,
+            scoreObjectUpdateMode: 'UPDATE_MATCHING',
+          },
+        },
+      });
+
+      expect(changed).toBe(true);
+      expect(gsMatching.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gsNonMatching.getStartTime().getTimeBase()).toBe(TimeBase.SECONDS);
+      expect(gsNonMatching.getSubjectiveDuration().getTimeBase()).toBe(TimeBase.SECONDS);
+    });
+
+    it('UPDATE_ALL through ScorePatch converts all objects', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gsMatching = new GenericScore();
+      gsMatching.setName('beats-obj');
+      gsMatching.setStartTime(TimePosition.beats(2));
+      gsMatching.setSubjectiveDuration(TimeDuration.beats(1));
+      layer.push(gsMatching);
+
+      const gsNonMatching = new GenericScore();
+      gsNonMatching.setName('seconds-obj');
+      gsNonMatching.setStartTime(TimePosition.seconds(2));
+      gsNonMatching.setSubjectiveDuration(TimeDuration.seconds(1));
+      layer.push(gsNonMatching);
+
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTimeState',
+          patch: {
+            primaryTimeDisplay: TimeBase.BBT,
+            scoreObjectUpdateMode: 'UPDATE_ALL',
+          },
+        },
+      });
+
+      expect(gsMatching.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+      expect(gsNonMatching.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+    });
+
+    it('same primary display does not convert objects', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const layer = getFirstLayer(score);
+
+      const gs = new GenericScore();
+      gs.setName('test');
+      gs.setStartTime(TimePosition.beats(4));
+      gs.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs);
+
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTimeState',
+          patch: {
+            primaryTimeDisplay: TimeBase.BEATS,
+            scoreObjectUpdateMode: 'UPDATE_ALL',
+          },
+        },
+      });
+
+      expect(gs.getStartTime().getTimeBase()).toBe(TimeBase.BEATS);
+    });
+  });
+
+  describe('marker update decision logic', () => {
+    function markerShouldUpdate(
+      markerTimeBase: TimeBase,
+      oldTimeBase: TimeBase,
+      markerMode: TimebaseUpdateMode | null,
+    ): boolean {
+      if (markerMode === null) return false;
+      if (markerMode === 'UPDATE_ALL') return true;
+      return markerTimeBase === oldTimeBase;
+    }
+
+    it('UPDATE_ALL converts all markers', () => {
+      expect(markerShouldUpdate(TimeBase.BEATS, TimeBase.BEATS, 'UPDATE_ALL')).toBe(true);
+      expect(markerShouldUpdate(TimeBase.SECONDS, TimeBase.BEATS, 'UPDATE_ALL')).toBe(true);
+    });
+
+    it('UPDATE_MATCHING only converts markers matching old timebase', () => {
+      expect(markerShouldUpdate(TimeBase.BEATS, TimeBase.BEATS, 'UPDATE_MATCHING')).toBe(true);
+      expect(markerShouldUpdate(TimeBase.SECONDS, TimeBase.BEATS, 'UPDATE_MATCHING')).toBe(false);
+    });
+
+    it('null mode does not convert any markers', () => {
+      expect(markerShouldUpdate(TimeBase.BEATS, TimeBase.BEATS, null)).toBe(false);
+    });
+  });
+
+  describe('user scenario: manually set object to BBT, then ruler UPDATE_MATCHING', () => {
+    function getFirstLayer(score: import('@blue/data').Score) {
+      return (score[0] as import('@blue/data').PolyObject)[0];
+    }
+
+    function makeTarget(objectId: string): ScoreObjectEditorTargetSnapshot {
+      return {
+        selectionId: objectId,
+        selectedObjectType: 'GenericScore',
+        editorObjectType: 'GenericScore',
+        ownerKind: 'timeline',
+        displayContext: 'timeline',
+        location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 },
+        supportsTimeBehavior: true,
+        supportsRepeatPoint: true,
+        supportsNoteProcessorChain: true,
+      };
+    }
+
+    it('object manually set to BBT is NOT converted when ruler changes from BEATS to BBST with UPDATE_MATCHING', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const ctx = score.getTimeContext();
+      const layer = getFirstLayer(score);
+
+      const gs1 = new GenericScore();
+      gs1.setName('manually-bbt');
+      gs1.setStartTime(TimePosition.beats(4));
+      gs1.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs1);
+      const gs1Id = gs1.getName();
+
+      const gs2 = new GenericScore();
+      gs2.setName('stayed-beats');
+      gs2.setStartTime(TimePosition.beats(8));
+      gs2.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs2);
+
+      // Step 2: User selects gs1, changes start time to BBT via properties panel
+      const target1 = { ...makeTarget(gs1Id), location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 } };
+      const beatsValue = gs1.getStartTime().toBeats(ctx);
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSharedProperties',
+          target: target1,
+          patch: {
+            startTime: { value: beatsValue, timeBase: TimeBase.BBT },
+          },
+        },
+      });
+
+      // Verify gs1 start is now BBT
+      expect(gs1.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+
+      // Step 3: User opens ruler config, changes from BEATS to BBST with UPDATE_MATCHING
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTimeState',
+          patch: {
+            primaryTimeDisplay: TimeBase.BBST,
+            scoreObjectUpdateMode: 'UPDATE_MATCHING',
+          },
+        },
+      });
+
+      // gs1 should NOT be converted because its start time is BBT, not BEATS (old ruler)
+      expect(gs1.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+      // gs2 should be converted because its start time is BEATS (matches old ruler)
+      expect(gs2.getStartTime().getTimeBase()).toBe(TimeBase.BBST);
+    });
+
+    it('UPDATE_ALL converts all objects regardless of their timebase', () => {
+      const data = new BlueData();
+      const score = data.getScore();
+      const ctx = score.getTimeContext();
+      const layer = getFirstLayer(score);
+
+      const gs1 = new GenericScore();
+      gs1.setName('manually-bbt');
+      gs1.setStartTime(TimePosition.beats(4));
+      gs1.setSubjectiveDuration(TimeDuration.beats(2));
+      layer.push(gs1);
+      const gs1Id = gs1.getName();
+
+      // Manually set gs1 to BBT
+      const target1 = { ...makeTarget(gs1Id), location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 } };
+      const beatsValue = gs1.getStartTime().toBeats(ctx);
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSharedProperties',
+          target: target1,
+          patch: {
+            startTime: { value: beatsValue, timeBase: TimeBase.BBT },
+          },
+        },
+      });
+
+      expect(gs1.getStartTime().getTimeBase()).toBe(TimeBase.BBT);
+
+      // UPDATE_ALL should convert everything
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTimeState',
+          patch: {
+            primaryTimeDisplay: TimeBase.BBST,
+            scoreObjectUpdateMode: 'UPDATE_ALL',
+          },
+        },
+      });
+
+      expect(gs1.getStartTime().getTimeBase()).toBe(TimeBase.BBST);
     });
   });
 });

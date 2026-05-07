@@ -1,23 +1,35 @@
 import { type MenuItemConstructorOptions } from 'electron';
+import * as path from 'path';
 import { getPanelsByMode, type PanelMode } from '../shared/workbench-menu';
 
 export interface ApplicationMenuTemplateOptions {
   hasLoadedProject: boolean;
   isDarwin: boolean;
+  recentProjects: string[];
+  canRevertProject: boolean;
+  followPlaybackEnabled: boolean;
   onNewFile: () => void;
   onOpenFile: () => void;
+  onOpenRecentProject: (filePath: string) => void;
+  onCloseProject: () => void;
+  onRevertProject: () => void;
   onSaveFile: () => void;
   onSaveFileAs: () => void;
+  onGenerateCsdToScreen: () => void;
+  onGenerateCsdToDisk: () => void;
   onRequestQuit: () => void;
   onOpenSettings: () => void;
   onOpenEffectsLibrary: () => void;
   onFocusPanel: (panelId: string) => void;
   onToggleDevTools: () => void;
   onResetLayout: () => void;
-  onPlay: () => void;
-  onStop: () => void;
-  onGenerateCsdToScreen: () => void;
-  onGenerateCsdToDisk: () => void;
+  onToggleFollowPlayback: () => void;
+  onToggleFollowPlaybackOnRenderStart: () => void;
+  onToggleLoopRendering: () => void;
+  onToggleBlueLive: () => void;
+  onRecompileBlueLive: () => void;
+  onBlueLiveAllNotesOff: () => void;
+  onNotYetImplemented: () => void;
 }
 
 function buildWorkbenchMenuItems(
@@ -30,38 +42,110 @@ function buildWorkbenchMenuItems(
   }));
 }
 
-function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): MenuItemConstructorOptions[] {
-  const enabled = options.hasLoadedProject;
+function buildPlaceholderItem(
+  label: string,
+  options: ApplicationMenuTemplateOptions,
+  overrides: Partial<MenuItemConstructorOptions> = {},
+): MenuItemConstructorOptions {
+  return {
+    label,
+    ...overrides,
+    click: () => options.onNotYetImplemented(),
+  };
+}
+
+function buildRecentProjectsMenuTemplate(options: ApplicationMenuTemplateOptions): MenuItemConstructorOptions[] {
+  const recentProjects = options.recentProjects.filter((filePath) => filePath.trim().length > 0);
+
+  if (recentProjects.length === 0) {
+    return [{ label: 'No Recent Projects', enabled: false }];
+  }
+
+  return recentProjects.map((filePath) => ({
+    label: path.basename(filePath),
+    sublabel: filePath,
+    click: () => options.onOpenRecentProject(filePath),
+  }));
+}
+
+function buildFileMenuTemplate(options: ApplicationMenuTemplateOptions): MenuItemConstructorOptions[] {
+  const hasProject = options.hasLoadedProject;
 
   return [
-    {
-      label: 'Effects Library...',
-      click: () => options.onOpenEffectsLibrary(),
-    },
+    { label: 'New Project', accelerator: 'CmdOrCtrl+N', click: () => options.onNewFile() },
+    { type: 'separator' },
+    { label: 'Open Project', accelerator: 'CmdOrCtrl+O', click: () => options.onOpenFile() },
+    buildPlaceholderItem('Open Example Project', options),
+    { type: 'separator' },
+    buildPlaceholderItem('Import CSD File', options, { enabled: hasProject }),
+    buildPlaceholderItem('Import from ORC/SCO', options, { enabled: hasProject }),
+    buildPlaceholderItem('Import MIDI File', options, { enabled: hasProject }),
+    { type: 'separator' },
+    { label: 'Close Project', accelerator: options.isDarwin ? 'Shift+Cmd+W' : 'Shift+Ctrl+W', enabled: hasProject, click: () => options.onCloseProject() },
+    { label: 'Revert', enabled: options.canRevertProject, click: () => options.onRevertProject() },
+    { type: 'separator' },
+    { label: 'Save', accelerator: 'CmdOrCtrl+S', enabled: hasProject, click: () => options.onSaveFile() },
+    { label: 'Save as...', enabled: hasProject, click: () => options.onSaveFileAs() },
+    { type: 'separator' },
+    buildPlaceholderItem('Render to Disk', options, { accelerator: options.isDarwin ? 'Shift+Cmd+F9' : 'Shift+Ctrl+F9', enabled: hasProject }),
+    buildPlaceholderItem('Render to Disk and Play', options, { accelerator: 'Shift+F9', enabled: hasProject }),
+    buildPlaceholderItem('Render to Disk and Open', options, { enabled: hasProject }),
+    { type: 'separator' },
+    buildPlaceholderItem('Save Libraries', options, { enabled: hasProject }),
+    { type: 'separator' },
+    { label: 'Recent Projects', submenu: buildRecentProjectsMenuTemplate(options) },
+    ...(options.isDarwin
+      ? []
+      : [
+          { type: 'separator' as const },
+          { label: 'Settings...', accelerator: 'CmdOrCtrl+,', click: () => options.onOpenSettings() },
+          { type: 'separator' as const },
+          { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => options.onRequestQuit() },
+        ]),
+  ];
+}
+
+function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): MenuItemConstructorOptions[] {
+  const hasProject = options.hasLoadedProject;
+
+  return [
+    { label: 'Generate CSD to Screen', accelerator: 'CmdOrCtrl+Shift+G', enabled: hasProject, click: () => options.onGenerateCsdToScreen() },
+    buildPlaceholderItem('Generate Realtime CSD to Screen', options, { enabled: hasProject }),
+    { label: 'Generate CSD to File', accelerator: 'CmdOrCtrl+G', enabled: hasProject, click: () => options.onGenerateCsdToDisk() },
+    buildPlaceholderItem('Render/Stop Project', options, { accelerator: 'F9', enabled: hasProject }),
+    { label: 'Audition ScoreObjects', enabled: false, click: () => options.onNotYetImplemented() },
+    { type: 'separator' },
+    { label: 'Follow playback by scrolling score', type: 'checkbox', checked: options.followPlaybackEnabled, enabled: hasProject, click: () => options.onToggleFollowPlayback() },
+    buildPlaceholderItem('Enable follow playback on render start', options, { type: 'checkbox', checked: false, enabled: hasProject }),
     { type: 'separator' },
     {
-      label: 'Play',
-      enabled,
-      click: () => options.onPlay(),
-    },
-    {
-      label: 'Stop',
-      enabled,
-      click: () => options.onStop(),
+      label: 'Blue Live',
+      enabled: hasProject,
+      submenu: [
+        { label: 'Start/Stop Blue Live', click: () => options.onToggleBlueLive() },
+        { label: 'Recompile', click: () => options.onRecompileBlueLive() },
+        { label: 'All Notes Off', click: () => options.onBlueLiveAllNotesOff() },
+        { label: 'MIDI Input', click: () => options.onFocusPanel('MidiInputPanelTopComponent') },
+      ],
     },
     { type: 'separator' },
-    {
-      label: 'Generate CSD to Screen',
-      accelerator: options.isDarwin ? 'Cmd+Shift+G' : 'Ctrl+Shift+G',
-      enabled,
-      click: () => options.onGenerateCsdToScreen(),
-    },
-    {
-      label: 'Generate CSD to Disk…',
-      accelerator: options.isDarwin ? 'Cmd+G' : 'Ctrl+G',
-      enabled,
-      click: () => options.onGenerateCsdToDisk(),
-    },
+    buildPlaceholderItem('Edit Tempo Map...', options, { enabled: hasProject }),
+    buildPlaceholderItem('Edit Time Signature Map...', options, { enabled: hasProject }),
+    buildPlaceholderItem('Add Marker', options, { accelerator: 'CmdOrCtrl+M', enabled: hasProject }),
+    { type: 'separator' },
+    { label: 'Toggle Loop Rendering', accelerator: 'CmdOrCtrl+L', enabled: hasProject, click: () => options.onToggleLoopRendering() },
+  ];
+}
+
+function buildToolsMenuTemplate(options: ApplicationMenuTemplateOptions): MenuItemConstructorOptions[] {
+  return [
+    buildPlaceholderItem('Code Repository Editor', options),
+    buildPlaceholderItem('Scanned Synthesis Matrix Editor', options),
+    { label: 'Effects Library', click: () => options.onOpenEffectsLibrary() },
+    buildPlaceholderItem('SoundFont Viewer', options),
+    buildPlaceholderItem('Blue Share', options),
+    buildPlaceholderItem('FTable Converter', options),
+    buildPlaceholderItem('.csound6rc Editor', options),
   ];
 }
 
@@ -118,29 +202,7 @@ export function buildApplicationMenuTemplate(
 
   template.push({
     label: 'File',
-    submenu: [
-      { label: 'New', accelerator: 'CmdOrCtrl+N', click: () => options.onNewFile() },
-      { label: 'Open...', accelerator: 'CmdOrCtrl+O', click: () => options.onOpenFile() },
-      { type: 'separator' },
-      { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => options.onSaveFile() },
-      { label: 'Save As...', accelerator: 'CmdOrCtrl+Shift+S', click: () => options.onSaveFileAs() },
-      ...(options.isDarwin
-        ? []
-        : [
-            { type: 'separator' as const },
-            {
-              label: 'Settings...',
-              accelerator: 'CmdOrCtrl+,',
-              click: () => options.onOpenSettings(),
-            },
-            { type: 'separator' as const },
-            {
-              label: 'Quit',
-              accelerator: 'CmdOrCtrl+Q',
-              click: () => options.onRequestQuit(),
-            },
-          ]),
-    ],
+    submenu: buildFileMenuTemplate(options),
   });
 
   template.push({
@@ -159,6 +221,11 @@ export function buildApplicationMenuTemplate(
   template.push({
     label: 'Project',
     submenu: buildProjectMenuTemplate(options),
+  });
+
+  template.push({
+    label: 'Tools',
+    submenu: buildToolsMenuTemplate(options),
   });
 
   template.push({

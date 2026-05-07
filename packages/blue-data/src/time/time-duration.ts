@@ -28,7 +28,7 @@ export class TimeDuration {
   // DurationBBST additional fields
   private readonly _sixteenth: number;
 
-  // DurationBBF additional fields
+  // DurationBBF additional fields (canonical hundredths)
   private readonly _fraction: number;
 
   // DurationTime fields

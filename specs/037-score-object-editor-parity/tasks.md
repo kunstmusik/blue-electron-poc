@@ -11,10 +11,10 @@
 
 **Purpose**: Confirm the Java parity anchors, current score shell selection seams, and reusable renderer surfaces before code changes begin.
 
-- [ ] T001 Review the Java auxiliary score-editor anchors documented in `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/research.md`
-- [ ] T002 [P] Inventory current score snapshot, selection, and score-shell object-id seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/score-selection-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/`
-- [ ] T003 [P] Inventory current auxiliary panel routing and placeholder behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
-- [ ] T004 [P] Inventory `@blue/data` score-object, library, and note-processor seams plus reusable renderer editor surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/audio/audio-clip.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
+- [x] T001 Review the Java auxiliary score-editor anchors documented in `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/research.md`
+- [x] T002 [P] Inventory current score snapshot, selection, and score-shell object-id seams in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/score-selection-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/`
+- [x] T003 [P] Inventory current auxiliary panel routing and placeholder behavior in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/auxiliary-layout.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [x] T004 [P] Inventory `@blue/data` score-object, library, and note-processor seams plus reusable renderer editor surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/audio/audio-clip.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
 
 ---
 
@@ -26,20 +26,20 @@
 
 ### Tests
 
-- [ ] T005 [P] Add stable library-id and lookup coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-library.test.ts`
-- [ ] T006 [P] Add shared score-object editor target and document contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-contract.test.ts`
-- [ ] T007 [P] Add auxiliary score-object panel routing regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
-- [ ] T008 [P] Add score-object editor read-IPC contract coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-editor-document.test.ts`
+- [x] T005 [P] Add stable library-id and lookup coverage in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-library.test.ts`
+- [x] T006 [P] Add shared score-object editor target and document contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-contract.test.ts`
+- [x] T007 [P] Add auxiliary score-object panel routing regression coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/project-editor-panels.test.ts`
+- [x] T008 [P] Add score-object editor read-IPC contract coverage in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-editor-document.test.ts`
 
 ### Implementation
 
-- [ ] T009 Extend `SoundObjectLibrary` with stable entry identity, reverse lookup, and containment helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-library.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
-- [ ] T010 Extend score row snapshots with stable `ScoreObjectEditorTargetSnapshot` metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T011 Implement canonical score-object target resolution and on-demand `ScoreObjectEditorDocumentSnapshot` creation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T012 Extend `ScorePatch` with shared properties, sound-object behavior, note-processor-chain, and type-specific editor mutations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T013 Implement canonical score-object patch application for timeline and library-backed targets in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T014 Expose `getScoreObjectEditorDocument` through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
-- [ ] T015 Update score selection and score-shell object-id plumbing to use stable target-aware ids in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/score-selection-store.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/`
+- [x] T009 Extend `SoundObjectLibrary` with stable entry identity, reverse lookup, and containment helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-object-library.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/blue-data.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
+- [x] T010 Extend score row snapshots with stable `ScoreObjectEditorTargetSnapshot` metadata in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T011 Implement canonical score-object target resolution and on-demand `ScoreObjectEditorDocumentSnapshot` creation helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T012 Extend `ScorePatch` with shared properties, sound-object behavior, note-processor-chain, and type-specific editor mutations in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T013 Implement canonical score-object patch application for timeline and library-backed targets in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T014 Expose `getScoreObjectEditorDocument` through `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/types/global.d.ts`
+- [x] T015 Update score selection and score-shell object-id plumbing to use stable target-aware ids in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/score-selection-store.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/`
 
 **Checkpoint**: Canonical score-object identity, library routing, and editor-document loading are ready for the auxiliary surfaces.
 
@@ -53,18 +53,18 @@
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Add no-selection and single-selection properties panel tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
-- [ ] T017 [P] [US1] Add shared-property mutation and score-shell synchronization tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-contract.test.tsx`
-- [ ] T018 [P] [US1] Add time-behavior, repeat-point, and note-processor-chain tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-behavior.test.tsx`
+- [x] T016 [P] [US1] Add no-selection and single-selection properties panel tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
+- [x] T017 [P] [US1] Add shared-property mutation and score-shell synchronization tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
+- [x] T018 [P] [US1] Add time-behavior, repeat-point, and note-processor-chain tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Route `SoundObjectPropertiesTopComponent` to a real panel and update user-facing label copy where appropriate in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`
-- [ ] T020 [US1] Implement the top-level properties surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`
-- [ ] T021 [US1] Build shared property form controls for name, start time, duration, end-time display, and color in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
-- [ ] T022 [US1] Wire SoundObject-only time-behavior and repeat-point controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/`
-- [ ] T023 [US1] Add note-processor-chain summary and editing affordances using typed chain snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/`
-- [ ] T024 [US1] Dispatch shared property mutations through canonical score patches and keep the score shell synchronized in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts` and the score-object panel helpers
+- [x] T019 [US1] Route `SoundObjectPropertiesTopComponent` to a real panel and update user-facing label copy where appropriate in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`
+- [x] T020 [US1] Implement the top-level properties surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`
+- [x] T021 [US1] Build shared property form controls for name, start time, duration, end-time display, and color in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
+- [x] T022 [US1] Wire SoundObject-only time-behavior and repeat-point controls in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/`
+- [x] T023 [US1] Add note-processor-chain summary and editing affordances using typed chain snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/`
+- [x] T024 [US1] Dispatch shared property mutations through canonical score patches and keep the score shell synchronized in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts` and the score-object panel helpers
 
 **Checkpoint**: The shared properties panel is independently usable for supported single-selection scenarios.
 
@@ -78,19 +78,19 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Add editor-registry routing tests for supported families in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-routing.test.tsx`
-- [ ] T026 [P] [US2] Add code-backed and `AudioClip` editor tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-panel.test.tsx`
-- [ ] T027 [P] [US2] Add `Instance` and library-backed routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-library-routing.test.tsx`
+- [x] T025 [P] [US2] Add editor-registry routing tests for supported families in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-routing.test.tsx`
+- [x] T026 [P] [US2] Add code-backed and `AudioClip` editor tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-panel.test.tsx`
+- [x] T027 [P] [US2] Add `Instance` and library-backed routing tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-library-routing.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T028 [US2] Route `ScoreObjectEditorTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
-- [ ] T029 [US2] Implement the top-level editor surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`
-- [ ] T030 [US2] Implement the static registry and family-selection logic in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editor-registry.tsx`
-- [ ] T031 [US2] Implement the code-backed editor family for `GenericScore`, `PythonObject`, `JavaScriptObject`, `Comment`, and `External` using `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
-- [ ] T032 [US2] Implement file, clip, and reference editor families for `AudioClip`, `AudioFile`, `FrozenSoundObject`, `Sound`, and `Instance` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/`
-- [ ] T033 [US2] Implement structured or container editor families for `PolyObject`, `PatternObject`, `PianoRoll`, `TrackerObject`, `NotationObject`, `LineObject`, `ZakLineObject`, and `JMask` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/`
-- [ ] T034 [US2] Wire type-specific editor mutations to canonical score patch handlers and refresh logic in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/useScoreObjectEditorDocument.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T028 [US2] Route `ScoreObjectEditorTopComponent` to a real panel in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/DockviewPanel.tsx`
+- [x] T029 [US2] Implement the top-level editor surface in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`
+- [x] T030 [US2] Implement the static registry and family-selection logic in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editor-registry.tsx`
+- [x] T031 [US2] Implement the code-backed editor family for `GenericScore`, `PythonObject`, `JavaScriptObject`, `Comment`, and `External` using `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/editors/SelectedCodeEditor.tsx`
+- [x] T032 [US2] Implement file, clip, and reference editor families for `AudioClip`, `AudioFile`, `FrozenSoundObject`, `Sound`, and `Instance` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/`
+- [x] T033 [US2] Implement structured or container editor families for `PolyObject`, `PatternObject`, `PianoRoll`, `TrackerObject`, `NotationObject`, `LineObject`, `ZakLineObject`, and `JMask` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/`
+- [x] T034 [US2] Wire type-specific editor mutations to canonical score patch handlers and refresh logic in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/useScoreObjectEditorDocument.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
 
 **Checkpoint**: The registry-driven score-object editor is independently usable for the supported editor families.
 
@@ -104,15 +104,15 @@
 
 ### Tests for User Story 3
 
-- [ ] T035 [P] [US3] Add unsupported, ambiguous, and removed-target fallback tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-fallbacks.test.tsx`
-- [ ] T036 [P] [US3] Add library-context labeling and stale-selection refresh tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-library-routing.test.tsx`
+- [x] T035 [P] [US3] Add unsupported, ambiguous, and removed-target fallback tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-editor-fallbacks.test.tsx`
+- [x] T036 [P] [US3] Add library-context labeling and stale-selection refresh tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-library-routing.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Add explicit fallback editor documents for no-selection, multi-selection, unsupported, and removed-target cases in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T038 [US3] Surface library-editing context badges and messaging in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectContextBadge.tsx`
-- [ ] T039 [US3] Add registry fallbacks and explicit deferral messaging for Java-only or still-thin types such as `ObjectBuilder` and `CSDSoundObject` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editor-registry.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/UnsupportedScoreObjectEditor.tsx`
-- [ ] T040 [US3] Ensure auxiliary panels clear stale documents when selection changes outside `ScoreTopComponent` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/useScoreObjectEditorDocument.ts`
+- [x] T037 [US3] Add explicit fallback editor documents for no-selection, multi-selection, unsupported, and removed-target cases in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T038 [US3] Surface library-editing context badges and messaging in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectContextBadge.tsx`
+- [x] T039 [US3] Add registry fallbacks and explicit deferral messaging for Java-only or still-thin types such as `ObjectBuilder` and `CSDSoundObject` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editor-registry.tsx` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/UnsupportedScoreObjectEditor.tsx`
+- [x] T040 [US3] Ensure auxiliary panels clear stale documents when selection changes outside `ScoreTopComponent` in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectPropertiesPanel.tsx`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScoreObjectEditorPanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/useScoreObjectEditorDocument.ts`
 
 **Checkpoint**: Fallback behavior is explicit and safe across the high-risk selection states.
 
@@ -122,16 +122,16 @@
 
 **Purpose**: Final validation, documentation, and handoff preparation after implementation.
 
-- [ ] T041 [P] Update `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/quickstart.md` with any implementation-specific validation notes discovered during development
-- [ ] T042 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 037 implementation progress, validation results, and any remaining deferrals
-- [ ] T043 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T044 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T045 Run `pnpm --filter @blue/app build:main` from `/Users/stevenyi/work/blue-electron`
-- [ ] T046 Run `pnpm --filter @blue/app build:preload` from `/Users/stevenyi/work/blue-electron`
-- [ ] T047 Run `pnpm --filter @blue/app build:renderer` from `/Users/stevenyi/work/blue-electron`
-- [ ] T048 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
-- [ ] T049 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
-- [ ] T050 Perform the manual auxiliary score-object scenarios from `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/quickstart.md`
+- [x] T041 [P] Update `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/quickstart.md` with any implementation-specific validation notes discovered during development
+- [x] T042 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with Spec 037 implementation progress, validation results, and any remaining deferrals
+- [x] T043 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
+- [x] T044 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
+- [x] T045 Run `pnpm --filter @blue/app build:main` from `/Users/stevenyi/work/blue-electron`
+- [x] T046 Run `pnpm --filter @blue/app build:preload` from `/Users/stevenyi/work/blue-electron`
+- [x] T047 Run `pnpm --filter @blue/app build:renderer` from `/Users/stevenyi/work/blue-electron`
+- [x] T048 Run `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` from `/Users/stevenyi/work/blue-electron`
+- [x] T049 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T050 Perform the manual auxiliary score-object scenarios from `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/quickstart.md`
 
 ---
 
