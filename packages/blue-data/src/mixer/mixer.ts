@@ -6,6 +6,7 @@ import { Channel } from "./channel";
 import { ChannelList } from "./channel-list";
 import { Element } from "../serialization/xml-reader";
 import { BlueDataObject } from "../blue-data-object";
+import { writeBoolean, writeDouble } from "../utilities/xml";
 
 export class Mixer implements BlueDataObject {
   static readonly MASTER_CHANNEL = "Master";
@@ -129,7 +130,7 @@ export class Mixer implements BlueDataObject {
 
   saveAsXML(): Element {
     const elem = new Element("mixer");
-    elem.setAttribute("enabled", this._enabled.toString());
+    elem.addElement(writeBoolean("enabled", this._enabled));
 
     const channelsElem = this._channels.saveAsXML();
     channelsElem.setAttribute("list", "channels");
@@ -140,19 +141,22 @@ export class Mixer implements BlueDataObject {
     elem.addElement(subChannelsElem);
 
     elem.addElement(this._master.saveAsXML());
-    elem.addElement("extraRenderTime").setText(this._extraRenderTime.toString());
+    elem.addElement(writeDouble("extraRenderTime", this._extraRenderTime));
     return elem;
   }
 
   static loadFromXML(data: Element): Mixer {
     const mixer = new Mixer();
-    mixer._enabled = data.getAttribute("enabled") !== "false";
+
+    const enabledElem = data.getElement("enabled");
+    if (enabledElem) {
+      mixer._enabled = enabledElem.getTextString() !== "false";
+    }
 
     const channelLists = data.getElements("channelList");
     while (channelLists.hasMoreElements()) {
       const clNode = channelLists.next();
-      const listAttr =
-        clNode.getAttribute("list") ?? clNode.getAttribute("listName") ?? "";
+      const listAttr = clNode.getAttribute("list") ?? "";
       const loaded = ChannelList.loadFromXML(clNode);
       if (listAttr === "subChannels" || listAttr === "SubChannels") {
         mixer._subChannels = loaded;

@@ -22,18 +22,20 @@ describe('mixer runtime parity', () => {
     const channel = mixer.getChannels()[0]!;
 
     expect(channel.getAssociation()).toBe('pattern-1');
-    expect(channel.getVolume()).toBeCloseTo(0.75, 6);
-    expect(channel.getPan()).toBeCloseTo(0.25, 6);
+    expect(channel.getLevel()).toBeCloseTo(-3.0, 6);
     expect(channel.getPreEffects()).toHaveLength(1);
     expect(channel.getPostEffects().getSends()).toHaveLength(1);
 
     const savedXml = mixer.saveAsXML().toXml();
+    expect(savedXml).not.toContain('<volume>');
+    expect(savedXml).not.toContain('<pan>');
+    expect(savedXml).toContain('<level>-3.0</level>');
+
     const reloaded = Mixer.loadFromXML(Element.parse(savedXml));
     const reloadedChannel = reloaded.getChannels()[0]!;
 
     expect(reloadedChannel.getAssociation()).toBe('pattern-1');
-    expect(reloadedChannel.getVolume()).toBeCloseTo(0.75, 6);
-    expect(reloadedChannel.getPan()).toBeCloseTo(0.25, 6);
+    expect(reloadedChannel.getLevel()).toBeCloseTo(-3.0, 6);
     expect(reloadedChannel.getPostEffects().getSends()).toHaveLength(1);
   });
 

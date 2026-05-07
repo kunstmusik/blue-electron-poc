@@ -15,19 +15,41 @@ describe('Mixer', () => {
     });
   });
 
-  describe('omitted-mixer semantics (Java compatibility)', () => {
-    it('loading an empty mixer element keeps it enabled', () => {
-      const xml = '<mixer></mixer>';
-      const elem = Element.parse(xml);
-      const mixer = Mixer.loadFromXML(elem);
+  describe('Java-format enabled child element', () => {
+    it('loads <enabled>false</enabled> child element (Java format)', () => {
+      const xml = '<mixer><enabled>false</enabled></mixer>';
+      const mixer = Mixer.loadFromXML(Element.parse(xml));
+      expect(mixer.isEnabled()).toBe(false);
+    });
+
+    it('loads <enabled>true</enabled> child element (Java format)', () => {
+      const xml = '<mixer><enabled>true</enabled></mixer>';
+      const mixer = Mixer.loadFromXML(Element.parse(xml));
       expect(mixer.isEnabled()).toBe(true);
     });
 
-    it('loading mixer with enabled="false" disables it', () => {
-      const xml = '<mixer enabled="false"></mixer>';
-      const elem = Element.parse(xml);
-      const mixer = Mixer.loadFromXML(elem);
-      expect(mixer.isEnabled()).toBe(false);
+    it('loading an empty mixer element keeps it enabled', () => {
+      const xml = '<mixer></mixer>';
+      const mixer = Mixer.loadFromXML(Element.parse(xml));
+      expect(mixer.isEnabled()).toBe(true);
+    });
+  });
+
+  describe('saveAsXML writes Java-format output', () => {
+    it('writes enabled as child element, not attribute', () => {
+      const mixer = new Mixer();
+      mixer.setEnabled(true);
+      const xml = mixer.saveAsXML().toXml();
+      expect(xml).toContain('<enabled>true</enabled>');
+      expect(xml).not.toMatch(/enabled="true"/);
+    });
+
+    it('writes enabled=false as child element', () => {
+      const mixer = new Mixer();
+      mixer.setEnabled(false);
+      const xml = mixer.saveAsXML().toXml();
+      expect(xml).toContain('<enabled>false</enabled>');
+      expect(xml).not.toMatch(/enabled="false"/);
     });
   });
 
@@ -38,6 +60,14 @@ describe('Mixer', () => {
       const xml = mixer.saveAsXML();
       const loaded = Mixer.loadFromXML(xml);
       expect(loaded.isEnabled()).toBe(false);
+    });
+
+    it('round-trips through Java-format XML', () => {
+      const javaXml = '<mixer><enabled>false</enabled><extraRenderTime>0</extraRenderTime></mixer>';
+      const loaded = Mixer.loadFromXML(Element.parse(javaXml));
+      expect(loaded.isEnabled()).toBe(false);
+      const saved = loaded.saveAsXML().toXml();
+      expect(saved).toContain('<enabled>false</enabled>');
     });
   });
 

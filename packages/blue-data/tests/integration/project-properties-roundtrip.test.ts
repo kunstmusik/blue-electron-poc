@@ -97,11 +97,11 @@ describe('ProjectProperties Java-compatible round-trip', () => {
     expect(xmlText).not.toContain('<nchnls>4</nchnls>');
   });
 
-  it('loads legacy nchnls XML and preserves command-line migration fields', () => {
+  it('preserves command-line migration fields', () => {
     const xml = Element.parse(`<?xml version="1.0" encoding="UTF-8"?>
 <projectProperties>
   <title>Legacy</title>
-  <nchnls>3</nchnls>
+  <channels>3</channels>
   <commandLine>-odac -d</commandLine>
   <diskCommandLine>-odac -n</diskCommandLine>
 </projectProperties>`);

@@ -54,14 +54,14 @@ export function loadRuntimeBsbFixture(): BlueSynthBuilder {
 }
 
 export function createRuntimeMixerFixtureXml(): string {
-  return `<mixer enabled="true">
+  return `<mixer>
+    <enabled>true</enabled>
+    <extraRenderTime>3.5</extraRenderTime>
     <channelList list="channels">
       <channel association="pattern-1">
         <name>Lead</name>
         <outChannel>Master</outChannel>
-        <level>-3</level>
-        <volume>0.75</volume>
-        <pan>0.25</pan>
+        <level>-3.0</level>
         <muted>false</muted>
         <solo>false</solo>
         <effectsChain bin="pre">
@@ -86,9 +86,7 @@ export function createRuntimeMixerFixtureXml(): string {
       <channel>
         <name>Reverb</name>
         <outChannel>Master</outChannel>
-        <level>-6</level>
-        <volume>0.8</volume>
-        <pan>0.5</pan>
+        <level>-6.0</level>
         <muted>false</muted>
         <solo>false</solo>
       </channel>
@@ -96,13 +94,10 @@ export function createRuntimeMixerFixtureXml(): string {
     <channel>
       <name>Master</name>
       <outChannel>Master</outChannel>
-      <level>0</level>
-      <volume>1</volume>
-      <pan>0.5</pan>
+      <level>0.0</level>
       <muted>false</muted>
       <solo>false</solo>
     </channel>
-    <extraRenderTime>3.5</extraRenderTime>
   </mixer>`;
 }
 

@@ -7,6 +7,7 @@ import { Send } from "./send";
 import { Element } from "../serialization/xml-reader";
 import { BlueDataObject } from "../blue-data-object";
 import { Parameter } from "../automation/parameter";
+import { writeDouble, writeBoolean } from "../utilities/xml";
 
 export class Channel implements BlueDataObject {
   static readonly MASTER = "Master";
@@ -132,11 +133,9 @@ export class Channel implements BlueDataObject {
 
     elem.addElement("name").setText(this._name);
     elem.addElement("outChannel").setText(this._outChannel);
-    elem.addElement("level").setText(this._level.toString());
-    elem.addElement("volume").setText(this._volume.toString());
-    elem.addElement("pan").setText(this._pan.toString());
-    elem.addElement("muted").setText(this._muted.toString());
-    elem.addElement("solo").setText(this._solo.toString());
+    elem.addElement(writeDouble("level", this._level));
+    elem.addElement(writeBoolean("muted", this._muted));
+    elem.addElement(writeBoolean("solo", this._solo));
 
     const preEffects = this._preEffects.saveAsXML();
     preEffects.setAttribute("bin", "pre");
@@ -158,13 +157,11 @@ export class Channel implements BlueDataObject {
   static loadFromXML(data: Element): Channel {
     const channel = new Channel();
 
-    // Name: can be attribute or child element
-    channel._name =
-      data.getAttribute("name") ?? data.getTextString("name") ?? "";
+    channel._name = data.getTextString("name") ?? "";
     channel._muted =
-      (data.getAttribute("muted") ?? data.getTextString("muted")) === "true";
+      data.getTextString("muted") === "true";
     channel._solo =
-      (data.getAttribute("solo") ?? data.getTextString("solo")) === "true";
+      data.getTextString("solo") === "true";
 
     // Out channel routing
     const outCh = data.getTextString("outChannel");
@@ -173,12 +170,6 @@ export class Channel implements BlueDataObject {
     // Level (in dB)
     const level = data.getTextString("level");
     if (level) channel._level = parseFloat(level);
-
-    const vol = data.getTextString("volume");
-    if (vol) channel._volume = parseFloat(vol);
-
-    const pan = data.getTextString("pan");
-    if (pan) channel._pan = parseFloat(pan);
 
     const assoc = data.getAttribute("association") ?? data.getTextString("association");
     if (assoc) channel._association = assoc;

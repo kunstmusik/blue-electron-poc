@@ -60,22 +60,6 @@ describe('ProjectProperties', () => {
     });
   });
 
-  describe('legacy alias: nchnls → channels', () => {
-    it('loads nchnls as channels when channels is absent', () => {
-      const xml = '<projectProperties><nchnls>8</nchnls></projectProperties>';
-      const elem = Element.parse(xml);
-      const props = ProjectProperties.loadFromXML(elem);
-      expect(props.channels).toBe('8');
-    });
-
-    it('prefers channels over nchnls when both present', () => {
-      const xml = '<projectProperties><channels>4</channels><nchnls>8</nchnls></projectProperties>';
-      const elem = Element.parse(xml);
-      const props = ProjectProperties.loadFromXML(elem);
-      expect(props.channels).toBe('4');
-    });
-  });
-
   describe('legacy alias: copyToMediaFolderOnImport', () => {
     it('loads copyToMediaFolderOnImport as copyToMediaFileOnImport', () => {
       const xml = '<projectProperties><copyToMediaFolderOnImport>false</copyToMediaFolderOnImport></projectProperties>';

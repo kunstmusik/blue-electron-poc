@@ -79,13 +79,13 @@ export class GenericInstrument extends Instrument implements DeepCopyable<Generi
 
   static loadFromXML(data: Element): GenericInstrument {
     const instr = new GenericInstrument();
-    const name = data.getTextString('name') ?? data.getAttribute('name');
+    const name = data.getTextString('name');
     if (name !== null) {
       instr.setName(name);
     }
     instr.setComment(data.getTextString('comment') ?? '');
     instr.setEnabled(data.getAttribute('enabled') !== 'false');
-    instr.setText(data.getTextString('instrumentText') ?? data.getTextString('text') ?? '');
+    instr.setText(data.getTextString('instrumentText') ?? '');
     const go = data.getTextString('globalOrc');
     if (go !== null) instr._globalOrc = go;
     const gs = data.getTextString('globalSco');

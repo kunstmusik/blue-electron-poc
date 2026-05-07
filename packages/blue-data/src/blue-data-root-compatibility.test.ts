@@ -121,7 +121,7 @@ endop</udo>
 
     it('keeps mixer enabled when mixer element is present', () => {
       const xml = `<blueData version="5.0.0">
-        <mixer enabled="true"/>
+        <mixer><enabled>true</enabled></mixer>
       </blueData>`;
       const data = BlueData.loadFromString(xml);
       expect(data.getMixer().isEnabled()).toBe(true);
@@ -165,7 +165,7 @@ endop</udo>
         <markersList/>
         <midiInputProcessor/>
         <noteProcessorChainMap/>
-        <mixer enabled="true"/>
+        <mixer><enabled>true</enabled></mixer>
       </blueData>`;
       const data = BlueData.loadFromString(xml);
       const addedLayerGroup = new PolyObject(true);

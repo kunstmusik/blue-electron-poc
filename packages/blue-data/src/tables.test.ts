@@ -62,22 +62,6 @@ describe('Tables', () => {
     });
   });
 
-  describe('backward-compatible loading of fTable child elements', () => {
-    it('loads from <fTable> child elements when present', () => {
-      const elem = Element.parse(
-        '<tables><fTable name="f1">f 1 0 1024 10 1</fTable><fTable name="f2">f 2 0 2048 10 1</fTable></tables>'
-      );
-      const t = Tables.loadFromXML(elem);
-      expect(t.getTables()).toBe('f 1 0 1024 10 1\nf 2 0 2048 10 1');
-    });
-
-    it('loads empty tables with no fTable children', () => {
-      const elem = Element.parse('<tables></tables>');
-      const t = Tables.loadFromXML(elem);
-      expect(t.getTables()).toBe('');
-    });
-  });
-
   describe('null input handling', () => {
     it('returns empty Tables when given null', () => {
       const t = Tables.loadFromXML(null);

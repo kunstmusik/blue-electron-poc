@@ -241,10 +241,6 @@ export class Effect implements BlueDataObject {
     const enabled = data.getTextString("enabled");
     if (enabled !== null) effect._enabled = enabled !== "false";
 
-    // Also check attribute format
-    const enabledAttr = data.getAttribute("enabled");
-    if (enabledAttr !== null) effect._enabled = enabledAttr !== "false";
-
     const numIns = data.getTextString("numIns");
     if (numIns) effect._numIns = parseInt(numIns, 10);
 

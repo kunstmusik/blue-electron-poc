@@ -192,16 +192,6 @@ export class OpcodeDefinition implements BlueDataObject {
       }
     }
 
-    // Legacy BSB format fallback
-    if (!opcode._name || opcode._name === 'newOpcode') {
-      const legacyName = data.getTextString('name') || data.getTextString('opcodeName');
-      if (legacyName) opcode._name = legacyName;
-    }
-    if (!opcode._code) {
-      const legacyCode = data.getTextString('code') || data.getTextString('codeBody');
-      if (legacyCode) opcode._code = legacyCode;
-    }
-
     // Normalize after load (mirrors Java behavior)
     if (opcode._style === UDOStyle.MODERN) {
       opcode._inTypes = '';

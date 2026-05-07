@@ -38,7 +38,7 @@ describe('Performance', () => {
     <title>Performance Test</title>
     <sampleRate>44100</sampleRate>
     <ksmps>64</ksmps>
-    <nchnls>2</nchnls>
+    <channels>2</channels>
   </projectProperties>
   <score>
     <timeContext><tempo>120</tempo></timeContext>

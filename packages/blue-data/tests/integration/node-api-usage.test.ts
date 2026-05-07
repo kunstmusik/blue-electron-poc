@@ -146,16 +146,14 @@ describe('Node.js library API', () => {
     <author>Test User</author>
     <sampleRate>48000</sampleRate>
     <ksmps>32</ksmps>
-    <nchnls>2</nchnls>
+    <channels>2</channels>
     <useZeroDbFS>true</useZeroDbFS>
     <zeroDbFS>32768</zeroDbFS>
   </projectProperties>
   <globalOrcSco>
     <globalOrc>sr = 48000</globalOrc>
   </globalOrcSco>
-  <tables>
-    <fTable name="f1">f 1 0 1024 10 1</fTable>
-  </tables>
+  <tables>f 1 0 1024 10 1</tables>
   <score>
     <timeContext>
       <tempo>120</tempo>

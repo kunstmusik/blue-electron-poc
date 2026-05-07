@@ -207,9 +207,6 @@ export class ProjectProperties {
     const channels = data.getTextString('channels');
     if (channels !== null) {
       props.channels = channels;
-    } else {
-      const legacyNchnls = data.getTextString('nchnls');
-      if (legacyNchnls !== null) props.channels = legacyNchnls;
     }
 
     const udb = data.getTextString('useZeroDbFS');

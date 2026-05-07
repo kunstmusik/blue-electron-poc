@@ -27,7 +27,12 @@ export function readInt(elem: Element): number {
  */
 export function writeDouble(name: string, value: number): Element {
   const elem = new Element(name);
-  elem.setText(value.toString());
+  if (!Number.isFinite(value)) {
+    elem.setText(value.toString());
+    return elem;
+  }
+  const text = value.toString();
+  elem.setText(text.includes('.') || text.includes('e') || text.includes('E') ? text : text + '.0');
   return elem;
 }
 

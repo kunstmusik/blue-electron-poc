@@ -62,19 +62,8 @@ export class Tables {
     const tables = new Tables();
     if (!data) return tables;
 
-    const fTableChildren = data.getElements('fTable');
-    if (fTableChildren.size > 0) {
-      const lines: string[] = [];
-      while (fTableChildren.hasMoreElements()) {
-        const node = fTableChildren.next();
-        const def = node.getTextString();
-        if (def) lines.push(def);
-      }
-      tables.setTables(lines.join('\n'));
-    } else {
-      const text = data.getTextString();
-      tables.setTables(text ?? '');
-    }
+    const text = data.getTextString();
+    tables.setTables(text ?? '');
 
     return tables;
   }
