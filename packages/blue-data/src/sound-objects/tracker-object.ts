@@ -38,6 +38,11 @@ export class TrackerObject extends AbstractSoundObject {
   getTrackData(): string[][] { return this._trackData.map((t) => [...t]); }
   setTrackData(data: string[][]): void { this._trackData = data.map((t) => [...t]); }
   addTrack(track: string[]): void { this._trackData.push(track); }
+  removeTrack(index: number): boolean {
+    if (index < 0 || index >= this._trackData.length) return false;
+    this._trackData.splice(index, 1);
+    return true;
+  }
 
 
   override generateForCSD(

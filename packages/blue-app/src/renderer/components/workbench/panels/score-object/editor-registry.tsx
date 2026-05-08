@@ -5,17 +5,20 @@ import type {
   TypeSpecificScoreObjectEditorSnapshot,
 } from '../../../../../shared/project-editor';
 import CodeBackedScoreObjectEditor from './editors/CodeBackedScoreObjectEditor';
+import ExternalScoreObjectEditor from './editors/ExternalScoreObjectEditor';
 import AudioClipScoreObjectEditor from './editors/AudioClipScoreObjectEditor';
 import FileBackedScoreObjectEditor from './editors/FileBackedScoreObjectEditor';
 import PatternObjectEditor from './editors/PatternObjectEditor';
 import LineObjectEditor from './editors/LineObjectEditor';
 import ZakLineObjectEditor from './editors/ZakLineObjectEditor';
 import PianoRollEditor from './editors/PianoRollEditor';
-import TrackerObjectEditor from './editors/TrackerObjectEditor';
+import PolyObjectScoreObjectEditor from './editors/PolyObjectScoreObjectEditor';
+import TrackerScoreObjectEditor from './editors/TrackerScoreObjectEditor';
 
 import JMaskEditor from './editors/JMaskEditor';
 import SoundObjectEditor from './editors/SoundObjectEditor';
 import PolyObjectEditor from './editors/PolyObjectEditor';
+import TrackerObjectEditor from './editors/TrackerObjectEditor';
 import UnsupportedScoreObjectEditor from './editors/UnsupportedScoreObjectEditor';
 
 export interface ScoreObjectEditorComponentProps {
@@ -46,10 +49,16 @@ export function resolveEditorComponent(
   switch (editor.kind) {
     case 'code':
       return CodeBackedScoreObjectEditor;
+    case 'external':
+      return ExternalScoreObjectEditor;
     case 'audioClip':
       return AudioClipScoreObjectEditor;
     case 'file':
       return FileBackedScoreObjectEditor;
+    case 'polyObject':
+      return PolyObjectScoreObjectEditor;
+    case 'tracker':
+      return TrackerScoreObjectEditor;
     case 'structured':
       return resolveStructuredEditor(editor.editorFamily);
     case 'fallback':

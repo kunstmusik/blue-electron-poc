@@ -46,6 +46,8 @@ import {
   type ProjectUdoPatch,
   type ScoreDocumentSnapshot,
   type ScoreLayerSnapshot,
+  type ScoreObjectEditorTargetSnapshot,
+  type ScoreObjectLocationRef,
   type ScorePatch,
   type SupportedNewInstrumentType,
   type ToolbarProjectTransportSnapshot,
@@ -1025,10 +1027,59 @@ function applyMidiInputPatchToSnapshot(
   return next;
 }
 
+function sameScoreObjectLocation(
+  a: ScoreObjectLocationRef | undefined,
+  b: ScoreObjectLocationRef | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.rootGroupIndex !== b.rootGroupIndex) return false;
+  if (a.layerIndex !== b.layerIndex || a.objectIndex !== b.objectIndex) return false;
+  if (a.containerPath.length !== b.containerPath.length) return false;
+  for (let i = 0; i < a.containerPath.length; i++) {
+    const segA = a.containerPath[i];
+    const segB = b.containerPath[i];
+    if (segA.layerIndex !== segB.layerIndex || segA.objectIndex !== segB.objectIndex) return false;
+  }
+  return true;
+}
+
+function isScoreItemMatchingTarget(
+  item: ScoreLayerSnapshot['items'][number],
+  target: ScoreObjectEditorTargetSnapshot,
+): boolean {
+  const itemTarget = item.editorTarget;
+  if (!itemTarget) return false;
+
+  if (target.location && sameScoreObjectLocation(itemTarget.location, target.location)) {
+    return true;
+  }
+  if (
+    target.sourceInstanceLocation
+    && sameScoreObjectLocation(itemTarget.sourceInstanceLocation, target.sourceInstanceLocation)
+  ) {
+    return true;
+  }
+
+  return item.objectId === target.selectionId;
+}
+
 function applyScorePatchToSnapshot(
   score: ScoreDocumentSnapshot,
   patch: ScorePatch,
 ): ScoreDocumentSnapshot {
+  if (patch.type === 'removeScoreObjects') {
+    if (patch.targets.length === 0) return score;
+    const nextLayerGroups = score.layerGroups.map((lg) => ({
+      ...lg,
+      layers: lg.layers.map((layer) => ({
+        ...layer,
+        items: layer.items.filter((item) =>
+          !patch.targets.some((target) => isScoreItemMatchingTarget(item, target))),
+      })),
+    }));
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
   if (patch.type === 'addLayer') {
     const nextLayerGroups = score.layerGroups.map((lg) => {
       if (lg.groupId !== patch.groupId) return lg;
@@ -1066,7 +1117,6 @@ function applyScorePatchToSnapshot(
 
   if (patch.type !== 'updateSharedProperties') return score;
 
-  const { selectionId } = patch.target;
   const { name, startTime, subjectiveDuration, backgroundColor } = patch.patch;
 
   const nextLayerGroups = score.layerGroups.map((lg) => ({
@@ -1074,7 +1124,7 @@ function applyScorePatchToSnapshot(
     layers: lg.layers.map((layer) => ({
       ...layer,
       items: layer.items.map((item) => {
-        if (item.objectId !== selectionId) return item;
+        if (!isScoreItemMatchingTarget(item, patch.target)) return item;
         const next = { ...item };
         if (name !== undefined) next.name = name;
         if (backgroundColor !== undefined) next.backgroundColor = backgroundColor;

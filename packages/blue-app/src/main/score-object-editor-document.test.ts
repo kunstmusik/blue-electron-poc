@@ -17,6 +17,7 @@ import {
   SoundObjectLibrary,
   PatternObject,
   Sound,
+  TrackerObject,
 } from '@blue/data';
 import {
   createScoreObjectEditorDocument,
@@ -122,18 +123,22 @@ describe('createScoreObjectEditorDocument — code-backed types', () => {
     }
   });
 
-  it('returns code editor with text syntax for External', () => {
+  it('returns external editor for External with command line and syntax type', () => {
     const ext = new External();
     ext.setName('ExtCmd');
     ext.setText('ls -la');
+    ext.setCommandLine('python script.py');
+    ext.setSyntaxType('Python');
     const data = makeDataWithObject(ext);
 
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('External') });
     expect(doc).not.toBeNull();
-    expect(doc!.editor.kind).toBe('code');
-    if (doc!.editor.kind === 'code') {
-      expect(doc!.editor.syntax).toBe('text');
-      expect(doc!.editor.text).toBe('ls -la');
+    expect(doc!.editor.kind).toBe('external');
+    if (doc!.editor.kind === 'external') {
+      expect(doc!.editor.scoreText).toBe('ls -la');
+      expect(doc!.editor.commandLine).toBe('python script.py');
+      expect(doc!.editor.syntaxType).toBe('Python');
+      expect(doc!.editor.canTest).toBe(false);
     }
   });
 });
@@ -185,6 +190,91 @@ describe('createScoreObjectEditorDocument — structured types', () => {
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('Sound') });
     expect(doc).not.toBeNull();
     expect(doc!.editor.kind).toBe('structured');
+  });
+});
+
+describe('createScoreObjectEditorDocument — Tier 1: polyObject', () => {
+  it('returns polyObject editor with child rows for nested PolyObject', () => {
+    const outerPoly = new PolyObject();
+    const outerLayer = new SoundLayer();
+    outerLayer.setName('Outer Layer');
+    const innerPoly = new PolyObject();
+    innerPoly.setName('Inner Group');
+    const innerLayer = new SoundLayer();
+    const gs = new GenericScore();
+    gs.setName('Child Score');
+    gs.setScoreText('i1 0 1 440');
+    innerLayer.push(gs);
+    innerPoly.push(innerLayer);
+    outerLayer.push(innerPoly);
+    outerPoly.push(outerLayer);
+    const data = new BlueData();
+    data.getScore().push(outerPoly);
+
+    const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('PolyObject') });
+    expect(doc).not.toBeNull();
+    expect(doc!.editor.kind).toBe('polyObject');
+    if (doc!.editor.kind === 'polyObject') {
+      expect(doc!.editor.children.length).toBe(1);
+      expect(doc!.editor.children[0].name).toBe('Child Score');
+      expect(doc!.editor.children[0].objectType).toBe('GenericScore');
+      expect(doc!.editor.children[0].layerLabel).toBe('');
+      expect(doc!.editor.canOpenInScore).toBe(true);
+      expect(doc!.editor.canTest).toBe(false);
+    }
+  });
+
+  it('returns polyObject editor with empty children for empty PolyObject', () => {
+    const outerPoly = new PolyObject();
+    const outerLayer = new SoundLayer();
+    const innerPoly = new PolyObject();
+    innerPoly.setName('Empty Group');
+    outerLayer.push(innerPoly);
+    outerPoly.push(outerLayer);
+    const data = new BlueData();
+    data.getScore().push(outerPoly);
+
+    const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('PolyObject') });
+    expect(doc).not.toBeNull();
+    expect(doc!.editor.kind).toBe('polyObject');
+    if (doc!.editor.kind === 'polyObject') {
+      expect(doc!.editor.children.length).toBe(0);
+    }
+  });
+});
+
+describe('createScoreObjectEditorDocument — Tier 1: tracker', () => {
+  it('returns tracker editor with tracks and rows', () => {
+    const to = new TrackerObject();
+    to.setName('My Tracker');
+    to.setStepsPerBeat(4);
+    to.setTrackData([['i1', 'i2', 'i3', 'i4'], ['440', '880', '660', '220']]);
+    const data = makeDataWithObject(to);
+
+    const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('TrackerObject') });
+    expect(doc).not.toBeNull();
+    expect(doc!.editor.kind).toBe('tracker');
+    if (doc!.editor.kind === 'tracker') {
+      expect(doc!.editor.tracks.length).toBe(2);
+      expect(doc!.editor.tracks[0].trackName).toBe('Track 1');
+      expect(doc!.editor.tracks[0].columnCount).toBe(4);
+      expect(doc!.editor.rows.length).toBe(4);
+      expect(doc!.editor.canTest).toBe(false);
+    }
+  });
+
+  it('returns tracker editor with empty tracks for empty TrackerObject', () => {
+    const to = new TrackerObject();
+    to.setName('Empty Tracker');
+    const data = makeDataWithObject(to);
+
+    const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('TrackerObject') });
+    expect(doc).not.toBeNull();
+    expect(doc!.editor.kind).toBe('tracker');
+    if (doc!.editor.kind === 'tracker') {
+      expect(doc!.editor.tracks.length).toBe(0);
+      expect(doc!.editor.rows.length).toBe(0);
+    }
   });
 });
 

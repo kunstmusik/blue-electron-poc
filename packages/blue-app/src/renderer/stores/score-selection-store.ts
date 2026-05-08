@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ScoreObjectEditorTargetSnapshot } from '../../shared/project-editor';
 
 export interface ScoreObjectClipboardEntry {
   objectId: string;
@@ -10,51 +11,193 @@ export interface ScoreObjectClipboardEntry {
   isContainer: boolean;
   layerIndex: number;
   groupId: string;
-  editorTarget?: import('../shared/project-editor').ScoreObjectEditorTargetSnapshot;
+  editorTarget?: ScoreObjectEditorTargetSnapshot;
+}
+
+export interface ScoreSelectionEntry {
+  objectId: string;
+  editorTarget?: ScoreObjectEditorTargetSnapshot;
 }
 
 interface ScoreSelectionState {
   selectedObjectIds: ReadonlySet<string>;
+  selectedObjectTarget: ScoreObjectEditorTargetSnapshot | null;
+  selectedObjectTargets: Readonly<Record<string, ScoreObjectEditorTargetSnapshot>>;
+  liveSharedProperties: Readonly<Record<string, { startBeats?: number; durationBeats?: number }>>;
   clipboard: ScoreObjectClipboardEntry[];
-  select: (objectId: string, additive: boolean) => void;
+  select: (
+    objectId: string,
+    additive: boolean,
+    editorTarget?: ScoreObjectEditorTargetSnapshot,
+  ) => void;
   selectAll: (allIds: string[]) => void;
   clearSelection: () => void;
-  setSelection: (ids: string[]) => void;
+  setSelection: (entries: ScoreSelectionEntry[] | string[]) => void;
+  setLiveSharedProperties: (
+    updates: Array<{ objectId: string; startBeats?: number; durationBeats?: number }>,
+  ) => void;
+  clearLiveSharedProperties: (objectIds?: string[]) => void;
   copySelected: (entries: ScoreObjectClipboardEntry[]) => void;
   clearClipboard: () => void;
 }
 
+function normalizeSelectionEntries(
+  entries: ScoreSelectionEntry[] | string[],
+): ScoreSelectionEntry[] {
+  if (entries.length === 0) return [];
+  if (typeof entries[0] === 'string') {
+    return (entries as string[]).map((objectId) => ({ objectId }));
+  }
+  return entries as ScoreSelectionEntry[];
+}
+
 export const useScoreSelectionStore = create<ScoreSelectionState>((set) => ({
   selectedObjectIds: new Set<string>(),
+  selectedObjectTarget: null,
+  selectedObjectTargets: {},
+  liveSharedProperties: {},
   clipboard: [],
 
-  select(objectId, additive) {
+  select(objectId, additive, editorTarget) {
     set((state) => {
       const next = new Set(state.selectedObjectIds);
+      const nextTargets: Record<string, ScoreObjectEditorTargetSnapshot> = {
+        ...state.selectedObjectTargets,
+      };
       if (additive) {
         if (next.has(objectId)) {
           next.delete(objectId);
+          delete nextTargets[objectId];
         } else {
           next.add(objectId);
+          if (editorTarget) {
+            nextTargets[objectId] = editorTarget;
+          }
         }
       } else {
         next.clear();
         next.add(objectId);
+        for (const key of Object.keys(nextTargets)) {
+          delete nextTargets[key];
+        }
+        if (editorTarget) {
+          nextTargets[objectId] = editorTarget;
+        }
       }
-      return { selectedObjectIds: next };
+
+      let selectedObjectTarget: ScoreObjectEditorTargetSnapshot | null = null;
+      if (next.size === 1) {
+        const onlyId = [...next][0];
+        selectedObjectTarget = nextTargets[onlyId] ?? null;
+      }
+
+      const nextLiveSharedProperties: Record<string, { startBeats?: number; durationBeats?: number }> = {};
+      for (const objectId of next) {
+        const live = state.liveSharedProperties[objectId];
+        if (live) {
+          nextLiveSharedProperties[objectId] = live;
+        }
+      }
+
+      return {
+        selectedObjectIds: next,
+        selectedObjectTargets: nextTargets,
+        selectedObjectTarget,
+        liveSharedProperties: nextLiveSharedProperties,
+      };
     });
   },
 
   selectAll(allIds) {
-    set({ selectedObjectIds: new Set(allIds) });
+    set((state) => {
+      const nextLiveSharedProperties: Record<string, { startBeats?: number; durationBeats?: number }> = {};
+      for (const objectId of allIds) {
+        const live = state.liveSharedProperties[objectId];
+        if (live) {
+          nextLiveSharedProperties[objectId] = live;
+        }
+      }
+      return {
+        selectedObjectIds: new Set(allIds),
+        selectedObjectTarget: null,
+        selectedObjectTargets: {},
+        liveSharedProperties: nextLiveSharedProperties,
+      };
+    });
   },
 
   clearSelection() {
-    set({ selectedObjectIds: new Set() });
+    set({
+      selectedObjectIds: new Set(),
+      selectedObjectTarget: null,
+      selectedObjectTargets: {},
+      liveSharedProperties: {},
+    });
   },
 
-  setSelection(ids) {
-    set({ selectedObjectIds: new Set(ids) });
+  setSelection(entries) {
+    const normalized = normalizeSelectionEntries(entries);
+    const selectedObjectIds = new Set(normalized.map((entry) => entry.objectId));
+    const selectedObjectTargets: Record<string, ScoreObjectEditorTargetSnapshot> = {};
+    for (const entry of normalized) {
+      if (entry.editorTarget) {
+        selectedObjectTargets[entry.objectId] = entry.editorTarget;
+      }
+    }
+    let selectedObjectTarget: ScoreObjectEditorTargetSnapshot | null = null;
+    if (selectedObjectIds.size === 1) {
+      const onlyId = [...selectedObjectIds][0];
+      selectedObjectTarget = selectedObjectTargets[onlyId] ?? null;
+    }
+    set((state) => {
+      const nextLiveSharedProperties: Record<string, { startBeats?: number; durationBeats?: number }> = {};
+      for (const objectId of selectedObjectIds) {
+        const live = state.liveSharedProperties[objectId];
+        if (live) {
+          nextLiveSharedProperties[objectId] = live;
+        }
+      }
+      return {
+        selectedObjectIds,
+        selectedObjectTargets,
+        selectedObjectTarget,
+        liveSharedProperties: nextLiveSharedProperties,
+      };
+    });
+  },
+
+  setLiveSharedProperties(updates) {
+    if (updates.length === 0) return;
+    set((state) => {
+      const next = { ...state.liveSharedProperties };
+      for (const update of updates) {
+        next[update.objectId] = {
+          ...next[update.objectId],
+          ...(update.startBeats !== undefined ? { startBeats: update.startBeats } : {}),
+          ...(update.durationBeats !== undefined ? { durationBeats: update.durationBeats } : {}),
+        };
+      }
+      return { liveSharedProperties: next };
+    });
+  },
+
+  clearLiveSharedProperties(objectIds) {
+    if (!objectIds || objectIds.length === 0) {
+      set({ liveSharedProperties: {} });
+      return;
+    }
+    set((state) => {
+      if (Object.keys(state.liveSharedProperties).length === 0) return state;
+      const next = { ...state.liveSharedProperties };
+      let changed = false;
+      for (const objectId of objectIds) {
+        if (objectId in next) {
+          delete next[objectId];
+          changed = true;
+        }
+      }
+      return changed ? { liveSharedProperties: next } : state;
+    });
   },
 
   copySelected(entries) {

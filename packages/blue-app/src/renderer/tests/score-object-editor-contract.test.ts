@@ -10,6 +10,8 @@ import {
   SoundLayer,
   AudioLayerGroup,
   AudioLayer,
+  External,
+  TrackerObject,
 } from '@blue/data';
 import {
   createScoreObjectEditorDocument,
@@ -225,5 +227,81 @@ describe('Score patches — updateTypeSpecificEditor', () => {
     ).toBe(true);
 
     expect(gs.getScoreText()).toBe('i2 0 1 880');
+  });
+
+  it('updates External score text, command line, and syntax type', () => {
+    const data = new BlueData();
+    const poly = new PolyObject();
+    const layer = new SoundLayer();
+    const ext = new External();
+    ext.setName('Ext');
+    ext.setText('original text');
+    ext.setCommandLine('old cmd');
+    ext.setSyntaxType('Python');
+    layer.push(ext);
+    poly.push(layer);
+    data.getScore().push(poly);
+
+    const target: ScoreObjectEditorTargetSnapshot = {
+      selectionId: 'sobj-0-0',
+      selectedObjectType: 'External',
+      editorObjectType: 'External',
+      ownerKind: 'timeline',
+      displayContext: 'timeline',
+      location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 },
+      supportsTimeBehavior: true,
+      supportsRepeatPoint: true,
+      supportsNoteProcessorChain: true,
+    };
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTypeSpecificEditor',
+          target,
+          patch: { scoreText: 'new text', commandLine: 'new cmd', syntaxType: 'JavaScript' },
+        },
+      }),
+    ).toBe(true);
+
+    expect(ext.getText()).toBe('new text');
+    expect(ext.getCommandLine()).toBe('new cmd');
+    expect(ext.getSyntaxType()).toBe('JavaScript');
+  });
+
+  it('updates TrackerObject cell and adds track', () => {
+    const data = new BlueData();
+    const poly = new PolyObject();
+    const layer = new SoundLayer();
+    const to = new TrackerObject();
+    to.setName('Tracker');
+    to.setTrackData([['a', 'b'], ['c', 'd']]);
+    layer.push(to);
+    poly.push(layer);
+    data.getScore().push(poly);
+
+    const target: ScoreObjectEditorTargetSnapshot = {
+      selectionId: 'sobj-0-0',
+      selectedObjectType: 'TrackerObject',
+      editorObjectType: 'TrackerObject',
+      ownerKind: 'timeline',
+      displayContext: 'timeline',
+      location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 },
+      supportsTimeBehavior: true,
+      supportsRepeatPoint: true,
+      supportsNoteProcessorChain: true,
+    };
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTypeSpecificEditor',
+          target,
+          patch: { updateTrackCell: { trackIndex: 0, stepIndex: 1, value: 'x' } },
+        },
+      }),
+    ).toBe(true);
+
+    expect(to.getTrackData()[0][1]).toBe('x');
   });
 });

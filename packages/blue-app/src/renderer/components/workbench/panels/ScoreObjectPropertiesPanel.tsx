@@ -3,7 +3,7 @@ import { useScoreSelectionStore } from '../../../stores/score-selection-store';
 import { useProjectStore } from '../../../stores/project-store';
 import type {
   ScoreObjectEditorDocumentSnapshot,
-  ScoreObjectEditorRequest,
+  ScoreObjectEditorTargetSnapshot,
   ScorePatch,
 } from '../../../../shared/project-editor';
 import ScoreObjectPropertiesForm from './score-object/ScoreObjectPropertiesForm';
@@ -52,12 +52,48 @@ function applyPatchToDocument(
   return doc;
 }
 
+function sameLocation(
+  a: ScoreObjectEditorTargetSnapshot['location'] | undefined,
+  b: ScoreObjectEditorTargetSnapshot['location'] | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.rootGroupIndex !== b.rootGroupIndex) return false;
+  if (a.layerIndex !== b.layerIndex || a.objectIndex !== b.objectIndex) return false;
+  if (a.containerPath.length !== b.containerPath.length) return false;
+  for (let i = 0; i < a.containerPath.length; i++) {
+    const segmentA = a.containerPath[i];
+    const segmentB = b.containerPath[i];
+    if (segmentA.layerIndex !== segmentB.layerIndex || segmentA.objectIndex !== segmentB.objectIndex) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameTarget(
+  a: ScoreObjectEditorTargetSnapshot | null | undefined,
+  b: ScoreObjectEditorTargetSnapshot | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.ownerKind !== b.ownerKind) return false;
+  if (a.displayContext !== b.displayContext) return false;
+  if (sameLocation(a.location, b.location)) return true;
+  if (sameLocation(a.sourceInstanceLocation, b.sourceInstanceLocation)) return true;
+  if (a.library && b.library) {
+    return a.library.libraryId === b.library.libraryId && a.library.libraryIndex === b.library.libraryIndex;
+  }
+  return false;
+}
+
 export default function ScoreObjectPropertiesPanel(): React.ReactElement {
   const loaded = useProjectStore((s) => s.loaded);
   const score = useProjectStore((s) => s.score);
+  const lastScorePatch = useProjectStore((s) => s.lastScorePatch);
   const applyProjectDocumentPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
   const flushPendingPatches = useProjectStore((s) => s.flushPendingPatches);
   const selectedObjectIds = useScoreSelectionStore((s) => s.selectedObjectIds);
+  const selectedObjectTarget = useScoreSelectionStore((s) => s.selectedObjectTarget);
+  const liveSharedProperties = useScoreSelectionStore((s) => s.liveSharedProperties) ?? {};
   const [document, setDocument] = useState<ScoreObjectEditorDocumentSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -77,23 +113,20 @@ export default function ScoreObjectPropertiesPanel(): React.ReactElement {
     return null;
   }, [selectedObjectId, score]);
 
+  const editorTarget = useMemo(() => {
+    if (selectedObjectTarget) return selectedObjectTarget;
+    return selectedRow?.editorTarget ?? null;
+  }, [selectedObjectTarget, selectedRow]);
+
   const primaryTimeDisplay = score.timeState.primaryTimeDisplay;
+  const selectedLiveShared = selectedObjectId ? liveSharedProperties[selectedObjectId] : undefined;
 
   useEffect(() => {
     if (!loaded || !selectedObjectId) {
       setDocument(null);
       return;
     }
-    const row = (() => {
-      for (const lg of score.layerGroups) {
-        for (const layer of lg.layers) {
-          const found = layer.items.find((item) => item.objectId === selectedObjectId);
-          if (found) return found;
-        }
-      }
-      return null;
-    })();
-    if (!row?.editorTarget) {
+    if (!editorTarget) {
       setDocument(null);
       return;
     }
@@ -101,7 +134,7 @@ export default function ScoreObjectPropertiesPanel(): React.ReactElement {
     setLoading(true);
     flushPendingPatches().then(() => {
       if (cancelled) return;
-      return window.blueAPI.getScoreObjectEditorDocument({ target: row.editorTarget }).then((doc) => {
+      return window.blueAPI.getScoreObjectEditorDocument({ target: editorTarget }).then((doc) => {
         if (!cancelled) {
           setDocument(doc);
           setLoading(false);
@@ -114,7 +147,43 @@ export default function ScoreObjectPropertiesPanel(): React.ReactElement {
       });
     });
     return () => { cancelled = true; };
-  }, [loaded, selectedObjectId, primaryTimeDisplay]);
+  }, [loaded, selectedObjectId, editorTarget, primaryTimeDisplay, flushPendingPatches]);
+
+  useEffect(() => {
+    if (!editorTarget || !lastScorePatch) return;
+    if (
+      (lastScorePatch.type === 'updateSharedProperties'
+        || lastScorePatch.type === 'updateSoundObjectBehavior'
+        || lastScorePatch.type === 'replaceNoteProcessorChain')
+      && sameTarget(lastScorePatch.target, editorTarget)
+    ) {
+      setDocument((prev) => (prev ? applyPatchToDocument(prev, lastScorePatch) : prev));
+    }
+  }, [editorTarget, lastScorePatch]);
+
+  useEffect(() => {
+    if (!selectedLiveShared) return;
+    setDocument((prev) => {
+      if (!prev) return prev;
+      const start = selectedLiveShared.startBeats ?? prev.shared.startTime.value;
+      const duration = selectedLiveShared.durationBeats ?? prev.shared.subjectiveDuration.value;
+      if (
+        Math.abs(prev.shared.startTime.value - start) < 1e-6
+        && Math.abs(prev.shared.subjectiveDuration.value - duration) < 1e-6
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        shared: {
+          ...prev.shared,
+          startTime: { ...prev.shared.startTime, value: start },
+          subjectiveDuration: { ...prev.shared.subjectiveDuration, value: duration },
+          endTimeDisplay: (start + duration).toFixed(4),
+        },
+      };
+    });
+  }, [selectedLiveShared?.startBeats, selectedLiveShared?.durationBeats]);
 
   const handlePatch = useCallback((patch: ScorePatch): void => {
     applyProjectDocumentPatch({ score: patch });

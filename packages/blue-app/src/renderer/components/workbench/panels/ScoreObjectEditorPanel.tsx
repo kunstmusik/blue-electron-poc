@@ -20,11 +20,89 @@ function applyPatchToDocument(
   doc: ScoreObjectEditorDocumentSnapshot,
   patch: ScorePatch,
 ): ScoreObjectEditorDocumentSnapshot {
+  if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'external') {
+    const editor: TypeSpecificScoreObjectEditorSnapshot = {
+      ...doc.editor,
+      ...(patch.patch.scoreText !== undefined && { scoreText: patch.patch.scoreText as string }),
+      ...(patch.patch.commandLine !== undefined && { commandLine: patch.patch.commandLine as string }),
+      ...(patch.patch.syntaxType !== undefined && { syntaxType: patch.patch.syntaxType as string }),
+    };
+    return { ...doc, editor };
+  }
   if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'code') {
     const editor: TypeSpecificScoreObjectEditorSnapshot = {
       ...doc.editor,
       text: patch.patch.text as string,
     };
+    return { ...doc, editor };
+  }
+  if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'tracker') {
+    const p = patch.patch;
+    const e = doc.editor as typeof doc.editor & {
+      kind: 'tracker';
+      stepsPerBeat: number;
+      rows: Array<Record<string, string | number | null>>;
+      tracks: Array<{ trackId: string; trackName: string; instrumentName?: string; columnCount: number }>;
+      showNoteNames: boolean;
+      octave: number;
+    };
+    let rows = e.rows.map((r) => ({ ...r }));
+    let tracks = e.tracks.map((t) => ({ ...t }));
+    let stepsPerBeat = e.stepsPerBeat;
+    if (p.updateTrackCell !== undefined) {
+      const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
+      if (stepIndex >= 0 && stepIndex < rows.length) {
+        rows[stepIndex] = { ...rows[stepIndex], [`track-${trackIndex}`]: value };
+      }
+    }
+    if (Array.isArray(p.cellChanges)) {
+      for (const change of p.cellChanges as Array<{ trackId: string; rowIndex: number; columnId: string; value: string | number | null }>) {
+        if (change.rowIndex >= 0 && change.rowIndex < rows.length) {
+          rows[change.rowIndex] = { ...rows[change.rowIndex], [change.columnId]: change.value };
+        }
+      }
+    }
+    if (p.stepsPerBeat !== undefined) {
+      stepsPerBeat = p.stepsPerBeat as number;
+    }
+    if (p.addTrack !== undefined) {
+      const numSteps = tracks.length > 0 ? (tracks[0]?.columnCount ?? 16) : 16;
+      const newTrackIndex = tracks.length;
+      tracks = [...tracks, { trackId: `tracker-track-${newTrackIndex}`, trackName: `Track ${newTrackIndex + 1}`, columnCount: numSteps }];
+      if (rows.length === 0) {
+        rows = Array.from({ length: numSteps }, (_, si) => ({
+          step: si,
+          [`track-0`]: '',
+        }));
+      } else {
+        rows = rows.map((row) => ({ ...row, [`track-${newTrackIndex}`]: '' }));
+      }
+    }
+    if (p.removeTrack !== undefined) {
+      const idx = p.removeTrack as number;
+      if (idx >= 0 && idx < tracks.length) {
+        tracks = tracks.filter((_, i) => i !== idx);
+        tracks = tracks.map((t, i) => ({ ...t, trackId: `tracker-track-${i}` }));
+        rows = rows.map((row) => {
+          const newRow: Record<string, string | number | null> = { step: row.step };
+          for (let ti = 0; ti < tracks.length; ti++) {
+            newRow[`track-${ti}`] = row[`track-${ti >= idx ? ti + 1 : ti}`] ?? '';
+          }
+          return newRow;
+        });
+        if (tracks.length === 0) {
+          rows = [];
+        }
+      }
+    }
+    const editor: TypeSpecificScoreObjectEditorSnapshot = {
+      ...doc.editor,
+      stepsPerBeat,
+      ...(p.showNoteNames !== undefined && { showNoteNames: p.showNoteNames as boolean }),
+      ...(p.octave !== undefined && { octave: p.octave as number }),
+      tracks,
+      rows,
+    } as typeof doc.editor;
     return { ...doc, editor };
   }
   if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'audioClip') {
@@ -157,8 +235,11 @@ function applyPatchToDocument(
 export default function ScoreObjectEditorPanel(): React.ReactElement {
   const loaded = useProjectStore((s) => s.loaded);
   const score = useProjectStore((s) => s.score);
+  const lastScorePatch = useProjectStore((s) => s.lastScorePatch);
   const applyProjectDocumentPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
+  const flushPendingPatches = useProjectStore((s) => s.flushPendingPatches);
   const selectedObjectIds = useScoreSelectionStore((s) => s.selectedObjectIds);
+  const selectedObjectTarget = useScoreSelectionStore((s) => s.selectedObjectTarget);
   const [document, setDocument] = useState<ScoreObjectEditorDocumentSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -178,27 +259,23 @@ export default function ScoreObjectEditorPanel(): React.ReactElement {
     return null;
   }, [selectedObjectId, score]);
 
+  const editorTarget = useMemo(() => {
+    if (selectedObjectTarget) return selectedObjectTarget;
+    return selectedRow?.editorTarget ?? null;
+  }, [selectedObjectTarget, selectedRow]);
+
   useEffect(() => {
     if (!loaded || !selectedObjectId) {
       setDocument(null);
       return;
     }
-    const row = (() => {
-      for (const lg of score.layerGroups) {
-        for (const layer of lg.layers) {
-          const found = layer.items.find((item) => item.objectId === selectedObjectId);
-          if (found) return found;
-        }
-      }
-      return null;
-    })();
-    if (!row?.editorTarget) {
+    if (!editorTarget) {
       setDocument(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
-    window.blueAPI.getScoreObjectEditorDocument({ target: row.editorTarget }).then((doc) => {
+    window.blueAPI.getScoreObjectEditorDocument({ target: editorTarget }).then((doc) => {
       if (!cancelled) {
         setDocument(doc);
         setLoading(false);
@@ -210,7 +287,24 @@ export default function ScoreObjectEditorPanel(): React.ReactElement {
       }
     });
     return () => { cancelled = true; };
-  }, [loaded, selectedObjectId]);
+  }, [loaded, selectedObjectId, editorTarget]);
+
+  useEffect(() => {
+    if (document?.editor.kind !== 'polyObject') return;
+    if (!selectedObjectId || !loaded) return;
+    if (!editorTarget) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await flushPendingPatches();
+        const doc = await window.blueAPI.getScoreObjectEditorDocument({ target: editorTarget });
+        if (!cancelled) setDocument(doc);
+      } catch {
+        if (!cancelled) setDocument(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [document?.editor.kind, loaded, selectedObjectId, editorTarget, lastScorePatch, flushPendingPatches]);
 
   const handlePatch = useCallback((patch: ScorePatch): void => {
     applyProjectDocumentPatch({ score: patch });

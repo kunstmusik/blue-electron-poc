@@ -17,6 +17,7 @@ import RulerConfigDialog from "./score/RulerConfigDialog";
 import ColumnHeader from "./score/ColumnHeader";
 import LayerPanel from "./score/LayerPanel";
 import { useScorePathState } from "./score/useScorePathState";
+import { useScoreSelectionStore } from "../../../stores/score-selection-store";
 
 type ScoreMode = "score" | "singleLine" | "multiLine";
 
@@ -27,6 +28,8 @@ export default function ScorePanel() {
   const score = useProjectStore((s) => s.score);
   const sessionId = useProjectStore((s) => s.sessionId);
   const transport = useProjectStore((s) => s.transport);
+  const lastScorePatch = useProjectStore((s) => s.lastScorePatch);
+  const flushPendingPatches = useProjectStore((s) => s.flushPendingPatches);
 
   const [mode, setMode] = useState<ScoreMode>("score");
   const [snapEnabled, setSnapEnabled] = useState(score.timeState.snapEnabled);
@@ -47,6 +50,10 @@ export default function ScorePanel() {
   } = useScorePathState();
 
   useEffect(() => {
+    useScoreSelectionStore.getState().clearSelection();
+  }, [session.activeGroupId]);
+
+  useEffect(() => {
     setTimeState(score.timeState);
     setSnapEnabled(score.timeState.snapEnabled);
     setSnapValue(score.timeState.snapValue as SnapValueName);
@@ -62,14 +69,33 @@ export default function ScorePanel() {
   const activeSegment = session.segments[session.segments.length - 1];
 
   useEffect(() => {
-    if (activeSegment?.groupId && activeSegment?.location) {
-      window.blueAPI.getNestedPolyObjectSnapshot(activeSegment.location).then((snap) => {
-        setNestedSnapshot(snap);
-      });
-    } else {
+    const activeGroupId = activeSegment?.groupId;
+    const activeLocation = activeSegment?.location;
+
+    if (!activeGroupId || !activeLocation) {
       setNestedSnapshot(null);
+      return;
     }
-  }, [activeSegment?.groupId, activeSegment?.location]);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        await flushPendingPatches();
+        const snap = await window.blueAPI.getNestedPolyObjectSnapshot(activeLocation);
+        if (!cancelled) {
+          setNestedSnapshot(snap);
+        }
+      } catch {
+        if (!cancelled) {
+          setNestedSnapshot(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSegment?.groupId, activeSegment?.location, lastScorePatch, flushPendingPatches]);
 
   const effectiveLayerGroups: ScoreLayerGroupSnapshot[] =
     session.activeGroupId && nestedSnapshot

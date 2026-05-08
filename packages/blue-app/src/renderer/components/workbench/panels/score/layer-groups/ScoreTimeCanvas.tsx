@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { PolyObjectLayerGroupSnapshot, ScoreLayerGroupSnapshot, ScoreLayerSnapshot, ScoreRowObjectSnapshot } from '../types';
 import { DEFAULT_ROW_HEIGHT, GROUP_SPACER } from '../types';
@@ -7,6 +7,7 @@ import { useProjectStore } from '../../../../../stores/project-store';
 import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
+import type { ScoreObjectEditorTargetSnapshot } from '../../../../../../shared/project-editor';
 
 interface Props {
   group: PolyObjectLayerGroupSnapshot;
@@ -153,14 +154,49 @@ function getLayerAdjustBounds(
   return { min, max };
 }
 
-function collectAllItemIds(group: PolyObjectLayerGroupSnapshot): string[] {
-  const ids: string[] = [];
+function collectAllItemSelectionEntries(
+  group: PolyObjectLayerGroupSnapshot,
+): Array<{ objectId: string; editorTarget?: ScoreObjectEditorTargetSnapshot }> {
+  const entries: Array<{ objectId: string; editorTarget?: ScoreObjectEditorTargetSnapshot }> = [];
   for (const layer of group.layers) {
     for (const item of layer.items) {
-      ids.push(item.objectId);
+      entries.push({ objectId: item.objectId, editorTarget: item.editorTarget });
     }
   }
-  return ids;
+  return entries;
+}
+
+function sameLocation(
+  a: ScoreObjectEditorTargetSnapshot['location'] | undefined,
+  b: ScoreObjectEditorTargetSnapshot['location'] | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.rootGroupIndex !== b.rootGroupIndex) return false;
+  if (a.layerIndex !== b.layerIndex || a.objectIndex !== b.objectIndex) return false;
+  if (a.containerPath.length !== b.containerPath.length) return false;
+  for (let i = 0; i < a.containerPath.length; i++) {
+    const segmentA = a.containerPath[i];
+    const segmentB = b.containerPath[i];
+    if (segmentA.layerIndex !== segmentB.layerIndex || segmentA.objectIndex !== segmentB.objectIndex) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function sameTarget(
+  a: ScoreObjectEditorTargetSnapshot | null | undefined,
+  b: ScoreObjectEditorTargetSnapshot | null | undefined,
+): boolean {
+  if (!a || !b) return false;
+  if (a.ownerKind !== b.ownerKind) return false;
+  if (a.displayContext !== b.displayContext) return false;
+  if (sameLocation(a.location, b.location)) return true;
+  if (sameLocation(a.sourceInstanceLocation, b.sourceInstanceLocation)) return true;
+  if (a.library && b.library) {
+    return a.library.libraryId === b.library.libraryId && a.library.libraryIndex === b.library.libraryIndex;
+  }
+  return false;
 }
 
 type GestureMode = 'none' | 'marquee' | 'move' | 'resizeLeft' | 'resizeRight';
@@ -179,15 +215,18 @@ export default function ScoreTimeCanvas({
   onDoubleClickObject,
 }: Props) {
   const selectedObjectIds = useScoreSelectionStore((s) => s.selectedObjectIds);
+  const selectedObjectTarget = useScoreSelectionStore((s) => s.selectedObjectTarget);
+  const selectedObjectTargets = useScoreSelectionStore((s) => s.selectedObjectTargets);
   const select = useScoreSelectionStore((s) => s.select);
   const clearSelection = useScoreSelectionStore((s) => s.clearSelection);
   const setSelection = useScoreSelectionStore((s) => s.setSelection);
+  const setLiveSharedProperties = useScoreSelectionStore((s) => s.setLiveSharedProperties);
+  const clearLiveSharedProperties = useScoreSelectionStore((s) => s.clearLiveSharedProperties);
   const copySelected = useScoreSelectionStore((s) => s.copySelected);
   const clipboard = useScoreSelectionStore((s) => s.clipboard);
+  const applyProjectDocumentPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
   const moveScoreObjects = useProjectStore((s) => s.moveScoreObjects);
-  const removeScoreObjects = useProjectStore((s) => s.removeScoreObjects);
   const addScoreObjects = useProjectStore((s) => s.addScoreObjects);
-  const setScoreObjectColor = useProjectStore((s) => s.setScoreObjectColor);
   const resizeScoreObjects = useProjectStore((s) => s.resizeScoreObjects);
   const currentScore = useProjectStore((s) => s.score);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -207,10 +246,70 @@ export default function ScoreTimeCanvas({
     maxLayerAdjust: number;
     additive: boolean;
     globalLayerMap: Array<{ groupId: string; localIndex: number }>;
-    originalPositions: Array<{ objectId: string; startBeats: number; durationBeats: number; globalLayerIndex: number }>;
+    originalPositions: Array<{
+      objectId: string;
+      startBeats: number;
+      durationBeats: number;
+      globalLayerIndex: number;
+      editorTarget?: ScoreObjectEditorTargetSnapshot;
+    }>;
   } | null>(null);
+  const pendingSharedPropertyPatchRef = useRef<Map<string, { startBeats?: number; durationBeats?: number }>>(new Map());
   const [cursorOverride, setCursorOverride] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
+  const [previewByObjectId, setPreviewByObjectId] = useState<Record<string, { startBeats: number; durationBeats: number }>>({});
+
+  const isNestedView = useMemo(() =>
+    group.layers.some((layer) =>
+      layer.items.some((item) => (item.editorTarget?.location?.containerPath.length ?? 0) > 0)), [group]);
+  const interactionLayerGroups = useMemo<ScoreLayerGroupSnapshot[]>(
+    () => (isNestedView ? [group] : currentScore.layerGroups),
+    [isNestedView, group, currentScore.layerGroups],
+  );
+
+  useEffect(() => {
+    setPreviewByObjectId({});
+    clearLiveSharedProperties();
+  }, [group.groupId, clearLiveSharedProperties]);
+
+  useEffect(() => {
+    if (Object.keys(previewByObjectId).length === 0) return;
+
+    const currentValues = new Map<string, { startBeats: number; durationBeats: number }>();
+    for (const layer of group.layers) {
+      for (const item of layer.items) {
+        currentValues.set(item.objectId, {
+          startBeats: item.startBeats,
+          durationBeats: item.durationBeats,
+        });
+      }
+    }
+
+    const idsToClear: string[] = [];
+    for (const [objectId, preview] of Object.entries(previewByObjectId)) {
+      const current = currentValues.get(objectId);
+      if (!current) {
+        idsToClear.push(objectId);
+        continue;
+      }
+      if (
+        Math.abs(current.startBeats - preview.startBeats) < 1e-6
+        && Math.abs(current.durationBeats - preview.durationBeats) < 1e-6
+      ) {
+        idsToClear.push(objectId);
+      }
+    }
+
+    if (idsToClear.length === 0) return;
+    setPreviewByObjectId((prev) => {
+      const next = { ...prev };
+      for (const objectId of idsToClear) {
+        delete next[objectId];
+      }
+      return next;
+    });
+    clearLiveSharedProperties(idsToClear);
+  }, [group.layers, previewByObjectId, clearLiveSharedProperties]);
 
   const snapBeats = snapEnabled
     ? snapValueToBeats(snapValue, tempo, smpteFrameRate, 44100, pixelsPerBeat)
@@ -225,6 +324,16 @@ export default function ScoreTimeCanvas({
     if (!snapEnabled || snapBeats <= 0) return beats;
     return Math.floor(beats / snapBeats) * snapBeats;
   }, [snapEnabled, snapBeats]);
+
+  const findEditorTarget = useCallback((objectId: string): ScoreObjectEditorTargetSnapshot | undefined => {
+    const fromSelection = selectedObjectTargets[objectId];
+    if (fromSelection) return fromSelection;
+    for (const layer of group.layers) {
+      const item = layer.items.find((candidate) => candidate.objectId === objectId);
+      if (item?.editorTarget) return item.editorTarget;
+    }
+    return undefined;
+  }, [group.layers, selectedObjectTargets]);
 
   const toLocalXY = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
     if (!containerRef.current) return { x: 0, y: 0 };
@@ -278,27 +387,38 @@ export default function ScoreTimeCanvas({
     }
 
     if (e.shiftKey) {
-      select(item.objectId, true);
+      select(item.objectId, true, item.editorTarget);
       return;
     }
 
     if (!selectedObjectIds.has(item.objectId)) {
-      select(item.objectId, false);
+      select(item.objectId, false, item.editorTarget);
+    } else if (selectedObjectIds.size === 1 && !sameTarget(selectedObjectTarget, item.editorTarget)) {
+      select(item.objectId, false, item.editorTarget);
     }
 
-    const itemLeft = item.startBeats * pixelsPerBeat;
-    const itemWidth = item.durationBeats * pixelsPerBeat;
+    const itemPreview = previewByObjectId[item.objectId];
+    const itemStartBeats = itemPreview?.startBeats ?? item.startBeats;
+    const itemDurationBeats = itemPreview?.durationBeats ?? item.durationBeats;
+    const itemLeft = itemStartBeats * pixelsPerBeat;
+    const itemWidth = itemDurationBeats * pixelsPerBeat;
     const localX = x - itemLeft;
     const onLeftEdge = localX > 0 && localX < RESIZE_EDGE_PX;
     const onRightEdge = localX > itemWidth - RESIZE_EDGE_PX && localX < itemWidth;
 
-    const { layerMap, groupStartIndexById, groupYOffsetById } = buildGlobalLayerData(currentScore.layerGroups);
+    const { layerMap, groupStartIndexById, groupYOffsetById } = buildGlobalLayerData(interactionLayerGroups);
     const globalLayerMap = layerMap.map(({ groupId, localIndex }) => ({ groupId, localIndex }));
     const currentGroupGlobalStart = groupStartIndexById.get(group.groupId) ?? 0;
     const currentGroupYOffset = groupYOffsetById.get(group.groupId) ?? 0;
     const totalGlobalLayers = globalLayerMap.length;
 
-    const origPositions: Array<{ objectId: string; startBeats: number; durationBeats: number; globalLayerIndex: number }> = [];
+    const origPositions: Array<{
+      objectId: string;
+      startBeats: number;
+      durationBeats: number;
+      globalLayerIndex: number;
+      editorTarget?: ScoreObjectEditorTargetSnapshot;
+    }> = [];
     const selectedIds = new Set(selectedObjectIds);
     selectedIds.add(item.objectId);
 
@@ -306,17 +426,29 @@ export default function ScoreTimeCanvas({
       for (let li = 0; li < group.layers.length; li++) {
         for (const obj of group.layers[li].items) {
           if (selectedIds.has(obj.objectId)) {
-            origPositions.push({ objectId: obj.objectId, startBeats: obj.startBeats, durationBeats: obj.durationBeats, globalLayerIndex: currentGroupGlobalStart + li });
+            origPositions.push({
+              objectId: obj.objectId,
+              startBeats: obj.startBeats,
+              durationBeats: obj.durationBeats,
+              globalLayerIndex: currentGroupGlobalStart + li,
+              editorTarget: obj.editorTarget,
+            });
           }
         }
       }
     } else {
-      for (const lg of currentScore.layerGroups) {
+      for (const lg of interactionLayerGroups) {
         const groupStart = groupStartIndexById.get(lg.groupId) ?? 0;
         for (let li = 0; li < lg.layers.length; li++) {
           for (const obj of lg.layers[li].items) {
             if (selectedIds.has(obj.objectId)) {
-              origPositions.push({ objectId: obj.objectId, startBeats: obj.startBeats, durationBeats: obj.durationBeats, globalLayerIndex: groupStart + li });
+              origPositions.push({
+                objectId: obj.objectId,
+                startBeats: obj.startBeats,
+                durationBeats: obj.durationBeats,
+                globalLayerIndex: groupStart + li,
+                editorTarget: obj.editorTarget,
+              });
             }
           }
         }
@@ -371,7 +503,7 @@ export default function ScoreTimeCanvas({
         originalPositions: origPositions,
       };
     }
-  }, [toLocalXY, pixelsPerBeat, group.layers, select, clearSelection, selectedObjectIds, clipboard, snapBeatValueStart, addScoreObjects, currentScore]);
+  }, [toLocalXY, pixelsPerBeat, group.layers, group.groupId, select, clearSelection, selectedObjectIds, selectedObjectTarget, clipboard, snapBeatValueStart, addScoreObjects, interactionLayerGroups, previewByObjectId]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!gestureRef.current) {
@@ -381,10 +513,13 @@ export default function ScoreTimeCanvas({
       if (hit) {
         const item = findItemOnLayer(hit.layer, xBeats);
         if (item) {
-          setTooltip(`${item.name} (${item.objectType}) @ beat ${item.startBeats.toFixed(2)}, dur ${item.durationBeats.toFixed(2)}`);
+          const preview = previewByObjectId[item.objectId];
+          const startBeats = preview?.startBeats ?? item.startBeats;
+          const durationBeats = preview?.durationBeats ?? item.durationBeats;
+          setTooltip(`${item.name} (${item.objectType}) @ beat ${startBeats.toFixed(2)}, dur ${durationBeats.toFixed(2)}`);
           if (selectedObjectIds.has(item.objectId)) {
-            const itemLeft = item.startBeats * pixelsPerBeat;
-            const itemWidth = item.durationBeats * pixelsPerBeat;
+            const itemLeft = startBeats * pixelsPerBeat;
+            const itemWidth = durationBeats * pixelsPerBeat;
             const localX = x - itemLeft;
             if (localX > 0 && localX < RESIZE_EDGE_PX) {
               setCursorOverride('w-resize');
@@ -413,6 +548,7 @@ export default function ScoreTimeCanvas({
       const end = toLocalXY(e.clientX, e.clientY);
       setMarquee({ startX: start.x, startY: start.y, endX: end.x, endY: end.y });
     } else if (g.mode === 'move') {
+      if (g.originalPositions.length === 0) return;
       const { x, y } = toLocalXY(e.clientX, e.clientY);
       const currentBeats = x / pixelsPerBeat;
       const rawDelta = currentBeats - g.startBeats;
@@ -425,7 +561,7 @@ export default function ScoreTimeCanvas({
       }
 
       const globalY = y + g.startGroupYOffset;
-      const currentGlobalLayer = getGlobalLayerIndexForY(currentScore.layerGroups, globalY);
+      const currentGlobalLayer = getGlobalLayerIndexForY(interactionLayerGroups, globalY);
 
       const rawLayerAdj = currentGlobalLayer - g.startGlobalLayer;
       const layerAdjust = Math.max(g.minLayerAdjust, Math.min(g.maxLayerAdjust, rawLayerAdj));
@@ -433,15 +569,50 @@ export default function ScoreTimeCanvas({
       const moves = g.originalPositions.map((pos) => {
         const targetGlobalLayer = pos.globalLayerIndex + layerAdjust;
         const target = g.globalLayerMap[targetGlobalLayer];
+        if (!target) {
+          return null;
+        }
         return {
           objectId: pos.objectId,
           targetStartBeats: pos.startBeats + delta,
           targetLayerIndex: target.localIndex,
           targetGroupId: target.groupId,
         };
+      }).filter((move): move is { objectId: string; targetStartBeats: number; targetLayerIndex: number; targetGroupId: string } => move !== null);
+
+      if (moves.length === 0) return;
+      if (!isNestedView) {
+        moveScoreObjects(moves);
+      }
+      setPreviewByObjectId((prev) => {
+        const next = { ...prev };
+        for (const move of moves) {
+          const original = g.originalPositions.find((pos) => pos.objectId === move.objectId);
+          if (!original) continue;
+          next[move.objectId] = {
+            startBeats: move.targetStartBeats,
+            durationBeats: original.durationBeats,
+          };
+        }
+        return next;
       });
-      moveScoreObjects(moves);
+      for (const move of moves) {
+        const existing = pendingSharedPropertyPatchRef.current.get(move.objectId) ?? {};
+        pendingSharedPropertyPatchRef.current.set(move.objectId, {
+          ...existing,
+          startBeats: move.targetStartBeats,
+        });
+      }
+      setLiveSharedProperties(moves.map((move) => {
+        const original = g.originalPositions.find((pos) => pos.objectId === move.objectId);
+        return {
+          objectId: move.objectId,
+          startBeats: move.targetStartBeats,
+          durationBeats: original?.durationBeats,
+        };
+      }));
     } else if (g.mode === 'resizeRight' || g.mode === 'resizeLeft') {
+      if (g.originalPositions.length === 0) return;
       const { x } = toLocalXY(e.clientX, e.clientY);
       const currentBeats = x / pixelsPerBeat;
       const rawDelta = currentBeats - g.startBeats;
@@ -453,7 +624,30 @@ export default function ScoreTimeCanvas({
           targetStartBeats: pos.startBeats,
           targetDurationBeats: Math.max(0.25, pos.durationBeats + snappedDelta),
         }));
-        resizeScoreObjects(resizes);
+        if (!isNestedView) {
+          resizeScoreObjects(resizes);
+        }
+        setPreviewByObjectId((prev) => {
+          const next = { ...prev };
+          for (const resize of resizes) {
+            next[resize.objectId] = {
+              startBeats: resize.targetStartBeats,
+              durationBeats: resize.targetDurationBeats,
+            };
+          }
+          return next;
+        });
+        for (const resize of resizes) {
+          pendingSharedPropertyPatchRef.current.set(resize.objectId, {
+            startBeats: resize.targetStartBeats,
+            durationBeats: resize.targetDurationBeats,
+          });
+        }
+        setLiveSharedProperties(resizes.map((resize) => ({
+          objectId: resize.objectId,
+          startBeats: resize.targetStartBeats,
+          durationBeats: resize.targetDurationBeats,
+        })));
       } else {
         const resizes = g.originalPositions.map((pos) => {
           const shift = Math.min(pos.startBeats, Math.max(-pos.startBeats, snappedDelta));
@@ -463,10 +657,33 @@ export default function ScoreTimeCanvas({
             targetDurationBeats: Math.max(0.25, pos.durationBeats - shift),
           };
         });
-        resizeScoreObjects(resizes);
+        if (!isNestedView) {
+          resizeScoreObjects(resizes);
+        }
+        setPreviewByObjectId((prev) => {
+          const next = { ...prev };
+          for (const resize of resizes) {
+            next[resize.objectId] = {
+              startBeats: resize.targetStartBeats,
+              durationBeats: resize.targetDurationBeats,
+            };
+          }
+          return next;
+        });
+        for (const resize of resizes) {
+          pendingSharedPropertyPatchRef.current.set(resize.objectId, {
+            startBeats: resize.targetStartBeats,
+            durationBeats: resize.targetDurationBeats,
+          });
+        }
+        setLiveSharedProperties(resizes.map((resize) => ({
+          objectId: resize.objectId,
+          startBeats: resize.targetStartBeats,
+          durationBeats: resize.targetDurationBeats,
+        })));
       }
     }
-  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove, currentScore, snapEnabled, snapBeats]);
+  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove, interactionLayerGroups, snapEnabled, snapBeats, previewByObjectId, isNestedView, setLiveSharedProperties]);
 
   const handleMouseUp = useCallback(() => {
     if (!gestureRef.current) {
@@ -484,23 +701,23 @@ export default function ScoreTimeCanvas({
       const startBeats = left / pixelsPerBeat;
       const endBeats = right / pixelsPerBeat;
 
-      const hitIds: string[] = [];
+      const hitItems: Array<{ objectId: string; editorTarget?: ScoreObjectEditorTargetSnapshot }> = [];
       if (!g.additive) {
         clearSelection();
       }
 
-      const currentGroupIndex = currentScore.layerGroups.findIndex(
+      const currentGroupIndex = interactionLayerGroups.findIndex(
         (lg) => lg.groupId === group.groupId,
       );
 
-      for (let gi = 0; gi < currentScore.layerGroups.length; gi++) {
-        const lg = currentScore.layerGroups[gi];
+      for (let gi = 0; gi < interactionLayerGroups.length; gi++) {
+        const lg = interactionLayerGroups[gi];
 
         let yShift = 0;
         const lo = Math.min(gi, currentGroupIndex);
         const hi = Math.max(gi, currentGroupIndex);
         for (let k = lo; k < hi; k++) {
-          const h = currentScore.layerGroups[k].layers.reduce(
+          const h = interactionLayerGroups[k].layers.reduce(
             (s, l) => s + (l.height || DEFAULT_ROW_HEIGHT), 0,
           ) + GROUP_SPACER;
           if (gi > currentGroupIndex) {
@@ -522,7 +739,7 @@ export default function ScoreTimeCanvas({
             for (const item of layer.items) {
               const itemEnd = item.startBeats + item.durationBeats;
               if (item.startBeats < endBeats && itemEnd > startBeats) {
-                hitIds.push(item.objectId);
+                hitItems.push({ objectId: item.objectId, editorTarget: item.editorTarget });
               }
             }
           }
@@ -530,14 +747,50 @@ export default function ScoreTimeCanvas({
         }
       }
 
-      if (hitIds.length > 0) {
-        setSelection(hitIds);
+      if (hitItems.length > 0) {
+        setSelection(hitItems);
       }
+    }
+
+    const pendingPatches = Array.from(pendingSharedPropertyPatchRef.current.entries());
+    pendingSharedPropertyPatchRef.current.clear();
+    if (pendingPatches.length > 0 && g.mode !== 'marquee') {
+      void (async () => {
+        const targetByObjectId = new Map<string, ScoreObjectEditorTargetSnapshot>();
+        for (const pos of g.originalPositions) {
+          if (pos.editorTarget) {
+            targetByObjectId.set(pos.objectId, pos.editorTarget);
+          }
+        }
+
+        for (const [objectId, values] of pendingPatches) {
+          const target = targetByObjectId.get(objectId) ?? findEditorTarget(objectId);
+          if (!target) continue;
+          const patch: {
+            startTime?: { value: number; timeBase: string };
+            subjectiveDuration?: { value: number; timeBase: string };
+          } = {};
+          if (values.startBeats !== undefined) {
+            patch.startTime = { value: values.startBeats, timeBase: 'BEATS' };
+          }
+          if (values.durationBeats !== undefined) {
+            patch.subjectiveDuration = { value: values.durationBeats, timeBase: 'BEATS' };
+          }
+          if (Object.keys(patch).length === 0) continue;
+          await applyProjectDocumentPatch({
+            score: {
+              type: 'updateSharedProperties',
+              target,
+              patch,
+            },
+          });
+        }
+      })();
     }
 
     gestureRef.current = null;
     setMarquee(null);
-  }, [marquee, pixelsPerBeat, group.groupId, currentScore, clearSelection, setSelection]);
+  }, [marquee, pixelsPerBeat, group.groupId, interactionLayerGroups, clearSelection, setSelection, applyProjectDocumentPatch, findEditorTarget]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     const { x, y } = toLocalXY(e.clientX, e.clientY);
@@ -556,12 +809,19 @@ export default function ScoreTimeCanvas({
       const idx = group.layers.indexOf(layer);
       for (const item of layer.items) {
         if (selectedObjectIds.has(item.objectId)) {
-          entries.push({ ...item, layerIndex: idx, groupId: group.groupId });
+          const preview = previewByObjectId[item.objectId];
+          entries.push({
+            ...item,
+            startBeats: preview?.startBeats ?? item.startBeats,
+            durationBeats: preview?.durationBeats ?? item.durationBeats,
+            layerIndex: idx,
+            groupId: group.groupId,
+          });
         }
       }
     }
     return entries;
-  }, [group, selectedObjectIds]);
+  }, [group, selectedObjectIds, previewByObjectId]);
 
   const handleCopy = useCallback(() => {
     const entries = getSelectedEntries();
@@ -572,17 +832,58 @@ export default function ScoreTimeCanvas({
     const entries = getSelectedEntries();
     if (entries.length > 0) {
       copySelected(entries);
-      removeScoreObjects(selectedObjectIds);
+      const targets = entries
+        .map((entry) => entry.editorTarget)
+        .filter((target): target is ScoreObjectEditorTargetSnapshot => target !== undefined);
+      if (targets.length > 0) {
+        void applyProjectDocumentPatch({
+          score: {
+            type: 'removeScoreObjects',
+            targets,
+          },
+        });
+      }
       clearSelection();
     }
-  }, [getSelectedEntries, copySelected, removeScoreObjects, selectedObjectIds, clearSelection]);
+  }, [getSelectedEntries, copySelected, applyProjectDocumentPatch, clearSelection]);
 
   const handleRemove = useCallback(() => {
-    if (selectedObjectIds.size > 0) {
-      removeScoreObjects(selectedObjectIds);
+    const entries = getSelectedEntries();
+    if (entries.length > 0) {
+      const targets = entries
+        .map((entry) => entry.editorTarget)
+        .filter((target): target is ScoreObjectEditorTargetSnapshot => target !== undefined);
+      if (targets.length > 0) {
+        void applyProjectDocumentPatch({
+          score: {
+            type: 'removeScoreObjects',
+            targets,
+          },
+        });
+      }
       clearSelection();
     }
-  }, [selectedObjectIds, removeScoreObjects, clearSelection]);
+  }, [getSelectedEntries, applyProjectDocumentPatch, clearSelection]);
+
+  const handleSetColor = useCallback(() => {
+    const entries = getSelectedEntries();
+    if (entries.length === 0) return;
+    const targets = entries
+      .map((entry) => entry.editorTarget)
+      .filter((target): target is ScoreObjectEditorTargetSnapshot => target !== undefined);
+    if (targets.length === 0) return;
+    void (async () => {
+      for (const target of targets) {
+        await applyProjectDocumentPatch({
+          score: {
+            type: 'updateSharedProperties',
+            target,
+            patch: { backgroundColor: 0x336699 },
+          },
+        });
+      }
+    })();
+  }, [getSelectedEntries, applyProjectDocumentPatch]);
 
   const handleContextMenuPaste = useCallback(() => {
     if (clipboard.length === 0 || !contextMenuPos) return;
@@ -657,7 +958,7 @@ export default function ScoreTimeCanvas({
   }, [getSelectedEntries, moveScoreObjects]);
 
   const handleSelectAll = useCallback(() => {
-    setSelection(collectAllItemIds(group));
+    setSelection(collectAllItemSelectionEntries(group));
   }, [group, setSelection]);
 
   useEffect(() => {
@@ -760,8 +1061,11 @@ export default function ScoreTimeCanvas({
                 height={layer.height || DEFAULT_ROW_HEIGHT}
               />
               {layer.items.map((item: ScoreRowObjectSnapshot) => {
-                const left = item.startBeats * pixelsPerBeat;
-                const width = Math.max(item.durationBeats * pixelsPerBeat, 4);
+                const preview = previewByObjectId[item.objectId];
+                const startBeats = preview?.startBeats ?? item.startBeats;
+                const durationBeats = preview?.durationBeats ?? item.durationBeats;
+                const left = startBeats * pixelsPerBeat;
+                const width = Math.max(durationBeats * pixelsPerBeat, 4);
                 const isSelected = selectedObjectIds.has(item.objectId);
                 const rgb = argbToRGB(item.backgroundColor);
 
@@ -869,7 +1173,7 @@ export default function ScoreTimeCanvas({
               onRemove={handleRemove}
               onFollowTheLeader={handleFollowTheLeader}
               onReverse={handleReverse}
-              onSetColor={() => setScoreObjectColor(selectedObjectIds, 0x336699)}
+              onSetColor={handleSetColor}
             />
           ) : (
             <EmptyAreaContextMenu

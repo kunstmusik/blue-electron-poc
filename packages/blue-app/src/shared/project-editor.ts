@@ -237,6 +237,15 @@ export type TypeSpecificScoreObjectEditorSnapshot =
       auxiliaryFlags?: Record<string, string | number | boolean>;
     }
   | {
+      kind: 'external';
+      target: ScoreObjectEditorTargetSnapshot;
+      scoreText: string;
+      commandLine: string;
+      syntaxType: string;
+      canTest: boolean;
+      testMessage?: string;
+    }
+  | {
       kind: 'audioClip';
       target: ScoreObjectEditorTargetSnapshot;
       audioFile: string;
@@ -258,6 +267,36 @@ export type TypeSpecificScoreObjectEditorSnapshot =
       numChannels?: number;
       originalObjectType?: string;
       auxiliaryFlags?: Record<string, string | number | boolean>;
+    }
+  | {
+      kind: 'polyObject';
+      target: ScoreObjectEditorTargetSnapshot;
+      children: Array<{
+        objectId: string;
+        name: string;
+        objectType: string;
+        startBeats: number;
+        durationBeats: number;
+        layerLabel: string;
+      }>;
+      generatedScoreText: string;
+      canOpenInScore: boolean;
+      canTest: boolean;
+    }
+  | {
+      kind: 'tracker';
+      target: ScoreObjectEditorTargetSnapshot;
+      stepsPerBeat: number;
+      showNoteNames: boolean;
+      octave: number;
+      tracks: Array<{
+        trackId: string;
+        trackName: string;
+        instrumentName?: string;
+        columnCount: number;
+      }>;
+      rows: Array<Record<string, string | number | null>>;
+      canTest: boolean;
     }
   | {
       kind: 'structured';
@@ -327,6 +366,10 @@ export type ScorePatch =
         durationBeats: number;
         backgroundColor: number;
       }>;
+    }
+  | {
+      type: 'removeScoreObjects';
+      targets: ScoreObjectEditorTargetSnapshot[];
     }
   | {
       type: 'addLayer';
@@ -1933,7 +1976,7 @@ export function setCodeText(sObj: SoundObject, text: string): boolean {
 }
 
 const CODE_BACKED_TYPES = new Set([
-  'GenericScore', 'PythonObject', 'JavaScriptObject', 'Comment', 'External',
+  'GenericScore', 'PythonObject', 'JavaScriptObject', 'Comment',
 ]);
 
 const FILE_BACKED_TYPES = new Set([
@@ -1941,12 +1984,15 @@ const FILE_BACKED_TYPES = new Set([
 ]);
 
 const STRUCTURED_TYPES = new Set([
-  'PolyObject', 'PatternObject', 'PianoRoll', 'TrackerObject',
+  'PatternObject', 'PianoRoll',
   'NotationObject', 'LineObject', 'ZakLineObject', 'JMask',
 ]);
 
 function getEditorFamily(objectType: string): TypeSpecificScoreObjectEditorSnapshot['kind'] {
   if (objectType === 'AudioClip') return 'audioClip';
+  if (objectType === 'External') return 'external';
+  if (objectType === 'PolyObject') return 'polyObject';
+  if (objectType === 'TrackerObject') return 'tracker';
   if (CODE_BACKED_TYPES.has(objectType)) return 'code';
   if (FILE_BACKED_TYPES.has(objectType)) return 'file';
   if (STRUCTURED_TYPES.has(objectType)) return 'structured';
@@ -1963,9 +2009,45 @@ function getSyntaxForType(objectType: string): 'text' | 'csound-score' | 'python
   }
 }
 
+function resolveTimelineTarget(
+  score: Score,
+  location: ScoreObjectLocationRef,
+): { sObj: SoundObject | AudioClip; layer: Array<SoundObject | AudioClip>; objectIndex: number } | null {
+  const rootGroup = score[location.rootGroupIndex];
+  if (!rootGroup) return null;
+
+  if (rootGroup instanceof PolyObject) {
+    let container: PolyObject = rootGroup;
+
+    for (const segment of location.containerPath) {
+      const containerLayer = container[segment.layerIndex];
+      if (!containerLayer) return null;
+      const nested = containerLayer[segment.objectIndex];
+      if (!(nested instanceof PolyObject)) return null;
+      container = nested;
+    }
+
+    const layer = container[location.layerIndex] as Array<SoundObject | AudioClip> | undefined;
+    if (!layer) return null;
+    const sObj = layer[location.objectIndex] ?? null;
+    if (!sObj) return null;
+    return { sObj, layer, objectIndex: location.objectIndex };
+  }
+
+  if (rootGroup instanceof AudioLayerGroup) {
+    if (location.containerPath.length > 0) return null;
+    const layer = rootGroup[location.layerIndex] as Array<SoundObject | AudioClip> | undefined;
+    if (!layer) return null;
+    const sObj = layer[location.objectIndex] ?? null;
+    if (!sObj) return null;
+    return { sObj, layer, objectIndex: location.objectIndex };
+  }
+
+  return null;
+}
+
 function resolveEditorTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): { sObj: SoundObject | AudioClip; isLibraryOwned: boolean } | null {
   const score = data.getScore();
-  const context = score.getTimeContext();
 
   let sObj: SoundObject | AudioClip | null = null;
   let isLibraryOwned = false;
@@ -1978,35 +2060,16 @@ function resolveEditorTarget(data: BlueData, target: ScoreObjectEditorTargetSnap
     } else {
       const instLoc = target.sourceInstanceLocation;
       if (instLoc) {
-        const lg = score[instLoc.rootGroupIndex];
-        if (lg && lg instanceof PolyObject) {
-          const layer = lg[instLoc.layerIndex];
-          if (layer) {
-            const inst = layer[instLoc.objectIndex];
-            if (inst instanceof Instance) {
-              sObj = inst.getSoundObject();
-            }
-          }
+        const timelineResolved = resolveTimelineTarget(score, instLoc);
+        if (timelineResolved?.sObj instanceof Instance) {
+          sObj = timelineResolved.sObj.getSoundObject();
         }
       }
     }
   } else {
     const loc = target.location;
     if (!loc) return null;
-    const lg = score[loc.rootGroupIndex];
-    if (!lg) return null;
-
-    if (lg instanceof PolyObject) {
-      const layer = lg[loc.layerIndex];
-      if (layer) {
-        sObj = layer[loc.objectIndex] ?? null;
-      }
-    } else if (lg instanceof AudioLayerGroup) {
-      const layer = lg[loc.layerIndex];
-      if (layer) {
-        sObj = layer[loc.objectIndex] ?? null;
-      }
-    }
+    sObj = resolveTimelineTarget(score, loc)?.sObj ?? null;
   }
 
   return sObj ? { sObj, isLibraryOwned } : null;
@@ -2139,6 +2202,18 @@ export function createScoreObjectEditorDocument(
       };
       break;
     }
+    case 'external': {
+      const ext = sObj as External;
+      editor = {
+        kind: 'external',
+        target,
+        scoreText: ext.getText(),
+        commandLine: ext.getCommandLine(),
+        syntaxType: ext.getSyntaxType(),
+        canTest: false,
+      };
+      break;
+    }
     case 'audioClip': {
       const clip = sObj as AudioClip;
       editor = {
@@ -2185,6 +2260,75 @@ export function createScoreObjectEditorDocument(
           filePath: '',
         };
       }
+      break;
+    }
+    case 'polyObject': {
+      const pObj = sObj as PolyObject;
+      const children: Array<{
+        objectId: string;
+        name: string;
+        objectType: string;
+        startBeats: number;
+        durationBeats: number;
+        layerLabel: string;
+      }> = [];
+      for (let li = 0; li < pObj.length; li++) {
+        const layer = pObj[li];
+        for (let oi = 0; oi < layer.length; oi++) {
+          const child = layer[oi];
+          children.push({
+            objectId: `poly-child-${li}-${oi}`,
+            name: child.getName(),
+            objectType: child.constructor.name,
+            startBeats: child.getStartTime().toBeats(context),
+            durationBeats: child.getSubjectiveDuration().toBeats(context),
+            layerLabel: layer.getName(),
+          });
+        }
+      }
+      editor = {
+        kind: 'polyObject',
+        target,
+        children,
+        generatedScoreText: '',
+        canOpenInScore: true,
+        canTest: false,
+      };
+      break;
+    }
+    case 'tracker': {
+      const to = sObj as TrackerObject;
+      const td = to.getTrackData();
+      const stepsPerBeat = to.getStepsPerBeat();
+      const tracks: Array<{
+        trackId: string;
+        trackName: string;
+        instrumentName?: string;
+        columnCount: number;
+      }> = td.map((track, ti) => ({
+        trackId: `tracker-track-${ti}`,
+        trackName: `Track ${ti + 1}`,
+        columnCount: track.length,
+      }));
+      const rows: Array<Record<string, string | number | null>> = [];
+      const numSteps = td.length > 0 ? (td[0]?.length ?? 16) : 16;
+      for (let si = 0; si < numSteps; si++) {
+        const row: Record<string, string | number | null> = { step: si };
+        for (let ti = 0; ti < td.length; ti++) {
+          row[`track-${ti}`] = td[ti][si] ?? '';
+        }
+        rows.push(row);
+      }
+      editor = {
+        kind: 'tracker',
+        target,
+        stepsPerBeat,
+        showNoteNames: false,
+        octave: 5,
+        tracks,
+        rows,
+        canTest: false,
+      };
       break;
     }
     case 'structured': {
@@ -2263,18 +2407,6 @@ export function createScoreObjectEditorDocument(
             noteTemplate: pr.getNoteTemplate(),
             pchGenerationMethod: pr.getPchGenerationMethod(),
             transposition: pr.getTransposition(),
-          },
-        };
-      } else if (sObj instanceof TrackerObject) {
-        const to = sObj as TrackerObject;
-        editor = {
-          kind: 'structured',
-          target,
-          editorFamily: objectType,
-          payloadSummary: `${to.getTrackData().length} track(s)`,
-          payload: {
-            stepsPerBeat: to.getStepsPerBeat(),
-            trackData: to.getTrackData().map(t => [...t]),
           },
         };
       } else if (sObj instanceof NotationObject) {
@@ -2485,7 +2617,13 @@ function isNonEmptyScorePatch(patch: ScorePatch): boolean {
   if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor') {
     return true;
   }
-  return false;
+  if (patch.type === 'addScoreObjects' || patch.type === 'addLayer' || patch.type === 'removeLayer') {
+    return true;
+  }
+  if (patch.type === 'removeScoreObjects') {
+    return patch.targets.length > 0;
+  }
+  return true;
 }
 
 // ─── End Score Snapshot Helpers ───
@@ -3813,9 +3951,33 @@ function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: '
   return true;
 }
 
+function removeScoreObjectByTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): boolean {
+  const score = data.getScore();
+  const location = target.location ?? target.sourceInstanceLocation;
+  if (!location) return false;
+
+  const timelineResolved = resolveTimelineTarget(score, location);
+  if (!timelineResolved) return false;
+  const { layer, objectIndex } = timelineResolved;
+  if (objectIndex < 0 || objectIndex >= layer.length) return false;
+
+  layer.splice(objectIndex, 1);
+  return true;
+}
+
 function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
   if (patch.type === 'addScoreObjects') {
     return applyAddScoreObjectsPatch(data, patch);
+  }
+
+  if (patch.type === 'removeScoreObjects') {
+    let removedAny = false;
+    for (const target of patch.targets) {
+      if (removeScoreObjectByTarget(data, target)) {
+        removedAny = true;
+      }
+    }
+    return removedAny;
   }
 
   if (patch.type === 'addLayer') {
@@ -3908,6 +4070,55 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
     case 'updateTypeSpecificEditor': {
       if (patch.patch.text !== undefined) {
         return setCodeText(sObj as SoundObject, patch.patch.text as string);
+      }
+      if (sObj instanceof External) {
+        const ext = sObj as External;
+        const p = patch.patch;
+        if (p.scoreText !== undefined) ext.setText(p.scoreText as string);
+        if (p.commandLine !== undefined) ext.setCommandLine(p.commandLine as string);
+        if (p.syntaxType !== undefined) ext.setSyntaxType(p.syntaxType as string);
+        return true;
+      }
+      if (sObj instanceof TrackerObject) {
+        const to = sObj as TrackerObject;
+        const p = patch.patch;
+        if (p.showNoteNames !== undefined) {
+          // stored in tracker payload, not directly on model
+        }
+        if (p.octave !== undefined) {
+          // stored in tracker payload, not directly on model
+        }
+        if (Array.isArray(p.cellChanges)) {
+          for (const change of p.cellChanges as Array<{ trackId: string; rowIndex: number; columnId: string; value: string | number | null }>) {
+            const trackIdx = parseInt(change.trackId.replace('tracker-track-', ''), 10);
+            const td = to.getTrackData();
+            if (trackIdx >= 0 && trackIdx < td.length && change.columnId.startsWith('track-')) {
+              const colIdx = parseInt(change.columnId.replace('track-', ''), 10);
+              if (colIdx >= 0 && colIdx < td[trackIdx].length) {
+                td[trackIdx][colIdx] = String(change.value ?? '');
+              }
+            }
+          }
+        }
+        if (p.stepsPerBeat !== undefined) to.setStepsPerBeat(p.stepsPerBeat as number);
+        if (p.trackData !== undefined) to.setTrackData((p.trackData as string[][]).map(t => [...t]));
+        if (p.updateTrackCell !== undefined) {
+          const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
+          const td = to.getTrackData();
+          if (trackIndex >= 0 && trackIndex < td.length) {
+            if (stepIndex >= 0 && stepIndex < td[trackIndex].length) {
+              td[trackIndex][stepIndex] = value;
+            }
+          }
+        }
+        if (p.addTrack !== undefined) {
+          const numSteps = (to.getTrackData()[0]?.length ?? 16);
+          to.addTrack(new Array(numSteps).fill(''));
+        }
+        if (p.removeTrack !== undefined) {
+          to.removeTrack(p.removeTrack as number);
+        }
+        return true;
       }
       if (sObj instanceof AudioClip) {
         const clip = sObj as AudioClip;
@@ -4008,26 +4219,6 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
             color: l.color,
             points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
           }));
-        }
-        return true;
-      }
-      if (sObj instanceof TrackerObject) {
-        const to = sObj as TrackerObject;
-        const p = patch.patch;
-        if (p.stepsPerBeat !== undefined) to.setStepsPerBeat(p.stepsPerBeat as number);
-        if (p.trackData !== undefined) to.setTrackData((p.trackData as string[][]).map(t => [...t]));
-        if (p.updateTrackCell !== undefined) {
-          const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
-          const td = to.getTrackData();
-          if (trackIndex >= 0 && trackIndex < td.length) {
-            if (stepIndex >= 0 && stepIndex < td[trackIndex].length) {
-              td[trackIndex][stepIndex] = value;
-            }
-          }
-        }
-        if (p.addTrack !== undefined) {
-          const numSteps = (to.getTrackData()[0]?.length ?? 16);
-          to.addTrack(new Array(numSteps).fill(''));
         }
         return true;
       }
@@ -4955,7 +5146,16 @@ export function createNestedPolyObjectSnapshot(
   const lg = score[location.rootGroupIndex];
   if (!lg || !(lg instanceof PolyObject)) return null;
 
-  const layer = lg[location.layerIndex];
+  let container: PolyObject = lg;
+  for (const segment of location.containerPath) {
+    const containerLayer = container[segment.layerIndex];
+    if (!containerLayer) return null;
+    const nested = containerLayer[segment.objectIndex];
+    if (!(nested instanceof PolyObject)) return null;
+    container = nested;
+  }
+
+  const layer = container[location.layerIndex];
   if (!layer) return null;
 
   const sObj = layer[location.objectIndex];
