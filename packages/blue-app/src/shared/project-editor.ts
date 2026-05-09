@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import {
   BlueData,
   Channel,
@@ -57,6 +58,7 @@ import {
   ZakLineObject,
   PianoRoll,
   TrackerObject,
+  Track,
   NotationObject,
   JMask,
   Sound,
@@ -1975,29 +1977,35 @@ export function setCodeText(sObj: SoundObject, text: string): boolean {
   return false;
 }
 
-const CODE_BACKED_TYPES = new Set([
-  'GenericScore', 'PythonObject', 'JavaScriptObject', 'Comment',
-]);
-
-const FILE_BACKED_TYPES = new Set([
-  'AudioFile', 'FrozenSoundObject',
-]);
-
-const STRUCTURED_TYPES = new Set([
-  'PatternObject', 'PianoRoll',
-  'NotationObject', 'LineObject', 'ZakLineObject', 'JMask',
-]);
-
 function getEditorFamily(objectType: string): TypeSpecificScoreObjectEditorSnapshot['kind'] {
-  if (objectType === 'AudioClip') return 'audioClip';
-  if (objectType === 'External') return 'external';
-  if (objectType === 'PolyObject') return 'polyObject';
-  if (objectType === 'TrackerObject') return 'tracker';
-  if (CODE_BACKED_TYPES.has(objectType)) return 'code';
-  if (FILE_BACKED_TYPES.has(objectType)) return 'file';
-  if (STRUCTURED_TYPES.has(objectType)) return 'structured';
-  if (objectType === 'Sound') return 'structured';
-  return 'fallback';
+  switch (objectType) {
+    case 'AudioClip':
+      return 'audioClip';
+    case 'External':
+      return 'external';
+    case 'PolyObject':
+      return 'polyObject';
+    case 'TrackerObject':
+      return 'tracker';
+    case 'GenericScore':
+    case 'PythonObject':
+    case 'JavaScriptObject':
+    case 'Comment':
+      return 'code';
+    case 'AudioFile':
+    case 'FrozenSoundObject':
+      return 'file';
+    case 'PatternObject':
+    case 'PianoRoll':
+    case 'NotationObject':
+    case 'LineObject':
+    case 'ZakLineObject':
+    case 'JMask':
+    case 'Sound':
+      return 'structured';
+    default:
+      return 'fallback';
+  }
 }
 
 function getSyntaxForType(objectType: string): 'text' | 'csound-score' | 'python' | 'javascript' {
@@ -2298,26 +2306,43 @@ export function createScoreObjectEditorDocument(
     }
     case 'tracker': {
       const to = sObj as TrackerObject;
-      const td = to.getTrackData();
+      const trackList = to.getTracks();
       const stepsPerBeat = to.getStepsPerBeat();
+      const numSteps = trackList.getSteps();
+
       const tracks: Array<{
         trackId: string;
         trackName: string;
         instrumentName?: string;
         columnCount: number;
-      }> = td.map((track, ti) => ({
-        trackId: `tracker-track-${ti}`,
-        trackName: `Track ${ti + 1}`,
-        columnCount: track.length,
-      }));
+      }> = [];
+
+      for (let ti = 0; ti < trackList.size(); ti++) {
+        const track = trackList.getTrack(ti)!;
+        tracks.push({
+          trackId: `tracker-track-${ti}`,
+          trackName: track.getName() || `Track ${ti + 1}`,
+          columnCount: 1, // Simple UI only supports 1 column for now
+        });
+      }
+
       const rows: Array<Record<string, string | number | null>> = [];
-      const numSteps = td.length > 0 ? (td[0]?.length ?? 16) : 16;
-      for (let si = 0; si < numSteps; si++) {
-        const row: Record<string, string | number | null> = { step: si };
-        for (let ti = 0; ti < td.length; ti++) {
-          row[`track-${ti}`] = td[ti][si] ?? '';
+      if (trackList.size() > 0) {
+        for (let si = 0; si < numSteps; si++) {
+          const row: Record<string, string | number | null> = { step: si };
+          for (let ti = 0; ti < trackList.size(); ti++) {
+            const track = trackList.getTrack(ti)!;
+            const trNote = track.getTrackerNote(si);
+            let val = trNote.getValue(1);
+            if (trNote.isOff()) {
+              val = 'OFF';
+            } else if (trNote.isTied()) {
+              val = '-';
+            }
+            row[`track-${ti}`] = val;
+          }
+          rows.push(row);
         }
-        rows.push(row);
       }
       editor = {
         kind: 'tracker',
@@ -4089,34 +4114,57 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
           // stored in tracker payload, not directly on model
         }
         if (Array.isArray(p.cellChanges)) {
+          const trackList = to.getTracks();
           for (const change of p.cellChanges as Array<{ trackId: string; rowIndex: number; columnId: string; value: string | number | null }>) {
             const trackIdx = parseInt(change.trackId.replace('tracker-track-', ''), 10);
-            const td = to.getTrackData();
-            if (trackIdx >= 0 && trackIdx < td.length && change.columnId.startsWith('track-')) {
-              const colIdx = parseInt(change.columnId.replace('track-', ''), 10);
-              if (colIdx >= 0 && colIdx < td[trackIdx].length) {
-                td[trackIdx][colIdx] = String(change.value ?? '');
+            if (trackIdx >= 0 && trackIdx < trackList.size() && change.columnId.startsWith('track-')) {
+              const track = trackList.getTrack(trackIdx)!;
+              if (change.rowIndex >= 0 && change.rowIndex < track.getNumSteps()) {
+                const trNote = track.getTrackerNote(change.rowIndex);
+                const val = String(change.value ?? '').trim();
+                if (val === '-') {
+                  trNote.setTied(true);
+                  trNote.setOff(false);
+                } else if (val.toUpperCase() === 'OFF') {
+                  trNote.setOff(true);
+                  trNote.setTied(false);
+                } else {
+                  trNote.setTied(false);
+                  trNote.setOff(false);
+                  trNote.setValue(1, val);
+                }
               }
             }
           }
         }
         if (p.stepsPerBeat !== undefined) to.setStepsPerBeat(p.stepsPerBeat as number);
-        if (p.trackData !== undefined) to.setTrackData((p.trackData as string[][]).map(t => [...t]));
         if (p.updateTrackCell !== undefined) {
           const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
-          const td = to.getTrackData();
-          if (trackIndex >= 0 && trackIndex < td.length) {
-            if (stepIndex >= 0 && stepIndex < td[trackIndex].length) {
-              td[trackIndex][stepIndex] = value;
+          const trackList = to.getTracks();
+          if (trackIndex >= 0 && trackIndex < trackList.size()) {
+            const track = trackList.getTrack(trackIndex)!;
+            if (stepIndex >= 0 && stepIndex < track.getNumSteps()) {
+              const trNote = track.getTrackerNote(stepIndex);
+              const val = String(value ?? '').trim();
+              if (val === '-') {
+                trNote.setTied(true);
+                trNote.setOff(false);
+              } else if (val.toUpperCase() === 'OFF') {
+                trNote.setOff(true);
+                trNote.setTied(false);
+              } else {
+                trNote.setTied(false);
+                trNote.setOff(false);
+                trNote.setValue(1, val);
+              }
             }
           }
         }
         if (p.addTrack !== undefined) {
-          const numSteps = (to.getTrackData()[0]?.length ?? 16);
-          to.addTrack(new Array(numSteps).fill(''));
+          to.getTracks().addTrack(new Track());
         }
         if (p.removeTrack !== undefined) {
-          to.removeTrack(p.removeTrack as number);
+          to.getTracks().removeTrack(p.removeTrack as number);
         }
         return true;
       }

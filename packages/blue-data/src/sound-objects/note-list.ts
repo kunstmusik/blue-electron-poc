@@ -73,4 +73,12 @@ export class NoteList {
       this._notes.push(other.getNote(i));
     }
   }
+
+  toScoreText(): string {
+    return this._notes.map((n) => n.toScoreText()).join('\n');
+  }
+
+  toString(): string {
+    return this.toScoreText();
+  }
 }

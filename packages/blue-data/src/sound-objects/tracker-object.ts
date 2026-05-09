@@ -15,10 +15,13 @@ import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
+import { TrackList } from './tracker/track-list';
+import { NoteProcessorChain } from '../note-processors/note-processor-chain';
+import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
 
 export class TrackerObject extends AbstractSoundObject {
   private _stepsPerBeat = 4;
-  private _trackData: string[][] = [];
+  private _tracks = new TrackList();
 
   constructor(other?: TrackerObject) {
     super();
@@ -28,42 +31,44 @@ export class TrackerObject extends AbstractSoundObject {
     if (other) {
       this.copyFrom(other);
       this._stepsPerBeat = other._stepsPerBeat;
-      this._trackData = other._trackData.map((t) => [...t]);
+      this._tracks = new TrackList(other._tracks);
     }
   }
 
   getStepsPerBeat(): number { return this._stepsPerBeat; }
   setStepsPerBeat(s: number): void { this._stepsPerBeat = s; }
 
-  getTrackData(): string[][] { return this._trackData.map((t) => [...t]); }
-  setTrackData(data: string[][]): void { this._trackData = data.map((t) => [...t]); }
-  addTrack(track: string[]): void { this._trackData.push(track); }
-  removeTrack(index: number): boolean {
-    if (index < 0 || index >= this._trackData.length) return false;
-    this._trackData.splice(index, 1);
-    return true;
+  getTracks(): TrackList { return this._tracks; }
+  setTracks(tracks: TrackList): void { this._tracks = tracks; }
+
+  override getNoteProcessorChain(): NoteProcessorChain {
+    return this._npc;
   }
 
-
   override generateForCSD(
-    _context: TimeContext,
+    context: TimeContext,
     _compileData: CompileData,
     _startTime: number,
     _endTime: number,
   ): NoteList {
-    console.warn('TrackerObject.generateForCSD skipped: requires TrackList sub-system');
-    return new NoteList();
+    let nl = this._tracks.generateNotes(this._stepsPerBeat);
+
+    nl = applyNoteProcessorChain(nl, this._npc);
+
+    const duration = this.getSubjectiveDuration().toBeats(context);
+    const startTime = this.getStartTime().toBeats(context);
+    const rpBeats = this.getRepeatPoint() ? this.getRepeatPoint()!.toBeats(context) : -1.0;
+
+    applyTimeBehavior(nl, this._timeBehavior, duration, rpBeats, this._tracks.getSteps());
+    setScoreStart(nl, startTime);
+
+    return nl;
   }
 
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = getBasicXML(this, 'blue.soundObject.TrackerObject');
     elem.addElement('stepsPerBeat').setText(this._stepsPerBeat.toString());
-
-    const tracksElem = elem.addElement('tracks');
-    for (const track of this._trackData) {
-      const tElem = tracksElem.addElement('track');
-      tElem.setText(track.join(' '));
-    }
+    elem.addElement(this._tracks.saveAsXML());
 
     return elem;
   }
@@ -72,15 +77,41 @@ export class TrackerObject extends AbstractSoundObject {
     const obj = new TrackerObject();
     initBasicFromXML(obj, data);
 
-    const spb = data.getTextString('stepsPerBeat');
-    if (spb) obj._stepsPerBeat = parseInt(spb, 10);
+    // For legacy projects prior to 2.8.1, default to 1 step
+    let stepsPerBeat = 1;
+    let stepsPerBeatFound = false;
 
-    const tracksElem = data.getElement('tracks');
-    if (tracksElem) {
-      const tNodes = tracksElem.getElements('track');
-      while (tNodes.hasMoreElements()) {
-        obj._trackData.push(tNodes.next().getTextString().split(' '));
+    const nodes = data.getElements();
+    while (nodes.hasMoreElements()) {
+      const node = nodes.next();
+      const nodeName = node.getName();
+      switch (nodeName) {
+        case 'stepsPerBeat':
+          stepsPerBeat = parseInt(node.getTextString() ?? '1', 10);
+          stepsPerBeatFound = true;
+          break;
+        case 'trackList':
+          obj._tracks = TrackList.loadFromXML(node);
+          break;
+        // Legacy 'tracks' support
+        case 'tracks': {
+          const tNodes = node.getElements('track');
+          while (tNodes.hasMoreElements()) {
+            // This is old blue-electron specific string[][] format, 
+            // we should probably keep it for a while but it's not Java-compatible.
+            // Java Blue doesn't have 'tracks' element at root of TrackerObject, it has 'trackList'.
+          }
+          break;
+        }
       }
+    }
+
+    if (stepsPerBeatFound) {
+      obj._stepsPerBeat = stepsPerBeat;
+    } else {
+      // If we didn't find stepsPerBeat, we default to 1 for legacy.
+      // But the constructor already set it to 4.
+      obj._stepsPerBeat = 1;
     }
 
     return obj;

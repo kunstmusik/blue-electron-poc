@@ -62,6 +62,7 @@ function makeTimelineTarget(
 
 function makeDataWithObject(obj: any): BlueData {
   const data = new BlueData();
+  data.getScore().length = 0;
   const poly = new PolyObject();
   const layer = new SoundLayer();
   layer.push(obj);
@@ -127,9 +128,9 @@ describe('Code-backed editor document creation (T026)', () => {
     const data = makeDataWithObject(ext);
 
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('External') });
-    expect(doc!.editor.kind).toBe('code');
-    if (doc!.editor.kind === 'code') {
-      expect(doc!.editor.syntax).toBe('text');
+    expect(doc!.editor.kind).toBe('external');
+    if (doc!.editor.kind === 'external') {
+      expect(doc!.editor.scoreText).toBe('external command text');
     }
   });
 });
@@ -137,6 +138,7 @@ describe('Code-backed editor document creation (T026)', () => {
 describe('AudioClip editor document creation and mutation (T026)', () => {
   function makeAudioClipData() {
     const data = new BlueData();
+    data.getScore().length = 0;
     const alg = new AudioLayerGroup();
     const layer = new AudioLayer();
     const clip = new AudioClip();

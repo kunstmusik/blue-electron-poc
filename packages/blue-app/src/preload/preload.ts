@@ -65,6 +65,8 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('commit-project-document-patches', patches) as Promise<ProjectDocumentCommitReceipt>,
   getScoreObjectEditorDocument: (request: ScoreObjectEditorRequest) =>
     ipcRenderer.invoke('get-score-object-editor-document', request) as Promise<ScoreObjectEditorDocumentSnapshot | null>,
+  testExternalSoundObject: (request: ScoreObjectEditorRequest) =>
+    ipcRenderer.invoke('test-external-sound-object', request) as Promise<{ ok: boolean; output: string; error?: string }>,
   getNestedPolyObjectSnapshot: (location: ScoreObjectLocationRef) =>
     ipcRenderer.invoke('get-nested-poly-object-snapshot', location) as Promise<PolyObjectLayerGroupSnapshot | null>,
   sendBsbRealtimeControlUpdate: (update: BsbRealtimeControlUpdate) =>

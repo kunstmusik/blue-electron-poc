@@ -18,6 +18,7 @@ import {
   PatternObject,
   Sound,
   TrackerObject,
+  Track,
 } from '@blue/data';
 import {
   createScoreObjectEditorDocument,
@@ -53,6 +54,7 @@ function addLibObject(lib: SoundObjectLibrary, obj: any): string {
 
 function makeDataWithObject(obj: any): BlueData {
   const data = new BlueData();
+  data.getScore().length = 0;
   const poly = new PolyObject();
   const layer = new SoundLayer();
   layer.push(obj);
@@ -209,6 +211,7 @@ describe('createScoreObjectEditorDocument — Tier 1: polyObject', () => {
     outerLayer.push(innerPoly);
     outerPoly.push(outerLayer);
     const data = new BlueData();
+    data.getScore().length = 0;
     data.getScore().push(outerPoly);
 
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('PolyObject') });
@@ -232,6 +235,7 @@ describe('createScoreObjectEditorDocument — Tier 1: polyObject', () => {
     outerLayer.push(innerPoly);
     outerPoly.push(outerLayer);
     const data = new BlueData();
+    data.getScore().length = 0;
     data.getScore().push(outerPoly);
 
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('PolyObject') });
@@ -242,13 +246,28 @@ describe('createScoreObjectEditorDocument — Tier 1: polyObject', () => {
     }
   });
 });
-
 describe('createScoreObjectEditorDocument — Tier 1: tracker', () => {
   it('returns tracker editor with tracks and rows', () => {
     const to = new TrackerObject();
     to.setName('My Tracker');
     to.setStepsPerBeat(4);
-    to.setTrackData([['i1', 'i2', 'i3', 'i4'], ['440', '880', '660', '220']]);
+
+    const tracks = to.getTracks();
+    tracks.setSteps(4);
+    const t1 = new Track();
+    tracks.addTrack(t1);
+    t1.getTrackerNote(0).setValue(1, 'i1');
+    t1.getTrackerNote(1).setValue(1, 'i2');
+    t1.getTrackerNote(2).setValue(1, 'i3');
+    t1.getTrackerNote(3).setValue(1, 'i4');
+
+    const t2 = new Track();
+    tracks.addTrack(t2);
+    t2.getTrackerNote(0).setValue(1, '440');
+    t2.getTrackerNote(1).setValue(1, '880');
+    t2.getTrackerNote(2).setValue(1, '660');
+    t2.getTrackerNote(3).setValue(1, '220');
+
     const data = makeDataWithObject(to);
 
     const doc = createScoreObjectEditorDocument(data, { target: makeTimelineTarget('TrackerObject') });
@@ -257,9 +276,10 @@ describe('createScoreObjectEditorDocument — Tier 1: tracker', () => {
     if (doc!.editor.kind === 'tracker') {
       expect(doc!.editor.tracks.length).toBe(2);
       expect(doc!.editor.tracks[0].trackName).toBe('Track 1');
-      expect(doc!.editor.tracks[0].columnCount).toBe(4);
+      expect(doc!.editor.tracks[0].columnCount).toBe(1);
       expect(doc!.editor.rows.length).toBe(4);
-      expect(doc!.editor.canTest).toBe(false);
+      expect(doc!.editor.rows[0]['track-0']).toBe('i1');
+      expect(doc!.editor.rows[0]['track-1']).toBe('440');
     }
   });
 
@@ -281,6 +301,7 @@ describe('createScoreObjectEditorDocument — Tier 1: tracker', () => {
 describe('createScoreObjectEditorDocument — audioClip type', () => {
   it('returns audioClip editor with all fields', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const alg = new AudioLayerGroup();
     const layer = new AudioLayer();
     const clip = new AudioClip();
@@ -313,6 +334,7 @@ describe('createScoreObjectEditorDocument — audioClip type', () => {
 describe('createScoreObjectEditorDocument — Instance and library-backed', () => {
   it('resolves Instance to underlying library object via library ID', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();
@@ -350,6 +372,7 @@ describe('createScoreObjectEditorDocument — Instance and library-backed', () =
 
   it('resolves Instance to underlying library object via sourceInstanceLocation', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();

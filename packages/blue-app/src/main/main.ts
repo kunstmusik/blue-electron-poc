@@ -12,7 +12,7 @@ import {
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { BlueData, Effect, Send, BSBGroup, BSBWidget } from '@blue/data';
+import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, setExternalCommandExecutor } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
 import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
@@ -33,6 +33,8 @@ import {
 } from './mixer-effects-library';
 import { cleanupTempCsdSnapshots } from './render-command';
 import { saveGeneratedCsdToDisk } from './csd-export';
+import { executeExternalTest } from './external-executor';
+import { createMainExternalExecutor } from './external-command-executor';
 import { getWindowTitle } from '../shared/window-title';
 import {
   applyEffectEditablePatchToEffect,
@@ -841,6 +843,7 @@ function doSave(filePath: string): void {
     const xml = currentData.saveToString();
     fs.writeFileSync(filePath, xml, 'utf-8');
     updateWindowTitle();
+    rebuildApplicationMenu();
     if (mainWindow) {
       mainWindow.webContents.send('save-complete', { filePath });
     }
@@ -865,7 +868,7 @@ function notifyNoProjectLoaded(channel: 'playback-error' | 'generated-csd-error'
   mainWindow?.webContents.send(channel, 'No project loaded');
 }
 
-async function ensureJavaScriptRuntime(): Promise<void> {
+async function ensureJavaScriptEngine(): Promise<void> {
   if (!javaScriptRuntimeReady) {
     javaScriptRuntimeReady = initializeJavaScriptRuntime().catch((err: unknown) => {
       javaScriptRuntimeReady = null;
@@ -913,7 +916,7 @@ async function startPlayback(): Promise<boolean> {
     mainWindow.webContents.send('engine-output-reset', { tabName: 'Csound' });
     mainWindow.webContents.send('engine-output-select', { tabName: 'Csound' });
 
-    await ensureJavaScriptRuntime();
+    await ensureJavaScriptEngine();
 
     const csd = currentData.toCSD();
 
@@ -994,7 +997,7 @@ async function generateCsdToScreen(): Promise<void> {
     return;
   }
   try {
-    await ensureJavaScriptRuntime();
+    await ensureJavaScriptEngine();
     const csdText = currentData.toCSD();
     mainWindow.webContents.send('generated-csd', csdText);
   } catch (err) {
@@ -1009,7 +1012,7 @@ async function generateCsdToDisk(): Promise<void> {
     return;
   }
   try {
-    await ensureJavaScriptRuntime();
+    await ensureJavaScriptEngine();
     await saveGeneratedCsdToDisk({
       currentData,
       currentFilePath,
@@ -1546,6 +1549,34 @@ ipcMain.handle('get-nested-poly-object-snapshot', (_event, location: ScoreObject
   return createNestedPolyObjectSnapshot(currentData, location);
 });
 
+ipcMain.handle('test-external-sound-object', async (_event, request: ScoreObjectEditorRequest) => {
+  if (!currentData) return { ok: false, output: '', error: 'No project loaded.' };
+
+  const loc = request.target.location;
+  if (!loc) return { ok: false, output: '', error: 'No location for selected object.' };
+  const score = currentData.getScore();
+  const lg = score[loc.rootGroupIndex];
+  if (!lg) return { ok: false, output: '', error: 'Layer group not found.' };
+  const layer = (lg as any)[loc.layerIndex];
+  if (!layer) return { ok: false, output: '', error: 'Layer not found.' };
+  const ext = layer[loc.objectIndex];
+
+  if (!(ext instanceof External)) {
+    return { ok: false, output: '', error: 'Selected object is not an External.' };
+  }
+  try {
+    const noteList = ext.generateForCSD(
+      currentData.getScore().getTimeContext(),
+      { getCloneDataDirectives: () => '' } as any,
+      0.0,
+      -1.0,
+    );
+    return { ok: true, output: noteList.toScoreText() };
+  } catch (err) {
+    return { ok: false, output: '', error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
 ipcMain.handle('send-bsb-realtime-control-update', (_event, update: BsbRealtimeControlUpdate) => {
   if (!currentData) {
     return;
@@ -1614,6 +1645,7 @@ ipcMain.handle('update-project-document', (_event, patch) => {
 // ─── App Lifecycle ───
 
 app.whenReady().then(async () => {
+  setExternalCommandExecutor(createMainExternalExecutor(() => currentFilePath ? path.dirname(currentFilePath) : null));
   try {
     const report = await sweepStaleBlueEngineProcesses();
     if (report.inspected > 0 || report.removed > 0 || report.terminated > 0) {

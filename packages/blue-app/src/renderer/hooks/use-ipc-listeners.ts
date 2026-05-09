@@ -63,7 +63,13 @@ export function useIPCListeners(): void {
       handleNativeMenuCommand(command);
     });
 
-    const unsubSaveComplete = window.blueAPI.onSaveComplete(() => {
+    const unsubSaveComplete = window.blueAPI.onSaveComplete((info) => {
+      const store = useProjectStore.getState();
+      if (info.filePath) {
+        store.setProjectInfo({ filePath: info.filePath });
+        addRecentFile(info.filePath);
+      }
+      store.markClean();
       toast.success('File saved successfully');
     });
 

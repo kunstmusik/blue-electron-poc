@@ -176,6 +176,10 @@ export class Note {
     return parts.join('\t');
   }
 
+  toString(): string {
+    return this.toScoreText();
+  }
+
   deepCopy(): Note {
     return Note.fromOther(this);
   }
