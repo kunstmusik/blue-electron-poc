@@ -11,10 +11,22 @@ Extend the shared type-specific editor union in `/Users/stevenyi/work/blue-elect
 Representative payloads:
 
 ```ts
+type TrackerColumnSnapshot = {
+  name: string;
+  type: number;
+  restrictedToInteger: boolean;
+  usingRange: boolean;
+  rangeMin: number;
+  rangeMax: number;
+  outputFrequency: boolean;
+  scale: MidiScaleSnapshot | null;
+  sourceIndex?: number | null;
+};
+
 type TypeSpecificScoreObjectEditorSnapshot =
   | {
       kind: 'external';
-      targetId: string;
+      target: ScoreObjectEditorTargetSnapshot;
       scoreText: string;
       commandLine: string;
       syntaxType: string;
@@ -23,7 +35,7 @@ type TypeSpecificScoreObjectEditorSnapshot =
     }
   | {
       kind: 'polyObject';
-      targetId: string;
+      target: ScoreObjectEditorTargetSnapshot;
       children: Array<{
         objectId: string;
         name: string;
@@ -38,14 +50,17 @@ type TypeSpecificScoreObjectEditorSnapshot =
     }
   | {
       kind: 'tracker';
-      targetId: string;
+      target: ScoreObjectEditorTargetSnapshot;
+      steps: number;
+      stepsPerBeat: number;
       showNoteNames: boolean;
       octave: number;
       tracks: Array<{
         trackId: string;
         trackName: string;
-        instrumentName?: string;
-        columnCount: number;
+        instrumentId: string;
+        noteTemplate: string;
+        columns: TrackerColumnSnapshot[];
       }>;
       rows: Array<Record<string, string | number | null>>;
       canTest: boolean;
@@ -57,6 +72,8 @@ Requirements:
 - `External` must no longer be represented as generic `kind: 'code'` only.
 - `PolyObject` must no longer be represented as a generic structured placeholder.
 - `TrackerObject` must carry enough toolbar/header metadata to render the missing Java-style controls.
+- `TrackerObject` row data must distinguish status cells from tracker data cells using `track-{n}-status` and `track-{n}-col-{m}` keys.
+- `PolyObject` preview rendering may remain conditional on non-empty `generatedScoreText` in the editor document.
 
 ## Canonical Patch Requirements
 
@@ -74,9 +91,34 @@ type Tier1EditorPatch =
     }
   | {
       editorKind: 'tracker';
+      steps?: number;
+      stepsPerBeat?: number;
       showNoteNames?: boolean;
       octave?: number;
-      cellChanges?: Array<{ trackId: string; rowIndex: number; columnId: string; value: string | number | null }>;
+      addTrack?: true;
+      duplicateTrack?: number;
+      clearTrack?: number;
+      removeTrack?: number;
+      updateTrackCell?: {
+        trackIndex: number;
+        columnIndex: number;
+        stepIndex: number;
+        value: string;
+      };
+      updateTrackProperties?: {
+        trackIndex: number;
+        name: string;
+        instrumentId: string;
+        noteTemplate: string;
+        columns?: TrackerColumnSnapshot[];
+      };
+      trackerAction?: {
+        type: string;
+        trackIndex: number;
+        stepIndex: number;
+        columnIndex: number;
+        noteBuffer?: Array<Array<{ tied: boolean; off: boolean; fields: string[] }>>;
+      };
     };
 ```
 
@@ -85,6 +127,7 @@ Requirements:
 - `PolyObject` inspector actions may remain read-only except for supported open/test actions.
 - `External` and `TrackerObject` edits must round-trip through canonical objects and refresh the active document.
 - Unsupported preview/test backends must return explicit capability metadata rather than hidden controls.
+- Tracker edits must remain on the existing `ScorePatch.updateTypeSpecificEditor` channel; no separate tracker-specific IPC is allowed.
 
 ## Renderer Composition
 

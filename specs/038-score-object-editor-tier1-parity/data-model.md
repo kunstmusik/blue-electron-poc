@@ -5,7 +5,7 @@
 - **Purpose**: Typed auxiliary-editor payload for `External` score objects.
 - **Fields**:
   - `kind: 'external'`
-  - `targetId: string`
+  - `target: ScoreObjectEditorTargetSnapshot`
   - `scoreText: string`
   - `commandLine: string`
   - `syntaxType: string`
@@ -31,55 +31,74 @@
 - **Purpose**: Inspector-style auxiliary payload for `PolyObject`.
 - **Fields**:
   - `kind: 'polyObject'`
-  - `targetId: string`
+  - `target: ScoreObjectEditorTargetSnapshot`
   - `children: PolyObjectChildRowSnapshot[]`
   - `generatedScoreText: string`
   - `canOpenInScore: boolean`
   - `canTest: boolean`
 - **Relationships**:
   - Consumes existing nested score-path support from Spec 036.
+  - Preview rendering is conditional on `generatedScoreText` being non-empty.
 
-## Entity: TrackerTrackHeaderSnapshot
+## Entity: TrackerColumnSnapshot
+
+- **Purpose**: Renderer-facing metadata for one tracker data column.
+- **Fields**:
+  - `name: string`
+  - `type: number`
+  - `restrictedToInteger: boolean`
+  - `usingRange: boolean`
+  - `rangeMin: number`
+  - `rangeMax: number`
+  - `outputFrequency: boolean`
+  - `scale: MidiScaleSnapshot | null`
+  - `sourceIndex?: number | null`
+
+## Entity: TrackerTrackSnapshot
 
 - **Purpose**: Renderer-facing metadata for one tracker track header.
 - **Fields**:
   - `trackId: string`
   - `trackName: string`
-  - `instrumentName?: string`
-  - `columnCount: number`
+  - `instrumentId: string`
+  - `noteTemplate: string`
+  - `columns: TrackerColumnSnapshot[]`
 
 ## Entity: TrackerEditorSnapshot
 
 - **Purpose**: Typed auxiliary payload for `TrackerObject`.
 - **Fields**:
   - `kind: 'tracker'`
-  - `targetId: string`
+  - `target: ScoreObjectEditorTargetSnapshot`
+  - `steps: number`
+  - `stepsPerBeat: number`
   - `showNoteNames: boolean`
   - `octave: number`
-  - `tracks: TrackerTrackHeaderSnapshot[]`
+  - `tracks: TrackerTrackSnapshot[]`
   - `rows: Array<Record<string, string | number | null>>`
   - `canTest: boolean`
 - **Relationships**:
   - Updates canonical tracker content through the existing score patch flow.
+  - Row entries use `step`, `track-{n}-status`, and `track-{n}-col-{m}` keys so the renderer can model status cells separately from data columns.
 
 ## State Flows
 
 ### External Edit Flow
 
 1. Main resolves the selected `External` object and builds `ExternalEditorSnapshot`.
-2. Renderer edits score text, command line, or syntax type.
-3. Renderer dispatches `ScorePatch.updateTypeSpecificEditor`.
+2. Renderer edits score text, command line, or syntax type and can invoke `window.blueAPI.testExternalSoundObject(...)` for score generation.
+3. Renderer dispatches `ScorePatch.updateTypeSpecificEditor` for canonical field changes.
 4. Main mutates the canonical object and refreshes the active editor document.
 
 ### PolyObject Inspector Flow
 
-1. Main resolves the selected `PolyObject` and builds child rows plus generated-score preview text.
-2. Renderer shows the child browser and preview side by side.
-3. Supported open/test actions route back through existing score-shell or canonical preview hooks.
+1. Main resolves the selected `PolyObject` and builds child rows plus a preview-capable `generatedScoreText` field.
+2. Renderer shows the child browser and conditionally renders the preview pane when preview text is available.
+3. Supported open actions route back through existing score-shell and nested score-path hooks.
 
 ### Tracker Edit Flow
 
-1. Main resolves the selected `TrackerObject` into toolbar and grid payloads.
-2. Renderer edits toolbar state or cells.
-3. Renderer dispatches canonical type-specific patch updates.
-4. Main refreshes the tracker document against canonical state.
+1. Main resolves the selected `TrackerObject` into toolbar state, track metadata, column definitions, and keyed row payloads.
+2. Renderer applies optimistic edits for toolbar state, track properties, column configuration, and note actions.
+3. Renderer dispatches canonical `updateTypeSpecificEditor` patches, including track mutations and tracker actions.
+4. Main mutates the canonical tracker state and refreshes the tracker document against canonical data.

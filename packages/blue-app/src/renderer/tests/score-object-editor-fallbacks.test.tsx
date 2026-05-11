@@ -47,6 +47,7 @@ function makeTimelineTarget(
 describe('Fallback for unsupported types (T035)', () => {
   it('returns fallback with unsupported reason for unknown object type', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();
@@ -188,6 +189,7 @@ describe('Patch application on removed targets (T035)', () => {
 describe('Library-context stale selection (T036)', () => {
   it('returns fallback when library entry has been removed', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();
@@ -226,6 +228,7 @@ describe('Library-context stale selection (T036)', () => {
 
   it('resolves via sourceInstanceLocation when library field is absent', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();

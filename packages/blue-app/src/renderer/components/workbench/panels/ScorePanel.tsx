@@ -177,7 +177,7 @@ export default function ScorePanel() {
 
       <SplitPane
         ariaLabel="Resize score layer headers and timeline"
-        className="flex-1 min-h-0"
+        className="flex-1 min-h-0 bg-black"
         firstClassName="min-h-0"
         secondClassName="min-w-0"
         initialSplit={0.19}
@@ -533,7 +533,7 @@ function SoundLayerHeader({
               {layer.name}
             </span>
           )}
-          <div className="flex-shrink-0 flex items-start gap-px mr-1 pt-0.5">
+          <div className="shrink-0 flex items-start gap-px mr-1 pt-0.5">
             <button
               className={btnClass(!!layer.muted, "bg-[#b28c00]")}
               title="Mute"

@@ -276,10 +276,19 @@ describe('createScoreObjectEditorDocument — Tier 1: tracker', () => {
     if (doc!.editor.kind === 'tracker') {
       expect(doc!.editor.tracks.length).toBe(2);
       expect(doc!.editor.tracks[0].trackName).toBe('Track 1');
-      expect(doc!.editor.tracks[0].columnCount).toBe(1);
+      expect(doc!.editor.tracks[0].columns.length).toBe(2); // pch, db
+      expect(doc!.editor.tracks[0].columns.map((col) => ({ name: col.name, type: col.type }))).toEqual([
+        { name: 'pch', type: 0 },
+        { name: 'db', type: 4 },
+      ]);
+      expect(doc!.editor.tracks[0].columns[0]?.scale?.scaleName).toBe('12TET');
+      expect(doc!.editor.tracks[0].columns[1]?.rangeMax).toBe(90);
+      expect(doc!.editor.tracks[0].instrumentId).toBe('1');
+      expect(doc!.editor.steps).toBe(4);
       expect(doc!.editor.rows.length).toBe(4);
-      expect(doc!.editor.rows[0]['track-0']).toBe('i1');
-      expect(doc!.editor.rows[0]['track-1']).toBe('440');
+      expect(doc!.editor.rows[0]['track-0-status']).toBe('');
+      expect(doc!.editor.rows[0]['track-0-col-0']).toBe('i1');
+      expect(doc!.editor.rows[0]['track-1-col-0']).toBe('440');
     }
   });
 

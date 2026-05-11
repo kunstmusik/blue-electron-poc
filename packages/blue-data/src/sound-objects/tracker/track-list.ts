@@ -21,7 +21,9 @@ export class TrackList {
     } else {
       this._tracks.push(track);
     }
-    track.resizeSteps(this._steps);
+    if (track.getNumSteps() !== this._steps) {
+      track.resizeSteps(this._steps);
+    }
   }
 
   removeTrack(index: number): void {
@@ -70,19 +72,19 @@ export class TrackList {
     const trackList = new TrackList();
     const nodes = data.getElements();
 
+    const nodesArray = [];
     while (nodes.hasMoreElements()) {
       const node = nodes.next();
-      const nodeName = node.getName();
+      nodesArray.push(node);
+      if (node.getName() === 'steps') {
+        const s = node.getTextString();
+        if (s) trackList.setSteps(parseInt(s, 10));
+      }
+    }
 
-      switch (nodeName) {
-        case 'steps': {
-          const s = node.getTextString();
-          if (s) trackList.setSteps(parseInt(s, 10));
-          break;
-        }
-        case 'track':
-          trackList.addTrack(Track.loadFromXML(node));
-          break;
+    for (const node of nodesArray) {
+      if (node.getName() === 'track') {
+        trackList.addTrack(Track.loadFromXML(node));
       }
     }
     return trackList;

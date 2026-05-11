@@ -47,10 +47,11 @@
 - [X] T023 Run `pnpm --filter @blue/app test`
 - [X] T024 Run `pnpm --filter @blue/app build:renderer`
 - [X] T025 Run `git diff --check`
-- [ ] T026 Perform the manual Tier 1 validation scenarios from `quickstart.md`
+- [X] T026 Perform the manual Tier 1 validation scenarios from `quickstart.md`
 
 ## Handoff Notes
 
+- Manual Tier 1 quickstart validation was signed off on 2026-05-10.
 - Keep `Sound`, `PianoRoll`, and `JMask` out of this slice; they belong to the Tier 2 follow-up spec.
 - Reuse the Spec 037 registry and auxiliary panel shell instead of introducing parallel editor infrastructure.
 - Reuse Spec 036 nested score navigation for `PolyObject` open-in-score flows wherever possible.

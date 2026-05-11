@@ -255,6 +255,7 @@ export default function ScoreTimeCanvas({
     }>;
   } | null>(null);
   const pendingSharedPropertyPatchRef = useRef<Map<string, { startBeats?: number; durationBeats?: number }>>(new Map());
+  const pendingMovePatchRef = useRef<Array<{ target: ScoreObjectEditorTargetSnapshot; targetStartBeats: number; targetLayerIndex: number; targetGroupId: string }>>([]);
   const [cursorOverride, setCursorOverride] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<string | null>(null);
   const [previewByObjectId, setPreviewByObjectId] = useState<Record<string, { startBeats: number; durationBeats: number }>>({});
@@ -270,6 +271,7 @@ export default function ScoreTimeCanvas({
   useEffect(() => {
     setPreviewByObjectId({});
     clearLiveSharedProperties();
+    pendingMovePatchRef.current = [];
   }, [group.groupId, clearLiveSharedProperties]);
 
   useEffect(() => {
@@ -584,6 +586,19 @@ export default function ScoreTimeCanvas({
       if (!isNestedView) {
         moveScoreObjects(moves);
       }
+      pendingMovePatchRef.current = moves.map((move) => {
+        const original = g.originalPositions.find((pos) => pos.objectId === move.objectId);
+        const target = original?.editorTarget;
+        if (!target) {
+          return null;
+        }
+        return {
+          target,
+          targetStartBeats: move.targetStartBeats,
+          targetLayerIndex: move.targetLayerIndex,
+          targetGroupId: move.targetGroupId,
+        };
+      }).filter((move): move is { target: ScoreObjectEditorTargetSnapshot; targetStartBeats: number; targetLayerIndex: number; targetGroupId: string } => move !== null);
       setPreviewByObjectId((prev) => {
         const next = { ...prev };
         for (const move of moves) {
@@ -596,13 +611,6 @@ export default function ScoreTimeCanvas({
         }
         return next;
       });
-      for (const move of moves) {
-        const existing = pendingSharedPropertyPatchRef.current.get(move.objectId) ?? {};
-        pendingSharedPropertyPatchRef.current.set(move.objectId, {
-          ...existing,
-          startBeats: move.targetStartBeats,
-        });
-      }
       setLiveSharedProperties(moves.map((move) => {
         const original = g.originalPositions.find((pos) => pos.objectId === move.objectId);
         return {
@@ -754,6 +762,18 @@ export default function ScoreTimeCanvas({
 
     const pendingPatches = Array.from(pendingSharedPropertyPatchRef.current.entries());
     pendingSharedPropertyPatchRef.current.clear();
+    const pendingMovePatch = pendingMovePatchRef.current;
+    pendingMovePatchRef.current = [];
+
+    if (pendingMovePatch.length > 0 && g.mode === 'move') {
+      void applyProjectDocumentPatch({
+        score: {
+          type: 'moveScoreObjects',
+          moves: pendingMovePatch,
+        },
+      });
+    }
+
     if (pendingPatches.length > 0 && g.mode !== 'marquee') {
       void (async () => {
         const targetByObjectId = new Map<string, ScoreObjectEditorTargetSnapshot>();

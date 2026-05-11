@@ -2,7 +2,7 @@
 
 **Feature Branch**: `038-score-object-editor-tier1-parity`  
 **Created**: 2026-05-07  
-**Status**: Draft  
+**Status**: Complete
 **Input**: User description: "Rework the score follow-up plan so the next slice covers the remaining moderate score-object editors before the broader score management/navigation work."
 
 ## User Scenarios & Testing *(mandatory)*

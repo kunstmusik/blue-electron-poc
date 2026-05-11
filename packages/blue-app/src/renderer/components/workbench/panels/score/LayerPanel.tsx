@@ -48,7 +48,7 @@ export default function LayerPanel({
         const spacer = (
           <div
             key={`spacer-${group.groupId}`}
-            className="border-t border-b border-[#2a2a2a]"
+            className="border-t border-[#2a2a2a]"
             style={{ height: GROUP_SPACER }}
           />
         );
@@ -56,7 +56,7 @@ export default function LayerPanel({
         switch (group.groupType) {
           case "polyObject":
             return (
-              <div key={group.groupId}>
+              <div key={group.groupId} className="not-last:border-b border-[#2a2a2a]">
                 <ScoreTimeCanvas
                   group={group}
                   pixelsPerBeat={pixelsPerBeat}

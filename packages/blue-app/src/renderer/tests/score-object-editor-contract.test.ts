@@ -11,11 +11,13 @@ import {
   AudioLayerGroup,
   AudioLayer,
   External,
+  Track,
   TrackerObject,
 } from '@blue/data';
 import {
   createScoreObjectEditorDocument,
   createFallbackEditorDocument,
+  createProjectEditorSnapshot,
   applyProjectDocumentPatch,
   type ScoreObjectEditorRequest,
   type ScoreObjectEditorTargetSnapshot,
@@ -27,6 +29,7 @@ function createDataWithGenericScore(): {
   target: ScoreObjectEditorTargetSnapshot;
 } {
   const data = new BlueData();
+  data.getScore().length = 0;
   const poly = new PolyObject();
   const layer = new SoundLayer();
   const gs = new GenericScore();
@@ -57,6 +60,7 @@ function createDataWithAudioClip(): {
   target: ScoreObjectEditorTargetSnapshot;
 } {
   const data = new BlueData();
+  data.getScore().length = 0;
   const alg = new AudioLayerGroup();
   const layer = new AudioLayer();
   const clip = new AudioClip();
@@ -97,8 +101,8 @@ describe('createScoreObjectEditorDocument', () => {
     expect(doc!.shared.name).toBe('Test Score');
     expect(doc!.shared.backgroundColor).toBe(gs.getBackgroundColor());
     expect(doc!.shared.timeBehavior).toBe(gs.getTimeBehavior());
-    expect(doc!.shared.startTime.timeBase).toBe('beats');
-    expect(doc!.shared.subjectiveDuration.timeBase).toBe('beats');
+    expect(doc!.shared.startTime.timeBase).toBe('BEATS');
+    expect(doc!.shared.subjectiveDuration.timeBase).toBe('BEATS');
   });
 
   it('returns an audioClip editor document for an AudioClip with correct fields', () => {
@@ -116,6 +120,7 @@ describe('createScoreObjectEditorDocument', () => {
 
   it('returns a fallback document for unsupported types', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const gs = new GenericScore();
@@ -189,6 +194,61 @@ describe('Score patches — updateSharedProperties', () => {
   });
 });
 
+describe('Score patches — moveScoreObjects', () => {
+  it('moves an existing object to another layer without recreating it', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+    const poly = new PolyObject();
+    const sourceLayer = new SoundLayer();
+    const targetLayer = new SoundLayer();
+    const gs = new GenericScore();
+    gs.setName('Movable Score');
+    gs.setScoreText('i1 0 1 440');
+    sourceLayer.push(gs);
+    poly.push(sourceLayer);
+    poly.push(targetLayer);
+    data.getScore().push(poly);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const polyGroupIndex = snapshot.score.layerGroups.findIndex(
+      (lg) => lg.groupType === 'polyObject' && lg.layerCount === 2,
+    );
+    const groupId = snapshot.score.layerGroups[polyGroupIndex].groupId;
+
+    const target: ScoreObjectEditorTargetSnapshot = {
+      selectionId: 'sobj-0-0',
+      selectedObjectType: 'GenericScore',
+      editorObjectType: 'GenericScore',
+      ownerKind: 'timeline',
+      displayContext: 'timeline',
+      location: { rootGroupIndex: polyGroupIndex, containerPath: [], layerIndex: 0, objectIndex: 0 },
+      supportsTimeBehavior: true,
+      supportsRepeatPoint: true,
+      supportsNoteProcessorChain: true,
+    };
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'moveScoreObjects',
+          moves: [{
+            target,
+            targetStartBeats: 4.5,
+            targetLayerIndex: 1,
+            targetGroupId: groupId,
+          }],
+        },
+      }),
+    ).toBe(true);
+
+    expect(sourceLayer.length).toBe(0);
+    expect(targetLayer.length).toBe(1);
+    expect(targetLayer[0]).toBe(gs);
+    const context = data.getScore().getTimeContext();
+    expect(gs.getStartTime().toBeats(context)).toBeCloseTo(4.5);
+  });
+});
+
 describe('Score patches — updateSoundObjectBehavior', () => {
   it('updates timeBehavior and repeatPoint', () => {
     const { data, gs, target } = createDataWithGenericScore();
@@ -231,6 +291,7 @@ describe('Score patches — updateTypeSpecificEditor', () => {
 
   it('updates External score text, command line, and syntax type', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const ext = new External();
@@ -271,11 +332,13 @@ describe('Score patches — updateTypeSpecificEditor', () => {
 
   it('updates TrackerObject cell and adds track', () => {
     const data = new BlueData();
+    data.getScore().length = 0;
     const poly = new PolyObject();
     const layer = new SoundLayer();
     const to = new TrackerObject();
     to.setName('Tracker');
-    to.setTrackData([['a', 'b'], ['c', 'd']]);
+    to.getTracks().setSteps(2);
+    to.getTracks().addTrack(new Track());
     layer.push(to);
     poly.push(layer);
     data.getScore().push(poly);
@@ -297,11 +360,22 @@ describe('Score patches — updateTypeSpecificEditor', () => {
         score: {
           type: 'updateTypeSpecificEditor',
           target,
-          patch: { updateTrackCell: { trackIndex: 0, stepIndex: 1, value: 'x' } },
+          patch: { updateTrackCell: { trackIndex: 0, columnIndex: 0, stepIndex: 1, value: '8.07' } },
         },
       }),
     ).toBe(true);
 
-    expect(to.getTrackData()[0][1]).toBe('x');
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTypeSpecificEditor',
+          target,
+          patch: { addTrack: true },
+        },
+      }),
+    ).toBe(true);
+
+    expect(to.getTracks().getTrack(0)?.getTrackerNote(1).getValue(1)).toBe('8.07');
+    expect(to.getTracks().size()).toBe(2);
   });
 });

@@ -1,6 +1,7 @@
 import { Scale } from '../piano-roll/scale';
 import { Element } from '../../serialization/xml-reader';
 import { ObjRefLoadMap } from '../../serialization/obj-ref-map';
+import { getBaseTen } from '../../utilities/score';
 
 export class Column {
   public static readonly TYPE_PCH = 0;
@@ -142,6 +143,80 @@ export class Column {
         return '';
       default:
         return '';
+    }
+  }
+
+  getIncrementValue(val: string): string | null {
+    switch (this._type) {
+      case Column.TYPE_PCH: {
+        const baseTen = getBaseTen(val) + 1;
+        const oct = Math.floor(baseTen / 12);
+        const pch = baseTen % 12;
+        let pchStr = pch.toString();
+        if (pch < 10) pchStr = '0' + pchStr;
+        return oct + '.' + pchStr;
+      }
+      case Column.TYPE_BLUE_PCH: {
+        const parts = val.split('.');
+        const scaleDegrees = this._scale.getNumScaleDegrees();
+        const iBaseTen = parseInt(parts[0], 10) * scaleDegrees + parseInt(parts[1], 10) + 1;
+        const iOctave = Math.floor(iBaseTen / scaleDegrees);
+        const iScaleDegree = iBaseTen % scaleDegrees;
+        return iOctave + '.' + iScaleDegree;
+      }
+      case Column.TYPE_NUM: {
+        let dNumVal = parseFloat(val) + 1;
+        if (this._usingRange && dNumVal > this._rangeMax) {
+          dNumVal = this._rangeMax;
+        }
+        return this._restrictedToInteger ? Math.floor(dNumVal).toString() : dNumVal.toString();
+      }
+      case Column.TYPE_MIDI: {
+        const midiVal = parseInt(val, 10) + 1;
+        if (midiVal > 127) return null;
+        return midiVal.toString();
+      }
+      case Column.TYPE_STR:
+        return null;
+      default:
+        return null;
+    }
+  }
+
+  getDecrementValue(val: string): string | null {
+    switch (this._type) {
+      case Column.TYPE_PCH: {
+        const baseTen = getBaseTen(val) - 1;
+        const oct = Math.floor(baseTen / 12);
+        const pch = baseTen % 12;
+        let pchStr = pch.toString();
+        if (pch < 10) pchStr = '0' + pchStr;
+        return oct + '.' + pchStr;
+      }
+      case Column.TYPE_BLUE_PCH: {
+        const parts = val.split('.');
+        const scaleDegrees = this._scale.getNumScaleDegrees();
+        const iBaseTen = parseInt(parts[0], 10) * scaleDegrees + parseInt(parts[1], 10) - 1;
+        const iOctave = Math.floor(iBaseTen / scaleDegrees);
+        const iScaleDegree = iBaseTen % scaleDegrees;
+        return iOctave + '.' + iScaleDegree;
+      }
+      case Column.TYPE_NUM: {
+        let dNumVal = parseFloat(val) - 1;
+        if (this._usingRange && dNumVal < this._rangeMin) {
+          dNumVal = this._rangeMin;
+        }
+        return this._restrictedToInteger ? Math.floor(dNumVal).toString() : dNumVal.toString();
+      }
+      case Column.TYPE_MIDI: {
+        const midiVal = parseInt(val, 10) - 1;
+        if (midiVal < 0) return null;
+        return midiVal.toString();
+      }
+      case Column.TYPE_STR:
+        return null;
+      default:
+        return null;
     }
   }
 

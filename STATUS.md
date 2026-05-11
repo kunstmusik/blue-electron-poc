@@ -1,20 +1,57 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-07
+**Date**: 2026-05-10
 **Branch**: `038-score-object-editor-tier1-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
+## Current Focus: Spec 038 Complete (Closed)
+
+**Branch**: `038-score-object-editor-tier1-parity`
+
+### Summary
+Spec 038 is complete. Tier 1 score-object editor parity now covers `External`, `PolyObject`, and `TrackerObject`, and the closeout validation set is green.
+
+### Delivered Scope
+- `External` now uses a dedicated auxiliary editor with command-line editing, syntax-aware code editing, and a renderer-driven test action that invokes `test-external-sound-object` and shows generated score output in a modal.
+- `PolyObject` now uses a dedicated inspector instead of the structured placeholder, with child-object rows, empty-state handling, and a conditional generated-score preview pane driven by the editor document payload.
+- `TrackerObject` now uses a Java-style editing surface with toolbar controls, per-track headers and menus, keyboard-note shortcuts, track and column property dialogs, richer optimistic patching, and canonical tracker patch support for steps, tracks, columns, and note actions.
+- Timeline drag moves now flush canonical `moveScoreObjects` patches on mouseup, preserving cross-layer moves through save/reload instead of only persisting `startBeats`.
+- Tracker runtime and model parity work landed in `@blue/data`, including column increment/decrement helpers, preserved step counts on load/copy/resize, default-value note generation, note insert/remove helpers, and column-removal indexing fixes.
+
+### Validation
+- Manual Tier 1 validation scenarios from `quickstart.md` were signed off on 2026-05-10.
+- `pnpm --filter @blue/data test` — pass
+- `pnpm --filter @blue/app test` — 72 files passed, 793 passed, 2 skipped
+- `pnpm --filter @blue/app build:renderer` — pass
+- `git diff --check` — pass
+
+### Next Recommended Step
+- Treat Spec 038 as closed.
+- Start Spec `039-score-object-editor-tier2-parity` when the next score-object slice begins.
+
 ## Spec 038 Package
 
-Spec `038-score-object-editor-tier1-parity` is the current active handoff branch.
+Spec `038-score-object-editor-tier1-parity` is complete, closed, and validated on branch `038-score-object-editor-tier1-parity`.
 
-- Goal: begin the grouped Tier 1 score-object editor follow-up for `External`, `PolyObject`, and `TrackerObject`
+- Goal: complete the grouped Tier 1 score-object editor follow-up for `External`, `PolyObject`, and `TrackerObject`
 - Active feature context:
-  - `.specify/feature.json` points to `specs/038-score-object-editor-tier1-parity`
+  - `.specify/feature.json` points to `specs/038-score-object-editor-tier1-parity` at closeout time
+- Delivered scope:
+  - `External` moved from the generic code-backed editor to a dedicated surface with command-line editing, syntax-type-aware code editing, and an Electron-backed test action
+  - `PolyObject` moved from the structured placeholder to a dedicated inspector showing child-object rows, empty-state handling, and a preview-capable split layout
+  - `TrackerObject` moved from a bare table to a Java-style tracker editor with toolbar controls, per-track menus, track and column property editing, keyboard-note shortcuts, and richer optimistic patch handling
+  - shared score patch plumbing now includes canonical `moveScoreObjects` support so timeline layer moves persist correctly through save/reload
+  - `@blue/data` tracker support now covers step-count preservation, default-value rendering, note insert/remove helpers, increment/decrement helpers, and related regression coverage
+- Validation:
+  - manual Tier 1 quickstart scenarios signed off on 2026-05-10
+  - `pnpm --filter @blue/data test` — pass
+  - `pnpm --filter @blue/app test` — 72 files passed, 793 passed, 2 skipped
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `git diff --check` — pass
+- Task status: all 26 tasks checked off in `tasks.md`
 - Handoff notes:
-  - the full Spec 038 task breakdown already exists under `specs/038-score-object-editor-tier1-parity/`
-  - Specs `039-score-object-editor-tier2-parity` and `040-score-editor-management-navigation` remain planned follow-ups behind 038
-  - next recommended step is implementation work for Spec 038, starting with the editor-document and renderer tasks for `External`, `PolyObject`, and `TrackerObject`
+  - Spec `038-score-object-editor-tier1-parity` can be treated as closed
+  - the next planned slices remain `039-score-object-editor-tier2-parity` for `Sound`, `PianoRoll`, and `JMask`, followed by `040-score-editor-management-navigation`
 
 ## Spec 037 Package
 

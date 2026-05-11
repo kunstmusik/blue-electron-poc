@@ -136,6 +136,10 @@ export class Track {
           const colPlaceholder = `<${col.getName()}>`;
           let newValue = trNote.getValue(j);
 
+          if (newValue.trim().length === 0) {
+            newValue = col.getDefaultValue();
+          }
+
           if (col.getType() === Column.TYPE_BLUE_PCH && col.isOutputFrequency()) {
             const parts = newValue.split('.');
             if (parts.length === 2) {
@@ -213,6 +217,16 @@ export class Track {
       }
     }
     return retVal;
+  }
+
+  insertNote(start: number): void {
+    this._trackerNotes.splice(start, 0, this.createNewNote());
+    this._trackerNotes.pop();
+  }
+
+  removeNote(start: number): void {
+    this._trackerNotes.splice(start, 1);
+    this._trackerNotes.push(this.createNewNote());
   }
 
   clearNotes(): void {

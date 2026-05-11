@@ -1063,6 +1063,86 @@ function isScoreItemMatchingTarget(
   return item.objectId === target.selectionId;
 }
 
+function updateScoreItemLocation(
+  item: ScoreLayerSnapshot['items'][number],
+  rootGroupIndex: number,
+  layerIndex: number,
+  objectIndex: number,
+): ScoreLayerSnapshot['items'][number] {
+  if (!item.editorTarget?.location) {
+    return item;
+  }
+
+  return {
+    ...item,
+    editorTarget: {
+      ...item.editorTarget,
+      location: {
+        ...item.editorTarget.location,
+        rootGroupIndex,
+        layerIndex,
+        objectIndex,
+      },
+    },
+  };
+}
+
+function applyMoveScoreObjectsToSnapshot(
+  score: ScoreDocumentSnapshot,
+  moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>,
+): ScoreDocumentSnapshot {
+  const moveMap = new Map(moves.map((move) => [move.objectId, move]));
+  const movedIds = new Set(moves.map((move) => move.objectId));
+
+  const additionsByGroupAndLayer = new Map<string, Map<number, Array<ScoreLayerSnapshot['items'][number]>>>();
+
+  for (const lg of score.layerGroups) {
+    for (let li = 0; li < lg.layers.length; li++) {
+      for (const item of lg.layers[li].items) {
+        const move = moveMap.get(item.objectId);
+        if (!move) continue;
+
+        const targetGroupId = move.targetGroupId ?? lg.groupId;
+        const targetLi = move.targetLayerIndex ?? li;
+        let groupMap = additionsByGroupAndLayer.get(targetGroupId);
+        if (!groupMap) {
+          groupMap = new Map();
+          additionsByGroupAndLayer.set(targetGroupId, groupMap);
+        }
+
+        let list = groupMap.get(targetLi);
+        if (!list) {
+          list = [];
+          groupMap.set(targetLi, list);
+        }
+
+        list.push({
+          ...item,
+          startBeats: Math.max(0, move.targetStartBeats),
+        });
+      }
+    }
+  }
+
+  const newGroups = score.layerGroups.map((lg, groupIndex) => {
+    const groupAdditions = additionsByGroupAndLayer.get(lg.groupId);
+    const newLayers = lg.layers.map((layer, li) => {
+      const kept = layer.items.filter((item) => !movedIds.has(item.objectId));
+      const additions = groupAdditions?.get(li) ?? [];
+      return {
+        ...layer,
+        items: [
+          ...kept,
+          ...additions.map((item, idx) => updateScoreItemLocation(item, groupIndex, li, kept.length + idx)),
+        ],
+      };
+    });
+    return { ...lg, layers: newLayers };
+  });
+
+  return { ...score, layerGroups: newGroups };
+}
+
 function applyScorePatchToSnapshot(
   score: ScoreDocumentSnapshot,
   patch: ScorePatch,
@@ -1078,6 +1158,10 @@ function applyScorePatchToSnapshot(
       })),
     }));
     return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'moveScoreObjects') {
+    return applyMoveScoreObjectsToSnapshot(score, patch.moves);
   }
 
   if (patch.type === 'addLayer') {
@@ -1113,6 +1197,31 @@ function applyScorePatchToSnapshot(
       ...score,
       timeState: { ...score.timeState, ...tsPatch },
     };
+  }
+
+  if (patch.type === 'updateTypeSpecificEditor') {
+    const { target, patch: typePatch } = patch;
+
+    const nextLayerGroups = score.layerGroups.map((lg) => ({
+      ...lg,
+      layers: lg.layers.map((layer) => ({
+        ...layer,
+        items: layer.items.map((item) => {
+          if (!isScoreItemMatchingTarget(item, target)) return item;
+          if (item.editorTarget?.editorObjectType !== 'TrackerObject') return item;
+
+          const nextEditor = { ...item.editorTarget } as any;
+          if (typePatch.steps !== undefined) nextEditor.steps = typePatch.steps;
+          if (typePatch.stepsPerBeat !== undefined) nextEditor.stepsPerBeat = typePatch.stepsPerBeat;
+          if (typePatch.octave !== undefined) nextEditor.octave = typePatch.octave;
+          if (typePatch.showNoteNames !== undefined) nextEditor.showNoteNames = typePatch.showNoteNames;
+
+          return { ...item, editorTarget: nextEditor };
+        }),
+      })),
+    }));
+
+    return { ...score, layerGroups: nextLayerGroups };
   }
 
   if (patch.type !== 'updateSharedProperties') return score;
@@ -2601,39 +2710,10 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   moveScoreObjects: (moves) => {
     set((state) => {
-      const score = state.score;
-      const moveMap = new Map(moves.map((m) => [m.objectId, m]));
-
-      const movedIds = new Set(moves.map((m) => m.objectId));
-
-      const additionsByGroupAndLayer = new Map<string, Map<number, typeof score.layerGroups[number]['layers'][number]['items']>>();
-
-      for (const lg of score.layerGroups) {
-        for (let li = 0; li < lg.layers.length; li++) {
-          for (const item of lg.layers[li].items) {
-            const move = moveMap.get(item.objectId);
-            if (!move) continue;
-            const targetGroupId = move.targetGroupId ?? lg.groupId;
-            const targetLi = move.targetLayerIndex ?? li;
-            let groupMap = additionsByGroupAndLayer.get(targetGroupId);
-            if (!groupMap) { groupMap = new Map(); additionsByGroupAndLayer.set(targetGroupId, groupMap); }
-            let list = groupMap.get(targetLi);
-            if (!list) { list = []; groupMap.set(targetLi, list); }
-            list.push({ ...item, startBeats: Math.max(0, move.targetStartBeats) });
-          }
-        }
-      }
-
-      const newGroups = score.layerGroups.map((lg) => {
-        const groupAdditions = additionsByGroupAndLayer.get(lg.groupId);
-        const newLayers = lg.layers.map((layer, li) => {
-          const kept = layer.items.filter((item) => !movedIds.has(item.objectId));
-          const additions = groupAdditions?.get(li) ?? [];
-          return { ...layer, items: [...kept, ...additions] };
-        });
-        return { ...lg, layers: newLayers };
-      });
-      return { score: { ...score, layerGroups: newGroups }, isDirty: true };
+      return {
+        score: applyMoveScoreObjectsToSnapshot(state.score, moves),
+        isDirty: true,
+      };
     });
   },
 

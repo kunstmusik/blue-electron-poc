@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import {
   BlueData,
   Channel,
@@ -59,6 +58,8 @@ import {
   PianoRoll,
   TrackerObject,
   Track,
+  TrackerNote,
+  Column,
   NotationObject,
   JMask,
   Sound,
@@ -230,6 +231,18 @@ export interface SharedScoreObjectPropertiesSnapshot {
   noteProcessorChain?: NoteProcessorChainSnapshot | null;
 }
 
+export interface TrackerColumnSnapshot {
+  name: string;
+  type: number;
+  restrictedToInteger: boolean;
+  usingRange: boolean;
+  rangeMin: number;
+  rangeMax: number;
+  outputFrequency: boolean;
+  scale: MidiScaleSnapshot | null;
+  sourceIndex?: number | null;
+}
+
 export type TypeSpecificScoreObjectEditorSnapshot =
   | {
       kind: 'code';
@@ -294,11 +307,13 @@ export type TypeSpecificScoreObjectEditorSnapshot =
       tracks: Array<{
         trackId: string;
         trackName: string;
-        instrumentName?: string;
-        columnCount: number;
+        instrumentId: string;
+        noteTemplate: string;
+        columns: TrackerColumnSnapshot[];
       }>;
       rows: Array<Record<string, string | number | null>>;
       canTest: boolean;
+      steps: number;
     }
   | {
       kind: 'structured';
@@ -367,6 +382,15 @@ export type ScorePatch =
         startBeats: number;
         durationBeats: number;
         backgroundColor: number;
+      }>;
+    }
+  | {
+      type: 'moveScoreObjects';
+      moves: Array<{
+        target: ScoreObjectEditorTargetSnapshot;
+        targetStartBeats: number;
+        targetLayerIndex: number;
+        targetGroupId: string;
       }>;
     }
   | {
@@ -2313,16 +2337,27 @@ export function createScoreObjectEditorDocument(
       const tracks: Array<{
         trackId: string;
         trackName: string;
-        instrumentName?: string;
-        columnCount: number;
+        instrumentId: string;
+        noteTemplate: string;
+        columns: TrackerColumnSnapshot[];
       }> = [];
 
       for (let ti = 0; ti < trackList.size(); ti++) {
         const track = trackList.getTrack(ti)!;
+        const columns: TrackerColumnSnapshot[] = [];
+        // skip col 0 (tied state handled specially in UI)
+        for (let ci = 1; ci < track.getNumColumns(); ci++) {
+          const col = track.getColumn(ci);
+          if (col) {
+            columns.push(createTrackerColumnSnapshot(col, ci - 1));
+          }
+        }
         tracks.push({
           trackId: `tracker-track-${ti}`,
           trackName: track.getName() || `Track ${ti + 1}`,
-          columnCount: 1, // Simple UI only supports 1 column for now
+          instrumentId: track.getInstrumentId(),
+          noteTemplate: track.getNoteTemplate(),
+          columns,
         });
       }
 
@@ -2333,13 +2368,19 @@ export function createScoreObjectEditorDocument(
           for (let ti = 0; ti < trackList.size(); ti++) {
             const track = trackList.getTrack(ti)!;
             const trNote = track.getTrackerNote(si);
-            let val = trNote.getValue(1);
+
+            // tied/off state
+            let status = '';
             if (trNote.isOff()) {
-              val = 'OFF';
+              status = 'OFF';
             } else if (trNote.isTied()) {
-              val = '-';
+              status = '-';
             }
-            row[`track-${ti}`] = val;
+            row[`track-${ti}-status`] = status;
+
+            for (let ci = 1; ci < track.getNumColumns(); ci++) {
+              row[`track-${ti}-col-${ci - 1}`] = trNote.getValue(ci);
+            }
           }
           rows.push(row);
         }
@@ -2347,9 +2388,10 @@ export function createScoreObjectEditorDocument(
       editor = {
         kind: 'tracker',
         target,
+        steps: numSteps,
         stepsPerBeat,
         showNoteNames: false,
-        octave: 5,
+        octave: 0,
         tracks,
         rows,
         canTest: false,
@@ -2642,7 +2684,7 @@ function isNonEmptyScorePatch(patch: ScorePatch): boolean {
   if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor') {
     return true;
   }
-  if (patch.type === 'addScoreObjects' || patch.type === 'addLayer' || patch.type === 'removeLayer') {
+  if (patch.type === 'addScoreObjects' || patch.type === 'moveScoreObjects' || patch.type === 'addLayer' || patch.type === 'removeLayer') {
     return true;
   }
   if (patch.type === 'removeScoreObjects') {
@@ -3815,6 +3857,23 @@ export function createMidiScaleSnapshot(scale: Scale | null): MidiScaleSnapshot 
   };
 }
 
+export function createTrackerColumnSnapshot(
+  column: Column,
+  sourceIndex: number | null = null,
+): TrackerColumnSnapshot {
+  return {
+    name: column.getName(),
+    type: column.getType(),
+    restrictedToInteger: column.isRestrictedToInteger(),
+    usingRange: column.isUsingRange(),
+    rangeMin: column.getRangeMin(),
+    rangeMax: column.getRangeMax(),
+    outputFrequency: column.isOutputFrequency(),
+    scale: createMidiScaleSnapshot(column.getScale()),
+    sourceIndex,
+  };
+}
+
 export function createMidiInputProcessorSnapshot(
   processor: { getKeyMapping(): string; getVelocityMapping(): string; getPitchConstant(): string; getAmpConstant(): string; getScale(): Scale | null },
 ): MidiInputProcessorSnapshot {
@@ -3838,6 +3897,30 @@ function createScaleFromSnapshot(snapshot: MidiScaleSnapshot | null): Scale | nu
   scale.octave = snapshot.octave;
   scale.ratios = snapshot.ratios.length > 0 ? [...snapshot.ratios] : [...scale.ratios];
   return scale;
+}
+
+function createTrackerColumnFromSnapshot(snapshot: TrackerColumnSnapshot): Column {
+  const column = new Column();
+  column.setName(snapshot.name);
+  column.setType(snapshot.type);
+  column.setRestrictedToInteger(Boolean(snapshot.restrictedToInteger));
+  column.setUsingRange(Boolean(snapshot.usingRange));
+
+  const rangeMin = Number(snapshot.rangeMin);
+  const rangeMax = Number(snapshot.rangeMax);
+  if (Number.isFinite(rangeMin)) {
+    column.setRangeMin(rangeMin);
+  }
+  if (Number.isFinite(rangeMax)) {
+    column.setRangeMax(rangeMax);
+  }
+
+  const scale = createScaleFromSnapshot(snapshot.scale ?? null);
+  if (scale) {
+    column.setScale(scale);
+  }
+  column.setOutputFrequency(Boolean(snapshot.outputFrequency));
+  return column;
 }
 
 function applyMidiInputPatch(
@@ -3976,6 +4059,53 @@ function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: '
   return true;
 }
 
+function applyMoveScoreObjectsPatch(
+  data: BlueData,
+  patch: ScorePatch & { type: 'moveScoreObjects' },
+): boolean {
+  const score = data.getScore();
+  const resolvedMoves: Array<{
+    move: (typeof patch.moves)[number];
+    sourceResolved: NonNullable<ReturnType<typeof resolveTimelineTarget>>;
+    targetLayer: Array<SoundObject | AudioClip>;
+  }> = [];
+
+  for (const move of patch.moves) {
+    const sourceLocation = move.target.location ?? move.target.sourceInstanceLocation;
+    if (!sourceLocation) continue;
+
+    const sourceResolved = resolveTimelineTarget(score, sourceLocation);
+    if (!sourceResolved) continue;
+
+    const targetGroup = findPolyObjectByGroupId(score, move.targetGroupId);
+    if (!targetGroup) continue;
+
+    const targetLayer = targetGroup[move.targetLayerIndex] as Array<SoundObject | AudioClip> | undefined;
+    if (!targetLayer) continue;
+
+    resolvedMoves.push({ move, sourceResolved, targetLayer });
+  }
+
+  resolvedMoves.sort((a, b) => b.sourceResolved.objectIndex - a.sourceResolved.objectIndex);
+
+  let changed = false;
+  for (const entry of resolvedMoves) {
+    const [sObj] = entry.sourceResolved.layer.splice(entry.sourceResolved.objectIndex, 1);
+    if (!sObj) continue;
+
+    if (sObj instanceof AudioClip) {
+      sObj.setStartTime(TimePosition.beats(entry.move.targetStartBeats));
+    } else if (sObj instanceof AbstractSoundObject) {
+      sObj.setStartTime(TimePosition.beats(entry.move.targetStartBeats));
+    }
+
+    entry.targetLayer.push(sObj);
+    changed = true;
+  }
+
+  return changed;
+}
+
 function removeScoreObjectByTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): boolean {
   const score = data.getScore();
   const location = target.location ?? target.sourceInstanceLocation;
@@ -3993,6 +4123,10 @@ function removeScoreObjectByTarget(data: BlueData, target: ScoreObjectEditorTarg
 function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
   if (patch.type === 'addScoreObjects') {
     return applyAddScoreObjectsPatch(data, patch);
+  }
+
+  if (patch.type === 'moveScoreObjects') {
+    return applyMoveScoreObjectsPatch(data, patch);
   }
 
   if (patch.type === 'removeScoreObjects') {
@@ -4138,33 +4272,316 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
           }
         }
         if (p.stepsPerBeat !== undefined) to.setStepsPerBeat(p.stepsPerBeat as number);
+        if (p.steps !== undefined) {
+          to.getTracks().setSteps(p.steps as number);
+        }
         if (p.updateTrackCell !== undefined) {
-          const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
+          const { trackIndex, columnIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; columnIndex: number; stepIndex: number; value: string };
           const trackList = to.getTracks();
           if (trackIndex >= 0 && trackIndex < trackList.size()) {
             const track = trackList.getTrack(trackIndex)!;
             if (stepIndex >= 0 && stepIndex < track.getNumSteps()) {
               const trNote = track.getTrackerNote(stepIndex);
               const val = String(value ?? '').trim();
-              if (val === '-') {
-                trNote.setTied(true);
-                trNote.setOff(false);
-              } else if (val.toUpperCase() === 'OFF') {
-                trNote.setOff(true);
-                trNote.setTied(false);
+
+              if (columnIndex === -1) { // status column
+                if (val === '-') {
+                  trNote.setTied(true);
+                  trNote.setOff(false);
+                } else if (val.toUpperCase() === 'OFF') {
+                  trNote.setOff(true);
+                  trNote.setTied(false);
+                } else {
+                  trNote.setTied(false);
+                  trNote.setOff(false);
+                }
               } else {
-                trNote.setTied(false);
-                trNote.setOff(false);
-                trNote.setValue(1, val);
+                if (trNote.isOff()) {
+                  return true;
+                }
+                const col = track.getColumn(columnIndex + 1);
+                if (!col) {
+                  return true;
+                }
+                if (!col.isValid(val)) {
+                  // Java parity: invalid edits are rejected and prior value is preserved.
+                  return true;
+                }
+
+                if (!trNote.isActive()) {
+                  if (val.length === 0) {
+                    return true;
+                  }
+
+                  let previousNote: TrackerNote | null = null;
+                  for (let i = stepIndex - 1; i >= 0; i--) {
+                    const temp = track.getTrackerNote(i);
+                    if (temp.isActive()) {
+                      previousNote = temp;
+                      break;
+                    }
+                  }
+
+                  if (previousNote) {
+                    trNote.copyValues(previousNote);
+                  } else {
+                    for (let i = 1; i < track.getNumColumns(); i++) {
+                      const c = track.getColumn(i);
+                      if (c) {
+                        trNote.setValue(i, c.getDefaultValue());
+                      }
+                    }
+                  }
+                }
+                trNote.setValue(columnIndex + 1, val);
+              }
+            }
+          }
+        }
+        if (p.updateTrackProperties !== undefined) {
+          const { trackIndex, name, instrumentId, noteTemplate, columns } = p.updateTrackProperties as {
+            trackIndex: number;
+            name: string;
+            instrumentId: string;
+            noteTemplate: string;
+            columns?: TrackerColumnSnapshot[];
+          };
+          const track = to.getTracks().getTrack(trackIndex);
+          if (track) {
+            track.setName(name);
+            track.setInstrumentId(instrumentId);
+            track.setNoteTemplate(noteTemplate);
+
+            if (columns) {
+              const oldCols: Column[] = [];
+              for (let i = 1; i < track.getNumColumns(); i++) {
+                const c = track.getColumn(i);
+                if (c) oldCols.push(c);
+              }
+              const priorValues: string[][] = [];
+              for (let rowIndex = 0; rowIndex < track.getNumSteps(); rowIndex++) {
+                const trNote = track.getTrackerNote(rowIndex);
+                const rowValues: string[] = [];
+                for (let colIndex = 0; colIndex < oldCols.length; colIndex++) {
+                  rowValues.push(trNote.getValue(colIndex + 1));
+                }
+                priorValues.push(rowValues);
+              }
+              const sourceIndexMap: Array<number | null> = columns.map((columnDef, newIndex) => {
+                if (typeof columnDef.sourceIndex === 'number' && Number.isInteger(columnDef.sourceIndex)) {
+                  const sourceIndex = columnDef.sourceIndex;
+                  return sourceIndex >= 0 && sourceIndex < oldCols.length ? sourceIndex : null;
+                }
+                if (columnDef.sourceIndex === undefined) {
+                  return newIndex >= 0 && newIndex < oldCols.length ? newIndex : null;
+                }
+                return null;
+              });
+
+              oldCols.forEach((c) => track.removeColumn(c));
+
+              columns.forEach((columnDef) => {
+                track.addColumn(createTrackerColumnFromSnapshot(columnDef));
+              });
+
+              for (let rowIndex = 0; rowIndex < track.getNumSteps(); rowIndex++) {
+                const trNote = track.getTrackerNote(rowIndex);
+                if (trNote.isOff()) {
+                  continue;
+                }
+                for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+                  const sourceIndex = sourceIndexMap[colIndex];
+                  if (sourceIndex === null) {
+                    continue;
+                  }
+                  const priorValue = priorValues[rowIndex]?.[sourceIndex] ?? '';
+                  if (priorValue.trim().length > 0) {
+                    trNote.setValue(colIndex + 1, priorValue);
+                  }
+                }
               }
             }
           }
         }
         if (p.addTrack !== undefined) {
-          to.getTracks().addTrack(new Track());
+          const trackList = to.getTracks();
+          const newTrack = new Track();
+          trackList.addTrack(newTrack);
+        }
+        if (p.duplicateTrack !== undefined) {
+          const trackIdx = p.duplicateTrack as number;
+          const track = to.getTracks().getTrack(trackIdx);
+          if (track) {
+            to.getTracks().addTrack(Track.fromOther(track), trackIdx + 1);
+          }
+        }
+        if (p.clearTrack !== undefined) {
+          const trackIdx = p.clearTrack as number;
+          const track = to.getTracks().getTrack(trackIdx);
+          if (track) {
+            track.clearNotes();
+          }
         }
         if (p.removeTrack !== undefined) {
           to.getTracks().removeTrack(p.removeTrack as number);
+        }
+        if (p.trackerAction !== undefined) {
+          const action = p.trackerAction as {
+            type: string;
+            trackIndex: number;
+            stepIndex: number;
+            columnIndex: number;
+            noteBuffer?: Array<Array<{ tied: boolean; off: boolean; fields: string[] }>>;
+          };
+          const trackList = to.getTracks();
+          const track = trackList.getTrack(action.trackIndex);
+
+          if (track) {
+            const note = action.stepIndex >= 0 && action.stepIndex < track.getNumSteps()
+              ? track.getTrackerNote(action.stepIndex)
+              : null;
+
+            switch (action.type) {
+              case 'toggleTie':
+                if (note && note.isActive() && !note.isOff()) {
+                  note.setTied(!note.isTied());
+                }
+                break;
+              case 'clearOrDuplicate':
+                if (note) {
+                  if (note.isOff() || note.isActive()) {
+                    note.clear();
+                  } else {
+                    for (let i = action.stepIndex - 1; i >= 0; i--) {
+                      const prev = track.getTrackerNote(i);
+                      if (prev.isActive()) {
+                        note.copyValues(prev);
+                        break;
+                      }
+                    }
+                  }
+                }
+                break;
+              case 'setNoteOff':
+                if (note) {
+                  const wasOff = note.isOff();
+                  note.clear();
+                  note.setOff(!wasOff);
+                }
+                break;
+              case 'incrementValue':
+                if (note && action.columnIndex >= 0) {
+                  const col = track.getColumn(action.columnIndex + 1);
+                  const val = note.getValue(action.columnIndex + 1);
+                  if (col && val && val !== '' && val !== '-' && val !== 'OFF') {
+                    const newVal = col.getIncrementValue(val);
+                    if (newVal !== null) note.setValue(action.columnIndex + 1, newVal);
+                  }
+                }
+                break;
+              case 'decrementValue':
+                if (note && action.columnIndex >= 0) {
+                  const col = track.getColumn(action.columnIndex + 1);
+                  const val = note.getValue(action.columnIndex + 1);
+                  if (col && val && val !== '' && val !== '-' && val !== 'OFF') {
+                    const newVal = col.getDecrementValue(val);
+                    if (newVal !== null) note.setValue(action.columnIndex + 1, newVal);
+                  }
+                }
+                break;
+              case 'deleteNote':
+                if (note) {
+                  note.clear();
+                }
+                break;
+              case 'insertNote':
+                if (action.stepIndex < track.getNumSteps() - 1) {
+                  track.insertNote(action.stepIndex);
+                }
+                break;
+              case 'removeNote':
+                track.removeNote(action.stepIndex);
+                break;
+              case 'cutNotes': {
+                const buffer = action.noteBuffer;
+                if (buffer && buffer.length > 0) {
+                  for (let i = 0; i < buffer.length; i++) {
+                    const rowIndex = action.stepIndex + i;
+                    if (rowIndex >= track.getNumSteps()) break;
+                    const n = track.getTrackerNote(rowIndex);
+                    n.clear();
+                  }
+                }
+                break;
+              }
+              case 'pasteNotes': {
+                const buf = action.noteBuffer;
+                if (buf && buf.length > 0) {
+                  for (let i = 0; i < buf.length; i++) {
+                    const destRow = action.stepIndex + i;
+                    if (destRow >= track.getNumSteps()) break;
+                    const dest = track.getTrackerNote(destRow);
+                    const src = buf[i];
+                    const sourceNote = src?.[0];
+                    if (!sourceNote) {
+                      continue;
+                    }
+                    dest.clear();
+                    if (sourceNote.off) {
+                      dest.setOff(true);
+                    } else {
+                      dest.setTied(sourceNote.tied);
+                      for (let f = 0; f < sourceNote.fields.length; f++) {
+                        dest.setValue(f + 1, sourceNote.fields[f]);
+                      }
+                    }
+                  }
+                }
+                break;
+              }
+              case 'setNoteValue':
+                if (note && action.columnIndex >= 0) {
+                  const col = track.getColumn(action.columnIndex + 1);
+                  if (!col) {
+                    break;
+                  }
+                  const buf2 = action.noteBuffer;
+                  if (buf2 && buf2[0] && buf2[0][0]) {
+                    const nextValue = String(buf2[0][0].fields[0] ?? '').trim();
+                    if (!col.isValid(nextValue)) {
+                      break;
+                    }
+                    if (!note.isActive()) {
+                      if (nextValue.length === 0) {
+                        break;
+                      }
+
+                      let previousNote: TrackerNote | null = null;
+                      for (let i = action.stepIndex - 1; i >= 0; i--) {
+                        const temp = track.getTrackerNote(i);
+                        if (temp.isActive()) {
+                          previousNote = temp;
+                          break;
+                        }
+                      }
+
+                      if (previousNote) {
+                        note.copyValues(previousNote);
+                      } else {
+                        for (let i = 1; i < track.getNumColumns(); i++) {
+                          const defaultCol = track.getColumn(i);
+                          if (defaultCol) {
+                            note.setValue(i, defaultCol.getDefaultValue());
+                          }
+                        }
+                      }
+                    }
+                    note.setValue(action.columnIndex + 1, nextValue);
+                  }
+                }
+                break;
+            }
+          }
         }
         return true;
       }

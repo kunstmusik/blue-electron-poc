@@ -26,11 +26,10 @@ export class TrackerNote {
   }
 
   removeColumn(index: number): void {
-    const adjustIndex = index + 1;
-    if (adjustIndex < 0 || adjustIndex > this._fields.length - 1) {
+    if (index < 0 || index >= this._fields.length) {
       return;
     }
-    this._fields.splice(adjustIndex, 1);
+    this._fields.splice(index, 1);
   }
 
   setValue(col: number, value: string): void {

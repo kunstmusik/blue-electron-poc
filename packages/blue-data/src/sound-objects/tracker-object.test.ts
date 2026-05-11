@@ -91,18 +91,71 @@ describe('TrackerObject', () => {
     expect(obj.getStepsPerBeat()).toBe(2);
   });
 
-  it('should round-trip XML correctly', () => {
+  it('should round-trip XML correctly with custom steps', () => {
     const obj = new TrackerObject();
-    obj.setStepsPerBeat(2);
+    obj.getTracks().setSteps(32);
+    expect(obj.getTracks().getSteps()).toBe(32);
+
     const track = new Track();
-    track.setName('TestTrack');
     obj.getTracks().addTrack(track);
-    
+    expect(track.getNumSteps()).toBe(32);
+
     const xml = obj.saveAsXML();
     const obj2 = TrackerObject.loadFromXML(xml);
-    
-    expect(obj2.getStepsPerBeat()).toBe(2);
-    expect(obj2.getTracks().size()).toBe(1);
-    expect(obj2.getTracks().getTrack(0)!.getName()).toBe('TestTrack');
+
+    expect(obj2.getTracks().getSteps()).toBe(32);
+    expect(obj2.getTracks().getTrack(0)!.getNumSteps()).toBe(32);
+  });
+
+  it('should handle steps resizing correctly', () => {
+    const obj = new TrackerObject();
+    const track = new Track();
+    obj.getTracks().addTrack(track);
+
+    obj.getTracks().setSteps(16);
+    expect(track.getNumSteps()).toBe(16);
+
+    obj.getTracks().setSteps(32);
+    expect(track.getNumSteps()).toBe(32);
+    // Verify columns were added to new notes
+    expect(track.getTrackerNote(31).getNumFields()).toBe(3); // tied/status + pch + amp
+  });
+
+  it('should use default values for empty cells in generateNotes', () => {
+    const obj = new TrackerObject();
+    const track = new Track();
+    track.setInstrumentId('1');
+    track.resizeSteps(4);
+
+    // Set a note at step 0 but leave db (col 2) empty
+    track.getTrackerNote(0).setValue(1, '9.00'); // pch column
+    // Note: col 2 is empty
+
+    obj.getTracks().addTrack(track);
+    obj.setStepsPerBeat(1);
+
+    const context = new TimeContext();
+    const nl = obj.generateForCSD(context, {} as any, 0, -1);
+
+    expect(nl.size).toBe(1);
+    const note = nl.getNote(0);
+    expect(note.getPField(4)).toBe('9.00');
+    expect(note.getPField(5)).toBe('90'); // Default for AmpColumn
+  });
+
+  it('should preserve steps during deepCopy', () => {
+    const obj = new TrackerObject();
+    obj.getTracks().setSteps(12);
+
+    const copy = obj.deepCopy() as TrackerObject;
+    expect(copy.getTracks().getSteps()).toBe(12);
+
+    const track = new Track();
+    obj.getTracks().addTrack(track);
+    expect(track.getNumSteps()).toBe(12);
+
+    const copy2 = obj.deepCopy() as TrackerObject;
+    expect(copy2.getTracks().size()).toBe(1);
+    expect(copy2.getTracks().getTrack(0)!.getNumSteps()).toBe(12);
   });
 });

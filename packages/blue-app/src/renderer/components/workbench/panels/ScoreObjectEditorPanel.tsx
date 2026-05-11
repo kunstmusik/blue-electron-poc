@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useScoreSelectionStore } from '../../../stores/score-selection-store';
 import { useProjectStore } from '../../../stores/project-store';
 import type {
+  TrackerColumnSnapshot,
   ScoreObjectEditorDocumentSnapshot,
   ScorePatch,
   TypeSpecificScoreObjectEditorSnapshot,
@@ -16,7 +17,7 @@ function EmptyState({ message }: { message: string }): React.ReactElement {
   );
 }
 
-function applyPatchToDocument(
+export function applyPatchToDocument(
   doc: ScoreObjectEditorDocumentSnapshot,
   patch: ScorePatch,
 ): ScoreObjectEditorDocumentSnapshot {
@@ -38,21 +39,485 @@ function applyPatchToDocument(
   }
   if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'tracker') {
     const p = patch.patch;
-    const e = doc.editor as typeof doc.editor & {
-      kind: 'tracker';
-      stepsPerBeat: number;
-      rows: Array<Record<string, string | number | null>>;
-      tracks: Array<{ trackId: string; trackName: string; instrumentName?: string; columnCount: number }>;
-      showNoteNames: boolean;
-      octave: number;
+    const e = doc.editor;
+    const makeDefaultTrackColumns = (): TrackerColumnSnapshot[] => ([
+      {
+        name: 'pch',
+        type: 0,
+        restrictedToInteger: false,
+        usingRange: false,
+        rangeMin: 0,
+        rangeMax: 0,
+        outputFrequency: true,
+        scale: {
+          scaleName: '12TET',
+          baseFrequency: 261.625565,
+          octave: 2,
+          ratios: Array.from({ length: 12 }, (_, index) => Math.pow(Math.pow(2, 1 / 12), index)),
+        },
+        sourceIndex: 0,
+      },
+      {
+        name: 'db',
+        type: 4,
+        restrictedToInteger: false,
+        usingRange: false,
+        rangeMin: 0,
+        rangeMax: 90,
+        outputFrequency: true,
+        scale: {
+          scaleName: '12TET',
+          baseFrequency: 261.625565,
+          octave: 2,
+          ratios: Array.from({ length: 12 }, (_, index) => Math.pow(Math.pow(2, 1 / 12), index)),
+        },
+        sourceIndex: 1,
+      },
+    ]);
+    const makeRow = (
+      stepIndex: number,
+      trackDefs: Array<{
+        trackId: string;
+        trackName: string;
+        instrumentId: string;
+        noteTemplate: string;
+        columns: TrackerColumnSnapshot[];
+      }>,
+    ): Record<string, string | number | null> => {
+      const row: Record<string, string | number | null> = { step: stepIndex };
+      for (let ti = 0; ti < trackDefs.length; ti++) {
+        row[`track-${ti}-status`] = '';
+        const colCount = trackDefs[ti]?.columns?.length ?? 0;
+        for (let ci = 0; ci < colCount; ci++) {
+          row[`track-${ti}-col-${ci}`] = '';
+        }
+      }
+      return row;
+    };
+    const getStatus = (row: Record<string, string | number | null>, trackIndex: number): string =>
+      String(row[`track-${trackIndex}-status`] ?? '');
+    const getField = (row: Record<string, string | number | null>, trackIndex: number, columnIndex: number): string =>
+      String(row[`track-${trackIndex}-col-${columnIndex}`] ?? '');
+    const isRowActive = (
+      row: Record<string, string | number | null>,
+      trackIndex: number,
+      colCount: number,
+    ): boolean => {
+      for (let ci = 0; ci < colCount; ci++) {
+        if (getField(row, trackIndex, ci).trim().length > 0) return true;
+      }
+      return false;
+    };
+    const normalizeVisualOnlyTrackerValue = (input: string): string => {
+      const trimmed = input.trim();
+      if (trimmed === '...' || trimmed === '---') {
+        return '';
+      }
+      return trimmed;
+    };
+    const isValidTrackerValue = (input: string, column: TrackerColumnSnapshot): boolean => {
+      const val = input.trim();
+      if (val.length === 0) return true;
+      switch (column.type) {
+        case 0: {
+          const parts = val.split('.');
+          return parts.length === 2
+            && parts[0].length > 0
+            && parts[1].length > 0
+            && !Number.isNaN(Number.parseFloat(val));
+        }
+        case 1: {
+          const parts = val.split('.');
+          if (parts.length !== 2 || parts[0].length === 0 || parts[1].length === 0) return false;
+          const oct = Number.parseInt(parts[0], 10);
+          const degree = Number.parseInt(parts[1], 10);
+          if (Number.isNaN(oct) || Number.isNaN(degree)) return false;
+          return !parts[1].startsWith('0') || parts[1].length <= 1;
+        }
+        case 2: {
+          const midi = Number.parseInt(val, 10);
+          return !Number.isNaN(midi) && midi >= 0 && midi < 128;
+        }
+        case 4: {
+          const parsed = column.restrictedToInteger ? Number.parseInt(val, 10) : Number(val);
+          if (!Number.isFinite(parsed) || Number.isNaN(parsed)) {
+            return false;
+          }
+          if (column.restrictedToInteger && !/^[+-]?\d+$/.test(val)) {
+            return false;
+          }
+          if (column.usingRange) {
+            return parsed >= column.rangeMin && parsed <= column.rangeMax;
+          }
+          return true;
+        }
+        default:
+          return true;
+      }
+    };
+    const getTrackerDefaultValue = (column: TrackerColumnSnapshot): string => {
+      if (column.type === 0 || column.type === 1) return '8.00';
+      if (column.type === 2) return '60';
+      if (column.type === 4) {
+        const raw = Number.isFinite(column.rangeMax) ? column.rangeMax : 0;
+        if (column.restrictedToInteger) {
+          return Math.trunc(raw).toString();
+        }
+        return raw.toString();
+      }
+      return '';
+    };
+    const getBaseTenForPch = (value: string): number | null => {
+      const parts = value.split('.');
+      if (parts.length !== 2 || parts[0].length === 0 || parts[1].length === 0) return null;
+      const octave = Number.parseInt(parts[0], 10);
+      const pitch = Number.parseInt(parts[1], 10);
+      if (Number.isNaN(octave) || Number.isNaN(pitch)) return null;
+      return octave * 12 + pitch;
+    };
+    const incrementColumnValue = (value: string, column: TrackerColumnSnapshot): string | null => {
+      switch (column.type) {
+        case 0: {
+          const baseTen = getBaseTenForPch(value);
+          if (baseTen === null) return null;
+          const next = baseTen + 1;
+          const oct = Math.floor(next / 12);
+          const pch = next % 12;
+          const pchStr = pch < 10 ? `0${pch}` : `${pch}`;
+          return `${oct}.${pchStr}`;
+        }
+        case 1: {
+          const parts = value.split('.');
+          if (parts.length !== 2) return null;
+          const oct = Number.parseInt(parts[0], 10);
+          const degree = Number.parseInt(parts[1], 10);
+          if (Number.isNaN(oct) || Number.isNaN(degree)) return null;
+          const scaleDegrees = column.scale?.ratios?.length && column.scale.ratios.length > 0
+            ? column.scale.ratios.length
+            : 12;
+          const nextIndex = oct * scaleDegrees + degree + 1;
+          return `${Math.floor(nextIndex / scaleDegrees)}.${nextIndex % scaleDegrees}`;
+        }
+        case 2: {
+          const midi = Number.parseInt(value, 10);
+          if (Number.isNaN(midi) || midi >= 127) return null;
+          return `${midi + 1}`;
+        }
+        case 4: {
+          let next = column.restrictedToInteger ? Number.parseInt(value, 10) + 1 : Number(value) + 1;
+          if (!Number.isFinite(next) || Number.isNaN(next)) return null;
+          if (column.usingRange) next = Math.min(next, column.rangeMax);
+          return column.restrictedToInteger ? Math.trunc(next).toString() : next.toString();
+        }
+        default:
+          return null;
+      }
+    };
+    const decrementColumnValue = (value: string, column: TrackerColumnSnapshot): string | null => {
+      switch (column.type) {
+        case 0: {
+          const baseTen = getBaseTenForPch(value);
+          if (baseTen === null) return null;
+          const next = baseTen - 1;
+          const oct = Math.floor(next / 12);
+          const pch = next % 12;
+          const pchStr = pch < 10 ? `0${pch}` : `${pch}`;
+          return `${oct}.${pchStr}`;
+        }
+        case 1: {
+          const parts = value.split('.');
+          if (parts.length !== 2) return null;
+          const oct = Number.parseInt(parts[0], 10);
+          const degree = Number.parseInt(parts[1], 10);
+          if (Number.isNaN(oct) || Number.isNaN(degree)) return null;
+          const scaleDegrees = column.scale?.ratios?.length && column.scale.ratios.length > 0
+            ? column.scale.ratios.length
+            : 12;
+          const nextIndex = oct * scaleDegrees + degree - 1;
+          return `${Math.floor(nextIndex / scaleDegrees)}.${nextIndex % scaleDegrees}`;
+        }
+        case 2: {
+          const midi = Number.parseInt(value, 10);
+          if (Number.isNaN(midi) || midi <= 0) return null;
+          return `${midi - 1}`;
+        }
+        case 4: {
+          let next = column.restrictedToInteger ? Number.parseInt(value, 10) - 1 : Number(value) - 1;
+          if (!Number.isFinite(next) || Number.isNaN(next)) return null;
+          if (column.usingRange) next = Math.max(next, column.rangeMin);
+          return column.restrictedToInteger ? Math.trunc(next).toString() : next.toString();
+        }
+        default:
+          return null;
+      }
+    };
+    type TrackerActionNoteSnapshot = {
+      tied: boolean;
+      off: boolean;
+      fields: string[];
+    };
+    const clearRowNote = (
+      row: Record<string, string | number | null>,
+      trackIndex: number,
+      colCount: number,
+    ): Record<string, string | number | null> => {
+      const next = { ...row };
+      next[`track-${trackIndex}-status`] = '';
+      for (let ci = 0; ci < colCount; ci++) {
+        next[`track-${trackIndex}-col-${ci}`] = '';
+      }
+      return next;
+    };
+    const readRowNoteSnapshot = (
+      row: Record<string, string | number | null>,
+      trackIndex: number,
+      colCount: number,
+    ): TrackerActionNoteSnapshot => ({
+      tied: getStatus(row, trackIndex) === '-',
+      off: getStatus(row, trackIndex) === 'OFF',
+      fields: Array.from({ length: colCount }, (_, ci) => getField(row, trackIndex, ci)),
+    });
+    const writeRowNoteSnapshot = (
+      row: Record<string, string | number | null>,
+      trackIndex: number,
+      colCount: number,
+      note: TrackerActionNoteSnapshot,
+    ): Record<string, string | number | null> => {
+      const next = { ...row };
+      next[`track-${trackIndex}-status`] = note.off ? 'OFF' : note.tied ? '-' : '';
+      for (let ci = 0; ci < colCount; ci++) {
+        next[`track-${trackIndex}-col-${ci}`] = note.fields[ci] ?? '';
+      }
+      return next;
     };
     let rows = e.rows.map((r) => ({ ...r }));
-    let tracks = e.tracks.map((t) => ({ ...t }));
+    let tracks = e.tracks.map((t) => ({ ...t, columns: (t.columns ?? []).map((c) => ({ ...c })) }));
     let stepsPerBeat = e.stepsPerBeat;
+    let steps = e.steps;
     if (p.updateTrackCell !== undefined) {
-      const { trackIndex, stepIndex, value } = p.updateTrackCell as { trackIndex: number; stepIndex: number; value: string };
-      if (stepIndex >= 0 && stepIndex < rows.length) {
-        rows[stepIndex] = { ...rows[stepIndex], [`track-${trackIndex}`]: value };
+      const { trackIndex, columnIndex, stepIndex, value } = p.updateTrackCell as {
+        trackIndex: number;
+        columnIndex: number;
+        stepIndex: number;
+        value: string;
+      };
+      if (stepIndex >= 0 && stepIndex < rows.length && trackIndex >= 0 && trackIndex < tracks.length) {
+        const row = { ...rows[stepIndex] };
+        if (columnIndex === -1) {
+          const normalizedStatus = String(value ?? '').trim().toUpperCase() === 'OFF'
+            ? 'OFF'
+            : String(value ?? '').trim() === '-'
+            ? '-'
+            : '';
+          row[`track-${trackIndex}-status`] = normalizedStatus;
+          if (normalizedStatus === 'OFF') {
+            const colCount = tracks[trackIndex]?.columns?.length ?? 0;
+            for (let ci = 0; ci < colCount; ci++) {
+              row[`track-${trackIndex}-col-${ci}`] = '';
+            }
+          }
+          rows[stepIndex] = row;
+        } else if (columnIndex >= 0) {
+          const colDef = tracks[trackIndex]?.columns?.[columnIndex];
+          if (!colDef) {
+            rows[stepIndex] = row;
+          } else {
+            const normalized = normalizeVisualOnlyTrackerValue(String(value ?? ''));
+            if (getStatus(row, trackIndex) === 'OFF') {
+              rows[stepIndex] = row;
+            } else {
+              const active = isRowActive(row, trackIndex, tracks[trackIndex]?.columns?.length ?? 0);
+              if (!isValidTrackerValue(normalized, colDef)) {
+                // Java parity: invalid values do not commit; keep last good value.
+                rows[stepIndex] = row;
+              } else {
+                if (!active && normalized.length > 0) {
+                  let previousActiveRow: Record<string, string | number | null> | null = null;
+                  for (let i = stepIndex - 1; i >= 0; i--) {
+                    const candidate = rows[i];
+                    if (candidate && isRowActive(candidate, trackIndex, tracks[trackIndex]?.columns?.length ?? 0)) {
+                      previousActiveRow = candidate;
+                      break;
+                    }
+                  }
+                  if (previousActiveRow) {
+                    row[`track-${trackIndex}-status`] = getStatus(previousActiveRow, trackIndex);
+                    const colCount = tracks[trackIndex]?.columns?.length ?? 0;
+                    for (let ci = 0; ci < colCount; ci++) {
+                      row[`track-${trackIndex}-col-${ci}`] = getField(previousActiveRow, trackIndex, ci);
+                    }
+                  } else {
+                    row[`track-${trackIndex}-status`] = '';
+                    for (let ci = 0; ci < (tracks[trackIndex]?.columns?.length ?? 0); ci++) {
+                      const c = tracks[trackIndex]?.columns?.[ci];
+                      row[`track-${trackIndex}-col-${ci}`] = c ? getTrackerDefaultValue(c) : '';
+                    }
+                  }
+                  row[`track-${trackIndex}-col-${columnIndex}`] = normalized;
+                  rows[stepIndex] = row;
+                } else if (!active && normalized.length === 0) {
+                  rows[stepIndex] = row;
+                } else {
+                  row[`track-${trackIndex}-col-${columnIndex}`] = normalized;
+                  rows[stepIndex] = row;
+                }
+              }
+            }
+          }
+        } else {
+          rows[stepIndex] = row;
+        }
+      }
+    }
+    if (p.trackerAction !== undefined) {
+      const action = p.trackerAction as {
+        type: string;
+        trackIndex: number;
+        stepIndex: number;
+        columnIndex: number;
+        noteBuffer?: Array<Array<TrackerActionNoteSnapshot>>;
+      };
+      const { trackIndex, stepIndex, columnIndex } = action;
+      if (trackIndex >= 0 && trackIndex < tracks.length && stepIndex >= 0 && stepIndex < rows.length) {
+        const colCount = tracks[trackIndex]?.columns?.length ?? 0;
+        let row = { ...rows[stepIndex] };
+        switch (action.type) {
+          case 'toggleTie': {
+            const status = getStatus(row, trackIndex);
+            if (status !== 'OFF' && isRowActive(row, trackIndex, colCount)) {
+              row[`track-${trackIndex}-status`] = status === '-' ? '' : '-';
+              rows[stepIndex] = row;
+            }
+            break;
+          }
+          case 'clearOrDuplicate': {
+            const status = getStatus(row, trackIndex);
+            const active = isRowActive(row, trackIndex, colCount);
+            if (status === 'OFF' || active) {
+              rows[stepIndex] = clearRowNote(row, trackIndex, colCount);
+            } else {
+              let previousActiveRow: Record<string, string | number | null> | null = null;
+              for (let i = stepIndex - 1; i >= 0; i--) {
+                const candidate = rows[i];
+                if (candidate && isRowActive(candidate, trackIndex, colCount)) {
+                  previousActiveRow = candidate;
+                  break;
+                }
+              }
+              if (previousActiveRow) {
+                const previousNote = readRowNoteSnapshot(previousActiveRow, trackIndex, colCount);
+                rows[stepIndex] = writeRowNoteSnapshot(row, trackIndex, colCount, previousNote);
+              }
+            }
+            break;
+          }
+          case 'setNoteOff': {
+            const wasOff = getStatus(row, trackIndex) === 'OFF';
+            const cleared = clearRowNote(row, trackIndex, colCount);
+            if (!wasOff) {
+              cleared[`track-${trackIndex}-status`] = 'OFF';
+            }
+            rows[stepIndex] = cleared;
+            break;
+          }
+          case 'incrementValue': {
+            if (columnIndex >= 0 && columnIndex < colCount && getStatus(row, trackIndex) !== 'OFF') {
+              const colDef = tracks[trackIndex]?.columns?.[columnIndex];
+              const current = normalizeVisualOnlyTrackerValue(getField(row, trackIndex, columnIndex));
+              if (colDef && current.length > 0) {
+                const nextValue = incrementColumnValue(current, colDef);
+                if (nextValue !== null) {
+                  row[`track-${trackIndex}-col-${columnIndex}`] = nextValue;
+                  rows[stepIndex] = row;
+                }
+              }
+            }
+            break;
+          }
+          case 'decrementValue': {
+            if (columnIndex >= 0 && columnIndex < colCount && getStatus(row, trackIndex) !== 'OFF') {
+              const colDef = tracks[trackIndex]?.columns?.[columnIndex];
+              const current = normalizeVisualOnlyTrackerValue(getField(row, trackIndex, columnIndex));
+              if (colDef && current.length > 0) {
+                const nextValue = decrementColumnValue(current, colDef);
+                if (nextValue !== null) {
+                  row[`track-${trackIndex}-col-${columnIndex}`] = nextValue;
+                  rows[stepIndex] = row;
+                }
+              }
+            }
+            break;
+          }
+          case 'deleteNote': {
+            rows[stepIndex] = clearRowNote(row, trackIndex, colCount);
+            break;
+          }
+          case 'cutNotes': {
+            const count = action.noteBuffer?.length ?? 0;
+            if (count > 0) {
+              for (let i = 0; i < count; i++) {
+                const destStep = stepIndex + i;
+                if (destStep >= rows.length) break;
+                rows[destStep] = clearRowNote(rows[destStep]!, trackIndex, colCount);
+              }
+            }
+            break;
+          }
+          case 'pasteNotes': {
+            const buf = action.noteBuffer ?? [];
+            for (let i = 0; i < buf.length; i++) {
+              const destStep = stepIndex + i;
+              if (destStep >= rows.length) break;
+              const snapshot = buf[i]?.[0];
+              if (!snapshot) continue;
+              rows[destStep] = writeRowNoteSnapshot(rows[destStep]!, trackIndex, colCount, snapshot);
+            }
+            break;
+          }
+          case 'setNoteValue': {
+            if (columnIndex >= 0 && columnIndex < colCount) {
+              const colDef = tracks[trackIndex]?.columns?.[columnIndex];
+              const requestedValue = action.noteBuffer?.[0]?.[0]?.fields?.[0] ?? '';
+              const normalized = normalizeVisualOnlyTrackerValue(requestedValue);
+              if (colDef && isValidTrackerValue(normalized, colDef)) {
+                let workingRow = { ...row };
+                if (getStatus(workingRow, trackIndex) === 'OFF') {
+                  workingRow = clearRowNote(workingRow, trackIndex, colCount);
+                }
+                const active = isRowActive(workingRow, trackIndex, colCount);
+                if (!active && normalized.length > 0) {
+                  let previousActiveRow: Record<string, string | number | null> | null = null;
+                  for (let i = stepIndex - 1; i >= 0; i--) {
+                    const candidate = rows[i];
+                    if (candidate && isRowActive(candidate, trackIndex, colCount)) {
+                      previousActiveRow = candidate;
+                      break;
+                    }
+                  }
+                  if (previousActiveRow) {
+                    workingRow = writeRowNoteSnapshot(
+                      workingRow,
+                      trackIndex,
+                      colCount,
+                      readRowNoteSnapshot(previousActiveRow, trackIndex, colCount),
+                    );
+                  } else {
+                    workingRow[`track-${trackIndex}-status`] = '';
+                    for (let ci = 0; ci < colCount; ci++) {
+                      const c = tracks[trackIndex]?.columns?.[ci];
+                      workingRow[`track-${trackIndex}-col-${ci}`] = c ? getTrackerDefaultValue(c) : '';
+                    }
+                  }
+                }
+                workingRow[`track-${trackIndex}-col-${columnIndex}`] = normalized;
+                rows[stepIndex] = workingRow;
+              }
+            }
+            break;
+          }
+          default:
+            break;
+        }
       }
     }
     if (Array.isArray(p.cellChanges)) {
@@ -65,28 +530,106 @@ function applyPatchToDocument(
     if (p.stepsPerBeat !== undefined) {
       stepsPerBeat = p.stepsPerBeat as number;
     }
+    if (p.steps !== undefined) {
+      const nextSteps = Number(p.steps);
+      if (Number.isFinite(nextSteps) && nextSteps >= 0) {
+        steps = Math.trunc(nextSteps);
+      }
+      if (rows.length > steps) {
+        rows = rows.slice(0, steps);
+      } else if (rows.length < steps) {
+        const start = rows.length;
+        for (let si = start; si < steps; si++) {
+          rows.push(makeRow(si, tracks));
+        }
+      }
+    }
     if (p.addTrack !== undefined) {
-      const numSteps = tracks.length > 0 ? (tracks[0]?.columnCount ?? 16) : 16;
       const newTrackIndex = tracks.length;
-      tracks = [...tracks, { trackId: `tracker-track-${newTrackIndex}`, trackName: `Track ${newTrackIndex + 1}`, columnCount: numSteps }];
+      tracks = [
+        ...tracks,
+        {
+          trackId: `tracker-track-${newTrackIndex}`,
+          trackName: `Track ${newTrackIndex + 1}`,
+          instrumentId: '1',
+          noteTemplate: 'i <INSTR_ID> <START> <DUR> <pch> <db>',
+          columns: makeDefaultTrackColumns(),
+        },
+      ];
       if (rows.length === 0) {
-        rows = Array.from({ length: numSteps }, (_, si) => ({
-          step: si,
-          [`track-0`]: '',
-        }));
+        rows = Array.from({ length: steps }, (_, si) => makeRow(si, tracks));
       } else {
-        rows = rows.map((row) => ({ ...row, [`track-${newTrackIndex}`]: '' }));
+        rows = rows.map((row, ri) => {
+          const next: Record<string, string | number | null> = { ...row, step: ri };
+          next[`track-${newTrackIndex}-status`] = '';
+          const colCount = tracks[newTrackIndex]?.columns?.length ?? 0;
+          for (let ci = 0; ci < colCount; ci++) {
+            next[`track-${newTrackIndex}-col-${ci}`] = '';
+          }
+          return next;
+        });
+      }
+    }
+    if (p.duplicateTrack !== undefined) {
+      const sourceIndex = p.duplicateTrack as number;
+      if (sourceIndex >= 0 && sourceIndex < tracks.length) {
+        const sourceTrack = tracks[sourceIndex];
+        const duplicatedTrack = {
+          ...sourceTrack,
+          columns: sourceTrack.columns.map((c) => ({ ...c })),
+        };
+        const oldRows = rows;
+        tracks = [
+          ...tracks.slice(0, sourceIndex + 1),
+          duplicatedTrack,
+          ...tracks.slice(sourceIndex + 1),
+        ].map((track, index) => ({ ...track, trackId: `tracker-track-${index}` }));
+
+        rows = oldRows.map((row, rowIndex) => {
+          const next: Record<string, string | number | null> = { step: rowIndex };
+          for (let ti = 0; ti < tracks.length; ti++) {
+            const sourceTi = ti <= sourceIndex
+              ? ti
+              : ti === sourceIndex + 1
+              ? sourceIndex
+              : ti - 1;
+            next[`track-${ti}-status`] = row[`track-${sourceTi}-status`] ?? '';
+            const colCount = tracks[ti]?.columns?.length ?? 0;
+            for (let ci = 0; ci < colCount; ci++) {
+              next[`track-${ti}-col-${ci}`] = row[`track-${sourceTi}-col-${ci}`] ?? '';
+            }
+          }
+          return next;
+        });
+      }
+    }
+    if (p.clearTrack !== undefined) {
+      const clearIndex = p.clearTrack as number;
+      if (clearIndex >= 0 && clearIndex < tracks.length) {
+        rows = rows.map((row, rowIndex) => {
+          const next: Record<string, string | number | null> = { ...row, step: rowIndex };
+          next[`track-${clearIndex}-status`] = '';
+          const colCount = tracks[clearIndex]?.columns?.length ?? 0;
+          for (let ci = 0; ci < colCount; ci++) {
+            next[`track-${clearIndex}-col-${ci}`] = '';
+          }
+          return next;
+        });
       }
     }
     if (p.removeTrack !== undefined) {
       const idx = p.removeTrack as number;
       if (idx >= 0 && idx < tracks.length) {
-        tracks = tracks.filter((_, i) => i !== idx);
-        tracks = tracks.map((t, i) => ({ ...t, trackId: `tracker-track-${i}` }));
+        tracks = tracks.filter((_, i) => i !== idx).map((t, i) => ({ ...t, trackId: `tracker-track-${i}` }));
         rows = rows.map((row) => {
           const newRow: Record<string, string | number | null> = { step: row.step };
           for (let ti = 0; ti < tracks.length; ti++) {
-            newRow[`track-${ti}`] = row[`track-${ti >= idx ? ti + 1 : ti}`] ?? '';
+            const sourceTi = ti >= idx ? ti + 1 : ti;
+            newRow[`track-${ti}-status`] = row[`track-${sourceTi}-status`] ?? '';
+            const colCount = tracks[ti]?.columns?.length ?? 0;
+            for (let ci = 0; ci < colCount; ci++) {
+              newRow[`track-${ti}-col-${ci}`] = row[`track-${sourceTi}-col-${ci}`] ?? '';
+            }
           }
           return newRow;
         });
@@ -95,8 +638,80 @@ function applyPatchToDocument(
         }
       }
     }
+    if (p.updateTrackProperties !== undefined) {
+      const {
+        trackIndex,
+        name,
+        instrumentId,
+        noteTemplate,
+        columns,
+      } = p.updateTrackProperties as {
+        trackIndex: number;
+        name: string;
+        instrumentId: string;
+        noteTemplate: string;
+        columns?: TrackerColumnSnapshot[];
+      };
+      if (trackIndex >= 0 && trackIndex < tracks.length) {
+        const oldCols = tracks[trackIndex]?.columns?.map((col) => ({ ...col })) ?? [];
+        const oldColCount = oldCols.length;
+        tracks = tracks.map((track, index) => {
+          if (index !== trackIndex) return track;
+          const nextColumns = columns
+            ? columns.map((col, nextIndex) => ({
+              ...col,
+              sourceIndex: (() => {
+                if (typeof col.sourceIndex === 'number' && Number.isInteger(col.sourceIndex)) {
+                  return col.sourceIndex;
+                }
+                if (col.sourceIndex === undefined) {
+                  return nextIndex < oldColCount ? nextIndex : null;
+                }
+                return null;
+              })(),
+            }))
+            : track.columns;
+          return {
+            ...track,
+            trackName: name,
+            instrumentId,
+            noteTemplate,
+            columns: nextColumns,
+          };
+        });
+        if (columns) {
+          const newColCount = tracks[trackIndex]?.columns?.length ?? 0;
+          rows = rows.map((row, rowIndex) => {
+            const next: Record<string, string | number | null> = { ...row, step: rowIndex };
+            const sourceMap = tracks[trackIndex]?.columns?.map((col, colIndex) => {
+              if (typeof col.sourceIndex === 'number' && Number.isInteger(col.sourceIndex)) {
+                return col.sourceIndex >= 0 && col.sourceIndex < oldColCount ? col.sourceIndex : null;
+              }
+              if (col.sourceIndex === undefined) {
+                return colIndex < oldColCount ? colIndex : null;
+              }
+              return null;
+            }) ?? [];
+            for (let ci = 0; ci < newColCount; ci++) {
+              const key = `track-${trackIndex}-col-${ci}`;
+              const sourceIndex = sourceMap[ci];
+              next[key] =
+                sourceIndex !== null
+                  ? row[`track-${trackIndex}-col-${sourceIndex}`] ?? ''
+                  : '';
+            }
+            for (let ci = newColCount; ci < oldColCount; ci++) {
+              delete next[`track-${trackIndex}-col-${ci}`];
+            }
+            return next;
+          });
+        }
+      }
+    }
+    rows = rows.map((row, rowIndex) => ({ ...row, step: rowIndex }));
     const editor: TypeSpecificScoreObjectEditorSnapshot = {
       ...doc.editor,
+      steps,
       stepsPerBeat,
       ...(p.showNoteNames !== undefined && { showNoteNames: p.showNoteNames as boolean }),
       ...(p.octave !== undefined && { octave: p.octave as number }),
@@ -308,10 +923,8 @@ export default function ScoreObjectEditorPanel(): React.ReactElement {
 
   const handlePatch = useCallback((patch: ScorePatch): void => {
     applyProjectDocumentPatch({ score: patch });
-    if (document) {
-      setDocument(applyPatchToDocument(document, patch));
-    }
-  }, [applyProjectDocumentPatch, document]);
+    setDocument((current) => (current ? applyPatchToDocument(current, patch) : current));
+  }, [applyProjectDocumentPatch]);
 
   if (!loaded) {
     return <EmptyState message="No project loaded" />;
