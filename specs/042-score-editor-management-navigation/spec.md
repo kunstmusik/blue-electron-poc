@@ -1,6 +1,6 @@
 # Feature Specification: Score Editor Management and Navigation
 
-**Feature Branch**: `040-score-editor-management-navigation`  
+**Feature Branch**: `042-score-editor-management-navigation`  
 **Created**: 2026-05-07  
 **Status**: Draft  
 **Input**: User description: "Push the old interaction follow-up behind the remaining score-object editor specs and rewrite it around the score-management/navigation work that is still actually missing."
@@ -86,6 +86,6 @@ As a composer expecting Java Blue score parity, I need playback-follow, time-poi
 
 ## Assumptions
 
-- Specs `038-score-object-editor-tier1-parity` and `039-score-object-editor-tier2-parity` have already planned the remaining score-object editor follow-up work so this slice can stay focused on shell-level management and navigation.
+- Specs `039-sound-score-object-editor`, `040-pianoroll-score-object-editor`, and `041-jmask-score-object-editor` have already planned the remaining heavyweight score-object editor follow-up work so this slice can stay focused on shell-level management and navigation.
 - Spec `036-score-editor-foundation` already delivered most of the direct timeline manipulation that the original interaction draft assumed was still missing.
 - Some score-adjacent or Java-only workflow gaps may still require later dedicated slices if they remain out of scope after this management/navigation pass.

@@ -160,10 +160,13 @@
 - `038-score-object-editor-tier1-parity`
   - `External`, `PolyObject`, and `TrackerObject` follow-up editors
   - moderate-gap auxiliary editor parity built on the Spec 037 shell
-- `039-score-object-editor-tier2-parity`
-  - `Sound`, `PianoRoll`, and `JMask` follow-up editors
-  - heavyweight remaining score-object editor parity work
-- `040-score-editor-management-navigation`
+- `039-sound-score-object-editor`
+  - `Sound` tabbed editor parity, BSB reuse, automation workflow, comments, and test-preview work
+- `040-pianoroll-score-object-editor`
+  - `PianoRoll` note-canvas, field-editor, property, and shortcut-workflow parity
+- `041-jmask-score-object-editor`
+  - `JMask` parameter-stack, generator-factory, optional-section, and preview-boundary work
+- `042-score-editor-management-navigation`
   - shell-level `Manage` workflow and manager dialogs
   - marker and navigator workflows plus playback-follow polish
   - remaining shell-level parity gaps after the editor specs land

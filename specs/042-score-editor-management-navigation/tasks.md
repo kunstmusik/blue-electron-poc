@@ -1,6 +1,6 @@
 # Tasks: Score Editor Management and Navigation
 
-**Input**: Design documents from `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/`  
+**Input**: Design documents from `/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/`  
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/  
 
 **Tests**: Tests are required by FR-008. Add manager/navigation and playback-follow coverage before or alongside the implementation it protects.
@@ -41,7 +41,7 @@
 ## Phase 6: Polish & Validation
 
 - [ ] T019 [P] Update `quickstart.md` with any implementation-specific notes
-- [ ] T020 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with the planning or implementation handoff state for Spec 040
+- [ ] T020 [P] Update `/Users/stevenyi/work/blue-electron/STATUS.md` with the planning or implementation handoff state for Spec 042
 - [ ] T021 Run `pnpm --filter @blue/app test`
 - [ ] T022 Run `pnpm --filter @blue/app build:renderer`
 - [ ] T023 Run `git diff --check`
@@ -50,5 +50,5 @@
 ## Handoff Notes
 
 - Do not re-open already-landed direct manipulation behavior except for blocking regressions.
-- Keep score-object editor work in Specs 038 and 039; this slice is for shell-level management/navigation only.
+- Keep score-object editor work in Specs 039, 040, and 041; this slice is for shell-level management/navigation only.
 - Keep playback-follow logic local to the score shell when possible to avoid unnecessary shared-store churn.

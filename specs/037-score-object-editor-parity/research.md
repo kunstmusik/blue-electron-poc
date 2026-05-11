@@ -132,13 +132,15 @@
 
 ## Decision: Keep later score-object follow-up and shell management/navigation workflows out of Spec 037
 
-**Rationale**: Spec 037 should stay focused on the first auxiliary editor shell. The remaining score-object editor work now lives in Specs 038 and 039, while the shell management/navigation follow-up now lives in Spec 040.
+**Rationale**: Spec 037 should stay focused on the first auxiliary editor shell. The remaining score-object editor work now lives in Specs 038, 039, 040, and 041, while the shell management/navigation follow-up now lives in Spec 042.
 
 **Sources Reviewed**:
 
 - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/spec.md`
-- `/Users/stevenyi/work/blue-electron/specs/039-score-object-editor-tier2-parity/spec.md`
-- `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/039-sound-score-object-editor/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/040-pianoroll-score-object-editor/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/041-jmask-score-object-editor/spec.md`
+- `/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/spec.md`
 - `/Users/stevenyi/work/blue-electron/STATUS.md`
 
 **Alternatives considered**:

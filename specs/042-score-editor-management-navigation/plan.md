@@ -1,7 +1,7 @@
 # Implementation Plan: Score Editor Management and Navigation
 
-**Branch**: `040-score-editor-management-navigation` | **Date**: 2026-05-07 | **Spec**: [/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md](/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md)
-**Input**: Feature specification from `/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/spec.md`
+**Branch**: `042-score-editor-management-navigation` | **Date**: 2026-05-07 | **Spec**: [/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/spec.md](/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/spec.md)
+**Input**: Feature specification from `/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/spec.md`
 
 ## Summary
 
@@ -10,7 +10,7 @@ Re-scope the old interaction follow-up so it lands after the remaining score-obj
 ## Technical Context
 
 **Language/Version**: TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages  
-**Primary Dependencies**: Spec 036 score shell and time-state bridge, Spec 037 auxiliary score-object panels, planned Specs 038 and 039 for remaining score-object editor parity, existing playback store and workbench routing, Dockview 5.2.0, Vitest 4.x  
+**Primary Dependencies**: Spec 036 score shell and time-state bridge, Spec 037 auxiliary score-object panels, closed Spec 038 Tier 1 editor work, planned Specs 039, 040, and 041 for the remaining heavyweight editor parity, existing playback store and workbench routing, Dockview 5.2.0, Vitest 4.x  
 **Storage**: canonical score structure remains in main-process `BlueData`; shell-local follow/navigation session state remains renderer-local where appropriate  
 **Testing**: Vitest renderer and shared-contract coverage plus renderer/main build validation  
 **Target Platform**: Electron desktop on macOS first  
@@ -33,7 +33,7 @@ Re-scope the old interaction follow-up so it lands after the remaining score-obj
 ### Documentation
 
 ```text
-/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/
+/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/
 ├── spec.md
 ├── plan.md
 ├── research.md
@@ -58,13 +58,13 @@ Re-scope the old interaction follow-up so it lands after the remaining score-obj
 
 ## Phase 0 Research Output
 
-See [/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/research.md](/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/research.md).
+See [/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/research.md](/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/research.md).
 
 ## Phase 1 Design Output
 
-- [/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/data-model.md](/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/data-model.md)
-- [/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/contracts/score-editor-management-navigation-surfaces.md](/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/contracts/score-editor-management-navigation-surfaces.md)
-- [/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/quickstart.md](/Users/stevenyi/work/blue-electron/specs/040-score-editor-management-navigation/quickstart.md)
+- [/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/data-model.md](/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/data-model.md)
+- [/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/contracts/score-editor-management-navigation-surfaces.md](/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/contracts/score-editor-management-navigation-surfaces.md)
+- [/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/quickstart.md](/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/quickstart.md)
 
 ## Post-Design Constitution Check
 
