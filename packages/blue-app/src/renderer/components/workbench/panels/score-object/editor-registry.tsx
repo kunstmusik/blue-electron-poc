@@ -16,7 +16,7 @@ import PolyObjectScoreObjectEditor from './editors/PolyObjectScoreObjectEditor';
 import TrackerScoreObjectEditor from './editors/TrackerScoreObjectEditor';
 
 import JMaskEditor from './editors/JMaskEditor';
-import SoundObjectEditor from './editors/SoundObjectEditor';
+import SoundEditor from './editors/SoundEditor';
 import PolyObjectEditor from './editors/PolyObjectEditor';
 import TrackerObjectEditor from './editors/TrackerObjectEditor';
 import UnsupportedScoreObjectEditor from './editors/UnsupportedScoreObjectEditor';
@@ -37,7 +37,7 @@ function resolveStructuredEditor(editorFamily: string): ScoreObjectEditorCompone
     case 'TrackerObject': return TrackerObjectEditor;
 
     case 'JMask': return JMaskEditor;
-    case 'Sound': return SoundObjectEditor;
+    case 'Sound': return SoundEditor;
     case 'PolyObject': return PolyObjectEditor;
     default: return UnsupportedScoreObjectEditor;
   }

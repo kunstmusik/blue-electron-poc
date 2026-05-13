@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
@@ -10,6 +10,7 @@ import BSBPropertySheet from './BSBPropertySheet';
 import BSBGridSettingsPanel from './BSBGridSettingsPanel';
 import BSBPresetBar from './BSBPresetBar';
 import SplitPane from '../SplitPane';
+import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 
 interface BSBInterfaceEditorProps {
   instrument: BlueSynthBuilderInstrumentSnapshot;
@@ -73,20 +74,17 @@ function BSBInterfaceEditor({
     [instrument, selectedWidgetIds, editEnabled, handleWidgetSelect, dispatchBsbPatch, onInstrumentPatch],
   );
 
-  useEffect(() => {
-    if (!showEditModeToggle) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'e' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        dispatchBsbPatch({ type: 'setEditEnabled', value: !instrument.editEnabled });
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+  const handleEditorKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!showEditModeToggle || isTextEditingTarget(e.target)) return;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+      e.preventDefault();
+      e.stopPropagation();
+      dispatchBsbPatch({ type: 'setEditEnabled', value: !instrument.editEnabled });
+    }
   }, [dispatchBsbPatch, instrument.editEnabled, showEditModeToggle]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-blue-bg">
+    <div className="flex h-full min-h-0 flex-col bg-blue-bg" data-shortcut-scope="bsb-interface-editor" onKeyDown={handleEditorKeyDown}>
       {showEditModeToggle && (
         <div className="flex items-center justify-between border-b border-blue-border px-3 py-1">
           <BSBPresetBar instrument={instrument} onBsbInterfacePatch={dispatchBsbPatch} />

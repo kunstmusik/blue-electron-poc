@@ -354,6 +354,68 @@ describe('BlueSynthBuilder', () => {
     expect(savedXml).toContain('<linePoint x="0.5" y="0.5"/>');
   });
 
+  it('parses and saves Java-style BSB line metadata', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Java Line Object</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBLineObject">
+          <objectName>curve</objectName>
+          <x>0</x><y>0</y>
+          <canvasWidth>200</canvasWidth>
+          <canvasHeight>120</canvasHeight>
+          <separatorType>COMMA</separatorType>
+          <lines>
+            <line name="env" varName="line0" version="2" max="1.0" min="0.0" bdresolution="-1" color="-65536" rightBound="false" endPointsLinked="false">
+              <linePoint x="0.0" y="0.25"/>
+              <linePoint x="1.0" y="0.75"/>
+            </line>
+          </lines>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0]! as any;
+    expect(widget.lines[0].varName).toBe('env');
+    expect(widget.lines[0].color).toBe('#ff0000');
+    expect(widget.separatorType).toBe('Comma');
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<separatorType>COMMA</separatorType>');
+    expect(savedXml).toContain('line name="env"');
+    expect(savedXml).toContain('color="-65536"');
+  });
+
+  it('parses legacy text-encoded BSB line points', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Legacy Line Points</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBLineObject">
+          <objectName>curve</objectName>
+          <lines>
+            <line name="legacy" min="0" max="1" color="#00ff00">
+              <points>0,0.1 0.5,0.6 1,0.2</points>
+            </line>
+          </lines>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0]! as any;
+
+    expect(widget.lines[0].varName).toBe('legacy');
+    expect(widget.lines[0].points).toEqual([
+      { x: 0, y: 0.1 },
+      { x: 0.5, y: 0.6 },
+      { x: 1, y: 0.2 },
+    ]);
+  });
+
   it('updates slider bank child values through slider bank patches', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Slider Bank</name>

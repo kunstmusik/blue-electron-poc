@@ -88,9 +88,40 @@ describe('CompileData', () => {
     compileData.addInstrument(instrument);
 
     expect(compileData.getOriginalParameters()).toHaveLength(1);
+    expect(parameter.getCompilationVarName()).toBe('gk_blue_auto0');
     expect(compileData.getStringChannels()).toHaveLength(1);
-    expect(compileData.getStringChannels()[0].channelName).toBe('path');
+    expect(compileData.getStringChannels()[0].channelName).toBe('gS_blue_str0');
     expect(compileData.getStringChannels()[0].value).toBe('/tmp/sample.wav');
+  });
+
+  it('continues generated names after seeding arrangement automation state', () => {
+    const compileData = new CompileData(new Arrangement(), new Tables(), true);
+
+    const seededParameter = new Parameter();
+    seededParameter.setName('seeded');
+    seededParameter.setCompilationVarName('gk_blue_auto0');
+
+    compileData.registerExistingAutomationState(
+      [seededParameter],
+      [{ objectName: 'seededPath', value: '/tmp/seed.wav', channelName: 'gS_blue_str0' }],
+    );
+
+    const instrument = new CompileDataInstrument();
+    const parameter = new Parameter();
+    parameter.setName('gain');
+    instrument.setParameters([parameter]);
+    instrument.setStringChannels([
+      {
+        objectName: 'path',
+        value: '/tmp/sample.wav',
+        channelName: 'ignored',
+      },
+    ]);
+
+    compileData.addInstrument(instrument);
+
+    expect(parameter.getCompilationVarName()).toBe('gk_blue_auto1');
+    expect(compileData.getStringChannels()[1].channelName).toBe('gS_blue_str1');
   });
 
   it('resets transient compile state between render invocations', () => {

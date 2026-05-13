@@ -1,4 +1,10 @@
-import type { ScoreTimeStateSnapshot, MarkerSnapshot, MeterSnapshot, TempoMapSnapshot } from '../../../../../shared/project-editor';
+import type {
+  ScoreTimeStateSnapshot,
+  MarkerSnapshot,
+  MeterSnapshot,
+  TempoMapSnapshot,
+  TempoPointSnapshot,
+} from '../../../../../shared/project-editor';
 import { TimeBase } from '@blue/data';
 import MeterRegionBar from './MeterRegionBar';
 import MarkersBar from './MarkersBar';
@@ -10,11 +16,11 @@ interface Props {
   tempoMap: TempoMapSnapshot;
   totalBeats: number;
   pixelsPerBeat: number;
+  sampleRate: number;
 }
 
-export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat }: Props) {
+export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate }: Props) {
   const contentWidth = totalBeats * pixelsPerBeat;
-  const tempo = tempoMap.points.length > 0 ? tempoMap.points[0].tempo : 60;
   const smpteFrameRate = timeState.smpteFrameRate || 24;
 
   return (
@@ -34,9 +40,10 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
         timeDisplay={timeState.primaryTimeDisplay}
         totalBeats={totalBeats}
         pixelsPerBeat={pixelsPerBeat}
-        tempo={tempo}
+        tempoMap={tempoMap}
         meters={meters}
         smpteFrameRate={smpteFrameRate}
+        sampleRate={sampleRate}
       />
 
       {timeState.secondaryRulerEnabled && (
@@ -44,9 +51,10 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
           timeDisplay={timeState.secondaryTimeDisplay}
           totalBeats={totalBeats}
           pixelsPerBeat={pixelsPerBeat}
-          tempo={tempo}
+          tempoMap={tempoMap}
           meters={meters}
           smpteFrameRate={smpteFrameRate}
+          sampleRate={sampleRate}
           secondary
         />
       )}
@@ -56,16 +64,40 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
 
 interface Mark { x: number; label?: string; type: 'major' | 'minor' }
 
-function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempo, meters, smpteFrameRate, secondary }: {
+interface TempoMapAdapter {
+  beatsToSeconds: (beat: number) => number;
+  secondsToBeats: (seconds: number) => number;
+}
+
+interface MeterTimelineEntry {
+  measure: number;
+  numBeats: number;
+  beatLength: number;
+  startBeat: number;
+  beatsPerMeasure: number;
+}
+
+const tempoMapAdapterCache = new WeakMap<TempoMapSnapshot, TempoMapAdapter>();
+
+function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smpteFrameRate, sampleRate, secondary }: {
   timeDisplay: string;
   totalBeats: number;
   pixelsPerBeat: number;
-  tempo: number;
+  tempoMap: TempoMapSnapshot;
   meters: MeterSnapshot[];
   smpteFrameRate: number;
+  sampleRate: number;
   secondary?: boolean;
 }) {
-  const marks = computeMarks(timeDisplay, totalBeats, pixelsPerBeat, tempo, meters, smpteFrameRate);
+  const marks = computeMarks(
+    timeDisplay,
+    totalBeats,
+    pixelsPerBeat,
+    tempoMap,
+    meters,
+    smpteFrameRate,
+    sampleRate,
+  );
   const ROW_HEIGHT = 20;
 
   return (
@@ -85,8 +117,11 @@ function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempo, meters, smpteF
             borderLeft: `1px solid ${mark.type === 'major' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)'}`,
           }}
         >
-          {mark.type === 'major' && mark.label && (
-            <span className="absolute top-px left-1 text-[10px] text-blue-muted whitespace-nowrap select-none">
+          {mark.label && (
+            <span
+              className="absolute left-1 text-[10px] text-blue-muted whitespace-nowrap select-none"
+              style={{ top: mark.type === 'major' ? 1 : -9 }}
+            >
               {mark.label}
             </span>
           )}
@@ -100,18 +135,19 @@ function computeMarks(
   timeDisplay: string,
   totalBeats: number,
   pixelsPerBeat: number,
-  tempo: number,
+  tempoMap: TempoMapSnapshot,
   meters: MeterSnapshot[],
   smpteFrameRate: number,
+  sampleRate: number,
 ): Mark[] {
   switch (timeDisplay) {
     case TimeBase.TIME:
     case TimeBase.SECONDS:
-      return computeTimeMarks(totalBeats, pixelsPerBeat, tempo, timeDisplay);
+      return computeTimeMarks(totalBeats, pixelsPerBeat, tempoMap, timeDisplay);
     case TimeBase.SMPTE:
-      return computeSmpteMarks(totalBeats, pixelsPerBeat, tempo, smpteFrameRate);
+      return computeSmpteMarks(totalBeats, pixelsPerBeat, tempoMap, smpteFrameRate);
     case TimeBase.FRAME:
-      return computeSamplesMarks(totalBeats, pixelsPerBeat, tempo);
+      return computeSamplesMarks(totalBeats, pixelsPerBeat, tempoMap, sampleRate);
     case TimeBase.BBT:
     case TimeBase.BBST:
     case TimeBase.BBF:
@@ -121,12 +157,132 @@ function computeMarks(
   }
 }
 
-function beatsToSeconds(beats: number, tempo: number): number {
-  return beats * 60.0 / tempo;
+function normalizeTempoPoints(snapshot: TempoMapSnapshot): TempoPointSnapshot[] {
+  return [...snapshot.points].sort((a, b) => a.beat - b.beat);
 }
 
-function secondsToBeats(seconds: number, tempo: number): number {
-  return seconds * tempo / 60.0;
+function createTempoMapAdapter(snapshot: TempoMapSnapshot): TempoMapAdapter {
+  const cached = tempoMapAdapterCache.get(snapshot);
+  if (cached) {
+    return cached;
+  }
+
+  if (!snapshot.enabled || snapshot.points.length === 0) {
+    const identity = {
+      beatsToSeconds: (beat: number) => beat,
+      secondsToBeats: (seconds: number) => seconds,
+    };
+    tempoMapAdapterCache.set(snapshot, identity);
+    return identity;
+  }
+
+  const points = normalizeTempoPoints(snapshot);
+  const cumulativeSeconds: number[] = [0];
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1]!;
+    const current = points[i]!;
+    const previousSeconds = cumulativeSeconds[i - 1]!;
+    const deltaBeats = current.beat - prev.beat;
+
+    if (deltaBeats <= 0) {
+      cumulativeSeconds.push(previousSeconds);
+      continue;
+    }
+
+    if (prev.curveType === 'constant') {
+      cumulativeSeconds.push(previousSeconds + deltaBeats * (60 / prev.tempo));
+      continue;
+    }
+
+    const factor1 = 60 / prev.tempo;
+    const acceleration = (60 / current.tempo - factor1) / deltaBeats;
+    cumulativeSeconds.push(
+      previousSeconds
+      + (factor1 * deltaBeats)
+      + (0.5 * acceleration * deltaBeats * deltaBeats),
+    );
+  }
+
+  const beatsToSeconds = (beat: number): number => {
+    let index = 0;
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      if (beat >= points[i]!.beat) {
+        index = i;
+        break;
+      }
+    }
+
+    const current = points[index]!;
+    const currentSeconds = cumulativeSeconds[index]!;
+
+    if (index >= points.length - 1) {
+      const deltaBeats = beat - current.beat;
+      return currentSeconds + deltaBeats * (60 / current.tempo);
+    }
+
+    const next = points[index + 1]!;
+    const deltaBeats = beat - current.beat;
+
+    if (current.curveType === 'constant') {
+      return currentSeconds + deltaBeats * (60 / current.tempo);
+    }
+
+    const t0 = current.tempo;
+    const t1 = next.tempo;
+    const segmentBeats = next.beat - current.beat;
+
+    if (t0 === t1 || segmentBeats <= 0) {
+      return currentSeconds + deltaBeats * (60 / t0);
+    }
+
+    const factor1 = 60 / t0;
+    const acceleration = (60 / t1 - factor1) / segmentBeats;
+    return currentSeconds + (factor1 * deltaBeats) + (0.5 * acceleration * deltaBeats * deltaBeats);
+  };
+
+  const secondsToBeats = (seconds: number): number => {
+    let index = 0;
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      if (seconds >= cumulativeSeconds[i]!) {
+        index = i;
+        break;
+      }
+    }
+
+    const current = points[index]!;
+    const currentSeconds = cumulativeSeconds[index]!;
+    const elapsed = seconds - currentSeconds;
+
+    if (index >= points.length - 1) {
+      return current.beat + elapsed * (current.tempo / 60);
+    }
+
+    const next = points[index + 1]!;
+    if (current.curveType === 'constant') {
+      return current.beat + elapsed * (current.tempo / 60);
+    }
+
+    const t0 = current.tempo;
+    const t1 = next.tempo;
+    const segmentBeats = next.beat - current.beat;
+    if (t0 === t1 || segmentBeats <= 0) {
+      return current.beat + elapsed * (t0 / 60);
+    }
+
+    const factor1 = 60 / t0;
+    const acceleration = (60 / t1 - factor1) / segmentBeats;
+    const discriminant = factor1 * factor1 + 2 * acceleration * elapsed;
+
+    if (acceleration === 0) {
+      return current.beat + elapsed / factor1;
+    }
+
+    return current.beat + (Math.sqrt(Math.max(0, discriminant)) - factor1) / acceleration;
+  };
+
+  const adapter = { beatsToSeconds, secondsToBeats };
+  tempoMapAdapterCache.set(snapshot, adapter);
+  return adapter;
 }
 
 function niceNum(x: number, round: boolean): number {
@@ -144,15 +300,13 @@ function niceNum(x: number, round: boolean): number {
 
 function computeBeatsMarks(totalBeats: number, pixelsPerBeat: number): Mark[] {
   const majorBeatUnit = calcMajorBeatUnit(pixelsPerBeat);
-  const minorBeatUnit = majorBeatUnit / 2;
   const marks: Mark[] = [];
 
-  for (let beat = 0; beat <= totalBeats; beat += minorBeatUnit) {
-    const isMajor = Math.abs(beat / majorBeatUnit - Math.round(beat / majorBeatUnit)) < 0.001;
+  for (let beat = 0; beat <= totalBeats + majorBeatUnit * 0.5; beat += majorBeatUnit) {
     marks.push({
       x: beat * pixelsPerBeat,
-      label: isMajor ? formatBeat(beat) : undefined,
-      type: isMajor ? 'major' : 'minor',
+      label: formatBeat(beat),
+      type: 'major',
     });
   }
   return marks;
@@ -169,37 +323,36 @@ function formatBeat(beats: number): string {
   return beats.toFixed(1);
 }
 
-function computeTimeMarks(totalBeats: number, pixelsPerBeat: number, tempo: number, format: string): Mark[] {
+function computeTimeMarks(totalBeats: number, pixelsPerBeat: number, tempoMap: TempoMapSnapshot, format: string): Mark[] {
+  const tempoAdapter = createTempoMapAdapter(tempoMap);
   const approxWidth = totalBeats * pixelsPerBeat;
   const startBeat = 0;
   const endBeat = totalBeats;
-  const startSeconds = beatsToSeconds(startBeat, tempo);
-  const endSeconds = beatsToSeconds(endBeat, tempo);
+  const startSeconds = tempoAdapter.beatsToSeconds(startBeat);
+  const endSeconds = tempoAdapter.beatsToSeconds(endBeat);
 
   const nticks = Math.max(approxWidth / 80, 2);
   const range = niceNum(endSeconds - startSeconds, false);
+  if (range === 0) return [];
   const d = niceNum(range / (nticks - 1), true);
-  const minorD = d / 2;
-  const graphMin = Math.floor(startSeconds / minorD) * minorD;
+  if (d === 0) return [];
+  const graphMin = Math.floor(startSeconds / d) * d;
+  const graphMax = Math.ceil(endSeconds / d) * d;
   const nfrac = Math.max(-Math.floor(Math.log10(d)), 0);
 
   const marks: Mark[] = [];
-  const beatDuration = endBeat - startBeat;
 
-  for (let seconds = graphMin; seconds < endSeconds + 0.5 * minorD; seconds += minorD) {
+  for (let seconds = graphMin; seconds < graphMax + 0.5 * d; seconds += d) {
     if (seconds < 0) continue;
-    const beatPos = secondsToBeats(seconds, tempo);
-    const x = (beatDuration > 0) ? ((beatPos - startBeat) / beatDuration) * approxWidth : 0;
+    const beatPos = tempoAdapter.secondsToBeats(seconds);
+    const x = totalBeats > 0 ? ((beatPos - startBeat) / totalBeats) * approxWidth : 0;
     if (x >= 0 && x <= approxWidth) {
-      const isMajor = Math.abs(seconds / d - Math.round(seconds / d)) < 0.001;
       marks.push({
         x,
-        label: isMajor
-          ? (format === TimeBase.SECONDS
-              ? formatSecondsWithPrecision(seconds, nfrac)
-              : formatTimeWithPrecision(seconds, nfrac))
-          : undefined,
-        type: isMajor ? 'major' : 'minor',
+        label: format === TimeBase.SECONDS
+          ? formatSecondsWithPrecision(seconds, nfrac)
+          : formatTimeWithPrecision(seconds, nfrac),
+        type: 'major',
       });
     }
   }
@@ -208,11 +361,11 @@ function computeTimeMarks(totalBeats: number, pixelsPerBeat: number, tempo: numb
 
 function formatTimeWithPrecision(seconds: number, nfrac: number): string {
   const totalSecs = Math.floor(seconds);
-  const minutes = totalSecs / 60;
+  const minutes = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
 
   if (minutes >= 60) {
-    const hours = minutes / 60;
+    const hours = Math.floor(minutes / 60);
     const remMinutes = minutes % 60;
     if (nfrac > 0) {
       const frac = Math.round((seconds - totalSecs) * Math.pow(10, nfrac));
@@ -234,10 +387,11 @@ function formatSecondsWithPrecision(seconds: number, nfrac: number): string {
   return text.includes('.') ? text : text + '.0';
 }
 
-function computeSmpteMarks(totalBeats: number, pixelsPerBeat: number, tempo: number, frameRate: number): Mark[] {
+function computeSmpteMarks(totalBeats: number, pixelsPerBeat: number, tempoMap: TempoMapSnapshot, frameRate: number): Mark[] {
+  const tempoAdapter = createTempoMapAdapter(tempoMap);
   const approxWidth = totalBeats * pixelsPerBeat;
   const startSeconds = 0;
-  const endSeconds = beatsToSeconds(totalBeats, tempo);
+  const endSeconds = tempoAdapter.beatsToSeconds(totalBeats);
   const frameDuration = 1.0 / frameRate;
 
   const pixelsPerSecond = (endSeconds > 0) ? approxWidth / endSeconds : 1;
@@ -251,22 +405,18 @@ function computeSmpteMarks(totalBeats: number, pixelsPerBeat: number, tempo: num
   for (const inc of increments) {
     if (minSecPerLabel <= inc) { increment = inc; break; }
   }
-  const minorIncrement = increment / 2;
-
-  const alignedStart = Math.floor(startSeconds / minorIncrement) * minorIncrement;
+  const alignedStart = Math.floor(startSeconds / increment) * increment;
   const marks: Mark[] = [];
-  const beatDuration = totalBeats;
 
-  for (let sec = alignedStart; sec <= endSeconds + increment * 0.5; sec += minorIncrement) {
+  for (let sec = alignedStart; sec <= endSeconds + increment * 0.5; sec += increment) {
     if (sec < 0) continue;
-    const beatPos = secondsToBeats(sec, tempo);
-    const x = (beatDuration > 0) ? (beatPos / beatDuration) * approxWidth : 0;
+    const beatPos = tempoAdapter.secondsToBeats(sec);
+    const x = totalBeats > 0 ? (beatPos / totalBeats) * approxWidth : 0;
     if (x >= 0 && x <= approxWidth) {
-      const isMajor = Math.abs(sec / increment - Math.round(sec / increment)) < 0.001;
       marks.push({
         x,
-        label: isMajor ? formatSmpteLabel(sec, frameRate) : undefined,
-        type: isMajor ? 'major' : 'minor',
+        label: formatSmpteLabel(sec, frameRate),
+        type: 'major',
       });
     }
   }
@@ -285,35 +435,41 @@ function formatSmpteLabel(seconds: number, frameRate: number): string {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
 }
 
-function computeSamplesMarks(totalBeats: number, pixelsPerBeat: number, tempo: number): Mark[] {
-  const sampleRate = 44100;
+function computeSamplesMarks(
+  totalBeats: number,
+  pixelsPerBeat: number,
+  tempoMap: TempoMapSnapshot,
+  sampleRate: number,
+): Mark[] {
+  const tempoAdapter = createTempoMapAdapter(tempoMap);
+  const safeSampleRate = sampleRate > 0 ? sampleRate : 44100;
   const approxWidth = totalBeats * pixelsPerBeat;
   const startSeconds = 0;
-  const endSeconds = beatsToSeconds(totalBeats, tempo);
-  const startSample = startSeconds * sampleRate;
-  const endSample = endSeconds * sampleRate;
+  const endSeconds = tempoAdapter.beatsToSeconds(totalBeats);
+  const startSample = startSeconds * safeSampleRate;
+  const endSample = endSeconds * safeSampleRate;
 
   const nticks = Math.max(approxWidth / 80, 2);
   const range = niceNum(endSample - startSample, false);
+  if (range === 0) return [];
   const d = niceNum(range / (nticks - 1), true);
-  const minorD = d / 2;
-  const graphMin = Math.floor(startSample / minorD) * minorD;
+  if (d === 0) return [];
+  const graphMin = Math.floor(startSample / d) * d;
+  const graphMax = Math.ceil(endSample / d) * d;
   const nfrac = Math.max(-Math.floor(Math.log10(d)), 0);
 
   const marks: Mark[] = [];
-  const beatDuration = totalBeats;
 
-  for (let sample = graphMin; sample < endSample + 0.5 * minorD; sample += minorD) {
+  for (let sample = graphMin; sample < graphMax + 0.5 * d; sample += d) {
     if (sample < 0) continue;
-    const seconds = sample / sampleRate;
-    const beatPos = secondsToBeats(seconds, tempo);
-    const x = (beatDuration > 0) ? (beatPos / beatDuration) * approxWidth : 0;
+    const seconds = sample / safeSampleRate;
+    const beatPos = tempoAdapter.secondsToBeats(seconds);
+    const x = totalBeats > 0 ? (beatPos / totalBeats) * approxWidth : 0;
     if (x >= 0 && x <= approxWidth) {
-      const isMajor = Math.abs(sample / d - Math.round(sample / d)) < 0.001;
       marks.push({
         x,
-        label: isMajor ? formatSampleCount(sample, nfrac) : undefined,
-        type: isMajor ? 'major' : 'minor',
+        label: formatSampleCount(sample, nfrac),
+        type: 'major',
       });
     }
   }
@@ -321,30 +477,45 @@ function computeSamplesMarks(totalBeats: number, pixelsPerBeat: number, tempo: n
 }
 
 function formatSampleCount(samples: number, nfrac: number): string {
-  const abs = Math.abs(samples);
-  if (abs >= 1_000_000) {
-    const val = samples / 1_000_000;
-    return val === Math.floor(val) ? `${Math.round(val)}M` : `${val.toFixed(1)}M`;
+  if (Math.abs(samples) >= 1_000_000) {
+    const val = samples / 1_000_000.0;
+    const mfrac = Math.max(0, nfrac - 6);
+    if (mfrac === 0 && val === Math.floor(val)) {
+      return `${Math.trunc(val)}M`;
+    }
+    const displayFrac = Math.max(1, Math.min(3, nfrac > 0 ? nfrac - 5 : 1));
+    return `${val.toFixed(displayFrac)}M`;
   }
-  if (abs >= 1_000) {
-    const val = samples / 1_000;
-    return val === Math.floor(val) ? `${Math.round(val)}k` : `${val.toFixed(1)}k`;
+
+  if (Math.abs(samples) >= 1_000) {
+    const val = samples / 1_000.0;
+    const kfrac = Math.max(0, nfrac - 3);
+    if (kfrac === 0 && val === Math.floor(val)) {
+      return `${Math.trunc(val)}k`;
+    }
+    const displayFrac = Math.max(1, Math.min(3, nfrac > 0 ? nfrac - 2 : 1));
+    return `${val.toFixed(displayFrac)}k`;
   }
-  if (nfrac === 0 || samples === Math.floor(samples)) return String(Math.round(samples));
-  return samples.toFixed(Math.min(nfrac, 3));
+
+  if (nfrac === 0 || samples === Math.floor(samples)) {
+    return String(Math.round(samples));
+  }
+
+  return samples.toFixed(nfrac);
 }
 
 function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: MeterSnapshot[]): Mark[] {
-  const firstMeter = meters.length > 0 ? meters[0] : { measure: 1, numBeats: 4, beatLength: 4 };
+  const meterTimeline = normalizeMeterEntries(meters);
+  const firstMeter = meterTimeline[0]!;
   const beatsPerMeasure = firstMeter.numBeats * (4.0 / firstMeter.beatLength);
-  const pixelsPerMeasure = beatsPerMeasure * pixelsPerBeat;
+  const approxPixelsPerMeasure = beatsPerMeasure * pixelsPerBeat;
 
   const minLabelSpacing = 60;
   let measureGrouping = 1;
   let showBeats = false;
 
-  if (pixelsPerMeasure < minLabelSpacing) {
-    while (measureGrouping * pixelsPerMeasure < minLabelSpacing) {
+  if (approxPixelsPerMeasure < minLabelSpacing) {
+    while (measureGrouping * approxPixelsPerMeasure < minLabelSpacing) {
       measureGrouping *= 2;
       if (measureGrouping > 256) break;
     }
@@ -356,7 +527,7 @@ function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: 
   let currentMeasure = 1;
 
   while (true) {
-    const measureStartBeat = getMeasureStartBeat(meters, currentMeasure);
+    const measureStartBeat = getMeasureStartBeat(meterTimeline, currentMeasure);
     if (measureStartBeat > totalBeats + beatsPerMeasure) break;
 
     const x = measureStartBeat * pixelsPerBeat;
@@ -364,7 +535,7 @@ function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: 
       marks.push({ x, label: String(currentMeasure), type: 'major' });
 
       if (showBeats && measureGrouping === 1) {
-        const meter = getMeterAtMeasure(meters, currentMeasure);
+        const meter = getMeterAtMeasure(meterTimeline, currentMeasure);
         const beatDur = 4.0 / meter.beatLength;
         for (let beat = 2; beat <= meter.numBeats; beat++) {
           const beatPos = measureStartBeat + (beat - 1) * beatDur;
@@ -373,7 +544,7 @@ function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: 
           marks.push({ x: beatX, label: `${currentMeasure}|${beat}`, type: 'minor' });
         }
       } else if (!showBeats && measureGrouping === 1) {
-        const meter = getMeterAtMeasure(meters, currentMeasure);
+        const meter = getMeterAtMeasure(meterTimeline, currentMeasure);
         const beatDur = 4.0 / meter.beatLength;
         for (let beat = 2; beat <= meter.numBeats; beat++) {
           const beatPos = measureStartBeat + (beat - 1) * beatDur;
@@ -389,14 +560,83 @@ function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: 
   return marks;
 }
 
-function getMeasureStartBeat(meters: MeterSnapshot[], measureNumber: number): number {
+function normalizeMeterEntries(meters: MeterSnapshot[]): MeterTimelineEntry[] {
+  const entries = meters.length > 0
+    ? meters
+    : [{ measure: 1, numBeats: 4, beatLength: 4 }];
+
+  const sortedEntries = [...entries].sort((a, b) => a.measure - b.measure);
+  const timeline: MeterTimelineEntry[] = [];
+
+  sortedEntries.forEach((entry, index) => {
+    const beatsPerMeasure = entry.numBeats * (4 / entry.beatLength);
+    const startBeat = index === 0
+      ? 0
+      : timeline[index - 1]!.startBeat
+        + (entry.measure - sortedEntries[index - 1]!.measure) * timeline[index - 1]!.beatsPerMeasure;
+
+    timeline.push({
+      measure: entry.measure,
+      numBeats: entry.numBeats,
+      beatLength: entry.beatLength,
+      startBeat,
+      beatsPerMeasure,
+    });
+  });
+
+  return timeline;
+}
+
+function getMeasureStartBeat(meterTimeline: MeterTimelineEntry[], measureNumber: number): number {
   if (measureNumber <= 1) return 0;
 
-  const firstMeter = meters.length > 0 ? meters[0] : { measure: 1, numBeats: 4, beatLength: 4 };
-  const beatsPerMeasure = firstMeter.numBeats * (4.0 / firstMeter.beatLength);
-  return (measureNumber - 1) * beatsPerMeasure;
+  let beats = 0;
+  let processedUpToMeasure = 1;
+
+  for (let i = 0; i < meterTimeline.length; i += 1) {
+    const entry = meterTimeline[i]!;
+    const entryStartMeasure = entry.measure;
+    const beatsPerMeasure = entry.beatsPerMeasure;
+
+    const meterEndMeasure = i + 1 < meterTimeline.length
+      ? meterTimeline[i + 1]!.measure
+      : Number.POSITIVE_INFINITY;
+
+    if (measureNumber <= entryStartMeasure) {
+      break;
+    }
+
+    const sectionStart = Math.max(entryStartMeasure, processedUpToMeasure);
+    const sectionEnd = Math.min(measureNumber, meterEndMeasure);
+    const measuresInSection = sectionEnd - sectionStart;
+
+    if (measuresInSection > 0) {
+      beats += measuresInSection * beatsPerMeasure;
+      processedUpToMeasure = sectionEnd;
+    }
+
+    if (processedUpToMeasure >= measureNumber) {
+      break;
+    }
+  }
+
+  return beats;
 }
 
-function getMeterAtMeasure(meters: MeterSnapshot[], _measureNumber: number): MeterSnapshot {
-  return meters.length > 0 ? meters[0] : { measure: 1, numBeats: 4, beatLength: 4 };
+function getMeterAtMeasure(meterTimeline: MeterTimelineEntry[], measureNumber: number): MeterTimelineEntry {
+  let meter = meterTimeline[0]!;
+  for (let i = 0; i < meterTimeline.length; i += 1) {
+    const entry = meterTimeline[i]!;
+    if (entry.measure <= measureNumber) {
+      meter = entry;
+    } else {
+      break;
+    }
+  }
+  return meter;
 }
+
+export const __testOnly = {
+  computeMarks,
+  formatTimeWithPrecision,
+};

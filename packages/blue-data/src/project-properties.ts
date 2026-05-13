@@ -114,22 +114,71 @@ export class ProjectProperties {
   }
 
   /**
-   * Generate the CSD options line from these properties.
+   * Backward-compatible helper that returns realtime options as a newline list.
    */
   toCsoundOptions(): string {
-    const options: string[] = [];
+    return this.getRealtimeCsoundOptions().join('\n');
+  }
 
-    options.push('-odac');
-    options.push('-d');
-
-    if (this.sampleRate) options.push(`-r ${this.sampleRate}`);
-    if (this.ksmps) options.push(`-k ${this.ksmps}`);
-
-    if (this.commandLine && this.completeOverride) {
-      return this.commandLine;
+  /**
+   * Java parity with ProjectPropertiesUtil.getRealtimeCommandLine(), but
+   * returns only Csound option tokens suitable for setOption().
+   */
+  getRealtimeCsoundOptions(): string[] {
+    if (this.completeOverride) {
+      const overrideText = this.advancedSettings || this.commandLine || '';
+      return this.parseOptionTokens(overrideText);
     }
 
-    return options.join('\n');
+    const options: string[] = [];
+
+    if (this.useAudioOut) {
+      options.push('-odac');
+    }
+
+    if (this.useAudioIn) {
+      options.push('-iadc');
+    }
+
+    options.push(this.getRealtimeMessageLevelFlag());
+    options.push(...this.parseOptionTokens(this.advancedSettings));
+
+    return options;
+  }
+
+  private getRealtimeMessageLevelFlag(): string {
+    let level = 0;
+
+    if (this.noteAmpsEnabled) level += 1;
+    if (this.outOfRangeEnabled) level += 2;
+    if (this.warningsEnabled) level += 4;
+    if (this.benchmarkEnabled) level += 128;
+
+    return `-m${level}`;
+  }
+
+  private parseOptionTokens(text: string): string[] {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return [];
+    }
+
+    const matches = trimmed.match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
+    const tokens = matches
+      .map((token) => token.trim())
+      .filter((token) => token.length > 0)
+      .map((token) => {
+        if (
+          (token.startsWith('"') && token.endsWith('"')) ||
+          (token.startsWith("'") && token.endsWith("'"))
+        ) {
+          return token.slice(1, -1);
+        }
+        return token;
+      })
+      .filter((token) => token.startsWith('-'));
+
+    return tokens;
   }
 
   // ─── XML ───

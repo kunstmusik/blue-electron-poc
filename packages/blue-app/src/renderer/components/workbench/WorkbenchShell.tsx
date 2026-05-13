@@ -30,6 +30,7 @@ import {
   getAuxiliaryEdgeFromBounds,
   getAuxiliaryEdgeFromGroupElement,
 } from './auxiliary-drag';
+import { useDocumentMouseDownOutside } from '../../hooks/use-document-mousedown-outside';
 import { useWorkbenchStore } from '../../stores/workbench-store';
 
 const LAYOUT_STORAGE_KEY = 'blue-workbench-layout';
@@ -218,31 +219,19 @@ export default function WorkbenchShell() {
     }
   }, [auxiliary, persistLayout]);
 
-  useEffect(() => {
-    if (!leftSlideout && !rightSlideout && !bottomSlideout) {
-      return;
-    }
+  const isAuxiliaryOverlayTarget = useCallback((target: EventTarget | null) => {
+    const element = target as HTMLElement | null;
+    return Boolean(
+      element?.closest('[data-auxiliary-slideout="true"]')
+      || element?.closest('[data-auxiliary-rail="true"]'),
+    );
+  }, []);
 
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as HTMLElement | null;
-      if (
-        target?.closest('[data-auxiliary-slideout="true"]') ||
-        target?.closest('[data-auxiliary-rail="true"]')
-      ) {
-        return;
-      }
-
-      hideAllAuxiliarySlideouts();
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [
-    bottomSlideout,
-    hideAllAuxiliarySlideouts,
-    leftSlideout,
-    rightSlideout,
-  ]);
+  useDocumentMouseDownOutside({
+    enabled: Boolean(leftSlideout || rightSlideout || bottomSlideout),
+    isInside: isAuxiliaryOverlayTarget,
+    onMouseDownOutside: () => hideAllAuxiliarySlideouts(),
+  });
 
   useEffect(() => {
     const shell = shellRef.current;

@@ -409,11 +409,29 @@ export class EngineBridge {
     transport: EngineTransport,
   ): Promise<{ ok: boolean; fallbackToTcp: boolean; errorMessage: string }> {
     const endpoints = buildEngineEndpoints(transport, this.port, this.pubPort, shmName);
+    const sharedMemoryDisabled = process.env.BLUE_ENGINE_DISABLE_SHARED_MEMORY === '1';
+    const channelMirroringDisabled = process.env.BLUE_ENGINE_DISABLE_CHANNEL_MIRRORING === '1';
+    const threadPriorityElevationDisabled = process.env.BLUE_ENGINE_DISABLE_THREAD_PRIORITY_ELEVATION === '1';
     const spawnArgs = transport === 'ipc'
       ? ['--control-endpoint', endpoints.controlEndpoint, '--pub-endpoint', endpoints.pubEndpoint, '--shm', shmName]
       : ['--port', `${this.port}`, '--pub-port', `${this.pubPort}`, '--shm', shmName];
 
+    if (sharedMemoryDisabled) {
+      spawnArgs.push('--disable-shared-memory');
+    }
+
+    if (channelMirroringDisabled) {
+      spawnArgs.push('--disable-channel-mirroring');
+    }
+
+    if (threadPriorityElevationDisabled) {
+      spawnArgs.push('--disable-thread-priority-elevation');
+    }
+
     this.stderr = '';
+    console.log(`[EngineBridge] Shared memory: ${sharedMemoryDisabled ? 'disabled' : 'enabled'}`);
+    console.log(`[EngineBridge] Channel mirroring: ${channelMirroringDisabled ? 'disabled' : 'enabled'}`);
+    console.log(`[EngineBridge] Thread priority elevation: ${threadPriorityElevationDisabled ? 'disabled' : 'enabled'}`);
     console.log(`[EngineBridge] Starting (${transport}): ${enginePath} ${spawnArgs.join(' ')}`);
 
     const spawnWorkingDirectory =
@@ -592,6 +610,7 @@ export class EngineBridge {
     parameters?: Parameter[],
     automationTiming?: AutomationTimingContext,
     workingDirectory?: string | null,
+    extraOptions: string[] = [],
   ): Promise<boolean> {
     // Prevent concurrent playback
     if (this.playbackLock) {
@@ -602,7 +621,8 @@ export class EngineBridge {
     this.setWorkingDirectory(workingDirectory);
 
     try {
-      const { orchestra, score, options } = parseCSD(csd);
+      const { orchestra, score } = parseCSD(csd);
+      const options = [...new Set(extraOptions.filter((opt) => opt.trim().length > 0))];
 
       console.log(`[EngineBridge] CSD: ${csd.length} bytes`);
       console.log(`[EngineBridge] Options: ${JSON.stringify(options)}`);

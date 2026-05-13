@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useScoreSelectionStore } from '../../../stores/score-selection-store';
-import { useProjectStore } from '../../../stores/project-store';
+import { applyBsbInterfacePatchToSnapshot, useProjectStore } from '../../../stores/project-store';
 import type {
+  BlueSynthBuilderInstrumentSnapshot,
+  BsbInterfacePatch,
   TrackerColumnSnapshot,
   ScoreObjectEditorDocumentSnapshot,
   ScorePatch,
@@ -753,6 +755,38 @@ export function applyPatchToDocument(
     if (Array.isArray(p.trackData)) payload.trackData = p.trackData;
     if (p.filePath !== undefined) payload.filePath = p.filePath;
     if (p.csoundPostCode !== undefined) payload.csoundPostCode = p.csoundPostCode;
+
+    // Sound-specific BSB interface patches (optimistic)
+    if (p.bsbInterfacePatch !== undefined && payload.bsbInstrument) {
+      const bsbInstr = { ...(payload.bsbInstrument as BlueSynthBuilderInstrumentSnapshot) };
+      applyBsbInterfacePatchToSnapshot(bsbInstr, p.bsbInterfacePatch as BsbInterfacePatch);
+      payload.bsbInstrument = bsbInstr;
+    }
+
+    // Sound-specific BSB code patches (optimistic)
+    if (p.bsbCodePatch !== undefined && payload.bsbInstrument) {
+      const bsbInstr = { ...(payload.bsbInstrument as Record<string, unknown>) };
+      const codePatch = p.bsbCodePatch as Record<string, string>;
+      if (codePatch.instrumentText !== undefined) bsbInstr.instrumentText = codePatch.instrumentText;
+      if (codePatch.alwaysOnInstrumentText !== undefined) bsbInstr.alwaysOnInstrumentText = codePatch.alwaysOnInstrumentText;
+      if (codePatch.globalOrc !== undefined) bsbInstr.globalOrc = codePatch.globalOrc;
+      if (codePatch.globalSco !== undefined) bsbInstr.globalSco = codePatch.globalSco;
+      payload.bsbInstrument = bsbInstr;
+    }
+
+    // Sound-specific automation patches (optimistic)
+    if (p.automationPatch !== undefined && Array.isArray(payload.automationParameters)) {
+      const autoPatch = p.automationPatch as { parameterId: string; automationEnabled?: boolean; points?: Array<{ x: number; y: number }>; curve?: string };
+      const params = (payload.automationParameters as Array<Record<string, unknown>>).map((param) => {
+        if (param.parameterId !== autoPatch.parameterId && param.name !== autoPatch.parameterId) return param;
+        const updated = { ...param };
+        if (autoPatch.automationEnabled !== undefined) updated.automationEnabled = autoPatch.automationEnabled;
+        if (autoPatch.points !== undefined) updated.points = autoPatch.points;
+        if (autoPatch.curve !== undefined) updated.curve = autoPatch.curve;
+        return updated;
+      });
+      payload.automationParameters = params;
+    }
 
     if (p.toggleStep !== undefined && Array.isArray(payload.patterns)) {
       const { patternIndex, stepIndex } = p.toggleStep as { patternIndex: number; stepIndex: number };

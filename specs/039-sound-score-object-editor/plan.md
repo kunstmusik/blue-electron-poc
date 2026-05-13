@@ -48,14 +48,14 @@ Replace the current `Sound` comment-only auxiliary surface with a Java Blue-styl
 
 ```text
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts
-/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/SoundObjectEditor.tsx
+/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/SoundEditor.tsx
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/orchestra/BlueSynthBuilderEditor.tsx
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/orchestra/bsb/
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/
 ```
 
-**Structure Decision**: Keep the Spec 037 score-object editor shell, replace the current `SoundObjectEditor.tsx` placeholder with a tabbed editor, and reuse BSB plus preview infrastructure instead of inventing new UI primitives.
+**Structure Decision**: Keep the Spec 037 score-object editor shell, replace the current `SoundEditor.tsx` placeholder with a tabbed editor, and reuse BSB plus preview infrastructure instead of inventing new UI primitives.
 
 ## Phase 0 Research Output
 

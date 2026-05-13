@@ -4,6 +4,7 @@ import type { PolyObjectLayerGroupSnapshot, ScoreLayerGroupSnapshot, ScoreLayerS
 import { DEFAULT_ROW_HEIGHT, GROUP_SPACER } from '../types';
 import { useScoreSelectionStore, type ScoreObjectClipboardEntry } from '../../../../../stores/score-selection-store';
 import { useProjectStore } from '../../../../../stores/project-store';
+import { useKeyboardShortcutScope } from '../../../../../hooks/use-keyboard-shortcut-scope';
 import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
@@ -981,30 +982,44 @@ export default function ScoreTimeCanvas({
     setSelection(collectAllItemSelectionEntries(group));
   }, [group, setSelection]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (isTextEditingTarget(e.target)) return;
-      const mod = e.metaKey || e.ctrlKey;
-      if (mod && e.key === 'c') {
-        e.preventDefault();
-        handleCopy();
-      }
-      if (mod && e.key === 'x') {
-        e.preventDefault();
-        handleCut();
-      }
-      if (mod && e.key === 'v') {
-        e.preventDefault();
-        handleContextMenuPaste();
-      }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectIds.size > 0) {
-        e.preventDefault();
-        handleRemove();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [handleCopy, handleCut, handleRemove, handleContextMenuPaste, selectedObjectIds]);
+  const handleCanvasKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (isTextEditingTarget(e.target)) return;
+
+    const mod = e.metaKey || e.ctrlKey;
+    const key = e.key.toLowerCase();
+
+    if (mod && key === 'c') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCopy();
+      return;
+    }
+
+    if (mod && key === 'x') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCut();
+      return;
+    }
+
+    if (mod && key === 'v') {
+      e.preventDefault();
+      e.stopPropagation();
+      handleContextMenuPaste();
+      return;
+    }
+
+    if (!mod && !e.altKey && (e.key === 'Delete' || e.key === 'Backspace') && selectedObjectIds.size > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleRemove();
+    }
+  }, [handleCopy, handleContextMenuPaste, handleCut, handleRemove, selectedObjectIds]);
+
+  const canvasShortcutScope = useKeyboardShortcutScope({
+    ref: containerRef,
+    onKeyDown: handleCanvasKeyDown,
+  });
 
   const handleMouseUpRef = useRef(handleMouseUp);
   handleMouseUpRef.current = handleMouseUp;
@@ -1048,9 +1063,11 @@ export default function ScoreTimeCanvas({
         <div
           ref={containerRef}
           data-group-id={group.groupId}
-          className="relative select-none"
+          data-shortcut-scope="score-time-canvas"
+          className="relative select-none focus:outline-none"
           title={tooltip ?? undefined}
           style={{ cursor: cursorOverride ?? 'default' }}
+          {...canvasShortcutScope}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -1349,7 +1366,7 @@ function EmptyAreaContextMenu({ menuItemClass, sepClass, clipboard, contextMenuP
           <span className="text-[10px] opacity-60 ml-2">▸</span>
         </ContextMenu.SubTrigger>
         <ContextMenu.Portal>
-          <ContextMenu.SubContent className="min-w-[160px] bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50">
+          <ContextMenu.SubContent className="min-w-40 bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50">
             {addSobjTypes.map((t) => (
               <ContextMenu.Item
                 key={t.name}

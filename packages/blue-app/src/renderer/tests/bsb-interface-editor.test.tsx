@@ -279,7 +279,7 @@ describe('BSB Interface Editor', () => {
       },
     });
 
-    const html = renderToStaticMarkup(
+    const editModeHtml = renderToStaticMarkup(
       <BSBLineObjectWidget
         node={node}
         isSelected={false}
@@ -289,9 +289,21 @@ describe('BSB Interface Editor', () => {
       />,
     );
 
-    expect(html).toContain('curveA');
-    expect(html).toContain('<polyline');
-    expect(html).toContain('▶');
+    const runtimeHtml = renderToStaticMarkup(
+      <BSBLineObjectWidget
+        node={node}
+        isSelected={false}
+        editEnabled={false}
+        onWidgetSelect={vi.fn()}
+        onBsbInterfacePatch={vi.fn()}
+      />,
+    );
+
+    expect(editModeHtml).toContain('curveA');
+    expect(editModeHtml).toContain('<polyline');
+    expect(editModeHtml).toContain('▶');
+    expect(editModeHtml).toContain('cursor:default');
+    expect(runtimeHtml).toContain('cursor:crosshair');
   });
 
   it('renders BSBHSliderBank value panels from snapshot slider values', () => {

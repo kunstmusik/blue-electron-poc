@@ -4,37 +4,73 @@
 **Branch**: `039-sound-score-object-editor`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: Split Score Planning Ready For Handoff
+## Current Focus: Sound Score Object Editor Parity
 
 **Branch**: `039-sound-score-object-editor`
 
 ### Summary
-Spec 038 remains closed and validated. The old grouped Tier 2 follow-up has been retired and replaced with three deeper per-object spec packages: Spec `039-sound-score-object-editor`, Spec `040-pianoroll-score-object-editor`, and Spec `041-jmask-score-object-editor`, while the former management/navigation follow-up moved to Spec `042-score-editor-management-navigation`. The current branch and `.specify/feature.json` now point at the first implementation slice, `039-sound-score-object-editor`.
+Spec 039 replaces the comment-only `Sound` auxiliary editor with a Java Blue-style tabbed editor that covers Interface, Automation, Code, UDO, and Comments tabs, reusing the existing BSB interface infrastructure from Specs 022 and 023 for the Interface, Code, and UDO surfaces.
 
 ### Handoff State
-- This handoff is docs-only; no implementation code changed in app or data packages.
-- The deleted packages `039-score-object-editor-tier2-parity` and `040-score-editor-management-navigation` were replaced by the new split spec directories and the renumbered `042-score-editor-management-navigation` package.
-- The repository is ready for the next agent to begin implementation planning or execution from Spec `039-sound-score-object-editor`.
+- The `SoundEditor.tsx` has been replaced with a 5-tab editor (Interface, Automation, Code, UDO, Comments) following Java Blue's `SoundEditor` tab layout.
+- Shared types (`SoundEditorPayload`, `SoundAutomationParameterSnapshot`, `SoundEditorTab`) added to `project-editor.ts`.
+- Sound snapshot creation now parses the BSB instrument text via `parseSoundBSB()` and builds a full `BlueSynthBuilderInstrumentSnapshot` for reuse by BSB editor components.
+- Patch handling extended to support `bsbInterfacePatch`, `bsbCodePatch`, `bsbOpcodeListPatch`, and `automationPatch` for Sound objects, with BSB round-trip through parse/apply/serialize.
+- Test preview IPC (`test-sound-sound-object`) added following the External pattern.
+- Optimistic patch handling for Sound BSB and automation mutations added to `ScoreObjectEditorPanel.tsx`.
 
 ### Delivered Scope
-- `External` now uses a dedicated auxiliary editor with command-line editing, syntax-aware code editing, and a renderer-driven test action that invokes `test-external-sound-object` and shows generated score output in a modal.
-- `PolyObject` now uses a dedicated inspector instead of the structured placeholder, with child-object rows, empty-state handling, and a conditional generated-score preview pane driven by the editor document payload.
-- `TrackerObject` now uses a Java-style editing surface with toolbar controls, per-track headers and menus, keyboard-note shortcuts, track and column property dialogs, richer optimistic patching, and canonical tracker patch support for steps, tracks, columns, and note actions.
-- Timeline drag moves now flush canonical `moveScoreObjects` patches on mouseup, preserving cross-layer moves through save/reload instead of only persisting `startBeats`.
-- Tracker runtime and model parity work landed in `@blue/data`, including column increment/decrement helpers, preserved step counts on load/copy/resize, default-value note generation, note insert/remove helpers, and column-removal indexing fixes.
+- Tabbed `Sound` editor with Interface, Automation, Code, UDO, and Comments tabs matching Java Blue `SoundEditor` layout
+- Interface tab reuses `BSBInterfaceEditor` (widget canvas, property sheet, preset bar) from the orchestra editor
+- Code tab reuses `BSBCodeEditor` (Instrument, Always On, Global Orc, Global Sco sub-tabs)
+- UDO tab reuses `BSBUDOPanel` from the orchestra editor
+- Automation panel with parameter selector dropdown, enable/disable toggle, and SVG-based line canvas for curve editing
+- Comments tab with textarea
+- Test button with modal for generated score preview (deferred message shown until BSB CSD generation is implemented)
+- BSB round-trip: `parseSoundBSB()` parses instrument text to `BlueSynthBuilder`, patches are applied, then serialized back to text
+- Full automation parameter snapshot extraction from BSB parameters (name, label, min, max, curve, points, enabled)
+- 10 new contract tests covering snapshot creation, BSB patches, code patches, automation patches, and removed-target fallback
 
 ### Validation
-- Manual Tier 1 validation scenarios from `quickstart.md` were signed off on 2026-05-10.
-- `pnpm --filter @blue/data test` — pass
-- `pnpm --filter @blue/app test` — 72 files passed, 793 passed, 2 skipped
+- `pnpm --filter @blue/data test` — 84 files, 780 tests pass
+- `pnpm --filter @blue/app test` — 73 files, 803 passed, 2 skipped
 - `pnpm --filter @blue/app build:renderer` — pass
+- `pnpm --filter @blue/app build:main` — pass
+- `pnpm --filter @blue/app build:preload` — pass
 - `git diff --check` — pass
 
 ### Next Recommended Step
-- Treat Spec 038 as closed.
-- Start implementation work for Spec `039-sound-score-object-editor`.
-- Treat Specs `040-pianoroll-score-object-editor` and `041-jmask-score-object-editor` as the follow-on heavyweight editor slices.
-- Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up after the per-object editor plans.
+- Treat Spec 039 as complete pending manual validation.
+- Start implementation work for Spec `040-pianoroll-score-object-editor`.
+- Treat Spec `041-jmask-score-object-editor` as the follow-on heavyweight editor slice.
+- Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up.
+
+## Spec 039 Package
+
+Spec `039-sound-score-object-editor` implementation is complete.
+
+- Goal: replace the `Sound` comment-only placeholder with a Java Blue-style tabbed editor covering Interface, Automation, Code, UDO, and Comments tabs
+- Delivered scope:
+  - 5-tab Sound editor (Interface, Automation, Code, UDO, Comments) reusing existing BSB infrastructure
+  - `SoundEditorPayload`, `SoundAutomationParameterSnapshot`, `SoundEditorTab` shared types
+  - `parseSoundBSB()` / `buildSoundBSBInstrumentSnapshot()` / `buildSoundAutomationParameters()` helpers for BSB round-trip
+  - Extended `updateTypeSpecificEditor` handler for `bsbInterfacePatch`, `bsbCodePatch`, `bsbOpcodeListPatch`, `automationPatch`
+  - Optimistic BSB and automation patch handling in `ScoreObjectEditorPanel.tsx`
+  - `test-sound-sound-object` IPC for test preview with deferred messaging
+  - `SoundAutomationPanel` with SVG line canvas, parameter selector, and enable toggle
+  - 10 contract tests in `sound-editor-contract.test.ts`
+- Validation:
+  - `pnpm --filter @blue/data test` — 780 pass
+  - `pnpm --filter @blue/app test` — 803 pass, 2 skipped
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `pnpm --filter @blue/app build:main` — pass
+  - `pnpm --filter @blue/app build:preload` — pass
+  - `git diff --check` — pass
+- Task status: 25 of 28 tasks checked off in `tasks.md` (remaining: T023 quickstart notes, T024 STATUS update, T028 manual validation)
+- Handoff notes:
+  - The BSB round-trip (parse text → BlueSynthBuilder → apply patches → serialize back) is correct but will need optimization if performance becomes an issue for large BSB instruments
+  - `Sound.generateForCSD()` remains a stub; the test preview shows a deferred message until CSD generation is implemented
+  - Spec `040-pianoroll-score-object-editor` and `041-jmask-score-object-editor` are the follow-on heavyweight editor slices
 
 ## Spec 038 Package
 

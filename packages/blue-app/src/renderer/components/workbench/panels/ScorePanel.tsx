@@ -208,6 +208,7 @@ export default function ScorePanel() {
               tempoMap={transport.tempoMap}
               totalBeats={totalBeats}
               pixelsPerBeat={pixelsPerBeat}
+              sampleRate={transport.sampleRate}
             />
             <LayerPanel
               layerGroups={effectiveLayerGroups}

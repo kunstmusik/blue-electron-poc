@@ -28,6 +28,8 @@ import {
   PreservedWidget,
 } from './widgets';
 import { getCanvasDisplaySize } from './widgets/utils';
+import { useKeyboardShortcutScope } from '../../../../../hooks/use-keyboard-shortcut-scope';
+import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 
 const BSB_ADDABLE_WIDGETS = [
   { type: 'BSBGroup', label: 'Group' },
@@ -176,6 +178,14 @@ function BSBInterfaceCanvas({
 
   const parentGroupId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
 
+  const removeSelectedWidgets = useCallback(() => {
+    if (selectedWidgetIds.size === 0) return;
+    for (const id of selectedWidgetIds) {
+      onBsbInterfacePatch({ type: 'removeWidget', widgetId: id });
+    }
+    onWidgetSelect(null);
+  }, [selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect]);
+
   useEffect(() => {
     const element = canvasRef.current;
     if (!element) return;
@@ -216,10 +226,7 @@ function BSBInterfaceCanvas({
       }
       case 'cut': {
         setClipboard(createCanvasClipboard(selected));
-        for (const id of selIds) {
-          onBsbInterfacePatch({ type: 'removeWidget', widgetId: id });
-        }
-        onWidgetSelect(null);
+        removeSelectedWidgets();
         break;
       }
       case 'make-group': {
@@ -320,30 +327,43 @@ function BSBInterfaceCanvas({
     return find(currentChildren);
   }, [currentChildren]);
 
-  // Arrow key movement for selected widgets
-  useEffect(() => {
-    if (!editEnabled) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  const handleCanvasKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!editEnabled || isTextEditingTarget(e.target)) return;
+
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'Delete' || e.key === 'Backspace')) {
       if (selectedWidgetIds.size === 0) return;
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
       e.preventDefault();
-      const stepX = snapToGrid ? gridSettings.width : 1;
-      const stepY = snapToGrid ? gridSettings.height : 1;
-      const dx = e.key === 'ArrowLeft' ? -stepX : e.key === 'ArrowRight' ? stepX : 0;
-      const dy = e.key === 'ArrowUp' ? -stepY : e.key === 'ArrowDown' ? stepY : 0;
-      for (const widgetId of selectedWidgetIds) {
-        const pos = getWidgetPosition(widgetId);
-        if (!pos) continue;
-        const nx = Math.max(0, pos.x + dx);
-        const ny = Math.max(0, pos.y + dy);
-        onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId, properties: { x: nx, y: ny } });
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [editEnabled, selectedWidgetIds, snapToGrid, gridSettings, onBsbInterfacePatch, getWidgetPosition]);
+      e.stopPropagation();
+      removeSelectedWidgets();
+      return;
+    }
+
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    if (selectedWidgetIds.size === 0) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const stepX = snapToGrid ? (gridSettings?.width ?? 1) : 1;
+    const stepY = snapToGrid ? (gridSettings?.height ?? 1) : 1;
+    const dx = e.key === 'ArrowLeft' ? -stepX : e.key === 'ArrowRight' ? stepX : 0;
+    const dy = e.key === 'ArrowUp' ? -stepY : e.key === 'ArrowDown' ? stepY : 0;
+
+    for (const widgetId of selectedWidgetIds) {
+      const pos = getWidgetPosition(widgetId);
+      if (!pos) continue;
+      const nx = Math.max(0, pos.x + dx);
+      const ny = Math.max(0, pos.y + dy);
+      onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId, properties: { x: nx, y: ny } });
+    }
+  }, [editEnabled, getWidgetPosition, gridSettings, onBsbInterfacePatch, removeSelectedWidgets, selectedWidgetIds, snapToGrid]);
+
+  const canvasShortcutScope = useKeyboardShortcutScope({
+    ref: canvasRef,
+    enabled: editEnabled,
+    onKeyDown: handleCanvasKeyDown,
+  });
 
   const enterGroup = (node: BsbWidgetNodeSnapshot) => {
     if (canvasRef.current) {
@@ -574,7 +594,9 @@ function BSBInterfaceCanvas({
   const canvasContent = (
     <div
       ref={canvasRef}
-      className="relative flex-1 overflow-auto bg-[#26334c]"
+      data-shortcut-scope="bsb-interface-canvas"
+      className="relative flex-1 overflow-auto bg-[#26334c] focus:outline-none"
+      {...canvasShortcutScope}
       onClick={onCanvasClick}
       onContextMenu={(e) => {
         if (editEnabled && canvasRef.current) {

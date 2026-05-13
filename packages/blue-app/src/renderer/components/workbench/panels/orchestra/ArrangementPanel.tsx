@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -9,6 +9,7 @@ import type {
   SupportedNewInstrumentType,
 } from '../../../../../shared/project-editor';
 import { useProjectStore } from '../../../../stores/project-store';
+import { useDocumentMouseDownOutside } from '../../../../hooks/use-document-mousedown-outside';
 import ArrangementContextMenu from './ArrangementContextMenu';
 import { createArrangementColumns } from './arrangement-table/arrangement-columns';
 import type { ArrangementPanelProps } from './types';
@@ -150,17 +151,22 @@ function ArrangementPanel({
     });
   };
 
-  useEffect(() => {
-    if (!addMenuOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node) &&
-          addBtnRef.current && !addBtnRef.current.contains(e.target as Node)) {
-        setAddMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [addMenuOpen]);
+  const isAddMenuTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof Node)) {
+      return false;
+    }
+
+    return Boolean(
+      addMenuRef.current?.contains(target)
+      || addBtnRef.current?.contains(target),
+    );
+  }, []);
+
+  useDocumentMouseDownOutside({
+    enabled: addMenuOpen,
+    isInside: isAddMenuTarget,
+    onMouseDownOutside: () => setAddMenuOpen(false),
+  });
 
   return (
     <section

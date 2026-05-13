@@ -88,6 +88,9 @@ declare global {
       getScoreObjectEditorDocument: (
         request: ScoreObjectEditorRequest,
       ) => Promise<ScoreObjectEditorDocumentSnapshot | null>;
+      testExternalSoundObject: (
+        request: ScoreObjectEditorRequest,
+      ) => Promise<{ ok: boolean; output: string; error?: string }>;
       getNestedPolyObjectSnapshot: (
         location: ScoreObjectLocationRef,
       ) => Promise<PolyObjectLayerGroupSnapshot | null>;

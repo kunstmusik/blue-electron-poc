@@ -20,8 +20,8 @@ export class CompileData {
   private stringChannels: StringChannelEntry[] = [];
   private originalParameters: Parameter[] = [];
   private handleParametersAndChannels = false;
-  private _parameterNameMap = new Map<string, number>();
-  private _stringChannelNameMap = new Map<string, number>();
+  private nextParameterIndex = 0;
+  private nextStringChannelIndex = 0;
 
   constructor();
   constructor(arrangement: Arrangement, tables: Tables, handleParameters?: boolean);
@@ -62,10 +62,8 @@ export class CompileData {
       const channels = anyInstr.getStringChannels() as StringChannelEntry[];
       if (channels) {
         for (const sc of channels) {
-          const base = sc.objectName || sc.channelName;
-          const count = this._stringChannelNameMap.get(base) ?? 0;
-          this._stringChannelNameMap.set(base, count + 1);
-          const name = count === 0 ? base : `${base}_${count}`;
+          const name = `gS_blue_str${this.nextStringChannelIndex++}`;
+          sc.channelName = name;
           this.stringChannels.push({
             objectName: sc.objectName,
             value: sc.value,
@@ -82,10 +80,21 @@ export class CompileData {
       const params = anyInstr.getParameters() as Parameter[];
       if (params) {
         for (const p of params) {
+          p.setCompilationVarName(`gk_blue_auto${this.nextParameterIndex++}`);
           this.originalParameters.push(p);
         }
       }
     }
+  }
+
+  registerExistingAutomationState(
+    parameters: Parameter[],
+    stringChannels: StringChannelEntry[],
+  ): void {
+    this.originalParameters.push(...parameters);
+    this.stringChannels.push(...stringChannels);
+    this.nextParameterIndex = this.originalParameters.length;
+    this.nextStringChannelIndex = this.stringChannels.length;
   }
 
   getStringChannels(): StringChannelEntry[] {
@@ -156,7 +165,7 @@ export class CompileData {
     this.globalOrc = '';
     this.stringChannels = [];
     this.originalParameters = [];
-    this._parameterNameMap.clear();
-    this._stringChannelNameMap.clear();
+    this.nextParameterIndex = 0;
+    this.nextStringChannelIndex = 0;
   }
 }

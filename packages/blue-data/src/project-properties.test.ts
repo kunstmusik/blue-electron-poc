@@ -100,4 +100,37 @@ describe('ProjectProperties', () => {
       expect(loaded.noteAmpsEnabled).toBe(false);
     });
   });
+
+  describe('realtime option synthesis', () => {
+    it('builds Java-style realtime option flags with message level + advanced settings', () => {
+      const props = new ProjectProperties();
+      props.useAudioOut = true;
+      props.useAudioIn = false;
+      props.noteAmpsEnabled = true;
+      props.outOfRangeEnabled = true;
+      props.warningsEnabled = true;
+      props.benchmarkEnabled = true;
+      props.advancedSettings = '-+rtaudio=pa_bl -B4096 -b1024';
+
+      expect(props.getRealtimeCsoundOptions()).toEqual([
+        '-odac',
+        '-m135',
+        '-+rtaudio=pa_bl',
+        '-B4096',
+        '-b1024',
+      ]);
+    });
+
+    it('uses override text and strips non-option executable tokens for complete override mode', () => {
+      const props = new ProjectProperties();
+      props.completeOverride = true;
+      props.advancedSettings = 'csound -odac -b512 "-+rtaudio=pa_bl"';
+
+      expect(props.getRealtimeCsoundOptions()).toEqual([
+        '-odac',
+        '-b512',
+        '-+rtaudio=pa_bl',
+      ]);
+    });
+  });
 });

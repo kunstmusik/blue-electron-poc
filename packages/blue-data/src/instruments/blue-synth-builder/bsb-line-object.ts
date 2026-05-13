@@ -19,7 +19,116 @@ export interface Line {
   min: number;
   max: number;
   color: string;
+  resolution?: string;
+  rightBound?: boolean;
+  endPointsLinked?: boolean;
   points: LinePoint[];
+}
+
+function colorIntToCss(color: number): string {
+  const rgb = (color >>> 0) & 0x00ffffff;
+  return `#${rgb.toString(16).padStart(6, '0')}`;
+}
+
+function cssColorToJavaInt(color: string): string {
+  const normalized = color.trim();
+  if (/^-?\d+$/.test(normalized)) return normalized;
+  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+    const rgb = parseInt(normalized.substring(1), 16);
+    const argbUnsigned = (0xff000000 | rgb) >>> 0;
+    return (argbUnsigned > 0x7fffffff ? argbUnsigned - 0x100000000 : argbUnsigned).toString();
+  }
+  return '-8355712';
+}
+
+export function normalizeBsbLineColor(color: string | number | undefined): string {
+  if (typeof color === 'number' && Number.isFinite(color)) {
+    return colorIntToCss(color);
+  }
+  if (typeof color !== 'string') {
+    return '#808080';
+  }
+  const trimmed = color.trim();
+  if (/^-?\d+$/.test(trimmed)) {
+    return colorIntToCss(parseInt(trimmed, 10));
+  }
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return '#808080';
+}
+
+export function parseBsbLineFromXml(lineElem: Element, fallbackName: string): Line {
+  const xmlName = lineElem.getAttribute('name')?.trim() ?? '';
+  const xmlVarName = lineElem.getAttribute('varName')?.trim() ?? '';
+  const varName = xmlName || xmlVarName || fallbackName;
+  const min = parseFloat(lineElem.getAttribute('min') ?? '0');
+  const max = parseFloat(lineElem.getAttribute('max') ?? '1');
+  const resolution = lineElem.getAttribute('bdresolution') ?? lineElem.getAttribute('resolution') ?? '-1';
+  const rightBound = (lineElem.getAttribute('rightBound') ?? 'false') === 'true';
+  const endPointsLinked = (lineElem.getAttribute('endPointsLinked') ?? 'false') === 'true';
+  const color = normalizeBsbLineColor(lineElem.getAttribute('color') ?? '#808080');
+  const points: LinePoint[] = [];
+
+  const pointElems = lineElem.getElements('linePoint');
+  while (pointElems.hasMoreElements()) {
+    const pointElem = pointElems.next();
+    points.push({
+      x: parseFloat(pointElem.getAttribute('x') ?? '0'),
+      y: parseFloat(pointElem.getAttribute('y') ?? '0'),
+    });
+  }
+
+  if (points.length === 0) {
+    const legacyPoints = lineElem.getTextString('points');
+    if (legacyPoints) {
+      for (const pointStr of legacyPoints.trim().split(/\s+/)) {
+        const [xRaw, yRaw] = pointStr.split(',');
+        const x = parseFloat(xRaw ?? '');
+        const y = parseFloat(yRaw ?? '');
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          points.push({ x, y });
+        }
+      }
+    }
+  }
+
+  if (points.length === 0) {
+    points.push(
+      { x: 0, y: (min + max) * 0.5 },
+      { x: 1, y: (min + max) * 0.5 },
+    );
+  }
+
+  return {
+    varName,
+    min,
+    max,
+    color,
+    resolution,
+    rightBound,
+    endPointsLinked,
+    points,
+  };
+}
+
+export function writeBsbLineToXml(linesElem: Element, line: Line): void {
+  const lineElem = linesElem.addElement('line');
+  lineElem.setAttribute('name', line.varName);
+  lineElem.setAttribute('varName', line.varName);
+  lineElem.setAttribute('version', '2');
+  lineElem.setAttribute('max', String(line.max));
+  lineElem.setAttribute('min', String(line.min));
+  lineElem.setAttribute('bdresolution', line.resolution ?? '-1');
+  lineElem.setAttribute('color', cssColorToJavaInt(line.color));
+  lineElem.setAttribute('rightBound', String(line.rightBound ?? false));
+  lineElem.setAttribute('endPointsLinked', String(line.endPointsLinked ?? false));
+
+  for (const point of line.points) {
+    const pointElem = lineElem.addElement('linePoint');
+    pointElem.setAttribute('x', String(point.x));
+    pointElem.setAttribute('y', String(point.y));
+  }
 }
 
 export class BSBLineObject extends BSBWidget {
@@ -135,30 +244,18 @@ export class BSBLineObject extends BSBWidget {
     const lk = data.getElement('locked');
     if (lk) this.locked = lk.getTextString() === 'true';
     const st = data.getTextString('separatorType');
-    if (st) this.separatorType = st as SeparatorType;
+    if (st === 'NONE' || st === 'None') this.separatorType = 'None';
+    if (st === 'COMMA' || st === 'Comma') this.separatorType = 'Comma';
+    if (st === 'SINGLE_QUOTE' || st === 'Single Quote') this.separatorType = 'Single Quote';
     const cs = data.getElement('commaSeparated');
     if (cs && cs.getTextString() === 'true') this.separatorType = 'Comma';
+    this.lines = [];
     const linesElem = data.getElement('lines');
     if (linesElem) {
       const lineElems = linesElem.getElements('line');
       while (lineElems.hasMoreElements()) {
         const lineElem = lineElems.next();
-        const line: Line = {
-          varName: lineElem.getAttribute('varName') ?? `line${this.lines.length}`,
-          min: parseFloat(lineElem.getAttribute('min') ?? '0'),
-          max: parseFloat(lineElem.getAttribute('max') ?? '1'),
-          color: lineElem.getAttribute('color') ?? '#000000',
-          points: [],
-        };
-        const ptElems = lineElem.getElements('linePoint');
-        while (ptElems.hasMoreElements()) {
-          const ptElem = ptElems.next();
-          line.points.push({
-            x: parseFloat(ptElem.getAttribute('x') ?? '0'),
-            y: parseFloat(ptElem.getAttribute('y') ?? '0'),
-          });
-        }
-        this.lines.push(line);
+        this.lines.push(parseBsbLineFromXml(lineElem, ''));
       }
     }
   }

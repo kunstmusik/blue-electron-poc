@@ -7,7 +7,7 @@
 **Sources Reviewed**:
 
 - Java Blue `blue-ui-core/src/main/java/blue/soundObject/editor/SoundEditor.java`
-- Current TypeScript `packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/SoundObjectEditor.tsx`
+- Current TypeScript `packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/SoundEditor.tsx`
 
 ## Decision: Reuse the existing BSB interface editor work instead of building a second widget stack
 

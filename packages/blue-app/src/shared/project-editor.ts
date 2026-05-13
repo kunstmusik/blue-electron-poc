@@ -68,6 +68,8 @@ import {
   beatsToTimePosition,
   beatsToDuration,
 } from '@blue/data';
+import type { Parameter as BlueDataParameter } from '@blue/data';
+import { AutomationCurve as BlueDataAutomationCurve } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import {
   getHSliderBankDisplaySize,
@@ -995,6 +997,33 @@ export type BsbInterfacePatch =
   | { type: 'breakGroup'; widgetId: string }
   | { type: 'pasteWidgets'; widgetData: string; parentGroupId?: string };
 
+// ─── Sound Score Object Editor Types ───
+
+export type SoundEditorTab = 'interface' | 'automation' | 'code' | 'udo' | 'comments';
+
+export interface SoundAutomationParameterSnapshot {
+  parameterId: string;
+  name: string;
+  label: string;
+  automationEnabled: boolean;
+  value: number;
+  minimum: number;
+  maximum: number;
+  curve: string;
+  points: Array<{ x: number; y: number }>;
+}
+
+export interface SoundEditorPayload {
+  comment: string;
+  bsbInstrument: BlueSynthBuilderInstrumentSnapshot | null;
+  automationParameters: SoundAutomationParameterSnapshot[];
+  availableTabs: SoundEditorTab[];
+  testAvailable: boolean;
+  deferredCapabilities: string[];
+}
+
+// ─── End Sound Score Object Editor Types ───
+
 export interface UnknownInstrumentSnapshot extends InstrumentSnapshotBase {
   type: 'unknown';
   instrumentType: string;
@@ -1349,10 +1378,17 @@ function buildWidgetTreeNodeFromGraphicNode(widget: unknown): BsbWidgetNodeSnaps
         : [];
 
       return {
-        varName: typeof lineRecord.varName === 'string' ? lineRecord.varName : '',
+        varName: typeof lineRecord.name === 'string' && lineRecord.name.trim().length > 0
+          ? lineRecord.name
+          : typeof lineRecord.varName === 'string'
+            ? lineRecord.varName
+            : '',
         min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
         max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
-        color: typeof lineRecord.color === 'string' ? lineRecord.color : '#000000',
+        color: normalizeBsbLineColor(lineRecord.color),
+        resolution: typeof lineRecord.resolution === 'string' ? lineRecord.resolution : undefined,
+        rightBound: typeof lineRecord.rightBound === 'boolean' ? lineRecord.rightBound : undefined,
+        endPointsLinked: typeof lineRecord.endPointsLinked === 'boolean' ? lineRecord.endPointsLinked : undefined,
         points,
       };
     });
@@ -2441,7 +2477,12 @@ export function createScoreObjectEditorDocument(
           payload: {
             lines: lo.getLines().map(l => ({
               varName: l.varName,
+              min: l.min,
+              max: l.max,
+              resolution: l.resolution,
               color: l.color,
+              rightBound: l.rightBound,
+              endPointsLinked: l.endPointsLinked,
               points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
             })),
           },
@@ -2457,7 +2498,12 @@ export function createScoreObjectEditorDocument(
             zakSpace: zlo.getZakSpace(),
             lines: zlo.getLines().map(l => ({
               channel: l.channel,
+              min: l.min,
+              max: l.max,
+              resolution: l.resolution,
               color: l.color,
+              rightBound: l.rightBound,
+              endPointsLinked: l.endPointsLinked,
               points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
             })),
           },
@@ -2501,14 +2547,36 @@ export function createScoreObjectEditorDocument(
         };
       } else if (sObj instanceof Sound) {
         const snd = sObj as Sound;
+        const bsbText = snd.getBSBInstrumentText();
+        const bsb = parseSoundBSB(bsbText);
+
+        let bsbInstrument: BlueSynthBuilderInstrumentSnapshot | null = null;
+        let automationParameters: SoundAutomationParameterSnapshot[] = [];
+
+        if (bsb) {
+          bsbInstrument = buildSoundBSBInstrumentSnapshot(bsb);
+          automationParameters = buildSoundAutomationParameters(bsb);
+        }
+
+        const availableTabs: SoundEditorTab[] = [];
+        if (bsb) {
+          availableTabs.push('interface', 'automation', 'code', 'udo');
+        }
+        availableTabs.push('comments');
+
         editor = {
           kind: 'structured',
           target,
           editorFamily: objectType,
-          payloadSummary: 'BSB instrument',
+          payloadSummary: bsb ? 'BSB instrument' : 'BSB instrument (empty)',
           payload: {
             comment: snd.getComment(),
-          },
+            bsbInstrument,
+            automationParameters,
+            availableTabs,
+            testAvailable: false,
+            deferredCapabilities: [],
+          } satisfies SoundEditorPayload,
         };
       } else {
         editor = {
@@ -2774,12 +2842,81 @@ function collectBsbObjectNames(bsb: BlueSynthBuilder): string[] {
   return collectBsbWidgets(bsb).map((widget) => widget.objectName);
 }
 
+function parseSoundBSB(text: string): BlueSynthBuilder | null {
+  if (!text || !text.trim()) return null;
+  try {
+    const elem = Element.parse(text);
+    return BlueSynthBuilder.loadFromXML(elem);
+  } catch {
+    return null;
+  }
+}
+
+function buildSoundAutomationParameters(bsb: BlueSynthBuilder): SoundAutomationParameterSnapshot[] {
+  const params = bsb.getParameters();
+  return params.map((param) => ({
+    parameterId: param.getUniqueId(),
+    name: param.getName(),
+    label: param.getLabel(),
+    automationEnabled: param.isEnabled(),
+    value: param.getFixedValue(),
+    minimum: param.getMinimum(),
+    maximum: param.getMaximum(),
+    curve: param.getCurve(),
+    points: param.getPoints().map((p) => ({ x: p.time, y: p.value })),
+  }));
+}
+
+function buildSoundBSBInstrumentSnapshot(bsb: BlueSynthBuilder): BlueSynthBuilderInstrumentSnapshot {
+  return {
+    assignmentId: '',
+    type: 'blueSynthBuilder',
+    name: bsb.getName(),
+    enabled: true,
+    comment: bsb.getComment(),
+    instrumentText: bsb.getInstrumentText(),
+    alwaysOnInstrumentText: bsb.getAlwaysOnInstrumentText(),
+    globalOrc: bsb.getGlobalOrc(),
+    globalSco: bsb.getGlobalSco(),
+    objectNames: collectBsbObjectNames(bsb),
+    widgets: collectBsbWidgets(bsb),
+    editEnabled: bsb.getGraphicInterface().isEditEnabled(),
+    gridSettings: buildGridSettingsSnapshot(bsb),
+    widgetTree: buildWidgetTreeSnapshot(bsb),
+    presetGroup: buildPresetGroupSnapshot(bsb),
+    opcodeListText: bsb.getOpcodeListText(),
+    udolist: buildUdoListSnapshot(bsb),
+  };
+}
+
 const KNOWN_WIDGET_TYPES = new Set([
   'BSBKnob', 'BSBCheckBox', 'BSBHSlider', 'BSBVSlider',
   'BSBHSliderBank', 'BSBVSliderBank', 'BSBValue', 'BSBDropdown',
   'BSBXYController', 'BSBSubChannelDropdown', 'BSBFileSelector',
   'BSBTextField', 'BSBLabel', 'BSBLineObject', 'BSBGroup',
 ]);
+
+function bsbColorIntToCss(color: number): string {
+  const rgb = (color >>> 0) & 0x00ffffff;
+  return `#${rgb.toString(16).padStart(6, '0')}`;
+}
+
+function normalizeBsbLineColor(raw: unknown): string {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return bsbColorIntToCss(raw);
+  }
+  if (typeof raw !== 'string') {
+    return '#808080';
+  }
+  const trimmed = raw.trim();
+  if (/^-?\d+$/.test(trimmed)) {
+    return bsbColorIntToCss(parseInt(trimmed, 10));
+  }
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed;
+  }
+  return '#808080';
+}
 
 function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
   if (!widget || typeof widget !== 'object') return null;
@@ -2846,10 +2983,17 @@ function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
         : [];
 
       return {
-        varName: typeof lineRecord.varName === 'string' ? lineRecord.varName : '',
+        varName: typeof lineRecord.name === 'string' && lineRecord.name.trim().length > 0
+          ? lineRecord.name
+          : typeof lineRecord.varName === 'string'
+            ? lineRecord.varName
+            : '',
         min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
         max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
-        color: typeof lineRecord.color === 'string' ? lineRecord.color : '#000000',
+        color: normalizeBsbLineColor(lineRecord.color),
+        resolution: typeof lineRecord.resolution === 'string' ? lineRecord.resolution : undefined,
+        rightBound: typeof lineRecord.rightBound === 'boolean' ? lineRecord.rightBound : undefined,
+        endPointsLinked: typeof lineRecord.endPointsLinked === 'boolean' ? lineRecord.endPointsLinked : undefined,
         points,
       };
     });
@@ -4678,11 +4822,26 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         const p = patch.patch;
         if (p.zakSpace !== undefined) zlo.setZakSpace(p.zakSpace as number);
         if (Array.isArray(p.lines)) {
-          const newLines = p.lines as Array<{ channel: number; color: number; points: Array<{ x: number; y: number }> }>;
-          (zlo as unknown as { _lines: typeof newLines })._lines = newLines.map(l => ({
-            channel: l.channel,
-            color: l.color,
-            points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+          const existingLines = zlo.getLines();
+          const newLines = p.lines as Array<{
+            channel: number;
+            min?: number;
+            max?: number;
+            resolution?: string;
+            color: number;
+            rightBound?: boolean;
+            endPointsLinked?: boolean;
+            points: Array<{ x: number; y: number }>;
+          }>;
+          (zlo as unknown as { _lines: typeof newLines })._lines = newLines.map((line, index) => ({
+            channel: line.channel,
+            min: typeof line.min === 'number' ? line.min : existingLines[index]?.min,
+            max: typeof line.max === 'number' ? line.max : existingLines[index]?.max,
+            resolution: typeof line.resolution === 'string' ? line.resolution : existingLines[index]?.resolution,
+            color: line.color,
+            rightBound: typeof line.rightBound === 'boolean' ? line.rightBound : existingLines[index]?.rightBound,
+            endPointsLinked: typeof line.endPointsLinked === 'boolean' ? line.endPointsLinked : existingLines[index]?.endPointsLinked,
+            points: line.points.map(pt => ({ x: pt.x, y: pt.y })),
           }));
         }
         return true;
@@ -4691,11 +4850,35 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         const lo = sObj as LineObject;
         const p = patch.patch;
         if (p.lines !== undefined) {
-          const inner = lo as unknown as { _lines: Array<{ varName: string; color: number; points: Array<{ x: number; y: number }> }> };
-          inner._lines = (p.lines as Array<{ varName: string; color: number; points: Array<{ x: number; y: number }> }>).map(l => ({
-            varName: l.varName,
-            color: l.color,
-            points: l.points.map(pt => ({ x: pt.x, y: pt.y })),
+          const existingLines = lo.getLines();
+          const inner = lo as unknown as { _lines: Array<{
+            varName: string;
+            min?: number;
+            max?: number;
+            resolution?: string;
+            color: number;
+            rightBound?: boolean;
+            endPointsLinked?: boolean;
+            points: Array<{ x: number; y: number }>;
+          }> };
+          inner._lines = (p.lines as Array<{
+            varName: string;
+            min?: number;
+            max?: number;
+            resolution?: string;
+            color: number;
+            rightBound?: boolean;
+            endPointsLinked?: boolean;
+            points: Array<{ x: number; y: number }>;
+          }>).map((line, index) => ({
+            varName: line.varName,
+            min: typeof line.min === 'number' ? line.min : existingLines[index]?.min,
+            max: typeof line.max === 'number' ? line.max : existingLines[index]?.max,
+            resolution: typeof line.resolution === 'string' ? line.resolution : existingLines[index]?.resolution,
+            color: line.color,
+            rightBound: typeof line.rightBound === 'boolean' ? line.rightBound : existingLines[index]?.rightBound,
+            endPointsLinked: typeof line.endPointsLinked === 'boolean' ? line.endPointsLinked : existingLines[index]?.endPointsLinked,
+            points: line.points.map(pt => ({ x: pt.x, y: pt.y })),
           }));
         }
         return true;
@@ -4726,6 +4909,64 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         const snd = sObj as Sound;
         const p = patch.patch;
         if (p.comment !== undefined) snd.setComment(p.comment as string);
+
+        if (p.bsbInterfacePatch !== undefined) {
+          const bsb = parseSoundBSB(snd.getBSBInstrumentText());
+          if (bsb) {
+            applyBsbInterfacePatch(bsb, p.bsbInterfacePatch as BsbInterfacePatch);
+            snd.setBSBInstrumentText(bsb.saveAsXML().toXml());
+          }
+        }
+
+        if (p.bsbCodePatch !== undefined) {
+          const codePatch = p.bsbCodePatch as Record<string, string>;
+          const bsb = parseSoundBSB(snd.getBSBInstrumentText());
+          if (bsb) {
+            if (codePatch.instrumentText !== undefined) bsb.setInstrumentText(codePatch.instrumentText);
+            if (codePatch.alwaysOnInstrumentText !== undefined) bsb.setAlwaysOnInstrumentText(codePatch.alwaysOnInstrumentText);
+            if (codePatch.globalOrc !== undefined) bsb.setGlobalOrc(codePatch.globalOrc);
+            if (codePatch.globalSco !== undefined) bsb.setGlobalSco(codePatch.globalSco);
+            snd.setBSBInstrumentText(bsb.saveAsXML().toXml());
+          }
+        }
+
+        if (p.bsbOpcodeListPatch !== undefined) {
+          const bsb = parseSoundBSB(snd.getBSBInstrumentText());
+          if (bsb) {
+            applyEmbeddedOpcodeListPatch(bsb.getOpcodeList(), p.bsbOpcodeListPatch as EmbeddedOpcodeListPatch);
+            snd.setBSBInstrumentText(bsb.saveAsXML().toXml());
+          }
+        }
+
+        if (p.automationPatch !== undefined) {
+          const autoPatch = p.automationPatch as {
+            parameterId: string;
+            automationEnabled?: boolean;
+            points?: Array<{ x: number; y: number }>;
+            curve?: string;
+          };
+          const bsb = parseSoundBSB(snd.getBSBInstrumentText());
+          if (bsb) {
+            const params = bsb.getParameters();
+            const param = params.find(
+              (pr: BlueDataParameter) => pr.getUniqueId() === autoPatch.parameterId || pr.getName() === autoPatch.parameterId,
+            );
+            if (param) {
+              if (autoPatch.automationEnabled !== undefined) param.setAutomationEnabled(autoPatch.automationEnabled);
+              if (autoPatch.points !== undefined) {
+                param.setPoints(autoPatch.points.map((pt: { x: number; y: number }) => ({ time: pt.x, value: pt.y })));
+              }
+              if (autoPatch.curve !== undefined) {
+                const curveKey = autoPatch.curve as keyof typeof BlueDataAutomationCurve;
+                if (curveKey in BlueDataAutomationCurve) {
+                  param.setCurve(BlueDataAutomationCurve[curveKey]);
+                }
+              }
+            }
+            snd.setBSBInstrumentText(bsb.saveAsXML().toXml());
+          }
+        }
+
         return true;
       }
       return false;

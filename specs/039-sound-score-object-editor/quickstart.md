@@ -30,7 +30,19 @@ Validate that the `Sound` score-object editor no longer behaves like a comment-o
 
 ## Expected Results
 
-- `Sound` opens in a real tabbed auxiliary editor shell.
-- Supported Interface, Automation, and Comments workflows all mutate canonical state coherently.
-- The test-preview workflow is scoped to the selected target and reports success or failure explicitly.
+- `Sound` opens in a real tabbed auxiliary editor shell with 5 tabs: Interface, Automation, Code, UDO, and Comments.
+- The Interface tab reuses the full BSB interface editor (canvas, property sheet, presets, grid settings).
+- The Automation tab shows a parameter selector, enable/disable toggle, and SVG line canvas for curve editing.
+- The Code tab shows BSB code sub-tabs (Instrument, Always On, Global Orc, Global Sco) with syntax completion.
+- The UDO tab shows the UDO workspace panel for managing embedded opcode definitions.
+- The Comments tab has a textarea for the instrument comment.
+- The Test button in the tab bar shows a modal with generated score output or a deferred message.
 - Unsupported `Sound` subfeatures are surfaced deliberately instead of silently discarded.
+
+## Implementation Notes
+
+- The Sound editor reuses `BSBInterfaceEditor`, `BSBCodeEditor`, and `BSBUDOPanel` from the orchestra editor via adapter callbacks that translate `InstrumentPatch` into `ScorePatch`.
+- BSB data round-trips through `parseSoundBSB()` (text → Element → BlueSynthBuilder), patch application, and serialization back to text via `bsb.saveAsXML().toXml()`.
+- The test preview shows a deferred message because `Sound.generateForCSD()` is still a stub; it will show real output once BSB CSD generation is implemented.
+- Automation parameter selection and curve editing are scoped to the `SoundAutomationPanel` with an SVG-based line canvas.
+- New Sound objects (empty BSB text) show only the Comments tab.

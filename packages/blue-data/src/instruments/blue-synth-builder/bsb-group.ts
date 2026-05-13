@@ -15,7 +15,7 @@ import { BSBSubChannelDropdown } from "./bsb-subchannel-dropdown";
 import { BSBFileSelector } from "./bsb-file-selector";
 import { BSBTextField } from "./bsb-text-field";
 import { BSBLabel } from "./bsb-label";
-import { BSBLineObject } from "./bsb-line-object";
+import { BSBLineObject, writeBsbLineToXml } from "./bsb-line-object";
 import { loadFontFromXML, saveFontToXML, type BSBFont } from "./bsb-knob";
 
 type BSBWidgetCtor = new () => BSBWidget;
@@ -179,6 +179,7 @@ const SKIPPED_WIDGET_FIELDS = new Set([
   'objectName',
   'x',
   'y',
+  'separatorType',
   'comment',
   'automationAllowed',
   'value',
@@ -289,18 +290,15 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
     }
   }
   if (widget instanceof BSBLineObject) {
+    const separatorType = widget.separatorType === 'Comma'
+      ? 'COMMA'
+      : widget.separatorType === 'Single Quote'
+        ? 'SINGLE_QUOTE'
+        : 'NONE';
+    elem.addElement('separatorType').setText(separatorType);
     const linesElem = elem.addElement('lines');
     for (const line of widget.lines) {
-      const lineElem = linesElem.addElement('line');
-      lineElem.setAttribute('varName', line.varName);
-      lineElem.setAttribute('min', String(line.min));
-      lineElem.setAttribute('max', String(line.max));
-      lineElem.setAttribute('color', line.color);
-      for (const point of line.points) {
-        const pointElem = lineElem.addElement('linePoint');
-        pointElem.setAttribute('x', String(point.x));
-        pointElem.setAttribute('y', String(point.y));
-      }
+      writeBsbLineToXml(linesElem, line);
     }
   }
   if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {

@@ -14,7 +14,6 @@ import * as fs from 'fs';
 
 import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, setExternalCommandExecutor } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
-import { ParameterHelper } from '@blue/data';
 import { initializeJavaScriptRuntime } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
@@ -295,6 +294,42 @@ function getRecentProjectFilesSnapshot(): string[] {
 
 function getCurrentProjectDirectory(): string | null {
   return currentFilePath ? path.dirname(currentFilePath) : null;
+}
+
+function getRealtimeSfDirOption(projectDirectory: string | null): string | null {
+  if (!currentData || !projectDirectory) {
+    return null;
+  }
+
+  const mediaFolder = currentData.getProjectProperties().mediaFolder?.trim() ?? '';
+  const sfDir = path.isAbsolute(mediaFolder)
+    ? mediaFolder
+    : path.resolve(projectDirectory, mediaFolder.length > 0 ? mediaFolder : 'media');
+
+  fs.mkdirSync(sfDir, { recursive: true });
+  return `--env:SFDIR=${sfDir}`;
+}
+
+function buildRealtimeEngineOptions(data: BlueData, projectDirectory: string | null): string[] {
+  const options: string[] = [];
+
+  // Java parity: GeneralSettings.messageColorsEnabled defaults false,
+  // so commandlines include -+msg_color=false unless explicitly overridden.
+  options.push('-+msg_color=false');
+
+  // Java parity: displaysDisabled comes from app-level realtime settings (-d),
+  // not from project properties.
+  options.push('-d');
+
+  // Project-level realtime flags/messages/advanced settings.
+  options.push(...data.getProjectProperties().getRealtimeCsoundOptions());
+
+  const sfDirOption = getRealtimeSfDirOption(projectDirectory);
+  if (sfDirOption) {
+    options.push(sfDirOption);
+  }
+
+  return options;
 }
 
 function hasLoadedProject(): boolean {
@@ -918,28 +953,26 @@ async function startPlayback(): Promise<boolean> {
 
     await ensureJavaScriptEngine();
 
-    const csd = currentData.toCSD();
+    const render = currentData.toRealtimePlaybackCSD();
+    const csd = render.csdText;
+    const parameters = render.parameters;
 
-    // Collect automation parameters
-    const arrangement = currentData.getArrangement();
-    const mixer = currentData.getMixer();
-    let parameters: any[] | undefined;
     const automationTiming = {
       renderStartTime: currentData.getRenderStartTime(),
       sampleRate: Number(currentData.getProjectProperties().sampleRate) || 44100,
       ksmps: Number(currentData.getProjectProperties().ksmps) || 64,
       tempoMap: currentData.getScore().getTimeContext().getTempoMap(),
     };
-    if (arrangement && mixer) {
-      parameters = ParameterHelper.getAllParameters(arrangement, mixer);
-      ParameterHelper.assignParameterNames(parameters);
-    }
+
+    const projectDirectory = getCurrentProjectDirectory();
+    const extraRealtimeOptions = buildRealtimeEngineOptions(currentData, projectDirectory);
 
     const success = await engineBridge.playCSD(
       csd,
       parameters,
       automationTiming,
-      getCurrentProjectDirectory(),
+      projectDirectory,
+      extraRealtimeOptions,
     );
 
     if (!success) {

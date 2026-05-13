@@ -1451,7 +1451,7 @@ function updateInstrumentSnapshot(
   }
 }
 
-function applyBsbInterfacePatchToSnapshot(
+export function applyBsbInterfacePatchToSnapshot(
   instrument: BlueSynthBuilderInstrumentSnapshot,
   patch: BsbInterfacePatch,
 ): void {

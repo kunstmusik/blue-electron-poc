@@ -60,6 +60,12 @@ import "./sound-objects/register-sound-object-types";
 
 type CsdRenderProfile = "realtime" | "disk";
 
+type RenderCsdResult = {
+  csdText: string;
+  parameters?: Parameter[];
+  stringChannels?: Array<{ objectName: string; value: string; channelName: string }>;
+};
+
 export class BlueData implements BlueDataObject {
   // Version
   private version = BLUE_VERSION;
@@ -457,14 +463,18 @@ export class BlueData implements BlueDataObject {
    *   </CsoundSynthesizer>
   */
   toCSD(): string {
-    return this.buildStandardCSD("realtime");
+    return this.buildStandardCSD("realtime").csdText;
   }
 
   toDiskCSD(): string {
-    return this.buildStandardCSD("disk");
+    return this.buildStandardCSD("disk").csdText;
   }
 
-  private buildStandardCSD(profile: CsdRenderProfile): string {
+  toRealtimePlaybackCSD(): RenderCsdResult {
+    return this.buildStandardCSD("realtime");
+  }
+
+  private buildStandardCSD(profile: CsdRenderProfile): RenderCsdResult {
     const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
       this.createRenderSnapshot();
     let generationError: unknown = null;
@@ -515,6 +525,7 @@ export class BlueData implements BlueDataObject {
       const parameters = getAllParameters(clonedArrangement, clonedMixer);
       assignParameterNames(parameters);
       const stringChannels = this.collectStringChannels(clonedArrangement);
+      compileData.registerExistingAutomationState(parameters, stringChannels);
 
       appendFtgenTableNumbers(globalOrc, clonedTables);
       clonedArrangement.generateFTables(clonedTables);
@@ -524,6 +535,8 @@ export class BlueData implements BlueDataObject {
       // Score → score events
       const { startTime, endTime } = this.getRenderWindow(profile);
       const noteList = this.score.generateForCSD(compileData, startTime, endTime);
+      const allParameters = compileData.getOriginalParameters();
+      const allStringChannels = compileData.getStringChannels();
       compileData.setHandleParametersAndChannels(false);
 
       if (endTime > 0 && endTime > startTime) {
@@ -610,7 +623,7 @@ export class BlueData implements BlueDataObject {
 
       if (profile === "disk") {
         this.appendParameterAutomationNotes(
-          parameters,
+          allParameters,
           noteList,
           clonedArrangement,
           startTime,
@@ -623,8 +636,8 @@ export class BlueData implements BlueDataObject {
       );
 
       const initStatements = this.buildRuntimeInitStatements(
-        parameters,
-        stringChannels,
+        allParameters,
+        allStringChannels,
         profile,
         startTime,
       );
@@ -663,8 +676,8 @@ export class BlueData implements BlueDataObject {
       // Build project info comments
       const projectInfo = this.buildProjectInfo();
 
-      // Assemble CSD (no CsOptions for realtime output)
-      return (
+      // Assemble CSD
+      const csdText = (
         projectInfo +
         "<CsoundSynthesizer>\n\n" +
         "<CsInstruments>\n" +
@@ -684,6 +697,12 @@ export class BlueData implements BlueDataObject {
         "</CsScore>\n\n" +
         "</CsoundSynthesizer>"
       );
+
+      return {
+        csdText,
+        parameters: allParameters,
+        stringChannels: allStringChannels,
+      };
     } catch (error) {
       generationError = error;
       throw error;
@@ -699,7 +718,7 @@ export class BlueData implements BlueDataObject {
     }
   }
 
-  toBlueLiveCSD(): { csdText: string; parameters?: Parameter[]; stringChannels?: Array<{ objectName: string; value: string; channelName: string }> } {
+  toBlueLiveCSD(): RenderCsdResult {
     const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
       this.createRenderSnapshot();
     let generationError: unknown = null;
@@ -734,9 +753,10 @@ export class BlueData implements BlueDataObject {
       const parameters = getAllParameters(clonedArrangement, clonedMixer);
       assignParameterNames(parameters);
       const stringChannels = this.collectStringChannels(clonedArrangement);
-      const stringInits = this.buildStringChannelInits(stringChannels);
+      compileData.registerExistingAutomationState(parameters, stringChannels);
+      const stringInits = this.buildStringChannelInits(compileData.getStringChannels());
       const paramInits = this.buildParameterInits(
-        parameters,
+        compileData.getOriginalParameters(),
         "realtime",
         this.renderStartTime,
         false,
@@ -844,8 +864,8 @@ export class BlueData implements BlueDataObject {
 
       return {
         csdText,
-        parameters,
-        stringChannels,
+        parameters: compileData.getOriginalParameters(),
+        stringChannels: compileData.getStringChannels(),
       };
     } catch (error) {
       generationError = error;
