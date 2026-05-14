@@ -49,10 +49,11 @@
 - [x] T025 Run `pnpm --filter @blue/app test`
 - [x] T026 Run `pnpm --filter @blue/app build:renderer`
 - [x] T027 Run `git diff --check`
-- [ ] T028 Perform the manual `Sound` validation scenarios from `quickstart.md`
+- [x] T028 Perform the manual `Sound` validation scenarios from `quickstart.md`
 
 ## Handoff Notes
 
+- Manual `Sound` quickstart validation was signed off on 2026-05-13.
 - Reuse the earlier BSB infrastructure instead of creating a second widget system inside the score-object editor shell.
 - Keep automation in this spec; it is part of Java `SoundEditor`, not part of the later shell-management slice.
 - Keep unsupported `Sound` subfeatures explicit so the parity claim stays honest.

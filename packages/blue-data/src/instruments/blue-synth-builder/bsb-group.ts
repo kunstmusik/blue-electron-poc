@@ -17,6 +17,10 @@ import { BSBTextField } from "./bsb-text-field";
 import { BSBLabel } from "./bsb-label";
 import { BSBLineObject, writeBsbLineToXml } from "./bsb-line-object";
 import { loadFontFromXML, saveFontToXML, type BSBFont } from "./bsb-knob";
+import {
+  decodeBsbColorToCss,
+  encodeCssColorToJavaHex,
+} from "./bsb-color";
 
 type BSBWidgetCtor = new () => BSBWidget;
 
@@ -130,11 +134,11 @@ export class BSBGroup extends BSBWidget {
     const gn = data.getTextString('groupName');
     if (gn !== null) this.groupName = gn;
     const bg = data.getTextString('backgroundColor');
-    if (bg) this.backgroundColor = bg;
+    if (bg) this.backgroundColor = decodeBsbColorToCss(bg, this.backgroundColor);
     const bc = data.getTextString('borderColor');
-    if (bc) this.borderColor = bc;
+    if (bc) this.borderColor = decodeBsbColorToCss(bc, this.borderColor);
     const ltc = data.getTextString('labelTextColor');
-    if (ltc) this.labelTextColor = ltc;
+    if (ltc) this.labelTextColor = decodeBsbColorToCss(ltc, this.labelTextColor);
     const te = data.getElement('titleEnabled');
     if (te) this.titleEnabled = te.getTextString() === 'true';
     const w = data.getTextString('width');
@@ -173,6 +177,9 @@ const SKIPPED_WIDGET_FIELDS = new Set([
   'labelFont',
   'font',
   'dropdownItems',
+  'backgroundColor',
+  'borderColor',
+  'labelTextColor',
   'textValue',
   'defaultValue',
   'resolution',
@@ -186,6 +193,22 @@ const SKIPPED_WIDGET_FIELDS = new Set([
   'minimum',
   'maximum',
   'parameterName',
+]);
+
+const INTEGER_WIDGET_FIELDS = new Set([
+  'fontSize',
+  'gap',
+  'height',
+  'canvasHeight',
+  'canvasWidth',
+  'knobWidth',
+  'selectedIndex',
+  'sliderHeight',
+  'sliderWidth',
+  'textFieldWidth',
+  'width',
+  'x',
+  'y',
 ]);
 
 const WIDGETS_WITH_VERSION_2 = new Set([
@@ -217,6 +240,12 @@ const WIDGETS_WITH_AUTOMATION_ALLOWED = new Set([
 
 function addPrimitiveElement(parent: Element, key: string, value: unknown): void {
   if (value === null || value === undefined) return;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return;
+    if (INTEGER_WIDGET_FIELDS.has(key)) {
+      value = Math.round(value);
+    }
+  }
   if (
     typeof value !== 'string' &&
     typeof value !== 'number' &&
@@ -282,6 +311,11 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
   }
   if (widget instanceof BSBLabel) {
     elem.addElement(saveFontToXML(widget.font));
+  }
+  if (widget instanceof BSBGroup) {
+    elem.addElement('backgroundColor').setText(encodeCssColorToJavaHex(widget.backgroundColor));
+    elem.addElement('borderColor').setText(encodeCssColorToJavaHex(widget.borderColor));
+    elem.addElement('labelTextColor').setText(encodeCssColorToJavaHex(widget.labelTextColor));
   }
   if (widget instanceof BSBGroup) {
     elem.addElement(saveFontToXML(widget.font));

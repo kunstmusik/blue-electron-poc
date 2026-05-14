@@ -1,6 +1,7 @@
 import React from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBFileSelectorWidgetProps = BSBWidgetComponentProps;
@@ -21,6 +22,7 @@ function BSBFileSelectorWidget({
 }: BSBFileSelectorWidgetProps): React.ReactElement {
   const fileName = typeof node.properties.fileName === 'string' ? node.properties.fileName : '';
   const textFieldWidth = Math.max(10, (typeof node.properties.textFieldWidth === 'number' ? node.properties.textFieldWidth : 100));
+  const displaySize = getWidgetDisplaySize(node);
 
   const commitFileName = (nextFileName: string): void => {
     onBsbInterfacePatch?.({
@@ -82,11 +84,11 @@ function BSBFileSelectorWidget({
   };
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <ContextMenu.Root>
         <ContextMenu.Trigger asChild>
           <div
-            className="flex h-full items-stretch overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30"
+            className="flex h-full w-full items-stretch overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30"
             onContextMenu={(event) => event.stopPropagation()}
             onDragOver={(event) => {
               event.preventDefault();
@@ -113,7 +115,7 @@ function BSBFileSelectorWidget({
           </div>
         </ContextMenu.Trigger>
         <ContextMenu.Portal>
-          <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+          <ContextMenu.Content className="editor-context-menu">
             <ContextMenu.Item className="editor-context-menu__item" onSelect={() => { void openBrowseDialog(); }}>
               Browse...
             </ContextMenu.Item>

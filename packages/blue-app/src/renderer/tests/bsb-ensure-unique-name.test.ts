@@ -140,13 +140,19 @@ describe('ensureUniqueName', () => {
   });
 
   it('rejects candidate if derived slider bank keys collide', () => {
-    const existing = new Set(['bank', 'bank1.0']);
-    const node = makeSnapshot({ type: 'BSBHSliderBank', objectName: 'bank', properties: { sliderBankCount: 4 } });
+    const existing = new Set(['bank', 'bank1_0']);
+    const node = makeSnapshot({
+      type: 'BSBHSliderBank',
+      objectName: 'bank',
+      properties: {
+        sliders: [{ value: 0 }, { value: 0 }, { value: 0 }, { value: 0 }],
+      },
+    });
     ensureUniqueName(node, existing);
     expect(node.objectName).toBe('bank2');
     expect(existing.has('bank2')).toBe(true);
-    expect(existing.has('bank2.0')).toBe(true);
-    expect(existing.has('bank2.3')).toBe(true);
+    expect(existing.has('bank2_0')).toBe(true);
+    expect(existing.has('bank2_3')).toBe(true);
   });
 
   it('rejects candidate if derived line object keys collide', () => {

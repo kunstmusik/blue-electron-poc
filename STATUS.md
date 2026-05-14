@@ -1,6 +1,6 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-11
+**Date**: 2026-05-13
 **Branch**: `039-sound-score-object-editor`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
@@ -9,7 +9,7 @@
 **Branch**: `039-sound-score-object-editor`
 
 ### Summary
-Spec 039 replaces the comment-only `Sound` auxiliary editor with a Java Blue-style tabbed editor that covers Interface, Automation, Code, UDO, and Comments tabs, reusing the existing BSB interface infrastructure from Specs 022 and 023 for the Interface, Code, and UDO surfaces.
+Spec 039 is complete on branch `039-sound-score-object-editor`: the comment-only `Sound` auxiliary editor has been replaced with a Java Blue-style tabbed editor that covers Interface, Automation, Code, UDO, and Comments, and the post-implementation parity sweep closed the remaining BSB validation and browser-interaction regressions.
 
 ### Handoff State
 - The `SoundEditor.tsx` has been replaced with a 5-tab editor (Interface, Automation, Code, UDO, Comments) following Java Blue's `SoundEditor` tab layout.
@@ -18,6 +18,9 @@ Spec 039 replaces the comment-only `Sound` auxiliary editor with a Java Blue-sty
 - Patch handling extended to support `bsbInterfacePatch`, `bsbCodePatch`, `bsbOpcodeListPatch`, and `automationPatch` for Sound objects, with BSB round-trip through parse/apply/serialize.
 - Test preview IPC (`test-sound-sound-object`) added following the External pattern.
 - Optimistic patch handling for Sound BSB and automation mutations added to `ScoreObjectEditorPanel.tsx`.
+- Java-parity BSB object-name validation now checks replacement keys rather than raw widget names, including XY and slider-bank derived names.
+- The reused BSB canvas no longer drops marquee selections during fast drag-release sequences, and resize handles now start from property-backed dimensions where Java widgets store them.
+- Sound automation contract coverage now matches Java BSB parameter retention semantics: disabled parameters are omitted unless the widget explicitly allows automation or the existing parameter is already automated.
 
 ### Delivered Scope
 - Tabbed `Sound` editor with Interface, Automation, Code, UDO, and Comments tabs matching Java Blue `SoundEditor` layout
@@ -29,27 +32,30 @@ Spec 039 replaces the comment-only `Sound` auxiliary editor with a Java Blue-sty
 - Test button with modal for generated score preview (deferred message shown until BSB CSD generation is implemented)
 - BSB round-trip: `parseSoundBSB()` parses instrument text to `BlueSynthBuilder`, patches are applied, then serialized back to text
 - Full automation parameter snapshot extraction from BSB parameters (name, label, min, max, curve, points, enabled)
+- Java-parity BSB object-name validation for manual rename flows across simple widgets, XY pads, slider banks, and line objects
+- Stable BSB marquee-selection and resize interactions backed by browser regression coverage
 - 10 new contract tests covering snapshot creation, BSB patches, code patches, automation patches, and removed-target fallback
 
 ### Validation
-- `pnpm --filter @blue/data test` — 84 files, 780 tests pass
-- `pnpm --filter @blue/app test` — 73 files, 803 passed, 2 skipped
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 79 files, 866 passed, 2 skipped
+- `pnpm --filter @blue/app test` — 1 file, 4 passed
 - `pnpm --filter @blue/app build:renderer` — pass
-- `pnpm --filter @blue/app build:main` — pass
-- `pnpm --filter @blue/app build:preload` — pass
 - `git diff --check` — pass
+- Manual `Sound` quickstart scenarios from `quickstart.md` — signed off on 2026-05-13
 
 ### Next Recommended Step
-- Treat Spec 039 as complete pending manual validation.
+- Treat Spec 039 as complete and closed.
 - Start implementation work for Spec `040-pianoroll-score-object-editor`.
 - Treat Spec `041-jmask-score-object-editor` as the follow-on heavyweight editor slice.
 - Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up.
 
 ## Spec 039 Package
 
-Spec `039-sound-score-object-editor` implementation is complete.
+Spec `039-sound-score-object-editor` is complete, closed, and validated on branch `039-sound-score-object-editor`.
 
 - Goal: replace the `Sound` comment-only placeholder with a Java Blue-style tabbed editor covering Interface, Automation, Code, UDO, and Comments tabs
+- Active feature context:
+  - `.specify/feature.json` points to `specs/039-sound-score-object-editor` at closeout time
 - Delivered scope:
   - 5-tab Sound editor (Interface, Automation, Code, UDO, Comments) reusing existing BSB infrastructure
   - `SoundEditorPayload`, `SoundAutomationParameterSnapshot`, `SoundEditorTab` shared types
@@ -58,16 +64,19 @@ Spec `039-sound-score-object-editor` implementation is complete.
   - Optimistic BSB and automation patch handling in `ScoreObjectEditorPanel.tsx`
   - `test-sound-sound-object` IPC for test preview with deferred messaging
   - `SoundAutomationPanel` with SVG line canvas, parameter selector, and enable toggle
-  - 10 contract tests in `sound-editor-contract.test.ts`
+  - Java-parity BSB object-name validation keyed off replacement names instead of raw widget object names
+  - BSB interaction hardening for property-backed resize values and live marquee drag state
+  - Contract coverage for Java BSB parameter retention semantics around `automationAllowed`
+  - 11 contract tests in `sound-editor-contract.test.ts`
 - Validation:
-  - `pnpm --filter @blue/data test` — 780 pass
-  - `pnpm --filter @blue/app test` — 803 pass, 2 skipped
+  - `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 866 pass, 2 skipped
+  - `pnpm --filter @blue/app test` — 4 pass
   - `pnpm --filter @blue/app build:renderer` — pass
-  - `pnpm --filter @blue/app build:main` — pass
-  - `pnpm --filter @blue/app build:preload` — pass
   - `git diff --check` — pass
-- Task status: 25 of 28 tasks checked off in `tasks.md` (remaining: T023 quickstart notes, T024 STATUS update, T028 manual validation)
+- `manual Sound quickstart scenarios from quickstart.md` — signed off on 2026-05-13
+- Task status: all 28 tasks checked off in `tasks.md`
 - Handoff notes:
+  - Java Blue retains loaded BSB parameters only when `automationAllowed` is true or the existing parameter is already automated; the Spec 039 contract fixtures now encode that parity explicitly
   - The BSB round-trip (parse text → BlueSynthBuilder → apply patches → serialize back) is correct but will need optimization if performance becomes an issue for large BSB instruments
   - `Sound.generateForCSD()` remains a stub; the test preview shows a deferred message until CSD generation is implemented
   - Spec `040-pianoroll-score-object-editor` and `041-jmask-score-object-editor` are the follow-on heavyweight editor slices

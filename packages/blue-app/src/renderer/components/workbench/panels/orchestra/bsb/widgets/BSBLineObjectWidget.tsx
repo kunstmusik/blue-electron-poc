@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import { BSB_LINE_SELECTOR_HEIGHT } from '../../../../../../../shared/bsb-widget-layout';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBLineObjectWidgetProps = BSBWidgetComponentProps;
@@ -151,6 +152,16 @@ function movePoint(line: LineData, pointIndex: number, x: number, y: number): Li
     y: clamp(y, lineMinimum(line), lineMaximum(line)),
   };
 
+  if (nextLine.endPointsLinked && points.length >= 2) {
+    const firstPoint = points[0]!;
+    const lastPoint = points[points.length - 1]!;
+    if (pointIndex === 0) {
+      points[points.length - 1] = { ...lastPoint, y: points[0]!.y };
+    } else if (pointIndex === points.length - 1) {
+      points[0] = { ...firstPoint, y: points[points.length - 1]!.y };
+    }
+  }
+
   return nextLine;
 }
 
@@ -177,10 +188,11 @@ function BSBLineObjectWidget({
   const linesRaw = node.properties.lines;
   const canUseDom = typeof document !== 'undefined';
   const lines: LineData[] = Array.isArray(linesRaw) ? linesRaw as LineData[] : [];
-  const canvasWidth = typeof node.properties.canvasWidth === 'number' ? node.properties.canvasWidth : node.width || 200;
+  const displaySize = getWidgetDisplaySize(node);
+  const canvasWidth = typeof node.properties.canvasWidth === 'number' ? node.properties.canvasWidth : displaySize.width;
   const canvasHeight = typeof node.properties.canvasHeight === 'number'
     ? node.properties.canvasHeight
-    : Math.max(40, (node.height || 100) - BSB_LINE_SELECTOR_HEIGHT);
+    : Math.max(40, displaySize.height - BSB_LINE_SELECTOR_HEIGHT);
   const totalHeight = canvasHeight + BSB_LINE_SELECTOR_HEIGHT;
   const selectorLine = lines.length > 0 ? lines[0] : null;
   const lineEditInteractive = !editEnabled;
@@ -347,6 +359,13 @@ function BSBLineObjectWidget({
       y: clamp(point.y, lineMinimum(targetLine), lineMaximum(targetLine)),
     })).sort((left, right) => left.x - right.x);
 
+    if (targetLine.endPointsLinked && normalized.length >= 2) {
+      normalized[normalized.length - 1] = {
+        ...normalized[normalized.length - 1]!,
+        y: normalized[0]!.y,
+      };
+    }
+
     const nextLines = cloneLines(linesRef.current);
     nextLines[selectedLineIndexRef.current] = {
       ...nextLines[selectedLineIndexRef.current]!,
@@ -501,7 +520,7 @@ function BSBLineObjectWidget({
 
   return (
     <>
-      <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayHeight={totalHeight} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+      <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={totalHeight} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
         <div className="flex h-full w-full flex-col overflow-hidden rounded border border-blue-border/40 bg-[#0a0f1a]">
         <svg
           ref={svgRef}

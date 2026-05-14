@@ -13,11 +13,18 @@ import { BSBGraphicInterface, GridSettingsData } from "./blue-synth-builder/bsb-
 import { BSBGroup } from "./blue-synth-builder/bsb-group";
 import { BSBWidget } from "./blue-synth-builder/bsb-widget";
 import { Parameter, AutomationCurve } from "../automation/parameter";
+import { BSBCheckBox } from "./blue-synth-builder/bsb-check-box";
+import { BSBHSlider } from "./blue-synth-builder/bsb-hslider";
 import { BSBXYController } from "./blue-synth-builder/bsb-xy-controller";
 import {
   StringChannel,
   BSBFileSelector,
 } from "./blue-synth-builder/bsb-file-selector";
+import { BSBDropdown } from "./blue-synth-builder/bsb-dropdown";
+import { BSBKnob } from "./blue-synth-builder/bsb-knob";
+import { BSBLabel } from "./blue-synth-builder/bsb-label";
+import { BSBValue } from "./blue-synth-builder/bsb-value";
+import { BSBVSlider } from "./blue-synth-builder/bsb-vslider";
 import { OpcodeList } from "../opcodes/opcode-list";
 import { PresetGroup } from "./blue-synth-builder/preset-group";
 import { Preset } from "./blue-synth-builder/preset";
@@ -31,6 +38,10 @@ import {
 import { ParameterList } from "../automation/parameter-list";
 import { BSBHSliderBank } from './blue-synth-builder/bsb-hslider-bank';
 import { BSBVSliderBank } from './blue-synth-builder/bsb-vslider-bank';
+import {
+  BSBLineObject,
+  normalizeBsbLinePatch,
+} from './blue-synth-builder/bsb-line-object';
 import { replaceOpcodeNames } from "../utilities/text";
 
 function parseUdoBlock(
@@ -56,6 +67,14 @@ function parseUdoBlock(
   udo.setStyle(style.MODERN);
   udo.setCode(codeLines.join("\n"));
   return udo;
+}
+
+interface BSBParameterSpec {
+  name: string;
+  fixedValue: number;
+  minimum: number;
+  maximum: number;
+  resolution: number;
 }
 
 export class BlueSynthBuilder extends Instrument {
@@ -94,7 +113,11 @@ export class BlueSynthBuilder extends Instrument {
       if (other._presetGroup) {
         this._presetGroup = PresetGroup.loadFromXML(other._presetGroup.saveAsXML());
       }
+    } else {
+      this.setName('untitled');
     }
+
+    this.syncParametersFromWidgets();
   }
 
   private _editEnabled = true;
@@ -133,6 +156,7 @@ export class BlueSynthBuilder extends Instrument {
   setGraphicInterface(gi: BSBGraphicInterface): void {
     this._graphicInterface = gi;
     this._graphicInterfaceXML = null;
+    this.syncParametersFromWidgets();
   }
 
   isEditEnabled(): boolean {
@@ -185,7 +209,197 @@ export class BlueSynthBuilder extends Instrument {
    * Used by ParameterHelper to collect parameters from arrangement instruments.
    */
   getParameters(): Parameter[] {
+    this.syncParametersFromWidgets();
     return [...this._parameters];
+  }
+
+  private isParameterBackedWidget(widget: BSBWidget): boolean {
+    return widget instanceof BSBKnob
+      || widget instanceof BSBHSlider
+      || widget instanceof BSBVSlider
+      || widget instanceof BSBCheckBox
+      || widget instanceof BSBDropdown
+      || widget instanceof BSBValue
+      || widget instanceof BSBXYController
+      || widget instanceof BSBHSliderBank
+      || widget instanceof BSBVSliderBank;
+  }
+
+  private buildParameterSpecs(widget: BSBWidget): BSBParameterSpec[] {
+    const objectName = widget.objectName.trim();
+    if (!objectName) {
+      return [];
+    }
+
+    if (widget instanceof BSBXYController) {
+      return [
+        {
+          name: `${objectName}X`,
+          fixedValue: widget.xValue,
+          minimum: widget.xMin,
+          maximum: widget.xMax,
+          resolution: -1,
+        },
+        {
+          name: `${objectName}Y`,
+          fixedValue: widget.yValue,
+          minimum: widget.yMin,
+          maximum: widget.yMax,
+          resolution: -1,
+        },
+      ];
+    }
+
+    if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+      return widget.sliders.map((slider, index) => ({
+        name: `${objectName}_${index}`,
+        fixedValue: slider.value,
+        minimum: widget.minimum,
+        maximum: widget.maximum,
+        resolution: widget.resolution,
+      }));
+    }
+
+    if (widget instanceof BSBCheckBox) {
+      return [{
+        name: objectName,
+        fixedValue: widget.selected ? 1 : 0,
+        minimum: 0,
+        maximum: 1,
+        resolution: 1,
+      }];
+    }
+
+    if (widget instanceof BSBDropdown) {
+      return [{
+        name: objectName,
+        fixedValue: widget.selectedIndex,
+        minimum: 0,
+        maximum: Math.max(0, widget.dropdownItems.length - 1),
+        resolution: 1,
+      }];
+    }
+
+    if (widget instanceof BSBHSlider || widget instanceof BSBVSlider) {
+      return [{
+        name: objectName,
+        fixedValue: widget.value,
+        minimum: widget.minimum,
+        maximum: widget.maximum,
+        resolution: widget.resolution,
+      }];
+    }
+
+    if (widget instanceof BSBKnob || widget instanceof BSBValue) {
+      const fixedValue = widget instanceof BSBValue ? widget.defaultValue : widget.value;
+      return [{
+        name: objectName,
+        fixedValue,
+        minimum: widget.minimum,
+        maximum: widget.maximum,
+        resolution: -1,
+      }];
+    }
+
+    return [];
+  }
+
+  private syncParametersFromWidgets(): void {
+    const existingByName = new Map<string, Parameter>();
+    for (const parameter of this._parameters) {
+      existingByName.set(parameter.getName(), parameter);
+    }
+
+    const nextParameters: Parameter[] = [];
+    const seenNames = new Set<string>();
+    let mutatedWidgetState = false;
+
+    const visit = (widget: BSBWidget): void => {
+      if (widget instanceof BSBGroup) {
+        for (const child of widget.getChildren()) {
+          visit(child);
+        }
+        return;
+      }
+
+      if (!this.isParameterBackedWidget(widget)) {
+        return;
+      }
+
+      const specs = this.buildParameterSpecs(widget);
+      if (specs.length === 0) {
+        return;
+      }
+
+      const hasAutomatedParameter = specs.some((spec) => existingByName.get(spec.name)?.isAutomationEnabled());
+      if (!widget.automationAllowed && !hasAutomatedParameter) {
+        return;
+      }
+
+      if (hasAutomatedParameter && !widget.automationAllowed) {
+        widget.automationAllowed = true;
+        mutatedWidgetState = true;
+      }
+
+      for (const spec of specs) {
+        if (seenNames.has(spec.name)) {
+          continue;
+        }
+
+        const parameter = existingByName.get(spec.name) ?? new Parameter();
+        parameter.setName(spec.name);
+        parameter.setMinimum(spec.minimum);
+        parameter.setMaximum(spec.maximum);
+        parameter.setResolution(spec.resolution);
+        if (!parameter.isAutomationEnabled()) {
+          parameter.setFixedValue(spec.fixedValue);
+        }
+
+        nextParameters.push(parameter);
+        seenNames.add(spec.name);
+      }
+    };
+
+    visit(this._graphicInterface.getRootGroup());
+    this._parameters = nextParameters;
+
+    if (mutatedWidgetState) {
+      this._graphicInterfaceXML = null;
+    }
+  }
+
+  private renameParametersForWidget(widget: BSBWidget, oldObjectName: string): void {
+    const previousName = oldObjectName.trim();
+    const nextName = widget.objectName.trim();
+    if (!previousName || previousName === nextName || !this.isParameterBackedWidget(widget)) {
+      return;
+    }
+
+    const renameParameter = (from: string, to: string): void => {
+      if (!to) {
+        return;
+      }
+
+      const parameter = this._parameters.find((candidate) => candidate.getName() === from);
+      if (parameter) {
+        parameter.setName(to);
+      }
+    };
+
+    if (widget instanceof BSBXYController) {
+      renameParameter(`${previousName}X`, `${nextName}X`);
+      renameParameter(`${previousName}Y`, `${nextName}Y`);
+      return;
+    }
+
+    if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+      for (let index = 0; index < widget.sliders.length; index += 1) {
+        renameParameter(`${previousName}_${index}`, `${nextName}_${index}`);
+      }
+      return;
+    }
+
+    renameParameter(previousName, nextName);
   }
 
   /**
@@ -388,6 +602,7 @@ export class BlueSynthBuilder extends Instrument {
     };
     visit(this._graphicInterface.getRootGroup().getChildren());
     console.log('updated widgets:', updatedCount);
+    this.syncParametersFromWidgets();
     this._graphicInterfaceXML = null;
     this._presetGroup.setCurrentPresetUniqueId(presetUniqueId);
     this._presetGroup.setCurrentPresetModified(false);
@@ -400,6 +615,32 @@ export class BlueSynthBuilder extends Instrument {
   ): boolean {
     const widget = this._graphicInterface.findWidgetById(widgetId);
     if (!widget) return false;
+    const previousObjectName = widget.objectName;
+
+    const applyFontPatch = (
+      rootKey: 'font' | 'labelFont',
+      field: 'name' | 'size' | 'style',
+      value: unknown,
+    ): boolean => {
+      const target = widget as unknown as Record<string, unknown>;
+      const current = target[rootKey];
+      const next = current && typeof current === 'object'
+        ? { ...(current as Record<string, unknown>) }
+        : { name: 'Roboto', size: 12, style: 0 };
+
+      if (field === 'name' && typeof value === 'string') {
+        next.name = value;
+      } else if (field === 'size' && typeof value === 'number') {
+        next.size = value;
+      } else if (field === 'style' && typeof value === 'number') {
+        next.style = value;
+      } else {
+        return false;
+      }
+
+      target[rootKey] = next;
+      return true;
+    };
 
     for (const [key, value] of Object.entries(properties)) {
       switch (key) {
@@ -445,6 +686,62 @@ export class BlueSynthBuilder extends Instrument {
             }
           }
           break;
+        case "dropdownItems":
+          if (widget instanceof BSBDropdown && Array.isArray(value)) {
+            widget.dropdownItems = value.map((item) => {
+              const record = item as Record<string, unknown>;
+                  return {
+                    name: typeof record.name === 'string' ? record.name : '',
+                    value: typeof record.value === 'string' ? record.value : '',
+                    uniqueId: typeof record.uniqueId === 'string' && record.uniqueId.length > 0
+                      ? record.uniqueId
+                      : (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                          ? `dropdown-${crypto.randomUUID()}`
+                          : `dropdown-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+                  };
+                });
+          }
+          break;
+        case "fontSize":
+          if (widget instanceof BSBDropdown && typeof value === "number") {
+            widget.setFontSize(value);
+          }
+          break;
+        case "lines":
+          if (widget instanceof BSBLineObject) {
+            widget.lines = normalizeBsbLinePatch(value);
+          }
+          break;
+        case "font.name":
+          if (widget instanceof BSBGroup || widget instanceof BSBLabel) {
+            applyFontPatch("font", "name", value);
+          }
+          break;
+        case "font.size":
+          if (widget instanceof BSBGroup || widget instanceof BSBLabel) {
+            applyFontPatch("font", "size", value);
+          }
+          break;
+        case "font.style":
+          if (widget instanceof BSBGroup || widget instanceof BSBLabel) {
+            applyFontPatch("font", "style", value);
+          }
+          break;
+        case "labelFont.name":
+          if (widget instanceof BSBKnob) {
+            applyFontPatch("labelFont", "name", value);
+          }
+          break;
+        case "labelFont.size":
+          if (widget instanceof BSBKnob) {
+            applyFontPatch("labelFont", "size", value);
+          }
+          break;
+        case "labelFont.style":
+          if (widget instanceof BSBKnob) {
+            applyFontPatch("labelFont", "style", value);
+          }
+          break;
         case "defaultValue":
           if (typeof value === "number") {
             widget.setValue(value);
@@ -485,6 +782,12 @@ export class BlueSynthBuilder extends Instrument {
           break;
       }
     }
+
+    if (previousObjectName !== widget.objectName) {
+      this.renameParametersForWidget(widget, previousObjectName);
+    }
+
+    this.syncParametersFromWidgets();
     this._graphicInterfaceXML = null;
     return true;
   }
@@ -510,6 +813,7 @@ export class BlueSynthBuilder extends Instrument {
       }
     }
 
+    this.syncParametersFromWidgets();
     this._graphicInterfaceXML = null;
     return true;
   }
@@ -543,6 +847,7 @@ export class BlueSynthBuilder extends Instrument {
       param.setFixedValue(value);
     }
 
+    this.syncParametersFromWidgets();
     this._graphicInterfaceXML = null;
     return true;
   }
@@ -606,7 +911,7 @@ export class BlueSynthBuilder extends Instrument {
       elem.addElement(this._graphicInterface.saveAsXML());
     }
     const plist = new ParameterList();
-    plist.push(...this._parameters);
+    plist.push(...this.getParameters());
     elem.addElement(plist.saveAsXML());
     if (this._presetGroup) {
       elem.addElement(this._presetGroup.saveAsXML());
@@ -625,7 +930,7 @@ export class BlueSynthBuilder extends Instrument {
     if (editEnabled !== null) bsb._editEnabled = editEnabled === "true";
 
     const name = data.getTextString("name");
-    if (name) bsb._name = name;
+    bsb._name = name !== null ? name : "";
 
     const comment = data.getTextString("comment");
     if (comment) bsb._comment = comment;
@@ -671,6 +976,8 @@ export class BlueSynthBuilder extends Instrument {
       console.log(`[BSB]   Loaded ${bsb._opcodeList.getOpcodes().length} UDOs`);
     }
 
+    bsb.syncParametersFromWidgets();
+
     return bsb;
   }
 
@@ -695,7 +1002,7 @@ export class BlueSynthBuilder extends Instrument {
     consumeUdoReplacementValues = false,
   ): string {
     const unit = new BSBCompilationUnit();
-    const replacementParameters = parameters ?? this._parameters;
+    const replacementParameters = parameters ?? this.getParameters();
     this._graphicInterface.collectReplacements(unit, replacementParameters);
 
     let rendered = unit.replaceBSBValues(text);

@@ -27,7 +27,8 @@ export function loadFontFromXML(data: Element | null): BSBFont {
 export function saveFontToXML(font: BSBFont): Element {
   const elem = new Element('font');
   elem.addElement('name').setText(font.name);
-  elem.addElement('size').setText(font.size % 1 === 0 ? `${font.size}.0` : String(font.size));
+  const roundedSize = Number.isFinite(font.size) ? Math.round(font.size) : 12;
+  elem.addElement('size').setText(`${roundedSize}.0`);
   elem.addElement('style').setText(String(font.style));
   return elem;
 }
@@ -37,7 +38,7 @@ export class BSBKnob extends BSBWidget {
   valueDisplayEnabled = true;
   randomizable = true;
   label = 'label';
-  labelEnabled = false;
+  labelEnabled = true;
   labelFont: BSBFont = { name: 'Roboto', size: 12, style: 0 };
 
   override getPresetValue(): string {
@@ -73,7 +74,7 @@ export class BSBKnob extends BSBWidget {
     const lbl = data.getTextString('label');
     if (lbl !== null) this.label = lbl;
     const le = data.getElement('labelEnabled');
-    if (le) this.labelEnabled = le.getTextString() === 'true';
+    this.labelEnabled = le ? le.getTextString() === 'true' : false;
     const fontElem = data.getElement('font');
     if (fontElem) this.labelFont = loadFontFromXML(fontElem);
 

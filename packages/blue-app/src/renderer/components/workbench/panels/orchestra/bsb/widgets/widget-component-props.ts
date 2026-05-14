@@ -5,7 +5,7 @@ export interface BSBWidgetComponentProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
+  onWidgetSelect: (id: string | null, shiftKey?: boolean) => void;
   onBsbInterfacePatch?: (patch: BsbInterfacePatch) => void;
   resizeMeta?: BSBWidgetResizeMeta;
   gridSnapEnabled?: boolean;

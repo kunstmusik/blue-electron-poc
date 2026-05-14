@@ -1,5 +1,7 @@
 import React, { useCallback, useRef } from 'react';
+import { BSB_XY_READOUT_HEIGHT } from '../../../../../../../shared/bsb-widget-layout';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetComponentProps } from './widget-component-props';
 
 type BSBXYControllerWidgetProps = BSBWidgetComponentProps;
@@ -30,6 +32,7 @@ function BSBXYControllerWidget({
   const yRange = yMax - yMin || 1;
   const xPct = Math.max(0, Math.min(1, (xValue - xMin) / xRange));
   const yPct = Math.max(0, Math.min(1, (yValue - yMin) / yRange));
+  const displaySize = getWidgetDisplaySize(node);
 
   const padRef = useRef<HTMLDivElement | null>(null);
   const patchRef = useRef(onBsbInterfacePatch);
@@ -52,11 +55,11 @@ function BSBXYControllerWidget({
   }, []);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="flex h-full w-full flex-col overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
         <div
           ref={padRef}
-          className="relative flex-1 bg-[#0a0f1a]"
+          className="relative flex-1 min-h-0 bg-[#0a0f1a]"
           style={{ cursor: editEnabled ? 'default' : 'crosshair' }}
           onMouseDown={editEnabled ? undefined : (e) => {
             e.stopPropagation();
@@ -81,7 +84,7 @@ function BSBXYControllerWidget({
           />
         </div>
         {showValue && (
-          <div className="flex items-center justify-center gap-2 border-t border-blue-border/20 px-1 py-0.5 text-[9px] text-blue-muted">
+          <div className="flex shrink-0 items-center justify-center gap-2 border-t border-blue-border/20 px-1 text-[9px] text-blue-muted" style={{ height: BSB_XY_READOUT_HEIGHT }}>
             <span>x: {xValue.toFixed(2)}</span>
             <span>y: {yValue.toFixed(2)}</span>
           </div>

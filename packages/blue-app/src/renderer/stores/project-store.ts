@@ -13,6 +13,9 @@ import {
   createEmptyMixerSnapshot,
   createEmptyScoreDocumentSnapshot,
   createMixerEffectEntrySnapshot,
+  createDefaultBsbWidgetSnapshot,
+  collectBsbReplacementKeysFromSnapshotTree,
+  ensureUniqueName,
   reconcileMixerSnapshotWithArrangement,
   type BlueLiveProjectSnapshot,
   type BlueLivePatch,
@@ -54,9 +57,10 @@ import {
   type UdoDefinitionSnapshot,
 } from '../../shared/project-editor';
 import {
+  BSB_LINE_SELECTOR_HEIGHT,
   getHSliderBankDisplaySize,
   getVSliderBankDisplaySize,
-  BSB_LINE_SELECTOR_HEIGHT,
+  getBsbWidgetDisplaySize,
 } from '../../shared/bsb-widget-layout';
 import {
   EMPTY_UDO_SNAPSHOT,
@@ -1247,6 +1251,22 @@ function applyScorePatchToSnapshot(
   return { ...score, layerGroups: nextLayerGroups };
 }
 
+function cloneSnapshotValue<T>(value: T): T {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneSnapshotValue(item)) as T;
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    next[key] = cloneSnapshotValue(item);
+  }
+  return next as T;
+}
+
 function cloneInstrumentSnapshotForMutation<T extends InstrumentSnapshot>(instrument: T): T {
   return { ...instrument };
 }
@@ -1360,7 +1380,7 @@ function createDefaultInstrumentSnapshot(
         widgets: [],
         editEnabled: true,
         gridSettings: { columns: 8, rows: 4, snap: true },
-        widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
+        widgetTree: { id: 'root', type: 'BSBRootGroup', objectName: '', x: 0, y: 0, width: 0, height: 0, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
       };
     }
   }
@@ -1380,6 +1400,8 @@ function updateInstrumentSnapshot(
     return;
   }
 
+  const previousObjectNames = orchestra.instruments[instrumentIndex]!.objectNames;
+  const previousWidgets = orchestra.instruments[instrumentIndex]!.widgets;
   const nextInstruments = cloneInstrumentsForMutation(orchestra);
   const instrument = cloneInstrumentSnapshotForMutation(nextInstruments[instrumentIndex]!);
   nextInstruments[instrumentIndex] = instrument;
@@ -1446,7 +1468,12 @@ function updateInstrumentSnapshot(
       instrument.opcodeListText = patch.bsbOpcodeListText;
     }
     if (patch.bsbInterface) {
+      const preserveWidgetMetadata = shouldPreserveWidgetMetadataForBsbPatch(patch.bsbInterface);
       applyBsbInterfacePatchToSnapshot(instrument, patch.bsbInterface);
+      if (preserveWidgetMetadata) {
+        instrument.objectNames = previousObjectNames;
+        instrument.widgets = previousWidgets;
+      }
     }
   }
 }
@@ -1504,12 +1531,12 @@ export function applyBsbInterfacePatchToSnapshot(
     const showValue = node.properties.valueDisplayEnabled === true;
 
     if (node.type === 'BSBHSliderBank') {
-      const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 100;
+      const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 150;
       const size = getHSliderBankDisplaySize(sliderCount, sliderWidth, gap, showValue);
       node.width = size.width;
       node.height = size.height;
     } else if (node.type === 'BSBVSliderBank') {
-      const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 100;
+      const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
       const size = getVSliderBankDisplaySize(sliderCount, sliderHeight, gap, showValue);
       node.width = size.width;
       node.height = size.height;
@@ -1712,13 +1739,82 @@ export function applyBsbInterfacePatchToSnapshot(
     }
   };
 
-  const cloneWidgetNode = (
-    node: BsbWidgetNodeSnapshot,
-  ): BsbWidgetNodeSnapshot => ({
-    ...node,
-    properties: { ...node.properties },
-    children: node.children ? [...node.children] : undefined,
-  });
+  const cloneWidgetNode = (node: BsbWidgetNodeSnapshot): BsbWidgetNodeSnapshot => cloneSnapshotValue(node);
+
+  const createPastedWidgetId = (): string => (
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `pasted-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  );
+
+  const normalizePastedWidgetNode = (raw: unknown): BsbWidgetNodeSnapshot | null => {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const record = raw as Record<string, unknown>;
+    if (typeof record.type !== 'string') {
+      return null;
+    }
+
+    const node = cloneSnapshotValue(record) as BsbWidgetNodeSnapshot;
+    node.id = createPastedWidgetId();
+    node.objectName = typeof node.objectName === 'string' ? node.objectName : '';
+    node.x = typeof node.x === 'number' && Number.isFinite(node.x) ? node.x : 0;
+    node.y = typeof node.y === 'number' && Number.isFinite(node.y) ? node.y : 0;
+    node.width = typeof node.width === 'number' && Number.isFinite(node.width) ? node.width : 60;
+    node.height = typeof node.height === 'number' && Number.isFinite(node.height) ? node.height : 24;
+    node.value = typeof node.value === 'number' && Number.isFinite(node.value) ? node.value : 0;
+    node.minimum = typeof node.minimum === 'number' && Number.isFinite(node.minimum) ? node.minimum : 0;
+    node.maximum = typeof node.maximum === 'number' && Number.isFinite(node.maximum) ? node.maximum : 1;
+    node.editable = node.editable !== false;
+    node.properties = node.properties && typeof node.properties === 'object' && !Array.isArray(node.properties)
+      ? cloneSnapshotValue(node.properties)
+      : {};
+
+    if (Array.isArray(record.children)) {
+      node.children = record.children
+        .map((child) => normalizePastedWidgetNode(child))
+        .filter((child): child is BsbWidgetNodeSnapshot => child !== null);
+    }
+
+    return node;
+  };
+
+  const syncWidgetTreeLayout = (
+    previousNode: BsbWidgetNodeSnapshot | undefined,
+    nextNode: BsbWidgetNodeSnapshot,
+  ): BsbWidgetNodeSnapshot => {
+    if (previousNode === nextNode) {
+      return nextNode;
+    }
+
+    let nextLayoutNode = nextNode;
+
+    if (nextNode.children && nextNode.children.length > 0) {
+      const previousChildren = previousNode?.children ?? [];
+      const nextChildren = nextNode.children.map((child, index) =>
+        syncWidgetTreeLayout(previousChildren[index], child));
+      const childrenChanged = nextChildren.some((child, index) => child !== nextNode.children?.[index]);
+      if (childrenChanged) {
+        nextLayoutNode = cloneWidgetNode(nextNode);
+        nextLayoutNode.children = nextChildren;
+      }
+    }
+
+    if (nextLayoutNode.type !== 'BSBRootGroup' && nextLayoutNode.type !== 'BSBGroup') {
+      const size = getBsbWidgetDisplaySize(nextLayoutNode);
+      if (nextLayoutNode.width !== size.width || nextLayoutNode.height !== size.height) {
+        if (nextLayoutNode === nextNode) {
+          nextLayoutNode = { ...nextNode };
+        }
+        nextLayoutNode.width = size.width;
+        nextLayoutNode.height = size.height;
+      }
+    }
+
+    return nextLayoutNode;
+  };
 
   const rebuildWidgetIndexes = (): void => {
     if (!instrument.widgetTree?.children) {
@@ -1729,6 +1825,14 @@ export function applyBsbInterfacePatchToSnapshot(
 
     instrument.objectNames = collectObjectNamesFromTree(instrument.widgetTree);
     syncWidgetListFromTree();
+  };
+
+  const commitWidgetTreeMutation = (
+    previousNode: BsbWidgetNodeSnapshot | undefined,
+    nextNode: BsbWidgetNodeSnapshot,
+  ): void => {
+    instrument.widgetTree = syncWidgetTreeLayout(previousNode, nextNode);
+    rebuildWidgetIndexes();
   };
 
   const updateWidgetTreeById = (
@@ -1857,10 +1961,6 @@ export function applyBsbInterfacePatchToSnapshot(
       break;
     case 'updateWidgetProperties': {
       if (!instrument.widgetTree) break;
-      const shouldRebuildWidgetIndexes = Object.prototype.hasOwnProperty.call(
-        patch.properties,
-        'objectName',
-      );
       const result = updateWidgetTreeById(instrument.widgetTree, patch.widgetId, (node) => {
         for (const [key, value] of Object.entries(patch.properties)) {
           switch (key) {
@@ -1949,16 +2049,31 @@ export function applyBsbInterfacePatchToSnapshot(
                 syncSliderBankLayout(node);
               }
               break;
+            case 'dropdownItems':
+              if (Array.isArray(value)) {
+                node.properties.dropdownItems = value.map((item) => {
+                  const record = item as Record<string, unknown>;
+                  return {
+                    name: typeof record.name === 'string' ? record.name : '',
+                    value: typeof record.value === 'string' ? record.value : '',
+                    uniqueId: typeof record.uniqueId === 'string' && record.uniqueId.length > 0
+                      ? record.uniqueId
+                      : (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                          ? `dropdown-${crypto.randomUUID()}`
+                          : `dropdown-${Date.now()}-${Math.random().toString(16).slice(2)}`),
+                  };
+                });
+              } else {
+                node.properties.dropdownItems = value as unknown;
+              }
+              break;
             default: node.properties[key] = value; break;
           }
         }
         return true;
       });
       if (result.changed) {
-        instrument.widgetTree = result.node;
-        if (shouldRebuildWidgetIndexes) {
-          rebuildWidgetIndexes();
-        }
+        commitWidgetTreeMutation(instrument.widgetTree, result.node);
       }
       break;
     }
@@ -1984,7 +2099,7 @@ export function applyBsbInterfacePatchToSnapshot(
         return true;
       });
       if (result.changed) {
-        instrument.widgetTree = result.node;
+        commitWidgetTreeMutation(instrument.widgetTree, result.node);
       }
       break;
     }
@@ -1996,7 +2111,7 @@ export function applyBsbInterfacePatchToSnapshot(
         return true;
       });
       if (result.changed) {
-        instrument.widgetTree = result.node;
+        commitWidgetTreeMutation(instrument.widgetTree, result.node);
       }
       break;
     }
@@ -2008,7 +2123,7 @@ export function applyBsbInterfacePatchToSnapshot(
         return true;
       });
       if (result.changed) {
-        instrument.widgetTree = result.node;
+        commitWidgetTreeMutation(instrument.widgetTree, result.node);
       }
       break;
     }
@@ -2024,7 +2139,7 @@ export function applyBsbInterfacePatchToSnapshot(
         if (preset?.values && instrument.widgetTree) {
           const result = applyPresetToTree(instrument.widgetTree, preset.values);
           if (result.changed) {
-            instrument.widgetTree = result.node;
+            commitWidgetTreeMutation(instrument.widgetTree, result.node);
           }
         }
       }
@@ -2059,40 +2174,65 @@ export function applyBsbInterfacePatchToSnapshot(
       break;
     case 'addWidget': {
       if (!instrument.widgetTree) break;
-      const newId = `w${Date.now()}`;
-      const newNode: BsbWidgetNodeSnapshot = {
-        id: newId,
-        type: patch.widgetType,
-        objectName: '',
-        x: patch.x,
-        y: patch.y,
-        width: 60,
-        height: 24,
-        value: 0,
-        minimum: 0,
-        maximum: 1,
-        properties: {},
-        editable: true,
-        children: patch.widgetType === 'BSBGroup' ? [] : undefined,
-      };
+      const newNode = createDefaultBsbWidgetSnapshot(patch.widgetType);
+      if (!newNode) break;
+      newNode.x = patch.x;
+      newNode.y = patch.y;
       const targetId = patch.parentGroupId;
       if (targetId) {
         const result = updateWidgetTreeById(instrument.widgetTree, targetId, (node) => {
           if (node.type !== 'BSBGroup') {
             return false;
           }
-          node.children = [...(node.children ?? []), newNode];
+          node.children = [...(node.children ?? []), cloneWidgetNode(newNode)];
           return true;
         });
         if (result.changed) {
-          instrument.widgetTree = result.node;
-          rebuildWidgetIndexes();
+          commitWidgetTreeMutation(instrument.widgetTree, result.node);
         }
       } else {
         const nextRoot = cloneWidgetNode(instrument.widgetTree);
-        nextRoot.children = [...(nextRoot.children ?? []), newNode];
-        instrument.widgetTree = nextRoot;
-        rebuildWidgetIndexes();
+        nextRoot.children = [...(nextRoot.children ?? []), cloneWidgetNode(newNode)];
+        commitWidgetTreeMutation(instrument.widgetTree, nextRoot);
+      }
+      break;
+    }
+    case 'pasteWidgets': {
+      if (!instrument.widgetTree) break;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(patch.widgetData);
+      } catch {
+        break;
+      }
+      if (!Array.isArray(parsed)) break;
+
+      const pastedNodes = parsed
+        .map((node) => normalizePastedWidgetNode(node))
+        .filter((node): node is BsbWidgetNodeSnapshot => node !== null);
+      if (pastedNodes.length === 0) break;
+
+      const existingNames = new Set(collectObjectNamesFromTree(instrument.widgetTree));
+      for (const node of pastedNodes) {
+        ensureUniqueName(node, existingNames);
+      }
+
+      const targetId = patch.parentGroupId;
+      if (targetId) {
+        const result = updateWidgetTreeById(instrument.widgetTree, targetId, (node) => {
+          if (node.type !== 'BSBGroup') {
+            return false;
+          }
+          node.children = [...(node.children ?? []), ...pastedNodes.map((pasted) => cloneWidgetNode(pasted))];
+          return true;
+        });
+        if (result.changed) {
+          commitWidgetTreeMutation(instrument.widgetTree, result.node);
+        }
+      } else {
+        const nextRoot = cloneWidgetNode(instrument.widgetTree);
+        nextRoot.children = [...(nextRoot.children ?? []), ...pastedNodes.map((pasted) => cloneWidgetNode(pasted))];
+        commitWidgetTreeMutation(instrument.widgetTree, nextRoot);
       }
       break;
     }
@@ -2100,8 +2240,7 @@ export function applyBsbInterfacePatchToSnapshot(
       if (!instrument.widgetTree) break;
       const result = removeWidgetFromTree(instrument.widgetTree, patch.widgetId);
       if (result.removed) {
-        instrument.widgetTree = result.node;
-        rebuildWidgetIndexes();
+        commitWidgetTreeMutation(instrument.widgetTree, result.node);
       }
       break;
     }
@@ -2168,6 +2307,38 @@ export function applyBsbInterfacePatchToSnapshot(
   }
 }
 
+function shouldPreserveWidgetMetadataForBsbPatch(patch: BsbInterfacePatch): boolean {
+  switch (patch.type) {
+    case 'updateWidgetProperties': {
+      const properties = patch.properties as Record<string, unknown>;
+      return !(
+        Object.prototype.hasOwnProperty.call(properties, 'objectName')
+        || Object.prototype.hasOwnProperty.call(properties, 'lines')
+        || Object.prototype.hasOwnProperty.call(properties, 'numberOfSliders')
+        || Object.prototype.hasOwnProperty.call(properties, 'sliders')
+      );
+    }
+    case 'updateSliderBankValue':
+    case 'moveWidget':
+    case 'resizeWidget':
+    case 'setEditEnabled':
+    case 'selectWidget':
+    case 'updateGridSettings':
+    case 'applyPreset':
+    case 'updatePreset':
+    case 'addPreset':
+    case 'addPresetGroup':
+    case 'synchronizePresets':
+    case 'updateEmbeddedOpcodeList':
+    case 'randomize':
+      return true;
+    case 'addWidget':
+    case 'removeWidget':
+    default:
+      return false;
+  }
+}
+
 function applyEmbeddedOpcodeListPatchToSnapshot(
   instrument: (GenericInstrumentSnapshot | JavaScriptInstrumentSnapshot),
   patch: EmbeddedOpcodeListPatch,
@@ -2230,13 +2401,7 @@ function applyEmbeddedOpcodeListPatchToSnapshot(
 }
 
 function collectObjectNamesFromTree(node: BsbWidgetNodeSnapshot): string[] {
-  const names: string[] = [];
-  const visit = (n: BsbWidgetNodeSnapshot): void => {
-    if (n.objectName) names.push(n.objectName);
-    if (n.children) n.children.forEach(visit);
-  };
-  if (node.children) node.children.forEach(visit);
-  return names.sort();
+  return collectBsbReplacementKeysFromSnapshotTree(node);
 }
 
 function findPresetById(
@@ -2429,7 +2594,7 @@ function applyOrchestraPatchSnapshot(
           widgets: [],
           editEnabled: true,
           gridSettings: { columns: 8, rows: 4, snap: true },
-          widgetTree: { id: 'root', type: 'BSBGroup', objectName: '', x: 0, y: 0, width: 480, height: 320, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
+          widgetTree: { id: 'root', type: 'BSBRootGroup', objectName: '', x: 0, y: 0, width: 0, height: 0, value: 0, minimum: 0, maximum: 1, properties: {}, editable: true, children: [] },
         };
         next.arrangement.rows = next.arrangement.rows.slice();
         next.arrangement.rows[rowIndex] = row;

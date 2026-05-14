@@ -6,7 +6,7 @@ import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 
 export class BSBVSlider extends BSBWidget {
-  sliderHeight = 100;
+  sliderHeight = 150;
   resolution = 0.1;
   valueDisplayEnabled = true;
   randomizable = true;

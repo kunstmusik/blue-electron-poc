@@ -10,12 +10,12 @@ import { Parameter } from '../../automation/parameter';
 import { formatBlueNumber } from '../../utilities/number-format';
 
 export class BSBVSliderBank extends BSBWidget {
-  sliderHeight = 100;
+  sliderHeight = 150;
   gap = 5;
   resolution = 0.1;
   valueDisplayEnabled = true;
   randomizable = true;
-  sliders: BSBVSlider[] = [];
+  sliders: BSBVSlider[] = [new BSBVSlider()];
 
   get numberOfSliders(): number {
     return this.sliders.length;

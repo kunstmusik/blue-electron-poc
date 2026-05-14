@@ -60,7 +60,7 @@ export default function BSBGroupWidget({
       >
         {titleEnabled && groupName && (
           <div
-            className="flex w-full items-center justify-center truncate px-1 shrink-0"
+            className="flex w-full items-center justify-center truncate shrink-0"
             style={{
               backgroundColor: borderColor,
               color: labelTextColor,

@@ -18,7 +18,7 @@ export interface StringChannel {
 export class BSBFileSelector extends BSBWidget {
   fileName = '';
   textFieldWidth = 100;
-  stringChannelEnabled = false;
+  stringChannelEnabled = true;
   private stringChannel: StringChannel = {
     objectName: '',
     value: '',
@@ -41,8 +41,7 @@ export class BSBFileSelector extends BSBWidget {
     const tw = data.getTextString('textFieldWidth');
     if (tw) this.textFieldWidth = parseInt(tw, 10);
     const scEnabled = data.getElement('stringChannelEnabled');
-    if (scEnabled) this.stringChannelEnabled = scEnabled.getTextString() === 'true';
-    else this.stringChannelEnabled = false;
+    this.stringChannelEnabled = scEnabled ? scEnabled.getTextString() === 'true' : false;
     this.syncStringChannels();
   }
 

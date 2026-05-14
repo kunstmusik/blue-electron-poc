@@ -19,6 +19,10 @@ export class BSBDropdown extends BSBWidget {
   randomizable = true;
   dropdownItems: BSBDropdownItem[] = [];
 
+  setFontSize(size: number): void {
+    this.fontSize = Math.max(8, Math.min(36, Math.round(size)));
+  }
+
   override getPresetValue(): string {
     const item = this.dropdownItems[this.selectedIndex] ?? this.dropdownItems[0];
     return item ? `id:${item.uniqueId}` : String(this.selectedIndex);
@@ -82,9 +86,19 @@ export class BSBDropdown extends BSBWidget {
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
     const idx = data.getTextString('selectedIndex');
-    if (idx) this.selectedIndex = parseInt(idx, 10);
+    if (idx) {
+      const parsed = parseInt(idx, 10);
+      if (Number.isFinite(parsed)) {
+        this.setValue(parsed);
+      }
+    }
     const fs = data.getTextString('fontSize');
-    if (fs) this.fontSize = parseInt(fs, 10);
+    if (fs) {
+      const parsed = parseInt(fs, 10);
+      if (Number.isFinite(parsed)) {
+        this.setFontSize(parsed);
+      }
+    }
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
     const listElem = data.getElement('bsbDropdownItemList');

@@ -5,6 +5,7 @@ import type {
   BsbWidgetNodeSnapshot,
   InstrumentPatch,
 } from '../../../../../../shared/project-editor';
+import { collectBsbReplacementKeysFromSnapshotTree } from '../../../../../../shared/project-editor';
 import BSBInterfaceCanvas from './BSBInterfaceCanvas';
 import BSBPropertySheet from './BSBPropertySheet';
 import BSBGridSettingsPanel from './BSBGridSettingsPanel';
@@ -45,7 +46,7 @@ function BSBInterfaceEditor({
     [onInstrumentPatch],
   );
 
-  const handleWidgetSelect = useCallback((id: string | null, shiftKey: boolean) => {
+  const handleWidgetSelect = useCallback((id: string | null, shiftKey = false) => {
     setSelectedWidgetIds((prev) => {
       if (id === null) return new Set();
       if (shiftKey) {
@@ -58,7 +59,7 @@ function BSBInterfaceEditor({
   }, []);
 
   const allObjectNames = useMemo(
-    () => collectObjectNames(instrument.widgetTree),
+    () => new Set(collectBsbReplacementKeysFromSnapshotTree(instrument.widgetTree)),
     [instrument.widgetTree],
   );
 
@@ -201,16 +202,4 @@ function findWidgetInTree(
     }
   }
   return null;
-}
-
-function collectObjectNames(
-  tree: BsbWidgetNodeSnapshot,
-): Set<string> {
-  const names = new Set<string>();
-  const visit = (node: BsbWidgetNodeSnapshot) => {
-    if (node.objectName) names.add(node.objectName);
-    if (node.children) node.children.forEach(visit);
-  };
-  if (tree.children) tree.children.forEach(visit);
-  return names;
 }

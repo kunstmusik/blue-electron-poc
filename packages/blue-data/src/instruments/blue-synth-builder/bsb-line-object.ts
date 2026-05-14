@@ -6,6 +6,10 @@ import { Element } from '../../serialization/xml-reader';
 import { BSBWidget } from './bsb-widget';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { formatBlueNumber } from '../../utilities/number-format';
+import {
+  decodeBsbColorToCss,
+  encodeCssColorToJavaInt,
+} from './bsb-color';
 
 export type SeparatorType = 'None' | 'Comma' | 'Single Quote';
 
@@ -25,37 +29,140 @@ export interface Line {
   points: LinePoint[];
 }
 
-function colorIntToCss(color: number): string {
-  const rgb = (color >>> 0) & 0x00ffffff;
-  return `#${rgb.toString(16).padStart(6, '0')}`;
-}
-
-function cssColorToJavaInt(color: string): string {
-  const normalized = color.trim();
-  if (/^-?\d+$/.test(normalized)) return normalized;
-  if (/^#[0-9a-fA-F]{6}$/.test(normalized)) {
-    const rgb = parseInt(normalized.substring(1), 16);
-    const argbUnsigned = (0xff000000 | rgb) >>> 0;
-    return (argbUnsigned > 0x7fffffff ? argbUnsigned - 0x100000000 : argbUnsigned).toString();
-  }
-  return '-8355712';
-}
+const LINE_PALETTE = [
+  '#20dd00',
+  '#0000ff',
+  '#ffa500',
+  '#008b00',
+  '#ff00ff',
+  '#cd3700',
+  '#68228b',
+  '#00688b',
+  '#2f4f4f',
+  '#cd1076',
+  '#8b6914',
+  '#458b74',
+  '#8b4513',
+  '#4169e1',
+  '#8b7d6b',
+  '#000080',
+  '#7cfc00',
+  '#483d8b',
+  '#ffd700',
+  '#838b8b',
+  '#8b1a1a',
+  '#7fff00',
+  '#8b2323',
+  '#8b7355',
+  '#458b74',
+  '#fa8072',
+  '#8b3e2f',
+  '#008b8b',
+  '#458b00',
+  '#a020f0',
+];
 
 export function normalizeBsbLineColor(color: string | number | undefined): string {
-  if (typeof color === 'number' && Number.isFinite(color)) {
-    return colorIntToCss(color);
+  return decodeBsbColorToCss(color, '#808080');
+}
+
+export function getBsbLinePaletteColor(index: number): string {
+  return LINE_PALETTE[((index % LINE_PALETTE.length) + LINE_PALETTE.length) % LINE_PALETTE.length]!;
+}
+
+function createUniqueBsbLineNameFromNames(usedNames: Set<string>, fallbackIndex: number): string {
+  for (let index = 0; index < fallbackIndex; index++) {
+    const candidate = `line${index}`;
+    if (!usedNames.has(candidate)) {
+      return candidate;
+    }
   }
-  if (typeof color !== 'string') {
-    return '#808080';
+
+  let nextIndex = fallbackIndex;
+  while (usedNames.has(`line${nextIndex}`)) {
+    nextIndex += 1;
   }
-  const trimmed = color.trim();
-  if (/^-?\d+$/.test(trimmed)) {
-    return colorIntToCss(parseInt(trimmed, 10));
+  return `line${nextIndex}`;
+}
+
+export function createUniqueBsbLineName(lines: Array<Pick<Line, 'varName'>>): string {
+  const usedNames = new Set(lines.map((line) => line.varName).filter((name) => name.length > 0));
+  return createUniqueBsbLineNameFromNames(usedNames, lines.length);
+}
+
+export function createDefaultBsbLine(existingLines: Array<Pick<Line, 'varName'>> = []): Line {
+  return {
+    varName: createUniqueBsbLineName(existingLines),
+    min: 0,
+    max: 1,
+    color: getBsbLinePaletteColor(existingLines.length),
+    resolution: '-1',
+    rightBound: true,
+    endPointsLinked: false,
+    points: [
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ],
+  };
+}
+
+export function normalizeBsbLinePatch(lines: unknown): Line[] {
+  if (!Array.isArray(lines)) {
+    return [];
   }
-  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
-    return trimmed;
-  }
-  return '#808080';
+
+  const usedNames = new Set<string>();
+
+  return lines.map((line, index) => {
+    const record = line && typeof line === 'object' ? line as Record<string, unknown> : {};
+    const rawName = typeof record.varName === 'string'
+      ? record.varName
+      : typeof record.name === 'string'
+        ? record.name
+        : '';
+    let varName = rawName.trim().length > 0
+      ? rawName
+      : createUniqueBsbLineNameFromNames(usedNames, index);
+    if (usedNames.has(varName)) {
+      varName = createUniqueBsbLineNameFromNames(usedNames, index);
+    }
+    usedNames.add(varName);
+
+    const min = typeof record.min === 'number' && Number.isFinite(record.min) ? record.min : 0;
+    const max = typeof record.max === 'number' && Number.isFinite(record.max) ? record.max : 1;
+    const points = Array.isArray(record.points) && record.points.length > 0
+      ? record.points.map((point) => {
+          const pointRecord = point && typeof point === 'object' ? point as Record<string, unknown> : {};
+          return {
+            x: typeof pointRecord.x === 'number' && Number.isFinite(pointRecord.x) ? pointRecord.x : 0,
+            y: typeof pointRecord.y === 'number' && Number.isFinite(pointRecord.y) ? pointRecord.y : 0,
+          };
+        })
+      : [
+          { x: 0, y: 0.5 },
+          { x: 1, y: 0.5 },
+        ];
+
+    const endPointsLinked = record.endPointsLinked === true;
+    if (endPointsLinked && points.length >= 2) {
+      points[points.length - 1] = { ...points[points.length - 1]!, y: points[0]!.y };
+    }
+
+    return {
+      varName,
+      min,
+      max,
+      color: normalizeBsbLineColor(
+        typeof record.color === 'string' || typeof record.color === 'number'
+          ? record.color
+          : getBsbLinePaletteColor(index),
+      ),
+      resolution: typeof record.resolution === 'string' ? record.resolution : '-1',
+      rightBound: typeof record.rightBound === 'boolean' ? record.rightBound : true,
+      endPointsLinked,
+      points,
+    };
+  });
 }
 
 export function parseBsbLineFromXml(lineElem: Element, fallbackName: string): Line {
@@ -120,7 +227,7 @@ export function writeBsbLineToXml(linesElem: Element, line: Line): void {
   lineElem.setAttribute('max', String(line.max));
   lineElem.setAttribute('min', String(line.min));
   lineElem.setAttribute('bdresolution', line.resolution ?? '-1');
-  lineElem.setAttribute('color', cssColorToJavaInt(line.color));
+  lineElem.setAttribute('color', encodeCssColorToJavaInt(line.color));
   lineElem.setAttribute('rightBound', String(line.rightBound ?? false));
   lineElem.setAttribute('endPointsLinked', String(line.endPointsLinked ?? false));
 

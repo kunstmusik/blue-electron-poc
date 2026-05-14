@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetComponentProps } from './widget-component-props';
 
 export function getCommittedTextFieldValue(currentValue: string, draftValue: string): string | null {
@@ -23,6 +24,7 @@ function BSBTextFieldWidget({
   onWidgetAction,
 }: BSBTextFieldWidgetProps): React.ReactElement {
   const textValue = typeof node.properties.textValue === 'string' ? node.properties.textValue : '';
+  const displaySize = getWidgetDisplaySize(node);
   const [localValue, setLocalValue] = useState(textValue);
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,7 +50,7 @@ function BSBTextFieldWidget({
   };
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div className="flex h-full w-full items-center overflow-hidden rounded border border-blue-border/40 bg-blue-surface/30">
         <input
           ref={inputRef}

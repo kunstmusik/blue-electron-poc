@@ -8,7 +8,7 @@ import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { loadFontFromXML, type BSBFont } from './bsb-knob';
 
 export class BSBLabel extends BSBWidget {
-  label = '';
+  label = 'label';
   font: BSBFont = { name: 'Roboto', size: 12, style: 0 };
 
   override getPresetValue(): string | null {
@@ -24,7 +24,7 @@ export class BSBLabel extends BSBWidget {
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
     const text = data.getTextString('label');
-    if (text !== null) this.label = text;
+    this.label = text !== null ? text : '';
     const fontElem = data.getElement('font');
     if (fontElem) this.font = loadFontFromXML(fontElem);
   }

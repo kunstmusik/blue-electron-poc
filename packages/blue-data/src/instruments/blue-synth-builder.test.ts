@@ -1,9 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { Element } from '../serialization/xml-reader';
+import { assignParameterNames } from '../automation/parameter-helper';
 import { BlueSynthBuilder } from './blue-synth-builder';
 import { UDOStyle } from '../opcodes/udo-style';
+import { BSBCheckBox } from './blue-synth-builder/bsb-check-box';
+import { BSBDropdown } from './blue-synth-builder/bsb-dropdown';
+import { BSBFileSelector } from './blue-synth-builder/bsb-file-selector';
+import { BSBGroup } from './blue-synth-builder/bsb-group';
+import { BSBHSlider } from './blue-synth-builder/bsb-hslider';
+import { BSBHSliderBank } from './blue-synth-builder/bsb-hslider-bank';
+import { BSBKnob } from './blue-synth-builder/bsb-knob';
+import { BSBLabel } from './blue-synth-builder/bsb-label';
+import {
+  BSBLineObject,
+  createDefaultBsbLine,
+  normalizeBsbLinePatch,
+} from './blue-synth-builder/bsb-line-object';
+import { BSBVSlider } from './blue-synth-builder/bsb-vslider';
+import { BSBVSliderBank } from './blue-synth-builder/bsb-vslider-bank';
 
 describe('BlueSynthBuilder', () => {
+  it('uses Java Blue default instrument name', () => {
+    expect(new BlueSynthBuilder().getName()).toBe('untitled');
+  });
+
   it('preserves loaded graphic interface XML and opcode lists', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Builder</name>
@@ -54,6 +74,93 @@ describe('BlueSynthBuilder', () => {
     const savedXml = instrument.saveAsXML().toXml();
     expect(savedXml).toContain('<objectName>amp</objectName>');
     expect(savedXml).toContain('<value>0.75</value>');
+  });
+
+  it('synthesizes missing BSB parameters from automatable widgets', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Generated Params</name>
+      <instrumentText>&lt;knob&gt;\n&lt;bank_0&gt;\n&lt;bank_1&gt;\n&lt;padX&gt;\n&lt;padY&gt;\n&lt;env_curve&gt;</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+          <objectName>knob</objectName>
+          <x>0</x><y>0</y>
+          <automationAllowed>true</automationAllowed>
+          <minimum>0</minimum><maximum>1</maximum>
+          <value>0.25</value>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+          <objectName>bank</objectName>
+          <x>0</x><y>0</y>
+          <automationAllowed>true</automationAllowed>
+          <minimum>0</minimum><maximum>1</maximum>
+          <bdresolution>0.1</bdresolution>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">
+            <objectName/>
+            <x>0</x><y>0</y>
+            <automationAllowed>true</automationAllowed>
+            <minimum>0</minimum><maximum>1</maximum>
+            <value>0.1</value>
+            <bdresolution>0.1</bdresolution>
+          </bsbObject>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider" version="2">
+            <objectName/>
+            <x>0</x><y>0</y>
+            <automationAllowed>true</automationAllowed>
+            <minimum>0</minimum><maximum>1</maximum>
+            <value>0.2</value>
+            <bdresolution>0.1</bdresolution>
+          </bsbObject>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBXYController" version="2">
+          <objectName>pad</objectName>
+          <x>0</x><y>0</y>
+          <automationAllowed>true</automationAllowed>
+          <xValue>0.3</xValue>
+          <yValue>0.7</yValue>
+          <xMin>0</xMin><xMax>1</xMax>
+          <yMin>0</yMin><yMax>1</yMax>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBLineObject">
+          <objectName>env</objectName>
+          <x>0</x><y>0</y>
+          <lines>
+            <line name="curve" varName="curve" version="2" max="1" min="0" bdresolution="-1" color="-8355712" rightBound="true" endPointsLinked="false">
+              <linePoint x="0" y="0.2"/>
+              <linePoint x="1" y="0.8"/>
+            </line>
+          </lines>
+        </bsbObject>
+      </graphicInterface>
+      <parameterList/>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const parameterNames = instrument.getParameters().map((parameter) => parameter.getName());
+
+    expect(parameterNames).toEqual(['knob', 'bank_0', 'bank_1', 'padX', 'padY']);
+    expect(parameterNames).not.toContain('pad');
+    expect(parameterNames).not.toContain('env_curve');
+
+    assignParameterNames(instrument.getParameters());
+
+    const rendered = instrument.generateInstrument();
+    expect(rendered).toContain('gk_blue_auto0');
+    expect(rendered).toContain('gk_blue_auto1');
+    expect(rendered).toContain('gk_blue_auto2');
+    expect(rendered).toContain('gk_blue_auto3');
+    expect(rendered).toContain('gk_blue_auto4');
+    expect(rendered).toContain('0.0 0.2 1 0.8');
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<parameterList>');
+    expect(savedXml).toContain('name="knob"');
+    expect(savedXml).toContain('name="bank_0"');
+    expect(savedXml).toContain('name="bank_1"');
+    expect(savedXml).toContain('name="padX"');
+    expect(savedXml).toContain('name="padY"');
+    expect(savedXml).not.toContain('name="pad"');
+    expect(savedXml).not.toContain('name="env_curve"');
   });
 
   it('loads and saves preset groups with round-trip fidelity', () => {
@@ -354,6 +461,35 @@ describe('BlueSynthBuilder', () => {
     expect(savedXml).toContain('<linePoint x="0.5" y="0.5"/>');
   });
 
+  it('uses Java line defaults for new BSB LineObject lines', () => {
+    const first = createDefaultBsbLine();
+    const second = createDefaultBsbLine([first]);
+
+    expect(first.varName).toBe('line0');
+    expect(first.color).toBe('#20dd00');
+    expect(first.rightBound).toBe(true);
+    expect(first.points).toEqual([
+      { x: 0, y: 0.5 },
+      { x: 1, y: 0.5 },
+    ]);
+
+    expect(second.varName).toBe('line1');
+    expect(second.color).toBe('#0000ff');
+  });
+
+  it('normalizes patched BSB LineObject lines with unique Java-style names and linked endpoints', () => {
+    const lines = normalizeBsbLinePatch([
+      { varName: 'line0', color: '#808080', points: [{ x: 0, y: 0.25 }, { x: 1, y: 0.75 }] },
+      { varName: 'line0', endPointsLinked: true, points: [{ x: 0, y: 0.2 }, { x: 1, y: 0.8 }] },
+      { points: [] },
+    ]);
+
+    expect(lines.map((line) => line.varName)).toEqual(['line0', 'line1', 'line2']);
+    expect(lines[1].rightBound).toBe(true);
+    expect(lines[1].points[1].y).toBe(0.2);
+    expect(lines[2].color).toBe('#FFA500');
+  });
+
   it('parses and saves Java-style BSB line metadata', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Java Line Object</name>
@@ -379,7 +515,7 @@ describe('BlueSynthBuilder', () => {
     const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
     const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0]! as any;
     expect(widget.lines[0].varName).toBe('env');
-    expect(widget.lines[0].color).toBe('#ff0000');
+    expect(widget.lines[0].color).toBe('#FF0000');
     expect(widget.separatorType).toBe('Comma');
 
     const savedXml = instrument.saveAsXML().toXml();
@@ -564,5 +700,270 @@ xout aOut</codeBody>
     expect(savedXml).toContain('name="Sub"');
     expect(savedXml).toContain('ver2:0.8');
     expect(savedXml).toContain('ver2:0.3');
+  });
+
+  it('exposes Java default constructor values for the common BSB widgets', () => {
+    const label = new BSBLabel();
+    const knob = new BSBKnob();
+    const fileSelector = new BSBFileSelector();
+    const hSlider = new BSBHSlider();
+    const vSlider = new BSBVSlider();
+    const hBank = new BSBHSliderBank();
+    const vBank = new BSBVSliderBank();
+    const dropdown = new BSBDropdown();
+    const group = new BSBGroup();
+
+    expect(label.label).toBe('label');
+
+    expect(knob.labelEnabled).toBe(true);
+    expect(fileSelector.stringChannelEnabled).toBe(true);
+
+    expect(hSlider.sliderWidth).toBe(150);
+    expect(vSlider.sliderHeight).toBe(150);
+
+    expect(hBank.sliderWidth).toBe(150);
+    expect(hBank.numberOfSliders).toBe(1);
+    expect(hBank.sliders).toHaveLength(1);
+
+    expect(vBank.sliderHeight).toBe(150);
+    expect(vBank.numberOfSliders).toBe(1);
+    expect(vBank.sliders).toHaveLength(1);
+
+    expect(dropdown.fontSize).toBe(12);
+    dropdown.setFontSize(99);
+    expect(dropdown.fontSize).toBe(36);
+    dropdown.setFontSize(7);
+    expect(dropdown.fontSize).toBe(8);
+
+    expect(group.backgroundColor).toBe('rgba(0,0,0,0.2)');
+    expect(group.borderColor).toBe('#000000');
+    expect(group.labelTextColor).toBe('#FFFFFF');
+  });
+
+  it('keeps legacy XML fallback values for label and string-channel flags', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Legacy Flags</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <objectName>gain</objectName>
+          <label>Gain</label>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBFileSelector">
+          <objectName>file</objectName>
+          <fileName>test.wav</fileName>
+        </bsbObject>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBCheckBox">
+          <objectName>gate</objectName>
+          <selected>true</selected>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widgets = instrument.getGraphicInterface().getRootGroup().getChildren();
+    const knob = widgets[0] as BSBKnob;
+    const fileSelector = widgets[1] as BSBFileSelector;
+    const checkbox = widgets[2] as BSBCheckBox;
+
+    expect(knob.labelEnabled).toBe(false);
+    expect(fileSelector.stringChannelEnabled).toBe(false);
+    expect(checkbox.selected).toBe(true);
+    expect(checkbox.value).toBe(1);
+  });
+
+  it('round-trips group colors through Java-compatible XML encoding', () => {
+    const group = new BSBGroup();
+    group.groupName = 'Color Group';
+    group.backgroundColor = '#102030';
+    group.borderColor = '#445566';
+    group.labelTextColor = '#778899';
+
+    const xml = group.saveAsXML().toXml();
+    expect(xml).toContain('<backgroundColor>0x102030ff</backgroundColor>');
+    expect(xml).toContain('<borderColor>0x445566ff</borderColor>');
+    expect(xml).toContain('<labelTextColor>0x778899ff</labelTextColor>');
+
+    const reloaded = new BSBGroup();
+    reloaded.loadFromXML(Element.parse(xml));
+    expect(reloaded.backgroundColor).toBe('#102030');
+    expect(reloaded.borderColor).toBe('#445566');
+    expect(reloaded.labelTextColor).toBe('#778899');
+  });
+
+  it('rounds integer-shaped BSB geometry before serializing XML', () => {
+    const group = new BSBGroup();
+    group.x = 68.9140625;
+    group.y = 12.4;
+    group.width = 120.6;
+    group.height = 45.5;
+
+    const knob = new BSBKnob();
+    knob.objectName = 'gain';
+    knob.x = 10.49;
+    knob.y = 20.5;
+    knob.knobWidth = 60.9;
+
+    const dropdown = new BSBDropdown();
+    dropdown.objectName = 'choice';
+    dropdown.x = 5.2;
+    dropdown.y = 6.8;
+    dropdown.selectedIndex = 1.6;
+    dropdown.fontSize = 12.9;
+
+    group.addChild(knob);
+    group.addChild(dropdown);
+
+    const xml = group.saveAsXML().toXml();
+
+    expect(xml).not.toContain('68.9140625');
+    expect(xml).toContain('<x>69</x>');
+    expect(xml).toContain('<y>12</y>');
+    expect(xml).toContain('<width>121</width>');
+    expect(xml).toContain('<height>46</height>');
+    expect(xml).toContain('<knobWidth>61</knobWidth>');
+    expect(xml).toContain('<selectedIndex>2</selectedIndex>');
+    expect(xml).toContain('<fontSize>13</fontSize>');
+
+    const reloaded = new BSBGroup();
+    reloaded.loadFromXML(Element.parse(xml));
+    expect(reloaded.getChildren()).toHaveLength(2);
+    const [reloadedKnob, reloadedDropdown] = reloaded.getChildren() as [BSBKnob, BSBDropdown];
+
+    expect(reloaded.x).toBe(69);
+    expect(reloaded.y).toBe(12);
+    expect(reloaded.width).toBe(121);
+    expect(reloaded.height).toBe(46);
+    expect(reloadedKnob.x).toBe(10);
+    expect(reloadedKnob.y).toBe(21);
+    expect(reloadedKnob.knobWidth).toBe(61);
+    expect(reloadedDropdown.x).toBe(5);
+    expect(reloadedDropdown.y).toBe(7);
+    expect(reloadedDropdown.selectedIndex).toBe(2);
+    expect(reloadedDropdown.fontSize).toBe(13);
+  });
+
+  it('preserves dropdown uniqueIds and font size clamps through widget patches', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Dropdown Test</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBDropdown">
+          <objectName>choice</objectName>
+          <x>0</x><y>0</y>
+          <selectedIndex>0</selectedIndex>
+          <fontSize>99</fontSize>
+          <bsbDropdownItemList>
+            <bsbDropdownItem uniqueId="item-a">
+              <name>Alpha</name>
+              <value>a</value>
+            </bsbDropdownItem>
+          </bsbDropdownItemList>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0] as BSBDropdown;
+    expect(widget.fontSize).toBe(36);
+
+    expect(
+      instrument.updateWidgetProperties(widget.id, {
+        dropdownItems: [
+          { name: 'Alpha', value: 'a', uniqueId: 'item-a' },
+          { name: 'Beta', value: 'b' },
+        ],
+      }),
+    ).toBe(true);
+
+    expect(widget.dropdownItems[0].uniqueId).toBe('item-a');
+    expect(widget.dropdownItems[1].uniqueId).toMatch(/^dropdown-/);
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('uniqueId="item-a"');
+    expect(savedXml).toContain('<fontSize>36</fontSize>');
+  });
+
+  it('keeps label font patches durable across later widget updates', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Font Test</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <objectName>gain</objectName>
+          <x>0</x><y>0</y>
+          <value>0.5</value>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0] as BSBKnob;
+
+    expect(
+      instrument.updateWidgetProperties(widget.id, {
+        'labelFont.name': 'Georgia',
+        'labelFont.size': 16,
+        'labelFont.style': 1,
+      }),
+    ).toBe(true);
+
+    expect(
+      instrument.updateWidgetProperties(widget.id, {
+        value: 0.75,
+      }),
+    ).toBe(true);
+
+    expect(widget.labelFont).toEqual({ name: 'Georgia', size: 16, style: 1 });
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('<font>');
+    expect(savedXml).toContain('<name>Georgia</name>');
+    expect(savedXml).toContain('<size>16.0</size>');
+    expect(savedXml).toContain('<style>1</style>');
+  });
+
+  it('keeps slider-bank child counts and derived replacement keys aligned', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Bank Keys</name>
+      <instrumentText>aout = &lt;bank_0&gt; + &lt;bank_1&gt; + &lt;bank_2&gt;</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+          <objectName>bank</objectName>
+          <x>0</x><y>0</y>
+          <minimum>0</minimum>
+          <maximum>1</maximum>
+          <sliderWidth>120</sliderWidth>
+          <gap>5</gap>
+          <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+            <objectName>bank_0</objectName>
+            <value>0.1</value>
+          </bsbObject>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const bank = instrument.getGraphicInterface().getRootGroup().getChildren()[0] as BSBHSliderBank;
+
+    expect(bank.sliders).toHaveLength(1);
+
+    expect(
+      instrument.updateWidgetProperties(bank.id, {
+        numberOfSliders: 3,
+      }),
+    ).toBe(true);
+
+    expect(bank.sliders).toHaveLength(3);
+    bank.sliders[0].setValue(0.1);
+    bank.sliders[1].setValue(0.2);
+    bank.sliders[2].setValue(0.3);
+
+    expect(bank.getPresetValue()).toBe('0.1:0.2:0.3');
+    expect(instrument.generateInstrument()).toBe('aout = 0.1 + 0.2 + 0.3');
   });
 });

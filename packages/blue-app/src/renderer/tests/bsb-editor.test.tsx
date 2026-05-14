@@ -3,7 +3,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { BlueSynthBuilder } from '@blue/data';
 import { Element } from '@blue/data';
-import type { BlueSynthBuilderInstrumentSnapshot } from '../../shared/project-editor';
+import {
+  collectBsbReplacementKeysFromSnapshotTree,
+  createDefaultBsbWidgetSnapshot,
+  type BlueSynthBuilderInstrumentSnapshot,
+  type BsbWidgetNodeSnapshot,
+} from '../../shared/project-editor';
 import BSBCodeEditor from '../components/workbench/panels/orchestra/bsb/BSBCodeEditor';
 import BSBInterfaceEditor from '../components/workbench/panels/orchestra/bsb/BSBInterfaceEditor';
 import { createBsbReplacementKeys } from '../components/workbench/panels/orchestra/bsb/bsb-completions';
@@ -24,7 +29,7 @@ const BSB_INSTRUMENT: BlueSynthBuilderInstrumentSnapshot = {
     { objectName: 'freq', widgetType: 'BSBValue', value: 440, minimum: 20, maximum: 20000 },
   ],
   editEnabled: false,
-  gridSettings: { enabled: false, snapEnabled: false, width: 10, height: 10 },
+    gridSettings: { enabled: false, snapEnabled: false, width: 10, height: 10, gridStyle: 'NONE' },
   widgetTree: {
     id: 'root', type: 'BSBRootGroup', objectName: '',
     x: 0, y: 0, width: 0, height: 0,
@@ -83,5 +88,50 @@ describe('BlueSynthBuilder editor', () => {
 
     expect(html).toContain('Edit Mode');
     expect(html).toContain('Presets');
+  });
+
+  it('collects canonical BSB replacement keys from snapshot trees', () => {
+    const xy = createDefaultBsbWidgetSnapshot('BSBXYController')!;
+    xy.id = 'xy-1';
+    xy.objectName = 'pad';
+
+    const bank = createDefaultBsbWidgetSnapshot('BSBHSliderBank')!;
+    bank.id = 'bank-1';
+    bank.objectName = 'bank';
+    bank.properties.sliders = [{ value: 0 }, { value: 0 }, { value: 0 }];
+
+    const line = createDefaultBsbWidgetSnapshot('BSBLineObject')!;
+    line.id = 'line-1';
+    line.objectName = 'curve';
+    line.properties.lines = [
+      { varName: 'freq' },
+      { varName: 'amp' },
+    ];
+
+    const tree: BsbWidgetNodeSnapshot = {
+      id: 'root',
+      type: 'BSBRootGroup',
+      objectName: '',
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      value: 0,
+      minimum: 0,
+      maximum: 1,
+      editable: true,
+      properties: {},
+      children: [xy, bank, line],
+    };
+
+    expect(collectBsbReplacementKeysFromSnapshotTree(tree)).toEqual([
+      'bank_0',
+      'bank_1',
+      'bank_2',
+      'curve_amp',
+      'curve_freq',
+      'padX',
+      'padY',
+    ]);
   });
 });

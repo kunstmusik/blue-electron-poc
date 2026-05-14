@@ -60,6 +60,7 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
       <x>0</x>
       <y>0</y>
       <id>knob1-id</id>
+      <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
       <minimum>0</minimum>
@@ -79,7 +80,7 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
 
 describe('Sound Score Object Editor', () => {
   describe('T004: SoundEditorSnapshot contract', () => {
-    it('creates Sound editor document with comment-only payload for empty BSB', () => {
+    it('creates Sound editor document with full tabs and default BSB snapshot for empty BSB', () => {
       const { data, target } = createDataWithSound();
       const doc = createScoreObjectEditorDocument(data, { target });
 
@@ -89,9 +90,11 @@ describe('Sound Score Object Editor', () => {
 
       const payload = doc.editor.payload as unknown as SoundEditorPayload;
       expect(payload.comment).toBe('Test comment');
-      expect(payload.bsbInstrument).toBeNull();
+      expect(payload.bsbInstrument).not.toBeNull();
+      expect(payload.bsbInstrument!.type).toBe('blueSynthBuilder');
+      expect(payload.bsbInstrument!.instrumentText).toBe('');
       expect(payload.automationParameters).toEqual([]);
-      expect(payload.availableTabs).toEqual(['comments']);
+      expect(payload.availableTabs).toEqual(['interface', 'automation', 'code', 'udo', 'comments']);
       expect(payload.testAvailable).toBe(false);
     });
 
@@ -124,6 +127,16 @@ describe('Sound Score Object Editor', () => {
       expect(param.minimum).toBe(0);
       expect(param.maximum).toBe(1);
       expect(param.points.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('omits disabled parameters when automationAllowed is absent, matching Java parity', () => {
+      const { data, target } = createDataWithSound(
+        MINIMAL_BSB_XML.replace('      <automationAllowed>true</automationAllowed>\n', ''),
+      );
+      const doc = createScoreObjectEditorDocument(data, { target });
+
+      const payload = (doc.editor as any).payload as SoundEditorPayload;
+      expect(payload.automationParameters).toEqual([]);
     });
   });
 

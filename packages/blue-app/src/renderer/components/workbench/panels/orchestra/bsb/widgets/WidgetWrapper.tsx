@@ -3,6 +3,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { BsbWidgetNodeSnapshot, BsbInterfacePatch } from '../../../../../../../shared/project-editor';
 import type { BSBWidgetResizeMeta } from '../bsb-widget-meta';
+import { getWidgetDisplaySize } from './utils';
 
 const HANDLE_SIZE = 5;
 
@@ -10,7 +11,7 @@ interface WidgetWrapperProps {
   node: BsbWidgetNodeSnapshot;
   isSelected: boolean;
   editEnabled: boolean;
-  onWidgetSelect: (id: string, shiftKey?: boolean) => void;
+  onWidgetSelect: (id: string | null, shiftKey?: boolean) => void;
   children: React.ReactNode;
   autoSize?: boolean;
   onDoubleClick?: () => void;
@@ -45,8 +46,11 @@ function WidgetWrapper({
   getWidgetPosition,
   onWidgetAction,
 }: WidgetWrapperProps): React.ReactElement {
-  const w = displayWidth ?? node.width ?? 60;
-  const h = displayHeight ?? node.height ?? 24;
+  const measuredSize = getWidgetDisplaySize(node);
+  const w = displayWidth ?? measuredSize.width;
+  const h = displayHeight ?? measuredSize.height;
+  const widthResizeProperty = resizeMeta?.widthProperty ?? 'width';
+  const heightResizeProperty = resizeMeta?.heightProperty ?? 'height';
 
   type MoveDragState = {
     originClientX: number;
@@ -109,7 +113,9 @@ function WidgetWrapper({
     };
   }, []);
 
-  const sizeStyle = autoSize ? {} : { width: w, height: h };
+  const sizeStyle = autoSize && displayWidth === undefined && displayHeight === undefined
+    ? {}
+    : { width: w, height: h };
 
   const showHandles = editEnabled && isSelected && (selectedWidgetIds?.size ?? 0) <= 1 && resizeMeta && onBsbInterfacePatch &&
     (resizeMeta.canResizeWidth || resizeMeta.canResizeHeight);
@@ -176,14 +182,14 @@ function WidgetWrapper({
       {children}
       {showHandles && resizeMeta!.canResizeWidth && (
         <>
-          <ResizeHandle edge="right" containerW={w} containerH={h} nodeId={node.id} minSize={resizeMeta!.minWidth} propertyKey={resizeMeta!.widthProperty ?? 'width'} startValue={typeof node.properties[resizeMeta!.widthProperty ?? 'width'] === 'number' ? node.properties[resizeMeta!.widthProperty ?? 'width'] as number : node.width ?? 60} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapWidth} onPatch={onBsbInterfacePatch!} />
-          <ResizeHandle edge="left" containerW={w} containerH={h} nodeId={node.id} nodeX={node.x} minSize={resizeMeta!.minWidth} propertyKey={resizeMeta!.widthProperty ?? 'width'} startValue={typeof node.properties[resizeMeta!.widthProperty ?? 'width'] === 'number' ? node.properties[resizeMeta!.widthProperty ?? 'width'] as number : node.width ?? 60} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapWidth} onPatch={onBsbInterfacePatch!} />
+          <ResizeHandle edge="right" containerW={w} containerH={h} nodeId={node.id} minSize={resizeMeta!.minWidth} propertyKey={widthResizeProperty} startValue={resolveResizeStartValue(node, widthResizeProperty, measuredSize.width)} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapWidth} onPatch={onBsbInterfacePatch!} />
+          <ResizeHandle edge="left" containerW={w} containerH={h} nodeId={node.id} nodeX={node.x} minSize={resizeMeta!.minWidth} propertyKey={widthResizeProperty} startValue={resolveResizeStartValue(node, widthResizeProperty, measuredSize.width)} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapWidth} onPatch={onBsbInterfacePatch!} />
         </>
       )}
       {showHandles && resizeMeta!.canResizeHeight && (
         <>
-          <ResizeHandle edge="bottom" containerW={w} containerH={h} nodeId={node.id} minSize={resizeMeta!.minHeight} propertyKey={resizeMeta!.heightProperty ?? 'height'} startValue={typeof node.properties[resizeMeta!.heightProperty ?? 'height'] === 'number' ? node.properties[resizeMeta!.heightProperty ?? 'height'] as number : node.height ?? 24} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapHeight} onPatch={onBsbInterfacePatch!} />
-          <ResizeHandle edge="top" containerW={w} containerH={h} nodeId={node.id} nodeY={node.y} minSize={resizeMeta!.minHeight} propertyKey={resizeMeta!.heightProperty ?? 'height'} startValue={typeof node.properties[resizeMeta!.heightProperty ?? 'height'] === 'number' ? node.properties[resizeMeta!.heightProperty ?? 'height'] as number : node.height ?? 24} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapHeight} onPatch={onBsbInterfacePatch!} />
+          <ResizeHandle edge="bottom" containerW={w} containerH={h} nodeId={node.id} minSize={resizeMeta!.minHeight} propertyKey={heightResizeProperty} startValue={resolveResizeStartValue(node, heightResizeProperty, measuredSize.height)} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapHeight} onPatch={onBsbInterfacePatch!} />
+          <ResizeHandle edge="top" containerW={w} containerH={h} nodeId={node.id} nodeY={node.y} minSize={resizeMeta!.minHeight} propertyKey={heightResizeProperty} startValue={resolveResizeStartValue(node, heightResizeProperty, measuredSize.height)} gridSnapEnabled={gridSnapEnabled} gridSnapSize={gridSnapHeight} onPatch={onBsbInterfacePatch!} />
         </>
       )}
     </div>
@@ -223,7 +229,7 @@ function WidgetWrapper({
         {wrapped}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+        <ContextMenu.Content className="editor-context-menu">
           {hasSelection && (
             <>
               <ContextMenu.Item className="editor-context-menu__item" onSelect={handleRemove}>
@@ -259,7 +265,7 @@ function WidgetWrapper({
                   Align
                 </ContextMenu.SubTrigger>
                 <ContextMenu.Portal>
-                  <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>
+                  <ContextMenu.SubContent className="editor-context-menu">
                     <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-left')}>Left</ContextMenu.Item>
                     <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-right')}>Right</ContextMenu.Item>
                     <ContextMenu.Item className="editor-context-menu__item" onSelect={action('align-top')}>Top</ContextMenu.Item>
@@ -275,7 +281,7 @@ function WidgetWrapper({
                   Distribute
                 </ContextMenu.SubTrigger>
                 <ContextMenu.Portal>
-                  <ContextMenu.SubContent className="editor-context-menu" sideOffset={4}>
+                  <ContextMenu.SubContent className="editor-context-menu">
                     <ContextMenu.Item className="editor-context-menu__item" onSelect={action('distribute-h')}>Horizontal</ContextMenu.Item>
                     <ContextMenu.Item className="editor-context-menu__item" onSelect={action('distribute-v')}>Vertical</ContextMenu.Item>
                   </ContextMenu.SubContent>
@@ -290,6 +296,18 @@ function WidgetWrapper({
 }
 
 export default React.memo(WidgetWrapper);
+
+function resolveResizeStartValue(
+  node: BsbWidgetNodeSnapshot,
+  propertyKey: string,
+  fallback: number,
+): number {
+  const propertyValue = node.properties[propertyKey];
+  if (typeof propertyValue === 'number') return propertyValue;
+  if (propertyKey === 'width' && typeof node.width === 'number') return node.width;
+  if (propertyKey === 'height' && typeof node.height === 'number') return node.height;
+  return fallback;
+}
 
 interface ResizeHandleProps {
   edge: 'right' | 'bottom' | 'left' | 'top';

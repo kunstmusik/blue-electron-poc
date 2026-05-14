@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import WidgetWrapper from './WidgetWrapper';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
 type BSBCheckBoxWidgetProps = BSBWidgetPatchComponentProps;
@@ -20,6 +21,7 @@ function BSBCheckBoxWidget({
 }: BSBCheckBoxWidgetProps): React.ReactElement {
   const selected = node.properties.selected === true;
   const labelText = typeof node.properties.label === 'string' ? node.properties.label : node.objectName;
+  const displaySize = getWidgetDisplaySize(node);
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -35,9 +37,9 @@ function BSBCheckBoxWidget({
   }, [editEnabled, selected, node.id, onWidgetSelect, onBsbInterfacePatch]);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} autoSize displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <div
-        className="flex items-center gap-1.5 whitespace-nowrap"
+        className="flex h-full w-full items-center gap-1.5 whitespace-nowrap"
         style={{ fontFamily: 'Roboto, sans-serif', fontSize: 12, cursor: editEnabled ? 'default' : 'pointer' }}
         onClick={handleToggle}
       >

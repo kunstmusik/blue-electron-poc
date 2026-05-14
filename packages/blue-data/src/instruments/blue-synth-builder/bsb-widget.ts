@@ -116,17 +116,33 @@ export abstract class BSBWidget {
   deepCopy(): this {
     const Ctor = this.constructor as new () => this;
     const clone = new Ctor();
+
+    const cloneValue = (val: unknown): unknown => {
+      if (val == null || typeof val !== 'object') {
+        return val;
+      }
+
+      if (val instanceof BSBWidget) {
+        return val.deepCopy();
+      }
+
+      if (Array.isArray(val)) {
+        return val.map((item) => cloneValue(item));
+      }
+
+      const next: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(val as Record<string, unknown>)) {
+        next[key] = cloneValue(value);
+      }
+      return next;
+    };
+
     for (const key of Object.keys(this)) {
       const val = (this as any)[key];
       if (val == null || typeof val !== 'object') {
         (clone as any)[key] = val;
-      } else if (Array.isArray(val)) {
-        (clone as any)[key] = val.map(item =>
-          item instanceof BSBWidget ? item.deepCopy()
-            : typeof item === 'object' && item !== null ? { ...item } : item
-        );
       } else {
-        (clone as any)[key] = { ...val };
+        (clone as any)[key] = cloneValue(val);
       }
     }
     clone.id = '';

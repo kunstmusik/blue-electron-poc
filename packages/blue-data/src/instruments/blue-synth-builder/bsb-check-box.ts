@@ -45,7 +45,7 @@ export class BSBCheckBox extends BSBWidget {
     const lbl = data.getTextString('label');
     if (lbl !== null) this.label = lbl;
     const sel = data.getTextString('selected');
-    if (sel !== null) this.selected = sel === 'true';
+    this.setValue(sel === 'true' ? 1 : 0);
     const rand = data.getElement('randomizable');
     if (rand) this.randomizable = rand.getTextString() === 'true';
   }

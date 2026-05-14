@@ -72,10 +72,23 @@ import type { Parameter as BlueDataParameter } from '@blue/data';
 import { AutomationCurve as BlueDataAutomationCurve } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import {
-  getHSliderBankDisplaySize,
-  getVSliderBankDisplaySize,
   BSB_LINE_SELECTOR_HEIGHT,
+  getBsbWidgetDisplaySize,
 } from './bsb-widget-layout';
+import {
+  collectBsbReplacementKeysFromSnapshotTree,
+  collectBsbReplacementKeysFromWidgetTree,
+  getBsbReplacementKeysFromSnapshot,
+  getBsbReplacementKeysFromWidget,
+  getDerivedKeysFromSnapshot,
+  getDerivedKeysFromWidget,
+} from './bsb-widget-keys';
+export {
+  collectBsbReplacementKeysFromSnapshotTree,
+  collectBsbReplacementKeysFromWidgetTree,
+  getBsbReplacementKeysFromSnapshot,
+  getBsbReplacementKeysFromWidget,
+} from './bsb-widget-keys';
 
 // ─── Score Snapshot Types ───
 
@@ -1310,113 +1323,27 @@ function collectGraphicInterfaceObjectNames(graphicInterface: {
   };
   isEditEnabled(): boolean;
 }): string[] {
-  return collectGraphicInterfaceWidgets(graphicInterface).map((widget) => widget.objectName);
+  return collectBsbReplacementKeysFromWidgetTree(graphicInterface.getRootGroup() as unknown as import('@blue/data').BSBWidget);
 }
 
-function buildWidgetTreeNodeFromGraphicNode(widget: unknown): BsbWidgetNodeSnapshot | null {
-  if (!widget || typeof widget !== 'object') return null;
-  const record = widget as Record<string, unknown>;
-
-  const id = typeof record.id === 'string' ? record.id : '';
-  if (!id) return null;
-
-  const ctorName = typeof record.constructor === 'function' && 'name' in record.constructor
-    ? String(record.constructor.name)
-    : 'Unknown';
-
-  const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
-
-  const properties: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(record)) {
-    if (['id', 'objectName', 'x', 'y', 'parameterName', '_children', 'children', 'stringChannel', 'labelFont', 'font'].includes(key)) continue;
-    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
-      properties[key] = val as string | number | boolean | null;
-    }
+function cloneBsbSnapshotValue<T>(value: T): T {
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return value;
   }
 
-  const fontKeys = ['labelFont', 'font'] as const;
-  for (const fk of fontKeys) {
-    const fv = record[fk];
-    if (fv && typeof fv === 'object') {
-      const f = fv as Record<string, unknown>;
-      if (typeof f.name === 'string') properties[`${fk}.name`] = f.name;
-      if (typeof f.size === 'number') properties[`${fk}.size`] = f.size;
-      if (typeof f.style === 'number') properties[`${fk}.style`] = f.style;
-    }
+  if (Array.isArray(value)) {
+    return value.map((item) => cloneBsbSnapshotValue(item)) as T;
   }
 
-  const dropdownItems = record.dropdownItems;
-  if (Array.isArray(dropdownItems)) {
-    properties['dropdownItems'] = dropdownItems;
+  const next: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    next[key] = cloneBsbSnapshotValue(item);
   }
+  return next as T;
+}
 
-  const lines = record.lines;
-  if (Array.isArray(lines)) {
-    properties.lines = lines.map((line) => {
-      if (!line || typeof line !== 'object') {
-        return {
-          varName: '',
-          min: 0,
-          max: 1,
-          color: '#000000',
-          points: [],
-        };
-      }
-
-      const lineRecord = line as Record<string, unknown>;
-      const points = Array.isArray(lineRecord.points)
-        ? lineRecord.points.map((point) => {
-            if (!point || typeof point !== 'object') {
-              return { x: 0, y: 0 };
-            }
-            const pointRecord = point as Record<string, unknown>;
-            return {
-              x: typeof pointRecord.x === 'number' ? pointRecord.x : 0,
-              y: typeof pointRecord.y === 'number' ? pointRecord.y : 0,
-            };
-          })
-        : [];
-
-      return {
-        varName: typeof lineRecord.name === 'string' && lineRecord.name.trim().length > 0
-          ? lineRecord.name
-          : typeof lineRecord.varName === 'string'
-            ? lineRecord.varName
-            : '',
-        min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
-        max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
-        color: normalizeBsbLineColor(lineRecord.color),
-        resolution: typeof lineRecord.resolution === 'string' ? lineRecord.resolution : undefined,
-        rightBound: typeof lineRecord.rightBound === 'boolean' ? lineRecord.rightBound : undefined,
-        endPointsLinked: typeof lineRecord.endPointsLinked === 'boolean' ? lineRecord.endPointsLinked : undefined,
-        points,
-      };
-    });
-  }
-
-  const sliders = record.sliders;
-  if (Array.isArray(sliders)) {
-    properties.sliders = sliders.map((slider) => {
-      if (!slider || typeof slider !== 'object') {
-        return { value: 0 };
-      }
-      const sliderRecord = slider as Record<string, unknown>;
-      return {
-        value: typeof sliderRecord.value === 'number' ? sliderRecord.value : 0,
-      };
-    });
-  }
-
-  const children = typeof record.getChildren === 'function'
-    ? (record.getChildren as () => unknown[]).call(widget)
-    : record.children ?? record._children;
-
+function getWidgetSnapshotFallbackSize(record: Record<string, unknown>): { width: number; height: number } {
   return {
-    id,
-    type: ctorName,
-    objectName: typeof record.objectName === 'string' ? record.objectName : '',
-    x: typeof record.x === 'number' ? record.x : 0,
-    y: typeof record.y === 'number' ? record.y : 0,
     width:
       typeof record.width === 'number'
         ? record.width
@@ -1435,18 +1362,157 @@ function buildWidgetTreeNodeFromGraphicNode(widget: unknown): BsbWidgetNodeSnaps
           : typeof record.canvasHeight === 'number'
             ? record.canvasHeight + BSB_LINE_SELECTOR_HEIGHT
             : 24,
+  };
+}
+
+function serializeBsbWidgetSnapshot(widget: unknown): BsbWidgetNodeSnapshot | null {
+  if (!widget || typeof widget !== 'object') return null;
+  const record = widget as Record<string, unknown>;
+
+  const id = typeof record.id === 'string' ? record.id : '';
+  if (!id) return null;
+
+  const ctorName = typeof record.constructor === 'function' && 'name' in record.constructor
+    ? String(record.constructor.name)
+    : 'Unknown';
+
+  const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
+
+  const properties: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(record)) {
+    if (['id', 'objectName', 'x', 'y', 'width', 'height', 'parameterName', '_children', 'children', 'stringChannel', 'labelFont', 'font'].includes(key)) continue;
+    if (key === 'dropdownItems' && Array.isArray(val)) {
+      properties.dropdownItems = cloneBsbSnapshotValue(val);
+      continue;
+    }
+    if (key === 'lines' && Array.isArray(val)) {
+      properties.lines = val.map((line) => {
+        if (!line || typeof line !== 'object') {
+          return {
+            varName: '',
+            min: 0,
+            max: 1,
+            color: '#000000',
+            points: [],
+          };
+        }
+
+        const lineRecord = line as Record<string, unknown>;
+        const points = Array.isArray(lineRecord.points)
+          ? lineRecord.points.map((point) => {
+              if (!point || typeof point !== 'object') {
+                return { x: 0, y: 0 };
+              }
+              const pointRecord = point as Record<string, unknown>;
+              return {
+                x: typeof pointRecord.x === 'number' ? pointRecord.x : 0,
+                y: typeof pointRecord.y === 'number' ? pointRecord.y : 0,
+              };
+            })
+          : [];
+
+        return {
+          varName: typeof lineRecord.name === 'string' && lineRecord.name.trim().length > 0
+            ? lineRecord.name
+            : typeof lineRecord.varName === 'string'
+              ? lineRecord.varName
+              : '',
+          min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
+          max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
+          color: normalizeBsbLineColor(lineRecord.color),
+          resolution: typeof lineRecord.resolution === 'string' ? lineRecord.resolution : undefined,
+          rightBound: typeof lineRecord.rightBound === 'boolean' ? lineRecord.rightBound : undefined,
+          endPointsLinked: typeof lineRecord.endPointsLinked === 'boolean' ? lineRecord.endPointsLinked : undefined,
+          points,
+        };
+      });
+      continue;
+    }
+    if (key === 'sliders' && Array.isArray(val)) {
+      properties.sliders = val.map((slider) => {
+        if (!slider || typeof slider !== 'object') {
+          return { value: 0 };
+        }
+        const sliderRecord = slider as Record<string, unknown>;
+        return {
+          value: typeof sliderRecord.value === 'number' ? sliderRecord.value : 0,
+        };
+      });
+      continue;
+    }
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
+      properties[key] = val as string | number | boolean | null;
+    }
+  }
+
+  const fontKeys = ['labelFont', 'font'] as const;
+  for (const fk of fontKeys) {
+    const fv = record[fk];
+    if (fv && typeof fv === 'object') {
+      const f = fv as Record<string, unknown>;
+      if (typeof f.name === 'string') properties[`${fk}.name`] = f.name;
+      if (typeof f.size === 'number') properties[`${fk}.size`] = f.size;
+      if (typeof f.style === 'number') properties[`${fk}.style`] = f.style;
+    }
+  }
+
+  if (ctorName === 'BSBHSliderBank' || ctorName === 'BSBVSliderBank') {
+    const sliderCount = Array.isArray(properties.sliders)
+      ? properties.sliders.length
+      : typeof record.numberOfSliders === 'number'
+        ? record.numberOfSliders
+        : 1;
+    properties.numberOfSliders = Math.max(1, sliderCount);
+  }
+
+  const children = typeof record.getChildren === 'function'
+    ? (record.getChildren as () => unknown[]).call(widget)
+    : record.children ?? record._children;
+
+  const childSnapshots = Array.isArray(children)
+    ? children
+        .map((child) => serializeBsbWidgetSnapshot(child))
+        .filter((node): node is BsbWidgetNodeSnapshot => Boolean(node))
+    : [];
+
+  const baseSize = getWidgetSnapshotFallbackSize(record);
+  const snapshot: BsbWidgetNodeSnapshot = {
+    id,
+    type: ctorName,
+    objectName: typeof record.objectName === 'string' ? record.objectName : '',
+    x: typeof record.x === 'number' ? record.x : 0,
+    y: typeof record.y === 'number' ? record.y : 0,
+    width: baseSize.width,
+    height: baseSize.height,
     value: typeof record.value === 'number' ? record.value : 0,
     minimum: typeof record.minimum === 'number' ? record.minimum : 0,
     maximum: typeof record.maximum === 'number' ? record.maximum : 1,
     editable: !preservedOnly,
     preservedOnly,
     properties,
-    children: Array.isArray(children)
-      ? children
-          .map((child) => buildWidgetTreeNodeFromGraphicNode(child))
-          .filter((node): node is BsbWidgetNodeSnapshot => Boolean(node))
-      : undefined,
+    children: childSnapshots.length > 0 ? childSnapshots : undefined,
   };
+
+  if (ctorName !== 'BSBGroup') {
+    const displaySize = getBsbWidgetDisplaySize(snapshot);
+    snapshot.width = displaySize.width;
+    snapshot.height = displaySize.height;
+  }
+
+  return snapshot;
+}
+
+export function createBsbWidgetSnapshotFromWidget(widget: unknown): BsbWidgetNodeSnapshot | null {
+  return serializeBsbWidgetSnapshot(widget);
+}
+
+export function createDefaultBsbWidgetSnapshot(widgetType: string): BsbWidgetNodeSnapshot | null {
+  const factory = new BlueSynthBuilder().getGraphicInterface().createWidgetByType(widgetType);
+  return factory ? serializeBsbWidgetSnapshot(factory) : null;
+}
+
+function buildWidgetTreeNodeFromGraphicNode(widget: unknown): BsbWidgetNodeSnapshot | null {
+  return serializeBsbWidgetSnapshot(widget);
 }
 
 function buildWidgetTreeSnapshotFromGraphicInterface(graphicInterface: {
@@ -2839,17 +2905,31 @@ function collectBsbWidgets(bsb: BlueSynthBuilder): BsbWidgetSnapshot[] {
 }
 
 function collectBsbObjectNames(bsb: BlueSynthBuilder): string[] {
-  return collectBsbWidgets(bsb).map((widget) => widget.objectName);
+  return collectBsbReplacementKeysFromWidgetTree(bsb.getGraphicInterface().getRootGroup());
 }
 
-function parseSoundBSB(text: string): BlueSynthBuilder | null {
-  if (!text || !text.trim()) return null;
-  try {
-    const elem = Element.parse(text);
-    return BlueSynthBuilder.loadFromXML(elem);
-  } catch {
-    return null;
+function parseSoundBSB(text: string): BlueSynthBuilder {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return new BlueSynthBuilder();
   }
+
+  try {
+    const elem = Element.parse(trimmed);
+    if (elem.getName() === 'instrument') {
+      return BlueSynthBuilder.loadFromXML(elem);
+    }
+    const nestedInstrument = elem.getElement('instrument');
+    if (nestedInstrument) {
+      return BlueSynthBuilder.loadFromXML(nestedInstrument);
+    }
+  } catch {
+    // Fall through to legacy plain-text migration
+  }
+
+  const legacy = new BlueSynthBuilder();
+  legacy.setInstrumentText(trimmed);
+  return legacy;
 }
 
 function buildSoundAutomationParameters(bsb: BlueSynthBuilder): SoundAutomationParameterSnapshot[] {
@@ -2919,190 +2999,7 @@ function normalizeBsbLineColor(raw: unknown): string {
 }
 
 function buildWidgetTreeNode(widget: unknown): BsbWidgetNodeSnapshot | null {
-  if (!widget || typeof widget !== 'object') return null;
-  const record = widget as Record<string, unknown>;
-
-  const id = typeof record.id === 'string' ? record.id : '';
-  if (!id) return null;
-
-  const ctorName = typeof record.constructor === 'function' && 'name' in record.constructor
-    ? String(record.constructor.name)
-    : 'Unknown';
-
-  const preservedOnly = !KNOWN_WIDGET_TYPES.has(ctorName);
-
-  const properties: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(record)) {
-    if (['id', 'objectName', 'x', 'y', 'parameterName', '_children', 'children', 'stringChannel', 'labelFont', 'font'].includes(key)) continue;
-    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
-      properties[key] = val as string | number | boolean | null;
-    }
-  }
-
-  const fontKeys = ['labelFont', 'font'] as const;
-  for (const fk of fontKeys) {
-    const fv = record[fk];
-    if (fv && typeof fv === 'object') {
-      const f = fv as Record<string, unknown>;
-      if (typeof f.name === 'string') properties[`${fk}.name`] = f.name;
-      if (typeof f.size === 'number') properties[`${fk}.size`] = f.size;
-      if (typeof f.style === 'number') properties[`${fk}.style`] = f.style;
-    }
-  }
-
-  const dropdownItems = record.dropdownItems;
-  if (Array.isArray(dropdownItems)) {
-    properties['dropdownItems'] = dropdownItems;
-  }
-
-  const lines = record.lines;
-  if (Array.isArray(lines)) {
-    properties.lines = lines.map((line) => {
-      if (!line || typeof line !== 'object') {
-        return {
-          varName: '',
-          min: 0,
-          max: 1,
-          color: '#000000',
-          points: [],
-        };
-      }
-
-      const lineRecord = line as Record<string, unknown>;
-      const points = Array.isArray(lineRecord.points)
-        ? lineRecord.points.map((point) => {
-            if (!point || typeof point !== 'object') {
-              return { x: 0, y: 0 };
-            }
-            const pointRecord = point as Record<string, unknown>;
-            return {
-              x: typeof pointRecord.x === 'number' ? pointRecord.x : 0,
-              y: typeof pointRecord.y === 'number' ? pointRecord.y : 0,
-            };
-          })
-        : [];
-
-      return {
-        varName: typeof lineRecord.name === 'string' && lineRecord.name.trim().length > 0
-          ? lineRecord.name
-          : typeof lineRecord.varName === 'string'
-            ? lineRecord.varName
-            : '',
-        min: typeof lineRecord.min === 'number' ? lineRecord.min : 0,
-        max: typeof lineRecord.max === 'number' ? lineRecord.max : 1,
-        color: normalizeBsbLineColor(lineRecord.color),
-        resolution: typeof lineRecord.resolution === 'string' ? lineRecord.resolution : undefined,
-        rightBound: typeof lineRecord.rightBound === 'boolean' ? lineRecord.rightBound : undefined,
-        endPointsLinked: typeof lineRecord.endPointsLinked === 'boolean' ? lineRecord.endPointsLinked : undefined,
-        points,
-      };
-    });
-  }
-
-  const sliders = record.sliders;
-  if (Array.isArray(sliders)) {
-    properties.sliders = sliders.map((slider) => {
-      if (!slider || typeof slider !== 'object') {
-        return { value: 0 };
-      }
-      const sliderRecord = slider as Record<string, unknown>;
-      return {
-        value: typeof sliderRecord.value === 'number' ? sliderRecord.value : 0,
-      };
-    });
-  }
-
-  const getChildren = record.getChildren;
-  const childArray = typeof getChildren === 'function' ? (getChildren as () => unknown[]).call(widget) : [];
-  const children: BsbWidgetNodeSnapshot[] = [];
-  if (Array.isArray(childArray)) {
-    for (const child of childArray) {
-      const node = buildWidgetTreeNode(child);
-      if (node) children.push(node);
-    }
-  }
-
-  let width: number;
-  let height: number;
-
-  const vde = record.valueDisplayEnabled === true;
-  const le = record.labelEnabled === true;
-
-  if (ctorName === 'BSBHSlider') {
-    width = (typeof record.sliderWidth === 'number' ? record.sliderWidth : 150) + (vde ? 50 : 0);
-    height = 30;
-  } else if (ctorName === 'BSBVSlider') {
-    width = 50;
-    height = (typeof record.sliderHeight === 'number' ? record.sliderHeight : 150) + (vde ? 30 : 0);
-  } else if (ctorName === 'BSBHSliderBank') {
-    const sliderCount = Array.isArray(sliders) && sliders.length > 0
-      ? sliders.length
-      : typeof record.numberOfSliders === 'number'
-        ? record.numberOfSliders
-        : 1;
-    const sliderWidth = typeof record.sliderWidth === 'number' ? record.sliderWidth : 100;
-    const gap = typeof record.gap === 'number' ? record.gap : 5;
-    ({ width, height } = getHSliderBankDisplaySize(sliderCount, sliderWidth, gap, vde));
-  } else if (ctorName === 'BSBVSliderBank') {
-    const sliderCount = Array.isArray(sliders) && sliders.length > 0
-      ? sliders.length
-      : typeof record.numberOfSliders === 'number'
-        ? record.numberOfSliders
-        : 1;
-    const sliderHeight = typeof record.sliderHeight === 'number' ? record.sliderHeight : 100;
-    const gap = typeof record.gap === 'number' ? record.gap : 5;
-    ({ width, height } = getVSliderBankDisplaySize(sliderCount, sliderHeight, gap, vde));
-  } else if (ctorName === 'BSBKnob') {
-    const kw = typeof record.knobWidth === 'number' ? record.knobWidth : 60;
-    width = kw;
-    height = kw + (le ? 16 : 0) + (vde ? 14 : 0);
-  } else if (ctorName === 'BSBGroup') {
-    width = typeof record.width === 'number' ? record.width : 20;
-    height = typeof record.height === 'number' ? record.height : 20;
-    delete properties['width'];
-    delete properties['height'];
-  } else if (ctorName === 'BSBLabel' || ctorName === 'BSBCheckBox') {
-    width = typeof record.width === 'number' ? record.width : 0;
-    height = typeof record.height === 'number' ? record.height : 0;
-  } else if (ctorName === 'BSBDropdown' || ctorName === 'BSBSubChannelDropdown') {
-    const fontSize = typeof record.fontSize === 'number' ? record.fontSize : 12;
-    width = 0;
-    height = typeof record.height === 'number' ? record.height : Math.max(24, fontSize + 8);
-  } else if (ctorName === 'BSBTextField') {
-    width = typeof record.textFieldWidth === 'number' ? record.textFieldWidth : 100;
-    height = 30;
-  } else if (ctorName === 'BSBLineObject') {
-    width = typeof record.canvasWidth === 'number' ? record.canvasWidth : 200;
-    height = (typeof record.canvasHeight === 'number' ? record.canvasHeight : 160) + BSB_LINE_SELECTOR_HEIGHT;
-  } else if (ctorName === 'BSBFileSelector') {
-    const tfw = typeof record.textFieldWidth === 'number' ? record.textFieldWidth : 100;
-    width = tfw + 30;
-    height = 30;
-  } else {
-    width = typeof record.sliderWidth === 'number' ? record.sliderWidth
-      : typeof record.width === 'number' ? record.width
-      : 60;
-    height = typeof record.sliderHeight === 'number' ? record.sliderHeight
-      : typeof record.height === 'number' ? record.height
-      : 24;
-  }
-
-  return {
-    id,
-    type: ctorName,
-    objectName: typeof record.objectName === 'string' ? record.objectName : '',
-    x: typeof record.x === 'number' ? record.x : 0,
-    y: typeof record.y === 'number' ? record.y : 0,
-    width,
-    height,
-    value: typeof record.value === 'number' ? record.value : 0,
-    minimum: typeof record.minimum === 'number' ? record.minimum : 0,
-    maximum: typeof record.maximum === 'number' ? record.maximum : 1,
-    editable: !preservedOnly,
-    preservedOnly,
-    properties,
-    children: children.length > 0 ? children : undefined,
-  };
+  return serializeBsbWidgetSnapshot(widget);
 }
 
 function buildWidgetTreeSnapshot(bsb: BlueSynthBuilder): BsbWidgetNodeSnapshot {
@@ -3660,39 +3557,131 @@ function createWidgetFromSnapshot(gi: any, node: BsbWidgetNodeSnapshot): BSBWidg
   const widget = bsbGi.createWidgetByType(node.type);
   if (!widget) return null;
 
-  widget.objectName = node.objectName || '';
-  widget.x = node.x;
-  widget.y = node.y;
+  const widgetRecord = widget as unknown as Record<string, unknown>;
+  widgetRecord.objectName = node.objectName || '';
+  widgetRecord.x = node.x;
+  widgetRecord.y = node.y;
+  widgetRecord.value = node.value;
+  widgetRecord.minimum = node.minimum;
+  widgetRecord.maximum = node.maximum;
 
-  if (node.properties) {
-    for (const [key, val] of Object.entries(node.properties)) {
-      if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') {
-        (widget as any)[key] = val;
-      } else if (key === 'dropdownItems' && Array.isArray(val)) {
-        (widget as any)[key] = val;
-      }
+  const applyFontPatch = (prefix: 'font' | 'labelFont', key: string, val: unknown): void => {
+    const existing = widgetRecord[prefix];
+    const nextFont: Record<string, unknown> = existing && typeof existing === 'object'
+      ? cloneBsbSnapshotValue(existing as Record<string, unknown>)
+      : {};
+    const field = key.substring(prefix.length + 1);
+    if (!field) return;
+    nextFont[field] = cloneBsbSnapshotValue(val);
+    widgetRecord[prefix] = nextFont;
+  };
+
+  const dropdownItems = Array.isArray(node.properties?.dropdownItems)
+    ? node.properties!.dropdownItems as Array<Record<string, unknown>>
+    : null;
+  const lines = Array.isArray(node.properties?.lines)
+    ? node.properties!.lines as Array<Record<string, unknown>>
+    : null;
+  const sliders = Array.isArray(node.properties?.sliders)
+    ? node.properties!.sliders as Array<Record<string, unknown>>
+    : null;
+
+  for (const [key, val] of Object.entries(node.properties ?? {})) {
+    if (key === 'dropdownItems' && dropdownItems) {
+      widgetRecord.dropdownItems = dropdownItems.map((item) => ({
+        name: typeof item.name === 'string' ? item.name : '',
+        value: typeof item.value === 'string' ? item.value : '',
+        uniqueId: typeof item.uniqueId === 'string' && item.uniqueId.length > 0
+          ? item.uniqueId
+          : crypto.randomUUID(),
+      }));
+      continue;
     }
+
+    if (key === 'lines' && lines) {
+      widgetRecord.lines = cloneBsbSnapshotValue(lines);
+      continue;
+    }
+
+    if (key === 'sliders' && sliders) {
+      continue;
+    }
+
+    if (key.startsWith('font.')) {
+      applyFontPatch('font', key, val);
+      continue;
+    }
+
+    if (key.startsWith('labelFont.')) {
+      applyFontPatch('labelFont', key, val);
+      continue;
+    }
+
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val === null) {
+      widgetRecord[key] = val;
+      continue;
+    }
+
+    widgetRecord[key] = cloneBsbSnapshotValue(val);
   }
 
   if (widget instanceof BSBGroup) {
-    widget.width = node.width ?? 20;
-    widget.height = node.height ?? 20;
-    const fn = node.properties?.['font.name'];
-    const fs = node.properties?.['font.size'];
-    const fst = node.properties?.['font.style'];
-    if (typeof fn === 'string' || typeof fs === 'number' || typeof fst === 'number') {
-      widget.font = {
-        name: typeof fn === 'string' ? fn : widget.font.name,
-        size: typeof fs === 'number' ? fs : widget.font.size,
-        style: typeof fst === 'number' ? fst : widget.font.style,
-      };
-    }
+    widget.width = node.width;
+    widget.height = node.height;
     if (node.children) {
       for (const childNode of node.children) {
         const child = createWidgetFromSnapshot(gi, childNode);
         if (child) widget.addChild(child);
       }
     }
+    return widget;
+  }
+
+  if (widget.constructor.name === 'BSBHSliderBank' || widget.constructor.name === 'BSBVSliderBank') {
+    const widgetAny = widget as unknown as Record<string, unknown> & { numberOfSliders?: number };
+    const childType = widget.constructor.name === 'BSBHSliderBank' ? 'BSBHSlider' : 'BSBVSlider';
+    const nextSliders: BSBWidget[] = [];
+
+    if (node.children && node.children.length > 0) {
+      for (const childNode of node.children) {
+        const child = createWidgetFromSnapshot(gi, childNode);
+        if (child) nextSliders.push(child);
+      }
+    }
+
+    if (nextSliders.length === 0 && sliders) {
+      for (const sliderSnapshot of sliders) {
+        const slider = bsbGi.createWidgetByType(childType);
+        if (!slider) continue;
+        if (typeof sliderSnapshot.value === 'number') {
+          slider.setValue(sliderSnapshot.value);
+        }
+        nextSliders.push(slider);
+      }
+    }
+
+    if (nextSliders.length > 0) {
+      widgetAny.sliders = nextSliders;
+    }
+
+    if (typeof widgetAny.numberOfSliders === 'number' && nextSliders.length > 0) {
+      widgetAny.numberOfSliders = nextSliders.length;
+    }
+    return widget;
+  }
+
+  if (widget.constructor.name === 'BSBLineObject') {
+    widgetRecord.canvasWidth = node.properties?.canvasWidth ?? node.width;
+    widgetRecord.canvasHeight = node.properties?.canvasHeight ?? Math.max(40, node.height - BSB_LINE_SELECTOR_HEIGHT);
+    if (lines) {
+      widgetRecord.lines = cloneBsbSnapshotValue(lines);
+    }
+    return widget;
+  }
+
+  if (widget.constructor.name === 'BSBXYController' || widget.constructor.name === 'BSBGroup') {
+    widgetRecord.width = node.width;
+    widgetRecord.height = node.height;
   }
 
   return widget;
@@ -3732,62 +3721,11 @@ function hasCollision(candidate: string, node: BsbWidgetNodeSnapshot, existingNa
 }
 
 function getDerivedKeysForSnapshot(node: BsbWidgetNodeSnapshot): string[] {
-  const name = node.objectName;
-  if (!name) return [];
-  switch (node.type) {
-    case 'BSBXYController':
-      return [name + 'X', name + 'Y'];
-    case 'BSBHSliderBank':
-    case 'BSBVSliderBank': {
-      const count = typeof node.properties?.['sliderBankCount'] === 'number'
-        ? node.properties.sliderBankCount : 0;
-      const keys: string[] = [];
-      for (let i = 0; i < count; i++) keys.push(`${name}.${i}`);
-      return keys;
-    }
-    case 'BSBLineObject': {
-      const lines = node.properties?.['lines'];
-      if (!Array.isArray(lines)) return [];
-      const keys: string[] = [];
-      for (const line of lines) {
-        if (line && typeof line === 'object' && typeof (line as any).varName === 'string') {
-          keys.push(`${name}_${(line as any).varName}`);
-        }
-      }
-      return keys;
-    }
-    default:
-      return [];
-  }
+  return getDerivedKeysFromSnapshot(node);
 }
 
 function getDerivedKeys(widget: BSBWidget): string[] {
-  const name = widget.objectName;
-  if (!name) return [];
-  const w = widget as any;
-  switch (widget.constructor.name) {
-    case 'BSBXYController':
-      return [name + 'X', name + 'Y'];
-    case 'BSBHSliderBank':
-    case 'BSBVSliderBank': {
-      const count = typeof w.sliderBankCount === 'number' ? w.sliderBankCount : 0;
-      const keys: string[] = [];
-      for (let i = 0; i < count; i++) keys.push(`${name}.${i}`);
-      return keys;
-    }
-    case 'BSBLineObject': {
-      const lines: unknown[] = Array.isArray(w.lines) ? w.lines : [];
-      const keys: string[] = [];
-      for (const line of lines) {
-        if (line && typeof line === 'object' && typeof (line as any).varName === 'string') {
-          keys.push(`${name}_${(line as any).varName}`);
-        }
-      }
-      return keys;
-    }
-    default:
-      return [];
-  }
+  return getDerivedKeysFromWidget(widget);
 }
 
 function applyInstrumentPatch(instrument: Instrument, patch: InstrumentPatch): boolean {

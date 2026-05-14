@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 
-import type { UdoDefinitionSnapshot } from '../../../shared/project-editor';
+import type { UdoDefinitionSnapshot } from '../../shared/project-editor';
 
 export interface UdoCallbacks {
   onInsertUdos: (definitions: UdoDefinitionSnapshot[], index?: number) => void;

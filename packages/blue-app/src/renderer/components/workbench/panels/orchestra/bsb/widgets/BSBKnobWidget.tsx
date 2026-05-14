@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import WidgetWrapper from './WidgetWrapper';
 import { formatValue } from './ValuePanel';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
 type BSBKnobWidgetProps = BSBWidgetPatchComponentProps;
@@ -31,7 +32,6 @@ function BSBKnobWidget({
   const showLabel = node.properties.labelEnabled === true;
   const labelText = typeof node.properties.label === 'string' ? node.properties.label : '';
   const showValue = node.properties.valueDisplayEnabled === true;
-  const knobSize = node.width || 60;
 
   const labelFontName = typeof node.properties['labelFont.name'] === 'string' ? node.properties['labelFont.name'] : 'Roboto';
   const labelFontSize = typeof node.properties['labelFont.size'] === 'number' ? node.properties['labelFont.size'] : 12;
@@ -42,9 +42,13 @@ function BSBKnobWidget({
   const strVal = formatValue(value);
   const displayVal = strVal.length > 7 ? strVal.substring(0, 7) : strVal;
 
-  const labelH = showLabel ? 16 : 0;
+  const displaySize = getWidgetDisplaySize(node);
+  const labelH = showLabel ? Math.max(16, Math.ceil(labelFontSize * 1.25)) : 0;
   const valueH = showValue ? VALUE_HEIGHT : 0;
-  const totalH = knobSize + labelH + valueH;
+  const knobSize = typeof node.properties.knobWidth === 'number'
+    ? node.properties.knobWidth
+    : Math.max(30, displaySize.height - labelH - valueH);
+  const totalH = displaySize.height;
 
   const svgRef = useRef<SVGSVGElement>(null);
   const paramsRef = useRef({ minimum, range, knobSize, nodeId: node.id });
@@ -105,8 +109,8 @@ function BSBKnobWidget({
   }, [editEnabled]);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
-      <div className="flex flex-col items-center" style={{ width: knobSize, height: totalH }}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+      <div className="flex h-full w-full flex-col items-center" style={{ width: displaySize.width, height: totalH }}>
         {showLabel && (
           <div
             className="flex w-full items-center justify-center overflow-hidden"
@@ -121,7 +125,7 @@ function BSBKnobWidget({
             className="flex items-center justify-center"
             style={{
               height: valueH,
-              width: knobSize,
+              width: displaySize.width,
               fontFamily: "'Roboto', sans-serif",
               fontSize: 11,
               color: 'rgb(240,240,255)',
@@ -212,4 +216,3 @@ function describePieArc(cx: number, cy: number, r: number, startDeg: number, swe
   const sweep = sweepDeg < 0 ? 1 : 0;
   return `M ${cx} ${cy} L ${s.x} ${s.y} A ${r} ${r} 0 ${large} ${sweep} ${e.x} ${e.y} Z`;
 }
-

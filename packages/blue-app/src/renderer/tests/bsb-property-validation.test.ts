@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { validateNumericProperty } from '../components/workbench/panels/orchestra/bsb/BSBPropertySheet';
-import type { BsbWidgetNodeSnapshot } from '../../../shared/project-editor';
+import type { BsbWidgetNodeSnapshot } from '../../shared/project-editor';
 
 function makeWidget(overrides: Partial<BsbWidgetNodeSnapshot> & { type: string }): BsbWidgetNodeSnapshot {
   return {
@@ -230,6 +230,11 @@ describe('validateNumericProperty', () => {
 
     it('passes through defaultValue without constraint', () => {
       expect(validateNumericProperty('defaultValue', '-100', makeWidget({ type: 'BSBValue' }))).toBe('-100');
+    });
+
+    it('passes through font editor numeric fields without clamping', () => {
+      expect(validateNumericProperty('font.size', '7.25', makeWidget({ type: 'BSBKnob' }))).toBe('7.25');
+      expect(validateNumericProperty('labelFont.style', '2', makeWidget({ type: 'BSBKnob' }))).toBe('2');
     });
   });
 });

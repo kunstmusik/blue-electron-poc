@@ -1,7 +1,7 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { ChevronDown } from 'lucide-react';
-import { getDropdownDisplayWidth } from './utils';
+import { getWidgetDisplaySize } from './utils';
 import WidgetWrapper from './WidgetWrapper';
 import type { BSBWidgetComponentProps } from './widget-component-props';
 
@@ -24,6 +24,7 @@ function BSBDropdownWidget({
   const selectedIndex = typeof node.properties.selectedIndex === 'number' ? node.properties.selectedIndex : 0;
   const fontSize = typeof node.properties.fontSize === 'number' ? node.properties.fontSize : 12;
   const itemsRaw = node.properties.dropdownItems;
+  const displaySize = getWidgetDisplaySize(node);
 
   const items: Array<{ name?: string; value?: string }> = Array.isArray(itemsRaw) ? itemsRaw as Array<{ name?: string; value?: string }> : [];
 
@@ -43,10 +44,8 @@ function BSBDropdownWidget({
     });
   };
 
-  const calculatedWidth = getDropdownDisplayWidth(node);
-
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={calculatedWidth} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild disabled={items.length === 0}>
           <button

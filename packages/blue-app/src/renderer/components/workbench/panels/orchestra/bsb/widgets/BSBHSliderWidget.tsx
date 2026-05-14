@@ -1,13 +1,12 @@
 import React, { useCallback, useRef, useEffect } from 'react';
+import { BSB_VALUE_PANEL_HEIGHT, BSB_VALUE_PANEL_WIDTH } from '../../../../../../../shared/bsb-widget-layout';
 import WidgetWrapper from './WidgetWrapper';
 import { ValuePanel, formatValue } from './ValuePanel';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
 type BSBHSliderWidgetProps = BSBWidgetPatchComponentProps;
 
-const VALUE_PANEL_WIDTH = 50;
-const VALUE_PANEL_HEIGHT = 30;
-const SLIDER_HEIGHT = 30;
 const TRACK_H = 4;
 const THUMB_R = 7;
 
@@ -26,12 +25,14 @@ function BSBHSliderWidget({
   onWidgetAction,
 }: BSBHSliderWidgetProps): React.ReactElement {
   const sliderWidth = typeof node.properties.sliderWidth === 'number' ? node.properties.sliderWidth : 150;
+  const displaySize = getWidgetDisplaySize(node);
   const value = node.value;
   const minimum = node.minimum;
   const maximum = node.maximum;
   const showValue = node.properties.valueDisplayEnabled === true;
 
-  const totalWidth = sliderWidth + (showValue ? VALUE_PANEL_WIDTH : 0);
+  const totalWidth = displaySize.width;
+  const totalHeight = displaySize.height;
   const range = maximum - minimum || 1;
   const pct = Math.max(0, Math.min(1, (value - minimum) / range));
 
@@ -93,19 +94,19 @@ function BSBHSliderWidget({
   }, [editEnabled]);
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
-      <div className="flex" style={{ width: totalWidth, height: SLIDER_HEIGHT }}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+      <div className="flex h-full w-full" style={{ width: totalWidth, height: totalHeight }}>
         <svg
           ref={svgRef}
           width={sliderWidth}
-          height={SLIDER_HEIGHT}
+          height={totalHeight}
           className="block"
           style={{ cursor: editEnabled ? 'default' : 'pointer' }}
           onMouseDown={handleMouseDown}
         >
           <rect
             x={THUMB_R}
-            y={SLIDER_HEIGHT / 2 - TRACK_H / 2}
+            y={totalHeight / 2 - TRACK_H / 2}
             width={sliderWidth - 2 * THUMB_R}
             height={TRACK_H}
             rx={2}
@@ -114,7 +115,7 @@ function BSBHSliderWidget({
           />
           <rect
             x={THUMB_R}
-            y={SLIDER_HEIGHT / 2 - TRACK_H / 2}
+            y={totalHeight / 2 - TRACK_H / 2}
             width={(sliderWidth - 2 * THUMB_R) * pct}
             height={TRACK_H}
             rx={2}
@@ -123,13 +124,13 @@ function BSBHSliderWidget({
           />
           <circle
             cx={THUMB_R + (sliderWidth - 2 * THUMB_R) * pct}
-            cy={SLIDER_HEIGHT / 2}
+            cy={totalHeight / 2}
             r={THUMB_R}
             fill="rgb(102,177,253)"
           />
           <circle
             cx={THUMB_R + (sliderWidth - 2 * THUMB_R) * pct}
-            cy={SLIDER_HEIGHT / 2}
+            cy={totalHeight / 2}
             r={THUMB_R - 2}
             fill="rgb(38,51,76)"
           />
@@ -137,8 +138,8 @@ function BSBHSliderWidget({
         {showValue && (
           <ValuePanel
             value={displayVal}
-            width={VALUE_PANEL_WIDTH}
-            height={VALUE_PANEL_HEIGHT}
+            width={BSB_VALUE_PANEL_WIDTH}
+            height={BSB_VALUE_PANEL_HEIGHT}
             onCommit={(v) => {
               const parsed = parseFloat(v);
               if (!isNaN(parsed)) {

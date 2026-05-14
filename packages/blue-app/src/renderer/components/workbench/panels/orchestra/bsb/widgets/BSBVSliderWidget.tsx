@@ -1,12 +1,12 @@
 import React, { useCallback, useRef, useEffect } from 'react';
+import { BSB_VALUE_PANEL_HEIGHT, BSB_VALUE_PANEL_WIDTH } from '../../../../../../../shared/bsb-widget-layout';
 import WidgetWrapper from './WidgetWrapper';
 import { ValuePanel, formatValue } from './ValuePanel';
+import { getWidgetDisplaySize } from './utils';
 import type { BSBWidgetPatchComponentProps } from './widget-component-props';
 
 type BSBVSliderWidgetProps = BSBWidgetPatchComponentProps;
 
-const VALUE_PANEL_WIDTH = 50;
-const VALUE_PANEL_HEIGHT = 30;
 const SLIDER_WIDTH = 50;
 const TRACK_W = 4;
 const THUMB_R = 7;
@@ -26,12 +26,13 @@ function BSBVSliderWidget({
   onWidgetAction,
 }: BSBVSliderWidgetProps): React.ReactElement {
   const sliderHeight = typeof node.properties.sliderHeight === 'number' ? node.properties.sliderHeight : 150;
+  const displaySize = getWidgetDisplaySize(node);
   const value = node.value;
   const minimum = node.minimum;
   const maximum = node.maximum;
   const showValue = node.properties.valueDisplayEnabled === true;
 
-  const totalHeight = sliderHeight + (showValue ? VALUE_PANEL_HEIGHT : 0);
+  const totalHeight = displaySize.height;
   const range = maximum - minimum || 1;
   const pct = Math.max(0, Math.min(1, (value - minimum) / range));
 
@@ -96,11 +97,11 @@ function BSBVSliderWidget({
   const thumbCy = sliderHeight - THUMB_R - (sliderHeight - 2 * THUMB_R) * pct;
 
   return (
-    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
-      <div className="flex flex-col" style={{ width: SLIDER_WIDTH, height: totalHeight }}>
+    <WidgetWrapper node={node} isSelected={isSelected} editEnabled={editEnabled} onWidgetSelect={onWidgetSelect} displayWidth={displaySize.width} displayHeight={displaySize.height} resizeMeta={resizeMeta} gridSnapEnabled={gridSnapEnabled} gridSnapWidth={gridSnapWidth} gridSnapHeight={gridSnapHeight} onBsbInterfacePatch={onBsbInterfacePatch} selectedWidgetIds={selectedWidgetIds} getWidgetPosition={getWidgetPosition} onWidgetAction={onWidgetAction}>
+      <div className="flex h-full w-full flex-col" style={{ width: displaySize.width, height: totalHeight }}>
         <svg
           ref={svgRef}
-          width={SLIDER_WIDTH}
+          width={displaySize.width}
           height={sliderHeight}
           className="block"
           style={{ cursor: editEnabled ? 'default' : 'pointer' }}
@@ -140,8 +141,8 @@ function BSBVSliderWidget({
         {showValue && (
           <ValuePanel
             value={displayVal}
-            width={VALUE_PANEL_WIDTH}
-            height={VALUE_PANEL_HEIGHT}
+            width={BSB_VALUE_PANEL_WIDTH}
+            height={BSB_VALUE_PANEL_HEIGHT}
             onCommit={(v) => {
               const parsed = parseFloat(v);
               if (!isNaN(parsed)) {

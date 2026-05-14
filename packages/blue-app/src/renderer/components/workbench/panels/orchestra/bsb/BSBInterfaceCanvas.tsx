@@ -27,9 +27,13 @@ import {
   BSBVSliderBankWidget,
   PreservedWidget,
 } from './widgets';
-import { getCanvasDisplaySize } from './widgets/utils';
+import { getCanvasDisplaySize, getWidgetDisplaySize } from './widgets/utils';
 import { useKeyboardShortcutScope } from '../../../../../hooks/use-keyboard-shortcut-scope';
 import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
+import {
+  useBsbClipboardStore,
+  type BsbCanvasClipboard,
+} from '../../../../../stores/bsb-clipboard-store';
 
 const BSB_ADDABLE_WIDGETS = [
   { type: 'BSBGroup', label: 'Group' },
@@ -69,12 +73,6 @@ interface MarqueeState {
   currentX: number;
   currentY: number;
   active: boolean;
-}
-
-export interface BsbCanvasClipboard {
-  widgets: BsbWidgetNodeSnapshot[];
-  originX: number;
-  originY: number;
 }
 
 export function isGridSnapEnabled(gridSettings: Pick<GridSettingsSnapshot, 'snapEnabled'> | null | undefined): boolean {
@@ -139,8 +137,8 @@ export function buildPastedWidgets(
     const clone = JSON.parse(JSON.stringify(widget)) as BsbWidgetNodeSnapshot;
     clone.x = (clone.x ?? 0) + offsetX;
     clone.y = (clone.y ?? 0) + offsetY;
-    delete clone.id;
-    return clone;
+    const { id: _removedId, ...rest } = clone;
+    return rest as BsbWidgetNodeSnapshot;
   });
 }
 
@@ -154,9 +152,12 @@ function BSBInterfaceCanvas({
   const [groupStack, setGroupStack] = useState<GroupStackEntry[]>([]);
   const [marquee, setMarquee] = useState<MarqueeState | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-  const [clipboard, setClipboard] = useState<BsbCanvasClipboard | null>(null);
+  const clipboard = useBsbClipboardStore((state) => state.clipboard);
+  const setClipboard = useBsbClipboardStore((state) => state.setClipboard);
   const canvasInnerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const contextMenuPos = useRef({ x: 0, y: 0 });
+  const marqueeRef = useRef<MarqueeState | null>(null);
   const scrollMemory = useRef<Map<string, { scrollLeft: number; scrollTop: number }>>(new Map());
   const marqueeDragged = useRef(false);
 
@@ -185,6 +186,47 @@ function BSBInterfaceCanvas({
     }
     onWidgetSelect(null);
   }, [selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect]);
+
+  const getSelectedCurrentWidgets = useCallback((): BsbWidgetNodeSnapshot[] => (
+    currentChildren.filter((child) => selectedWidgetIds.has(child.id))
+  ), [currentChildren, selectedWidgetIds]);
+
+  const copySelectedWidgets = useCallback((): boolean => {
+    const selected = getSelectedCurrentWidgets();
+    if (selected.length === 0) {
+      return false;
+    }
+    setClipboard(createCanvasClipboard(selected));
+    return true;
+  }, [getSelectedCurrentWidgets, setClipboard]);
+
+  const cutSelectedWidgets = useCallback((): boolean => {
+    const selected = getSelectedCurrentWidgets();
+    if (selected.length === 0) {
+      return false;
+    }
+    setClipboard(createCanvasClipboard(selected));
+    removeSelectedWidgets();
+    return true;
+  }, [getSelectedCurrentWidgets, removeSelectedWidgets, setClipboard]);
+
+  const pasteAt = useCallback((x: number, y: number): boolean => {
+    if (!clipboard) return false;
+    const gs = instrument.gridSettings;
+    const widgets = buildPastedWidgets(
+      clipboard,
+      x,
+      y,
+      isGridSnapEnabled(gs),
+      gs?.width,
+      gs?.height,
+    );
+    if (widgets.length === 0) return false;
+
+    const pgId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
+    onBsbInterfacePatch({ type: 'pasteWidgets', widgetData: JSON.stringify(widgets), parentGroupId: pgId });
+    return true;
+  }, [clipboard, groupStack, onBsbInterfacePatch, instrument.gridSettings]);
 
   useEffect(() => {
     const element = canvasRef.current;
@@ -215,18 +257,18 @@ function BSBInterfaceCanvas({
   const handleWidgetAction = useCallback((action: string) => {
     const selIds = selectedWidgetIds;
     if (selIds.size === 0) return;
-    const selected = currentChildren.filter(c => selIds.has(c.id));
-    const ww = (s: BsbWidgetNodeSnapshot) => s.width ?? 60;
-    const wh = (s: BsbWidgetNodeSnapshot) => s.height ?? 24;
+    const selected = getSelectedCurrentWidgets();
+    if (selected.length === 0) return;
+    const ww = (s: BsbWidgetNodeSnapshot) => getWidgetDisplaySize(s).width;
+    const wh = (s: BsbWidgetNodeSnapshot) => getWidgetDisplaySize(s).height;
 
     switch (action) {
       case 'copy': {
-        setClipboard(createCanvasClipboard(selected));
+        copySelectedWidgets();
         break;
       }
       case 'cut': {
-        setClipboard(createCanvasClipboard(selected));
-        removeSelectedWidgets();
+        cutSelectedWidgets();
         break;
       }
       case 'make-group': {
@@ -311,7 +353,7 @@ function BSBInterfaceCanvas({
         break;
       }
     }
-  }, [currentChildren, selectedWidgetIds, onBsbInterfacePatch, onWidgetSelect, parentGroupId]);
+  }, [copySelectedWidgets, cutSelectedWidgets, getSelectedCurrentWidgets, selectedWidgetIds, onBsbInterfacePatch, parentGroupId]);
 
   const getWidgetPosition = useCallback((id: string) => {
     const find = (nodes: BsbWidgetNodeSnapshot[]): { x: number; y: number } | undefined => {
@@ -329,6 +371,30 @@ function BSBInterfaceCanvas({
 
   const handleCanvasKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!editEnabled || isTextEditingTarget(e.target)) return;
+
+    const commandKey = e.metaKey || e.ctrlKey;
+    const key = e.key.toLowerCase();
+    if (commandKey && !e.altKey && key === 'c') {
+      if (copySelectedWidgets()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+    if (commandKey && !e.altKey && key === 'x') {
+      if (cutSelectedWidgets()) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+    if (commandKey && !e.altKey && key === 'v') {
+      if (pasteAt(contextMenuPos.current.x, contextMenuPos.current.y)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
 
     if (!e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'Delete' || e.key === 'Backspace')) {
       if (selectedWidgetIds.size === 0) return;
@@ -357,7 +423,18 @@ function BSBInterfaceCanvas({
       const ny = Math.max(0, pos.y + dy);
       onBsbInterfacePatch({ type: 'updateWidgetProperties', widgetId, properties: { x: nx, y: ny } });
     }
-  }, [editEnabled, getWidgetPosition, gridSettings, onBsbInterfacePatch, removeSelectedWidgets, selectedWidgetIds, snapToGrid]);
+  }, [
+    copySelectedWidgets,
+    cutSelectedWidgets,
+    editEnabled,
+    getWidgetPosition,
+    gridSettings,
+    onBsbInterfacePatch,
+    pasteAt,
+    removeSelectedWidgets,
+    selectedWidgetIds,
+    snapToGrid,
+  ]);
 
   const canvasShortcutScope = useKeyboardShortcutScope({
     ref: canvasRef,
@@ -490,24 +567,11 @@ function BSBInterfaceCanvas({
     onBsbInterfacePatch({ type: 'addWidget', widgetType, x: snapX, y: snapY, parentGroupId });
   }, [instrument.gridSettings, groupStack, onBsbInterfacePatch]);
 
-  const contextMenuPos = useRef({ x: 0, y: 0 });
-
   const canPaste = clipboard !== null && clipboard.widgets.length > 0;
 
   const handlePaste = useCallback(() => {
-    if (!clipboard) return;
-    const gs = instrument.gridSettings;
-    const widgets = buildPastedWidgets(
-      clipboard,
-      contextMenuPos.current.x,
-      contextMenuPos.current.y,
-      isGridSnapEnabled(gs),
-      gs?.width,
-      gs?.height,
-    );
-    const pgId = groupStack.length > 0 ? groupStack[groupStack.length - 1].id : undefined;
-    onBsbInterfacePatch({ type: 'pasteWidgets', widgetData: JSON.stringify(widgets), parentGroupId: pgId });
-  }, [clipboard, groupStack, onBsbInterfacePatch, instrument.gridSettings]);
+    pasteAt(contextMenuPos.current.x, contextMenuPos.current.y);
+  }, [pasteAt]);
 
   // Marquee selection handlers
   const onCanvasMouseDown = (e: React.MouseEvent) => {
@@ -520,32 +584,46 @@ function BSBInterfaceCanvas({
     const rect = canvasInnerRef.current!.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    setMarquee({ startX: x, startY: y, currentX: x, currentY: y, active: false });
+    contextMenuPos.current = { x, y };
+    if (e.metaKey && pasteAt(x, y)) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    const nextMarquee = { startX: x, startY: y, currentX: x, currentY: y, active: false };
+    marqueeRef.current = nextMarquee;
+    setMarquee(nextMarquee);
   };
 
   const onCanvasMouseMove = (e: React.MouseEvent) => {
-    if (!marquee) return;
+    const currentMarquee = marqueeRef.current;
+    if (!currentMarquee) return;
     const rect = canvasInnerRef.current!.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const dx = x - marquee.startX;
-    const dy = y - marquee.startY;
-    const active = marquee.active || Math.abs(dx) > 3 || Math.abs(dy) > 3;
-    setMarquee({ ...marquee, currentX: x, currentY: y, active });
+    const dx = x - currentMarquee.startX;
+    const dy = y - currentMarquee.startY;
+    const active = currentMarquee.active || Math.abs(dx) > 3 || Math.abs(dy) > 3;
+    const nextMarquee = { ...currentMarquee, currentX: x, currentY: y, active };
+    marqueeRef.current = nextMarquee;
+    setMarquee(nextMarquee);
   };
 
   const onCanvasMouseUp = (e: React.MouseEvent) => {
-    if (!marquee) return;
-    if (marquee.active) {
+    const currentMarquee = marqueeRef.current;
+    if (!currentMarquee) return;
+    if (currentMarquee.active) {
       marqueeDragged.current = true;
-      const minX = Math.min(marquee.startX, marquee.currentX);
-      const minY = Math.min(marquee.startY, marquee.currentY);
-      const maxX = Math.max(marquee.startX, marquee.currentX);
-      const maxY = Math.max(marquee.startY, marquee.currentY);
+      const minX = Math.min(currentMarquee.startX, currentMarquee.currentX);
+      const minY = Math.min(currentMarquee.startY, currentMarquee.currentY);
+      const maxX = Math.max(currentMarquee.startX, currentMarquee.currentX);
+      const maxY = Math.max(currentMarquee.startY, currentMarquee.currentY);
       const ids = new Set<string>();
       for (const child of currentChildren) {
-        const cw = child.width ?? 60;
-        const ch = child.height ?? 24;
+        const childSize = getWidgetDisplaySize(child);
+        const cw = childSize.width;
+        const ch = childSize.height;
         const intersects =
           child.x < maxX &&
           child.x + cw > minX &&
@@ -556,13 +634,19 @@ function BSBInterfaceCanvas({
         }
       }
       const nextSelection = getNextMarqueeSelection(selectedWidgetIds, ids, e.shiftKey);
-      onWidgetSelect(null);
-      for (const id of nextSelection) {
-        onWidgetSelect(id, true);
+      const selectionIds = [...nextSelection];
+      if (selectionIds.length === 0) {
+        onWidgetSelect(null);
+      } else {
+        onWidgetSelect(selectionIds[0]!);
+        for (const id of selectionIds.slice(1)) {
+          onWidgetSelect(id, true);
+        }
       }
     } else {
       // Simple click on background - clear selection (handled via click, see below)
     }
+    marqueeRef.current = null;
     setMarquee(null);
   };
 
@@ -646,7 +730,7 @@ function BSBInterfaceCanvas({
           <ContextMenu.Root>
             <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
             <ContextMenu.Portal>
-              <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+              <ContextMenu.Content className="editor-context-menu">
                 <ContextMenu.Item className="editor-context-menu__item" onSelect={handlePaste} disabled={!canPaste}>
                   Paste
                 </ContextMenu.Item>
@@ -669,7 +753,7 @@ function BSBInterfaceCanvas({
           <ContextMenu.Root>
             <ContextMenu.Trigger asChild>{canvasContent}</ContextMenu.Trigger>
             <ContextMenu.Portal>
-              <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+              <ContextMenu.Content className="editor-context-menu">
                 <ContextMenu.Item
                   className="editor-context-menu__item"
                   onSelect={() => onBsbInterfacePatch({ type: 'randomize' })}
