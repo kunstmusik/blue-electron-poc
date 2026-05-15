@@ -5,28 +5,28 @@
 
 ## Summary
 
-Replace the current seed-only `JMask` auxiliary editor with a Java Blue-style parameter-editor stack that covers generator selection, optional mask and probability workflows, and any table or test surfaces this slice can support honestly. The implementation should stay anchored to canonical `JMask` mutations and make unsupported generator data explicit rather than silently flattening it.
+Replace the current seed-only `JMask` auxiliary editor with a Java Blue-style top bar plus scrollable parameter-editor stack that covers generator selection, optional mask or quantizer or accumulator workflows, probability routing, and any table or preview surfaces this slice can support honestly. Because the current TypeScript port only preserves top-level seed fields, the implementation must start by porting the nested `JMask` field subsystem into `@blue/data` before the renderer can claim parity safely.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.8.x, React 19.x, Electron 35.x, strict monorepo packages  
-**Primary Dependencies**: Spec 037 score-object editor infrastructure, Spec 038 closeout baseline, `@blue/data` `JMask` and generator models, reusable renderer form and canvas primitives, Dockview 5.2.0, Zustand 5.x, Vitest 4.x  
-**Storage**: canonical `JMask` state remains in main-process `BlueData`; expanded panels, scroll position, and other editor-shell state remain renderer-local  
-**Testing**: Vitest renderer, shared-contract, and main-process coverage plus `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build:renderer`, and `git diff --check`  
+**Primary Dependencies**: Spec 037 score-object editor infrastructure, Spec 040 interaction and contract patterns, new `@blue/data` `JMask` field subsystem port, reusable renderer form and canvas primitives, Dockview 5.2.0, Zustand 5.x, Vitest 4.x  
+**Storage**: canonical `JMask` state remains in main-process `BlueData`; scroll position, open menus, selected table points, and other editor-shell state remain renderer-local  
+**Testing**: `@blue/data` unit coverage, Vitest renderer, shared-contract, and main-process coverage plus `pnpm --filter @blue/data test`, `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false`, `pnpm --filter @blue/app test`, `pnpm --filter @blue/app build:renderer`, and `git diff --check`  
 **Target Platform**: Electron desktop on macOS first  
 **Project Type**: app-layer parity feature extending the existing score-object auxiliary editor infrastructure  
-**Performance Goals**: large parameter stacks must remain scrollable and responsive; nested editor changes should commit at deliberate boundaries rather than thrashing the patch pipeline  
-**Constraints**: preserve Java `.blue` compatibility, keep unsupported data explicit and reload-safe, and avoid claiming more generator or probability parity than the current TypeScript model can support honestly  
-**Scale/Scope**: one heavyweight form and canvas driven score-object editor plus its document contract, mutation helpers, and validation coverage
+**Performance Goals**: large parameter stacks must remain scrollable and responsive; nested editor changes should commit at deliberate boundaries rather than thrashing the patch pipeline; table editing should not re-render unrelated rows
+**Constraints**: preserve Java `.blue` compatibility, keep unsupported data explicit and reload-safe, mirror the Java component tree and row-menu behavior closely, and avoid claiming preview parity until the nested model can generate notes honestly
+**Scale/Scope**: one heavyweight model-port plus one form and canvas driven score-object editor, its document contract, mutation helpers, and validation coverage
 
 ## Constitution Check
 
-- **Data-First, UI-Separated**: PASS. Canonical `JMask` mutations stay in shared patch helpers while expanded-row and scroll state stay renderer-local.
-- **Backwards-Compatible Serialization**: PASS. All edits continue to flow through `@blue/data` and existing XML-backed models.
+- **Data-First, UI-Separated**: PASS. Canonical `JMask` mutations will stay in shared patch helpers while expansion, menu, and scroll state remain renderer-local.
+- **Backwards-Compatible Serialization**: PASS. The model-port work remains XML-backed and stays inside `@blue/data`.
 - **JVM Dependencies Preserved, Not Replaced**: PASS. Java Blue `JMask` editor classes remain the parity source for layout and generator workflows.
 - **Engine as External Process**: PASS. This slice is editor interaction and model mutation only.
-- **Test-First for Serialization**: PASS. The plan adds payload, nested-mutation, and unsupported-data coverage before parity is claimed.
-- **Research Integration**: PASS. The design explicitly breaks out the Java generator hierarchy instead of hiding it behind a shallow placeholder task.
+- **Test-First for Serialization**: PASS. The plan adds `@blue/data` model tests, payload tests, nested-mutation tests, and unsupported-data coverage before parity is claimed.
+- **Research Integration**: PASS. The design explicitly breaks out the Java top bar, parameter-row, generator, modifier, probability, and table hierarchies instead of hiding them behind shallow placeholder tasks.
 
 ## Project Structure
 
@@ -49,12 +49,15 @@ Replace the current seed-only `JMask` auxiliary editor with a Java Blue-style pa
 ```text
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/JMaskEditor.tsx
-/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/
+/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/editors/jmask/
+/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/j-mask.ts
+/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/jmask/
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/
+/Users/stevenyi/work/blue-electron/packages/blue-data/tests/
 /Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/
 ```
 
-**Structure Decision**: Keep the Spec 037 score-object editor shell, replace the current `JMaskEditor.tsx` seed form with a scrollable parameter-stack editor, and add explicit nested patch helpers so generator edits remain canonical and reload-safe.
+**Structure Decision**: Keep the Spec 037 score-object editor shell, replace the current `JMaskEditor.tsx` seed form with a Java-style top bar plus scrollable parameter stack, port the nested `JMask` field subsystem into `@blue/data`, and add explicit nested patch helpers so generator, modifier, probability, visibility, rename, and table edits remain canonical and reload-safe.
 
 ## Phase 0 Research Output
 
@@ -72,5 +75,5 @@ See [/Users/stevenyi/work/blue-electron/specs/041-jmask-score-object-editor/rese
 - **Backwards-Compatible Serialization**: PASS. No renderer-owned persistence is introduced.
 - **JVM Dependencies Preserved, Not Replaced**: PASS. The plan is anchored to Java `JMask` editor classes and generator workflows.
 - **Engine as External Process**: PASS. No transport or render-engine behavior changes are required.
-- **Test-First for Serialization**: PASS. Contract, renderer, and nested-mutation tests are required before parity is claimed.
-- **Research Integration**: PASS. The plan turns the Java generator hierarchy into explicit design and task work instead of a single placeholder implementation step.
+- **Test-First for Serialization**: PASS. `@blue/data`, contract, renderer, and nested-mutation tests are required before parity is claimed.
+- **Research Integration**: PASS. The plan turns the Java top bar, parameter-row, generator, modifier, probability, and table hierarchies into explicit design and task work instead of a single placeholder implementation step.
