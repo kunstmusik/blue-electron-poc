@@ -1,53 +1,74 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-13
-**Branch**: `039-sound-score-object-editor`
+**Date**: 2026-05-14
+**Branch**: `040-pianoroll-score-object-editor`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: Sound Score Object Editor Parity
+## Current Focus: PianoRoll Score Object Editor Parity
 
-**Branch**: `039-sound-score-object-editor`
+**Branch**: `040-pianoroll-score-object-editor`
 
 ### Summary
-Spec 039 is complete on branch `039-sound-score-object-editor`: the comment-only `Sound` auxiliary editor has been replaced with a Java Blue-style tabbed editor that covers Interface, Automation, Code, UDO, and Comments, and the post-implementation parity sweep closed the remaining BSB validation and browser-interaction regressions.
+Spec 040 is complete on branch `040-pianoroll-score-object-editor`: the metadata-only `PianoRoll` placeholder has been replaced with a real Java Blue-style note canvas, field editor, and properties workflow, and the closeout pass tightened canonical field-definition handling plus undo coverage so the claimed shortcut subset stays reload-safe.
 
 ### Handoff State
-- The `SoundEditor.tsx` has been replaced with a 5-tab editor (Interface, Automation, Code, UDO, Comments) following Java Blue's `SoundEditor` tab layout.
-- Shared types (`SoundEditorPayload`, `SoundAutomationParameterSnapshot`, `SoundEditorTab`) added to `project-editor.ts`.
-- Sound snapshot creation now parses the BSB instrument text via `parseSoundBSB()` and builds a full `BlueSynthBuilderInstrumentSnapshot` for reuse by BSB editor components.
-- Patch handling extended to support `bsbInterfacePatch`, `bsbCodePatch`, `bsbOpcodeListPatch`, and `automationPatch` for Sound objects, with BSB round-trip through parse/apply/serialize.
-- Test preview IPC (`test-sound-sound-object`) added following the External pattern.
-- Optimistic patch handling for Sound BSB and automation mutations added to `ScoreObjectEditorPanel.tsx`.
-- Java-parity BSB object-name validation now checks replacement keys rather than raw widget names, including XY and slider-bank derived names.
-- The reused BSB canvas no longer drops marquee selections during fast drag-release sequences, and resize handles now start from property-backed dimensions where Java widgets store them.
-- Sound automation contract coverage now matches Java BSB parameter retention semantics: disabled parameters are omitted unless the widget explicitly allows automation or the existing parameter is already automated.
+- `PianoRollEditor.tsx` now hosts a two-surface editor: a notes workspace with ruler, pitch header, note canvas, field lane, shortcuts, and context menu, plus a properties surface for scale, note template, pitch generation, transposition, and field definitions.
+- Shared PianoRoll payload handling now includes explicit `capabilities` and `deferredCapabilities`, optimistic payload patching, and restore-patch helpers for undo or redo.
+- Canonical `updateTypeSpecificEditor` handling now applies scale edits, field-definition add/update/remove flows, ruler settings, snap settings, note-template overrides, and note batches coherently.
+- Field-definition rebuilds now preserve note values by surviving field name when possible, so removing or renaming a field does not silently remap the wrong values.
+- Renderer-local undo now records full PianoRoll payload snapshots and replays canonical restore patches for the claimed shortcut subset.
+- Focused PianoRoll regression coverage now exercises helper patching, undo restore snapshots, note creation, move, field editing, marquee selection, payload creation, and canonical mutation paths.
 
 ### Delivered Scope
-- Tabbed `Sound` editor with Interface, Automation, Code, UDO, and Comments tabs matching Java Blue `SoundEditor` layout
-- Interface tab reuses `BSBInterfaceEditor` (widget canvas, property sheet, preset bar) from the orchestra editor
-- Code tab reuses `BSBCodeEditor` (Instrument, Always On, Global Orc, Global Sco sub-tabs)
-- UDO tab reuses `BSBUDOPanel` from the orchestra editor
-- Automation panel with parameter selector dropdown, enable/disable toggle, and SVG-based line canvas for curve editing
-- Comments tab with textarea
-- Test button with modal for generated score preview (deferred message shown until BSB CSD generation is implemented)
-- BSB round-trip: `parseSoundBSB()` parses instrument text to `BlueSynthBuilder`, patches are applied, then serialized back to text
-- Full automation parameter snapshot extraction from BSB parameters (name, label, min, max, curve, points, enabled)
-- Java-parity BSB object-name validation for manual rename flows across simple widgets, XY pads, slider banks, and line objects
-- Stable BSB marquee-selection and resize interactions backed by browser regression coverage
-- 10 new contract tests covering snapshot creation, BSB patches, code patches, automation patches, and removed-target fallback
+- Java-style `PianoRoll` notes surface with ruler, pitch context, note canvas, selection, note dragging, left or right resize, create-on-shift-drag, marquee selection, and field-lane editing
+- Properties surface with canonical scale editing, field-definition editing, pitch-generation toggles, transposition, global note template, and ruler configuration
+- Clipboard and shortcut subset covering copy, cut, paste, delete, select all, undo, redo, snap toggle, horizontal zoom, and note-row height adjustment
+- Per-note note-template override editing from the notes toolbar
+- Canonical scale and field-definition mutation handling that survives save or reload and preserves surviving field values correctly
+- Optimistic PianoRoll payload patching in `ScoreObjectEditorPanel.tsx` so renderer state stays aligned with canonical writes
+- 22 focused PianoRoll regression tests across renderer helper logic, note-canvas interaction planning, and shared contract or mutation paths
 
 ### Validation
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 79 files, 866 passed, 2 skipped
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/pianoroll-parity.test.ts src/renderer/tests/score-object-editor-panel.test.tsx --browser.enabled=false` — 22 passed
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 80 files, 876 passed, 2 skipped
 - `pnpm --filter @blue/app test` — 1 file, 4 passed
 - `pnpm --filter @blue/app build:renderer` — pass
 - `git diff --check` — pass
-- Manual `Sound` quickstart scenarios from `quickstart.md` — signed off on 2026-05-13
+- Manual `PianoRoll` quickstart scenarios from `quickstart.md` — signed off on 2026-05-14
 
 ### Next Recommended Step
-- Treat Spec 039 as complete and closed.
-- Start implementation work for Spec `040-pianoroll-score-object-editor`.
-- Treat Spec `041-jmask-score-object-editor` as the follow-on heavyweight editor slice.
+- Treat Spec 040 as complete and closed.
+- Treat Spec `041-jmask-score-object-editor` as the next heavyweight editor slice.
 - Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up.
+
+## Spec 040 Package
+
+Spec `040-pianoroll-score-object-editor` is complete, closed, and validated on branch `040-pianoroll-score-object-editor`.
+
+- Goal: replace the `PianoRoll` metadata form with a Java Blue-style note canvas, field editor, and properties workflow, including the claimed clipboard and undo shortcut subset
+- Active feature context:
+  - `.specify/feature.json` points to `specs/040-pianoroll-score-object-editor` at closeout time
+- Delivered scope:
+  - note canvas with ruler, pitch header, note rendering, create, move, resize, marquee selection, and selected-note highlighting
+  - field lane with selected-field editing plus field-definition management in the properties surface
+  - canonical `PianoRoll` payload additions for capabilities, deferred capabilities, scale, field definitions, notes, ruler settings, and snap state
+  - canonical `updateTypeSpecificEditor` support for scale edits, field-definition add/update/remove, note-template overrides, ruler settings, snap settings, and note batches
+  - optimistic PianoRoll payload patching in `ScoreObjectEditorPanel.tsx`
+  - renderer-local clipboard store and undo store, with undo or redo replaying canonical restore patches built from full payload snapshots
+  - field-definition rebuild semantics that preserve note values by surviving field name when possible
+  - focused PianoRoll regression coverage in `pianoroll-parity.test.ts` and `score-object-editor-panel.test.tsx`
+- Validation:
+  - `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/pianoroll-parity.test.ts src/renderer/tests/score-object-editor-panel.test.tsx --browser.enabled=false` — 22 pass
+  - `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 876 pass, 2 skipped
+  - `pnpm --filter @blue/app test` — 4 pass
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `git diff --check` — pass
+- `manual PianoRoll quickstart scenarios from quickstart.md` — signed off on 2026-05-14
+- Task status: all 28 tasks checked off in `tasks.md`
+- Handoff notes:
+  - the package-level `pnpm --filter @blue/app test` script currently exercises the browser-targeted Vitest project only; the non-browser suite still needs the explicit `exec vitest ... --browser.enabled=false` command for full renderer and main-process coverage
+  - selection, scroll position, paste anchor, and in-progress drag previews remain renderer-local by design; canonical persistence covers note or property state only
+  - Spec `041-jmask-score-object-editor` and `042-score-editor-management-navigation` remain the next follow-on slices
 
 ## Spec 039 Package
 

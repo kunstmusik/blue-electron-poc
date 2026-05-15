@@ -10,6 +10,10 @@ import type {
   TypeSpecificScoreObjectEditorSnapshot,
 } from '../../../../shared/project-editor';
 import { resolveEditorComponent } from './score-object/editor-registry';
+import {
+  applyPianoRollPatchToPayload,
+  type PianoRollPayload,
+} from './score-object/editors/pianoroll/types';
 
 function EmptyState({ message }: { message: string }): React.ReactElement {
   return (
@@ -732,6 +736,13 @@ export function applyPatchToDocument(
       ...(patch.patch.fadeInType !== undefined && { fadeInType: patch.patch.fadeInType as string }),
       ...(patch.patch.fadeOutType !== undefined && { fadeOutType: patch.patch.fadeOutType as string }),
       ...(patch.patch.looping !== undefined && { looping: patch.patch.looping as boolean }),
+    };
+    return { ...doc, editor };
+  }
+  if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'structured' && doc.editor.editorFamily === 'PianoRoll') {
+    const editor: TypeSpecificScoreObjectEditorSnapshot = {
+      ...doc.editor,
+      payload: applyPianoRollPatchToPayload(doc.editor.payload as PianoRollPayload, patch.patch as Record<string, unknown>),
     };
     return { ...doc, editor };
   }

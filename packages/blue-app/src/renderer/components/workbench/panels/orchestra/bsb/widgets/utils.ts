@@ -180,9 +180,19 @@ export function getWidgetDisplaySize(node: BsbWidgetNodeSnapshot): { width: numb
         ? Math.ceil(measureTextWidth(groupName, getFontString(fontName, fontSize, fontStyle))) + 2
         : 0;
 
+      let childrenWidth = 10;
+      let childrenHeight = 10;
+      for (const child of node.children ?? []) {
+        const childSize = getWidgetDisplaySize(child);
+        childrenWidth = Math.max(childrenWidth, child.x + childSize.width);
+        childrenHeight = Math.max(childrenHeight, child.y + childSize.height);
+      }
+      childrenWidth += 10;
+      childrenHeight += 10;
+
       return {
-        width: Math.max(1, titleWidth, node.width ?? 20),
-        height: labelHeight + Math.max(1, node.height ?? 20),
+        width: Math.max(1, titleWidth, node.width ?? 20, childrenWidth),
+        height: labelHeight + Math.max(1, node.height ?? 20, childrenHeight),
       };
     }
     case 'BSBLabel': {

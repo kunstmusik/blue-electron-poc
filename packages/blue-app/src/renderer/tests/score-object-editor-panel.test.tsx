@@ -20,9 +20,11 @@ import {
   LineObject,
   ZakLineObject,
   PianoRoll,
+  PianoNote,
   TrackerObject,
   NotationObject,
   JMask,
+  TimeBase,
   TimeBehavior,
   TimeDuration,
   NoteProcessorChain,
@@ -319,5 +321,118 @@ describe('Instance and library-backed routing (T027)', () => {
     if (doc!.editor.kind === 'fallback') {
       expect(doc!.editor.reason).toBe('removed-target');
     }
+  });
+});
+
+describe('PianoRoll editor document and mutation', () => {
+  function makePianoRollData() {
+    const pr = new PianoRoll();
+    const note = new PianoNote();
+    note.initFields(pr.getFieldDefinitions());
+    note.setStart(1);
+    note.setDuration(2);
+    note.setOctave(8);
+    note.setScaleDegree(7);
+    note.getFields()[0]!.setValue(0.5);
+    pr.addNote(note);
+
+    const data = makeDataWithObject(pr);
+    const target = makeTimelineTarget('PianoRoll');
+    return { data, pr, target };
+  }
+
+  it('creates PianoRoll editor payload with snap, ruler, and note data', () => {
+    const { data, target } = makePianoRollData();
+    const doc = createScoreObjectEditorDocument(data, { target });
+
+    expect(doc!.editor.kind).toBe('structured');
+    if (doc!.editor.kind === 'structured') {
+      expect(doc!.editor.payload.snapValue).toBe('SIXTEENTH');
+      expect(doc!.editor.payload.primaryTimeDisplay).toBe(TimeBase.BBF);
+      expect(doc!.editor.payload.secondaryTimeDisplay).toBe(TimeBase.TIME);
+      expect(doc!.editor.payload.capabilities).toMatchObject({
+        fieldEditor: true,
+        clipboard: true,
+        undo: true,
+        noteTemplateOverride: true,
+      });
+      expect(doc!.editor.payload.deferredCapabilities).toEqual([]);
+      expect(doc!.editor.payload.notes).toMatchObject([
+        { start: 1, duration: 2, octave: 8, scaleDegree: 7, fieldValues: [0.5] },
+      ]);
+    }
+  });
+
+  it('applies PianoRoll snap, ruler, and field value patches', () => {
+    const { data, pr, target } = makePianoRollData();
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'updateTypeSpecificEditor',
+        target,
+        patch: {
+          snapValue: 'EIGHTH',
+          useGlobalRuler: true,
+          primaryTimeDisplay: TimeBase.BEATS,
+          secondaryRulerEnabled: true,
+          secondaryTimeDisplay: TimeBase.SMPTE,
+          pianoRollNoteBatch: {
+            operations: [{
+              kind: 'update',
+              noteIndex: 0,
+              note: { octave: 8, scaleDegree: 7, start: 1, duration: 2, fieldValues: [0.75], noteTemplate: 'i1 0 1 440' },
+            }],
+          },
+        },
+      },
+    });
+
+    expect(pr.getSnapValueEnum()).toBe('EIGHTH');
+    expect(pr.isUseGlobalRuler()).toBe(true);
+    expect(pr.getPrimaryTimeDisplay()).toBe(TimeBase.BEATS);
+    expect(pr.isSecondaryRulerEnabled()).toBe(true);
+    expect(pr.getSecondaryTimeDisplay()).toBe(TimeBase.SMPTE);
+    expect(pr.getNotes()[0]!.getFields()[0]!.getValue()).toBeCloseTo(0.75);
+    expect(pr.getNotes()[0]!.getNoteTemplate()).toBe('i1 0 1 440');
+  });
+
+  it('applies PianoRoll scale and field-definition patches canonically', () => {
+    const { data, pr, target } = makePianoRollData();
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'updateTypeSpecificEditor',
+        target,
+        patch: {
+          scale: {
+            scaleName: 'Modified',
+            baseFrequency: 440,
+            octave: 2,
+            ratios: [1, 1.5],
+          },
+          addFieldDef: {
+            fieldName: 'PAN',
+            fieldType: 'DISCRETE',
+            minValue: 0,
+            maxValue: 8,
+            defaultValue: 5,
+          },
+          updateFieldDef: {
+            index: 1,
+            fieldName: 'PAN2',
+            defaultValue: 6,
+          },
+          removeFieldDef: 0,
+        },
+      },
+    });
+
+    expect(pr.getScale().scaleName).toBe('Modified');
+    expect(pr.getScale().baseFrequency).toBeCloseTo(440);
+    expect(pr.getFieldDefinitions()).toHaveLength(1);
+    expect(pr.getFieldDefinitions()[0]!.getFieldName()).toBe('PAN2');
+    expect(pr.getFieldDefinitions()[0]!.getDefaultValue()).toBeCloseTo(6);
+    expect(pr.getNotes()[0]!.getFields()).toHaveLength(1);
+    expect(pr.getNotes()[0]!.getFields()[0]!.getValue()).toBe(5);
   });
 });

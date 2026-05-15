@@ -2,7 +2,7 @@
 
 **Feature Branch**: `040-pianoroll-score-object-editor`  
 **Created**: 2026-05-11  
-**Status**: Draft  
+**Status**: Complete
 **Input**: User description: "Split the old grouped Tier 2 score-object follow-up so `PianoRoll` gets its own deeper planning slice, with explicit Java Blue UI/UX analysis reflected in the task breakdown."
 
 ## User Scenarios & Testing *(mandatory)*

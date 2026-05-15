@@ -10,6 +10,12 @@ Validate that the `PianoRoll` score-object editor now behaves like a real note-e
 2. Prepare a project containing at least one `PianoRoll` score object with multiple notes and non-default properties.
 3. Keep at least one example where clipboard or undo behavior is expected if this slice claims it.
 
+## Implementation Notes
+
+- Supported shortcuts in the notes surface: `Cmd/Ctrl+C`, `Cmd/Ctrl+X`, `Cmd/Ctrl+V`, `Delete`/`Backspace`, `Cmd/Ctrl+A`, `Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`, `Alt+S`, `Cmd/Ctrl+=`, `Cmd/Ctrl+-`, `Cmd/Ctrl+ArrowUp`, and `Cmd/Ctrl+ArrowDown`.
+- Scale edits, field-definition edits, note-template overrides, ruler settings, and note-batch mutations are canonical and reload-safe.
+- Manual `PianoRoll` quickstart validation was signed off on 2026-05-14.
+
 ## Validation Steps
 
 1. Load the project and open `ScoreObjectEditorTopComponent` for a `PianoRoll` object.
@@ -31,4 +37,4 @@ Validate that the `PianoRoll` score-object editor now behaves like a real note-e
 - `PianoRoll` opens in a real auxiliary canvas editor.
 - Note edits commit through canonical batch mutations rather than ad hoc form writes.
 - Supported field and property workflows mutate canonical state coherently.
-- Any unsupported `PianoRoll` subfeatures are surfaced explicitly instead of being implied silently.
+- The claimed shortcut, clipboard, and undo subset stays synchronized with the canonical document.

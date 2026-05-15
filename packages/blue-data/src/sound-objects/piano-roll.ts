@@ -7,6 +7,9 @@ import { NoteList } from './note-list';
 import { Note } from './note';
 import { TimeContext } from '../time/time-context';
 import { TimeDuration } from '../time/time-duration';
+import { TimeBase } from '../time/time-base';
+import { closestSnapValueMatch, isValidSnapValueName } from '../time/snap-value';
+import type { SnapValueName } from '../time/snap-value';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
@@ -32,6 +35,14 @@ export class PianoRoll extends AbstractSoundObject {
   private _pchGenerationMethod = GENERATE_FREQUENCY;
   private _transposition = 0;
   private _fieldDefinitions: FieldDef[] = [];
+  private _pixelSecond = 64;
+  private _noteHeight = 15;
+  private _snapEnabled = true;
+  private _snapValueEnum: SnapValueName = 'SIXTEENTH';
+  private _useGlobalRuler = false;
+  private _primaryTimeDisplay: TimeBase = TimeBase.BBF;
+  private _secondaryTimeDisplay: TimeBase = TimeBase.TIME;
+  private _secondaryRulerEnabled = false;
 
   constructor(other?: PianoRoll) {
     super();
@@ -52,6 +63,14 @@ export class PianoRoll extends AbstractSoundObject {
       this._instrumentId = other._instrumentId;
       this._pchGenerationMethod = other._pchGenerationMethod;
       this._transposition = other._transposition;
+      this._pixelSecond = other._pixelSecond;
+      this._noteHeight = other._noteHeight;
+      this._snapEnabled = other._snapEnabled;
+      this._snapValueEnum = other._snapValueEnum;
+      this._useGlobalRuler = other._useGlobalRuler;
+      this._primaryTimeDisplay = other._primaryTimeDisplay;
+      this._secondaryTimeDisplay = other._secondaryTimeDisplay;
+      this._secondaryRulerEnabled = other._secondaryRulerEnabled;
       this._fieldDefinitions = other._fieldDefinitions.map((fd) => {
         const clone = new FieldDef();
         clone.setFieldName(fd.getFieldName());
@@ -68,7 +87,9 @@ export class PianoRoll extends AbstractSoundObject {
   setScale(s: Scale): void { this._scale = s; }
 
   getNotes(): PianoNote[] { return [...this._notes]; }
+  setNotes(notes: PianoNote[]): void { this._notes = notes; }
   addNote(note: PianoNote): void { this._notes.push(note); }
+  removeNote(index: number): void { this._notes.splice(index, 1); }
 
   getNoteTemplate(): string { return this._noteTemplate; }
   setNoteTemplate(t: string): void { this._noteTemplate = t; }
@@ -83,7 +104,35 @@ export class PianoRoll extends AbstractSoundObject {
   setTransposition(t: number): void { this._transposition = t; }
 
   getFieldDefinitions(): FieldDef[] { return [...this._fieldDefinitions]; }
+  setFieldDefinitions(fieldDefs: FieldDef[]): void {
+    this._fieldDefinitions = fieldDefs.map(cloneFieldDef);
+    this._notes = this._notes.map((note) => rebuildPianoNoteFields(note, this._fieldDefinitions));
+  }
   addFieldDef(fd: FieldDef): void { this._fieldDefinitions.push(fd); }
+
+  getPixelSecond(): number { return this._pixelSecond; }
+  setPixelSecond(v: number): void { this._pixelSecond = v; }
+
+  getNoteHeight(): number { return this._noteHeight; }
+  setNoteHeight(v: number): void { this._noteHeight = v; }
+
+  isSnapEnabled(): boolean { return this._snapEnabled; }
+  setSnapEnabled(v: boolean): void { this._snapEnabled = v; }
+
+  getSnapValueEnum(): SnapValueName { return this._snapValueEnum; }
+  setSnapValueEnum(v: SnapValueName): void { this._snapValueEnum = v; }
+
+  isUseGlobalRuler(): boolean { return this._useGlobalRuler; }
+  setUseGlobalRuler(v: boolean): void { this._useGlobalRuler = v; }
+
+  getPrimaryTimeDisplay(): TimeBase { return this._primaryTimeDisplay; }
+  setPrimaryTimeDisplay(v: TimeBase): void { this._primaryTimeDisplay = v; }
+
+  getSecondaryTimeDisplay(): TimeBase { return this._secondaryTimeDisplay; }
+  setSecondaryTimeDisplay(v: TimeBase): void { this._secondaryTimeDisplay = v; }
+
+  isSecondaryRulerEnabled(): boolean { return this._secondaryRulerEnabled; }
+  setSecondaryRulerEnabled(v: boolean): void { this._secondaryRulerEnabled = v; }
 
   override getTimeBehavior(): TimeBehavior {
     return TimeBehavior.REPEAT;
@@ -95,34 +144,6 @@ export class PianoRoll extends AbstractSoundObject {
     _startTime: number,
     _endTime: number,
   ): NoteList {
-    // Generate a default oscillator instrument if this instrumentId isn't already defined
-    const instrNum = this._instrumentId;
-    const instrMarker = `__instr_${instrNum}__`;
-    if (compileData.getCompilationVariable(instrMarker) === undefined) {
-      compileData.setCompilationVariable(instrMarker, true);
-
-      // Generate orchestra header once (first instrument only)
-      if (compileData.getCompilationVariable('__orch_header__') === undefined) {
-        compileData.setCompilationVariable('__orch_header__', true);
-        compileData.appendGlobalOrc(`sr=44100
-ksmps=64
-nchnls=2
-0dbfs=1
-
-`);
-      }
-
-      // Generate a simple oscillator instrument for the given instrument number
-      const orc = `instr ${instrNum}
-  ifreq = p4
-  iamp = p5
-  aenv madsr 0.01, 0.1, 0.8, 0.1
-  aout poscil aenv * iamp, ifreq
-  outch 1, aout, 2, aout
-endin
-`;
-      compileData.appendGlobalOrc(orc);
-    }
     const nl = new NoteList();
     let instrId = this._instrumentId.trim();
 
@@ -214,6 +235,14 @@ endin
     elem.addElement(this._scale.saveAsXML().setName('scale'));
     elem.addElement('pchGenerationMethod').setText(this._pchGenerationMethod.toString());
     elem.addElement('transposition').setText(this._transposition.toString());
+    elem.addElement('pixelSecond').setText(this._pixelSecond.toString());
+    elem.addElement('noteHeight').setText(this._noteHeight.toString());
+    elem.addElement('snapEnabled').setText(this._snapEnabled.toString());
+    elem.addElement('snapValueEnum').setText(this._snapValueEnum);
+    elem.addElement('useGlobalRuler').setText(this._useGlobalRuler.toString());
+    elem.addElement('primaryTimeDisplay').setText(this._primaryTimeDisplay);
+    elem.addElement('secondaryTimeDisplay').setText(this._secondaryTimeDisplay);
+    elem.addElement('secondaryRulerEnabled').setText(this._secondaryRulerEnabled.toString());
 
     for (const fd of this._fieldDefinitions) {
       elem.addElement(fd.saveAsXML().setName('fieldDef'));
@@ -267,6 +296,39 @@ endin
         case 'transposition':
           pr._transposition = parseInt(node.getTextString(), 10);
           break;
+        case 'pixelSecond':
+          pr._pixelSecond = parseInt(node.getTextString(), 10) || 64;
+          break;
+        case 'noteHeight':
+          pr._noteHeight = parseInt(node.getTextString(), 10) || 15;
+          break;
+        case 'snapEnabled':
+          pr._snapEnabled = node.getTextString() !== 'false';
+          break;
+        case 'snapValue': {
+          const legacyValue = parseFloat(node.getTextString());
+          pr._snapValueEnum = Number.isFinite(legacyValue)
+            ? closestSnapValueMatch(legacyValue)
+            : 'BEAT';
+          break;
+        }
+        case 'snapValueEnum': {
+          const text = node.getTextString();
+          pr._snapValueEnum = isValidSnapValueName(text) ? text : 'BEAT';
+          break;
+        }
+        case 'useGlobalRuler':
+          pr._useGlobalRuler = node.getTextString() === 'true';
+          break;
+        case 'primaryTimeDisplay':
+          pr._primaryTimeDisplay = parseTimeBase(node.getTextString(), TimeBase.BBF);
+          break;
+        case 'secondaryTimeDisplay':
+          pr._secondaryTimeDisplay = parseTimeBase(node.getTextString(), TimeBase.TIME);
+          break;
+        case 'secondaryRulerEnabled':
+          pr._secondaryRulerEnabled = node.getTextString() === 'true';
+          break;
       }
     }
 
@@ -276,4 +338,49 @@ endin
   override deepCopy(): SoundObject {
     return new PianoRoll(this);
   }
+}
+
+function parseTimeBase(value: string, fallback: TimeBase): TimeBase {
+  return Object.values(TimeBase).includes(value as TimeBase) ? value as TimeBase : fallback;
+}
+
+function cloneFieldDef(fieldDef: FieldDef): FieldDef {
+  const clone = new FieldDef();
+  clone.setFieldName(fieldDef.getFieldName());
+  clone.setFieldType(fieldDef.getFieldType());
+  clone.setMinValue(fieldDef.getMinValue());
+  clone.setMaxValue(fieldDef.getMaxValue());
+  clone.setDefaultValue(fieldDef.getDefaultValue());
+  return clone;
+}
+
+function rebuildPianoNoteFields(note: PianoNote, fieldDefs: FieldDef[]): PianoNote {
+  const rebuilt = new PianoNote();
+  rebuilt.setOctave(note.getOctave());
+  rebuilt.setScaleDegree(note.getScaleDegree());
+  rebuilt.setStart(note.getStart());
+  rebuilt.setDuration(note.getDuration());
+  rebuilt.setNoteTemplate(note.getNoteTemplate());
+
+  rebuilt.initFields(fieldDefs);
+
+  const previousFields = note.getFields();
+  const nextFields = rebuilt.getFields();
+  const previousValuesByFieldName = new Map(
+    previousFields.map((field) => [field.getFieldDef().getFieldName(), field.getValue()]),
+  );
+
+  for (let index = 0; index < nextFields.length; index += 1) {
+    const nextFieldDef = fieldDefs[index];
+    const previousField = previousFields[index];
+    const nextValue = nextFieldDef
+      ? previousValuesByFieldName.get(nextFieldDef.getFieldName()) ?? previousField?.getValue()
+      : previousField?.getValue();
+
+    if (nextValue !== undefined) {
+      nextFields[index]!.setValue(nextValue);
+    }
+  }
+
+  return rebuilt;
 }

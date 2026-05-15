@@ -1,12 +1,24 @@
 # Data Model: PianoRoll Score Object Editor Parity
 
-## Entity: PianoRollEditorSnapshot
+## Entity: PianoRollPayload
 
 - **Purpose**: Typed auxiliary-editor payload for a selected `PianoRoll` score object.
 - **Fields**:
-  - `editorFamily: 'PianoRoll'`
-  - `noteCanvas: PianoRollCanvasSnapshot`
-  - `properties: PianoRollPropertiesSnapshot`
+  - `instrumentId: string`
+  - `noteTemplate: string`
+  - `pchGenerationMethod: number`
+  - `transposition: number`
+  - `pixelSecond: number`
+  - `noteHeight: number`
+  - `snapEnabled: boolean`
+  - `snapValue: SnapValueName`
+  - `useGlobalRuler: boolean`
+  - `primaryTimeDisplay: string`
+  - `secondaryTimeDisplay: string`
+  - `secondaryRulerEnabled: boolean`
+  - `scale: { scaleName: string; baseFrequency: number; octave: number; ratios: number[] }`
+  - `fieldDefinitions: PianoRollFieldDefinitionSnapshot[]`
+  - `notes: PianoRollNoteSnapshot[]`
   - `capabilities: {
       fieldEditor: boolean;
       clipboard: boolean;
@@ -15,70 +27,60 @@
     }`
   - `deferredCapabilities: string[]`
 
-## Entity: PianoRollCanvasSnapshot
+## Entity: PianoRollFieldDefinitionSnapshot
 
-- **Purpose**: Renderer-facing view model for the note canvas.
+- **Purpose**: Renderer-facing definition for one editable extra note field.
 - **Fields**:
-  - `notes: PianoRollNoteSnapshot[]`
-  - `selectedNoteIds: string[]`
-  - `pixelsPerBeat: number`
-  - `noteRowHeight: number`
-  - `visibleStartBeats: number`
-  - `visibleEndBeats: number`
-  - `canPaste: boolean`
-  - `undoAvailable: boolean`
-  - `redoAvailable: boolean`
+  - `fieldName: string`
+  - `fieldType: 'CONTINUOUS' | 'DISCRETE'`
+  - `minValue: number`
+  - `maxValue: number`
+  - `defaultValue: number`
 
 ## Entity: PianoRollNoteSnapshot
 
-- **Purpose**: One note rendered in the auxiliary canvas.
+- **Purpose**: One note rendered in the auxiliary canvas and field lane.
 - **Fields**:
-  - `noteId: string`
-  - `startBeats: number`
-  - `durationBeats: number`
-  - `pitchValue: number`
-  - `pitchDisplay: string`
-  - `fieldValues: Record<string, number>`
-  - `selected: boolean`
+  - `octave: number`
+  - `scaleDegree: number`
+  - `start: number`
+  - `duration: number`
+  - `fieldValues: number[]`
+  - `noteTemplate?: string | null`
 
-## Entity: PianoRollPropertiesSnapshot
+## Entity: PianoRollNoteBatch
 
-- **Purpose**: Renderer-facing view of editable `PianoRoll` metadata.
+- **Purpose**: Canonical mutation payload for committed note-set edits.
 - **Fields**:
-  - `instrumentId: string`
-  - `noteTemplate: string`
-  - `pchGenerationMethod: number`
-  - `transposition: number`
-  - `fieldDefinitions: Array<{ fieldName: string; minValue: number; maxValue: number }>`
-  - `scaleSummary: string`
-  - `rulerConfigSummary: string`
-
-## Entity: PianoRollInteractionBatch
-
-- **Purpose**: Canonical mutation payload for one committed note-edit interaction.
-- **Fields**:
-  - `kind: 'add' | 'move' | 'resize' | 'delete' | 'paste' | 'field-edit'`
-  - `noteIds: string[]`
-  - `payload: Record<string, unknown>`
+  - `operations: Array<{
+      kind: 'add' | 'addMany' | 'remove' | 'move' | 'resize' | 'update' | 'replace';
+      noteIndex?: number;
+      noteIndices?: number[];
+      note?: PianoRollNoteSnapshot;
+      notes?: PianoRollNoteSnapshot[];
+      deltaStart?: number;
+      deltaDuration?: number;
+      deltaOctave?: number;
+      deltaScaleDegree?: number;
+    }>`
 
 ## State Flows
 
-### Note Edit Flow
+### Canvas Edit Flow
 
-1. Main/shared helpers build `PianoRollEditorSnapshot` from the selected canonical object.
-2. Renderer updates local interaction state while the user drags, resizes, or selects notes.
-3. On commit boundaries such as mouse-up or explicit commands, renderer emits one `PianoRollInteractionBatch`.
-4. Shared helpers mutate canonical note data and rebuild the editor document.
+1. Main/shared helpers build a flat `PianoRollPayload` from the selected canonical object.
+2. Renderer keeps selection, scroll position, paste target, and in-progress drag previews locally.
+3. On commit boundaries such as mouse-up or explicit commands, renderer emits one `pianoRollNoteBatch` patch.
+4. Shared helpers mutate canonical `PianoRoll` note data and rebuild the editor document.
 
-### Field Edit Flow
+### Field And Property Flow
 
-1. Renderer derives the selected field view from `PianoRollCanvasSnapshot` and `PianoRollPropertiesSnapshot`.
-2. User edits a supported field for the current selection.
-3. Renderer emits a batch field-edit patch.
-4. Canonical note data updates and the canvas plus properties refresh.
+1. Renderer edits note-template overrides, field definitions, scale settings, and ruler or snap properties from the same payload.
+2. Shared helpers apply canonical property mutations, including field-definition rebuilds that preserve note values by field name when possible.
+3. The active document refreshes coherently and stays reload-safe.
 
-### Property Update Flow
+### Clipboard And Undo Flow
 
-1. Renderer edits supported `PianoRoll` properties such as note template or pitch-generation method.
-2. Shared helpers apply canonical property mutations.
-3. The auxiliary editor refreshes against the updated object and preserves the current viewport when possible.
+1. Clipboard state remains renderer-local and stores copied note batches plus a paste anchor.
+2. Undo/redo state remains renderer-local and records full payload restore snapshots for the claimed shortcut subset.
+3. Selection and viewport state stay local even when canonical note data is restored.

@@ -56,6 +56,8 @@ import {
   LineObject,
   ZakLineObject,
   PianoRoll,
+  PianoNote,
+  FieldDef,
   TrackerObject,
   Track,
   TrackerNote,
@@ -2576,6 +2578,8 @@ export function createScoreObjectEditorDocument(
         };
       } else if (sObj instanceof PianoRoll) {
         const pr = sObj as PianoRoll;
+        const scale = pr.getScale();
+        const fieldDefs = pr.getFieldDefinitions();
         editor = {
           kind: 'structured',
           target,
@@ -2586,6 +2590,42 @@ export function createScoreObjectEditorDocument(
             noteTemplate: pr.getNoteTemplate(),
             pchGenerationMethod: pr.getPchGenerationMethod(),
             transposition: pr.getTransposition(),
+            pixelSecond: pr.getPixelSecond(),
+            noteHeight: pr.getNoteHeight(),
+            snapEnabled: pr.isSnapEnabled(),
+            snapValue: pr.getSnapValueEnum(),
+            useGlobalRuler: pr.isUseGlobalRuler(),
+            primaryTimeDisplay: pr.getPrimaryTimeDisplay(),
+            secondaryTimeDisplay: pr.getSecondaryTimeDisplay(),
+            secondaryRulerEnabled: pr.isSecondaryRulerEnabled(),
+            scale: {
+              scaleName: scale.scaleName,
+              baseFrequency: scale.baseFrequency,
+              octave: scale.octave,
+              ratios: [...scale.ratios],
+            },
+            fieldDefinitions: fieldDefs.map((fd) => ({
+              fieldName: fd.getFieldName(),
+              fieldType: fd.getFieldType(),
+              minValue: fd.getMinValue(),
+              maxValue: fd.getMaxValue(),
+              defaultValue: fd.getDefaultValue(),
+            })),
+            notes: pr.getNotes().map((n) => ({
+              octave: n.getOctave(),
+              scaleDegree: n.getScaleDegree(),
+              start: n.getStart(),
+              duration: n.getDuration(),
+              fieldValues: n.getFields().map((f) => f.getValue()),
+              noteTemplate: n.getNoteTemplate(),
+            })),
+            capabilities: {
+              fieldEditor: true,
+              clipboard: true,
+              undo: true,
+              noteTemplateOverride: true,
+            },
+            deferredCapabilities: [],
           },
         };
       } else if (sObj instanceof NotationObject) {
@@ -2809,6 +2849,10 @@ export function applyScoreTimeStatePatch(
   }
 
   return changed;
+}
+
+function isValidTimeBase(value: unknown): value is TimeBase {
+  return typeof value === 'string' && Object.values(TimeBase).includes(value as TimeBase);
 }
 
 function isNonEmptyScorePatch(patch: ScorePatch): boolean {
@@ -3981,6 +4025,100 @@ function createScaleFromSnapshot(snapshot: MidiScaleSnapshot | null): Scale | nu
   return scale;
 }
 
+function createPianoRollFieldDefSnapshot(fieldDef: FieldDef): {
+  fieldName: string;
+  fieldType: string;
+  minValue: number;
+  maxValue: number;
+  defaultValue: number;
+} {
+  return {
+    fieldName: fieldDef.getFieldName(),
+    fieldType: fieldDef.getFieldType(),
+    minValue: fieldDef.getMinValue(),
+    maxValue: fieldDef.getMaxValue(),
+    defaultValue: fieldDef.getDefaultValue(),
+  };
+}
+
+function createPianoRollFieldDefFromSnapshot(snapshot: {
+  fieldName: string;
+  fieldType: string;
+  minValue: number;
+  maxValue: number;
+  defaultValue: number;
+}): FieldDef {
+  const fieldDef = new FieldDef();
+  fieldDef.setFieldName(snapshot.fieldName);
+  fieldDef.setFieldType(snapshot.fieldType as Parameters<FieldDef['setFieldType']>[0]);
+  fieldDef.setMinValue(snapshot.minValue);
+  fieldDef.setMaxValue(snapshot.maxValue);
+  fieldDef.setDefaultValue(snapshot.defaultValue);
+  return fieldDef;
+}
+
+function getPianoRollFieldDefinitionsSnapshot(pr: PianoRoll): Array<{
+  fieldName: string;
+  fieldType: string;
+  minValue: number;
+  maxValue: number;
+  defaultValue: number;
+}> {
+  return pr.getFieldDefinitions().map(createPianoRollFieldDefSnapshot);
+}
+
+function applyPianoRollFieldDefinitions(
+  pr: PianoRoll,
+  fieldDefinitions: Array<{
+    fieldName: string;
+    fieldType: string;
+    minValue: number;
+    maxValue: number;
+    defaultValue: number;
+  }>,
+): void {
+  const nextFieldDefinitions = fieldDefinitions.map(createPianoRollFieldDefFromSnapshot);
+  const setFieldDefinitions = (pr as PianoRoll & { setFieldDefinitions?: (definitions: FieldDef[]) => void }).setFieldDefinitions;
+
+  if (typeof setFieldDefinitions === 'function') {
+    setFieldDefinitions.call(pr, nextFieldDefinitions);
+    return;
+  }
+
+  const rebuiltNotes = pr.getNotes().map((note) => {
+    const rebuilt = new PianoNote();
+    rebuilt.setOctave(note.getOctave());
+    rebuilt.setScaleDegree(note.getScaleDegree());
+    rebuilt.setStart(note.getStart());
+    rebuilt.setDuration(note.getDuration());
+    rebuilt.setNoteTemplate(note.getNoteTemplate());
+    rebuilt.initFields(nextFieldDefinitions);
+
+    const previousFields = note.getFields();
+    const nextFields = rebuilt.getFields();
+    const previousValuesByFieldName = new Map(
+      previousFields.map((field) => [field.getFieldDef().getFieldName(), field.getValue()]),
+    );
+
+    for (let index = 0; index < nextFields.length; index += 1) {
+      const nextFieldDefinition = nextFieldDefinitions[index];
+      const previousField = previousFields[index];
+      const nextValue = nextFieldDefinition
+        ? previousValuesByFieldName.get(nextFieldDefinition.getFieldName()) ?? previousField?.getValue()
+        : previousField?.getValue();
+
+      if (nextValue !== undefined) {
+        nextFields[index]!.setValue(nextValue);
+      }
+    }
+
+    return rebuilt;
+  });
+
+  (pr as PianoRoll & { _fieldDefinitions: FieldDef[]; _notes: PianoNote[] })._fieldDefinitions = nextFieldDefinitions;
+  pr.setNotes(rebuiltNotes);
+}
+
 function createTrackerColumnFromSnapshot(snapshot: TrackerColumnSnapshot): Column {
   const column = new Column();
   column.setName(snapshot.name);
@@ -4841,6 +4979,213 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         if (p.noteTemplate !== undefined) pr.setNoteTemplate(p.noteTemplate as string);
         if (p.pchGenerationMethod !== undefined) pr.setPchGenerationMethod(p.pchGenerationMethod as number);
         if (p.transposition !== undefined) pr.setTransposition(p.transposition as number);
+        if (p.pixelSecond !== undefined) pr.setPixelSecond(p.pixelSecond as number);
+        if (p.noteHeight !== undefined) pr.setNoteHeight(p.noteHeight as number);
+        if (p.snapEnabled !== undefined) pr.setSnapEnabled(p.snapEnabled as boolean);
+        if (p.snapValue !== undefined && isValidSnapValueName(p.snapValue as string)) {
+          pr.setSnapValueEnum(p.snapValue as SnapValueName);
+        }
+        if (p.scale !== undefined) {
+          const scale = createScaleFromSnapshot(p.scale as MidiScaleSnapshot | null);
+          if (scale) {
+            pr.setScale(scale);
+          }
+        }
+        if (Array.isArray(p.fieldDefinitions)) {
+          applyPianoRollFieldDefinitions(pr, p.fieldDefinitions as Array<{
+            fieldName: string;
+            fieldType: string;
+            minValue: number;
+            maxValue: number;
+            defaultValue: number;
+          }>);
+        }
+        if (p.addFieldDef !== undefined) {
+          const fieldDefinitions = getPianoRollFieldDefinitionsSnapshot(pr);
+          fieldDefinitions.push(p.addFieldDef as {
+            fieldName: string;
+            fieldType: string;
+            minValue: number;
+            maxValue: number;
+            defaultValue: number;
+          });
+          applyPianoRollFieldDefinitions(pr, fieldDefinitions);
+        }
+        if (p.updateFieldDef !== undefined) {
+          const update = p.updateFieldDef as Partial<{
+            fieldName: string;
+            fieldType: string;
+            minValue: number;
+            maxValue: number;
+            defaultValue: number;
+          }> & { index: number };
+          const fieldDefinitions = getPianoRollFieldDefinitionsSnapshot(pr);
+          if (update.index >= 0 && update.index < fieldDefinitions.length) {
+            fieldDefinitions[update.index] = {
+              ...fieldDefinitions[update.index]!,
+              ...update,
+            };
+            applyPianoRollFieldDefinitions(pr, fieldDefinitions);
+          }
+        }
+        if (typeof p.removeFieldDef === 'number') {
+          const fieldDefinitions = getPianoRollFieldDefinitionsSnapshot(pr).filter((_, index) => index !== p.removeFieldDef);
+          applyPianoRollFieldDefinitions(pr, fieldDefinitions);
+        }
+        if (p.useGlobalRuler !== undefined) pr.setUseGlobalRuler(p.useGlobalRuler as boolean);
+        if (p.primaryTimeDisplay !== undefined && isValidTimeBase(p.primaryTimeDisplay)) {
+          pr.setPrimaryTimeDisplay(p.primaryTimeDisplay);
+        }
+        if (p.secondaryTimeDisplay !== undefined && isValidTimeBase(p.secondaryTimeDisplay)) {
+          pr.setSecondaryTimeDisplay(p.secondaryTimeDisplay);
+        }
+        if (p.secondaryRulerEnabled !== undefined) {
+          pr.setSecondaryRulerEnabled(p.secondaryRulerEnabled as boolean);
+        }
+
+        if (p.pianoRollNoteBatch !== undefined) {
+          const batch = p.pianoRollNoteBatch as {
+            operations: Array<{
+              kind: string;
+              noteIndex?: number;
+              note?: { octave: number; scaleDegree: number; start: number; duration: number; fieldValues?: number[]; noteTemplate?: string | null };
+              notes?: Array<{ octave: number; scaleDegree: number; start: number; duration: number; fieldValues?: number[]; noteTemplate?: string | null }>;
+              noteIndices?: number[];
+              deltaStart?: number;
+              deltaDuration?: number;
+              deltaOctave?: number;
+              deltaScaleDegree?: number;
+            }>;
+          };
+          const fieldDefs = pr.getFieldDefinitions();
+          for (const op of batch.operations) {
+            switch (op.kind) {
+              case 'add': {
+                if (op.note) {
+                  const pn = new PianoNote();
+                  pn.initFields(fieldDefs);
+                  pn.setOctave(op.note.octave);
+                  pn.setScaleDegree(op.note.scaleDegree);
+                  pn.setStart(op.note.start);
+                  pn.setDuration(op.note.duration);
+                  if (op.note.noteTemplate !== undefined) pn.setNoteTemplate(op.note.noteTemplate);
+                  if (op.note.fieldValues) {
+                    const fields = pn.getFields();
+                    for (let fi = 0; fi < op.note.fieldValues.length && fi < fields.length; fi++) {
+                      fields[fi]!.setValue(op.note.fieldValues[fi]!);
+                    }
+                  }
+                  pr.addNote(pn);
+                }
+                break;
+              }
+              case 'addMany': {
+                if (op.notes) {
+                  for (const noteData of op.notes) {
+                    const pn = new PianoNote();
+                    pn.initFields(fieldDefs);
+                    pn.setOctave(noteData.octave);
+                    pn.setScaleDegree(noteData.scaleDegree);
+                    pn.setStart(noteData.start);
+                    pn.setDuration(noteData.duration);
+                    if (noteData.noteTemplate !== undefined) pn.setNoteTemplate(noteData.noteTemplate);
+                    if (noteData.fieldValues) {
+                      const fields = pn.getFields();
+                      for (let fi = 0; fi < noteData.fieldValues.length && fi < fieldDefs.length; fi++) {
+                        if (fi < fields.length) {
+                          fields[fi]!.setValue(noteData.fieldValues[fi]!);
+                        }
+                      }
+                    }
+                    pr.addNote(pn);
+                  }
+                }
+                break;
+              }
+              case 'remove': {
+                if (op.noteIndices) {
+                  const sorted = [...op.noteIndices].sort((a, b) => b - a);
+                  const notes = pr.getNotes();
+                  for (const idx of sorted) {
+                    if (idx >= 0 && idx < notes.length) {
+                      notes.splice(idx, 1);
+                    }
+                  }
+                  pr.setNotes(notes);
+                }
+                break;
+              }
+              case 'move': {
+                if (op.noteIndex !== undefined && (op.deltaStart !== undefined || op.deltaOctave !== undefined || op.deltaScaleDegree !== undefined)) {
+                  const notes = pr.getNotes();
+                  const note = notes[op.noteIndex];
+                  if (note) {
+                    if (op.deltaStart !== undefined) note.setStart(note.getStart() + op.deltaStart);
+                    if (op.deltaOctave !== undefined) note.setOctave(note.getOctave() + op.deltaOctave);
+                    if (op.deltaScaleDegree !== undefined) note.setScaleDegree(note.getScaleDegree() + op.deltaScaleDegree);
+                    pr.setNotes(notes);
+                  }
+                }
+                break;
+              }
+              case 'resize': {
+                if (op.noteIndex !== undefined && op.deltaDuration !== undefined) {
+                  const notes = pr.getNotes();
+                  const note = notes[op.noteIndex];
+                  if (note) {
+                    note.setDuration(Math.max(0.125, note.getDuration() + op.deltaDuration));
+                    pr.setNotes(notes);
+                  }
+                }
+                break;
+              }
+              case 'update': {
+                if (op.noteIndex !== undefined && op.note) {
+                  const notes = pr.getNotes();
+                  const existing = notes[op.noteIndex];
+                  if (existing) {
+                    if (op.note.octave !== undefined) existing.setOctave(op.note.octave);
+                    if (op.note.scaleDegree !== undefined) existing.setScaleDegree(op.note.scaleDegree);
+                    if (op.note.start !== undefined) existing.setStart(op.note.start);
+                    if (op.note.duration !== undefined) existing.setDuration(op.note.duration);
+                    if (op.note.noteTemplate !== undefined) existing.setNoteTemplate(op.note.noteTemplate);
+                    if (op.note.fieldValues) {
+                      const fields = existing.getFields();
+                      for (let fi = 0; fi < op.note.fieldValues.length && fi < fields.length; fi++) {
+                        fields[fi]!.setValue(op.note.fieldValues[fi]!);
+                      }
+                    }
+                    pr.setNotes(notes);
+                  }
+                }
+                break;
+              }
+              case 'replace': {
+                if (op.notes) {
+                  const newNotes: PianoNote[] = [];
+                  for (const noteData of op.notes) {
+                    const pn = new PianoNote();
+                    pn.initFields(fieldDefs);
+                    pn.setOctave(noteData.octave);
+                    pn.setScaleDegree(noteData.scaleDegree);
+                    pn.setStart(noteData.start);
+                    pn.setDuration(noteData.duration);
+                    if (noteData.noteTemplate !== undefined) pn.setNoteTemplate(noteData.noteTemplate);
+                    if (noteData.fieldValues) {
+                      const fields = pn.getFields();
+                      for (let fi = 0; fi < noteData.fieldValues.length && fi < fields.length; fi++) {
+                        fields[fi]!.setValue(noteData.fieldValues[fi]!);
+                      }
+                    }
+                    newNotes.push(pn);
+                  }
+                  pr.setNotes(newNotes);
+                }
+                break;
+              }
+            }
+          }
+        }
         return true;
       }
       if (sObj instanceof Sound) {

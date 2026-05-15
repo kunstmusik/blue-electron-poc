@@ -46,6 +46,13 @@ export class PianoNote {
 
   getFields(): Field[] { return [...this._fields]; }
 
+  initFields(fieldDefs: FieldDef[]): void {
+    this._fields = fieldDefs.map((fd) => {
+      const f = new Field(fd);
+      return f;
+    });
+  }
+
   saveAsXML(): Element {
     const elem = new Element('pianoNote');
     elem.addElement('octave').setText(this.octave.toString());
