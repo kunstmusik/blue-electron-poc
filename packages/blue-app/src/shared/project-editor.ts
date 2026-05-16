@@ -1853,11 +1853,22 @@ export function createProjectPropertiesSnapshot(
 const LAYER_GROUP_ID_MAP = new WeakMap<object, string>();
 let nextLayerGroupId = 1;
 
+const SCORE_OBJECT_ID_MAP = new WeakMap<object, string>();
+let nextScoreObjectId = 1;
+
 function assignLayerGroupId(obj: object): string {
   const existing = LAYER_GROUP_ID_MAP.get(obj);
   if (existing) return existing;
   const id = `lg-${nextLayerGroupId++}`;
   LAYER_GROUP_ID_MAP.set(obj, id);
+  return id;
+}
+
+function assignScoreObjectId(obj: object, prefix: 'sobj' | 'aclp' = 'sobj'): string {
+  const existing = SCORE_OBJECT_ID_MAP.get(obj);
+  if (existing) return existing;
+  const id = `${prefix}-${nextScoreObjectId++}`;
+  SCORE_OBJECT_ID_MAP.set(obj, id);
   return id;
 }
 
@@ -1924,15 +1935,16 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
     for (let j = 0; j < layer.length; j++) {
       const sObj = layer[j];
       const location: ScoreObjectLocationRef = { rootGroupIndex, containerPath: [], layerIndex: i, objectIndex: j };
+      const objectId = assignScoreObjectId(sObj, 'sobj');
       items.push({
-        objectId: `sobj-${i}-${j}`,
+        objectId,
         objectType: sObj.constructor.name,
         name: sObj.getName(),
         startBeats: sObj.getStartTime().toBeats(context),
         durationBeats: sObj.getSubjectiveDuration().toBeats(context),
         backgroundColor: sObj.getBackgroundColor(),
         isContainer: sObj instanceof PolyObject,
-        editorTarget: buildEditorTargetSnapshot(sObj, `sobj-${i}-${j}`, location),
+        editorTarget: buildEditorTargetSnapshot(sObj, objectId, location),
       });
     }
     layers.push({
@@ -1963,8 +1975,9 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
     for (let j = 0; j < layer.length; j++) {
       const clip = layer[j];
       const location: ScoreObjectLocationRef = { rootGroupIndex, containerPath: [], layerIndex: i, objectIndex: j };
+      const objectId = assignScoreObjectId(clip, 'aclp');
       items.push({
-        objectId: `aclp-${i}-${j}`,
+        objectId,
         objectType: 'AudioClip',
         name: clip.getName(),
         startBeats: clip.getStartTime().toBeats(context),
@@ -1972,7 +1985,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
         backgroundColor: 0x669966,
         isContainer: false,
         editorTarget: {
-          selectionId: `aclp-${i}-${j}`,
+          selectionId: objectId,
           selectedObjectType: 'AudioClip',
           editorObjectType: 'AudioClip',
           ownerKind: 'timeline',
@@ -2420,7 +2433,7 @@ export function createScoreObjectEditorDocument(
         for (let oi = 0; oi < layer.length; oi++) {
           const child = layer[oi];
           children.push({
-            objectId: `poly-child-${li}-${oi}`,
+            objectId: assignScoreObjectId(child, 'sobj'),
             name: child.getName(),
             objectType: child.constructor.name,
             startBeats: child.getStartTime().toBeats(context),
@@ -6249,15 +6262,16 @@ export function createNestedPolyObjectSnapshot(
         layerIndex: i,
         objectIndex: j,
       };
+      const objectId = assignScoreObjectId(nestedObj, 'sobj');
       items.push({
-        objectId: `sobj-${i}-${j}`,
+        objectId,
         objectType: nestedObj.constructor.name,
         name: nestedObj.getName(),
         startBeats: nestedObj.getStartTime().toBeats(context),
         durationBeats: nestedObj.getSubjectiveDuration().toBeats(context),
         backgroundColor: nestedObj.getBackgroundColor(),
         isContainer: nestedObj instanceof PolyObject,
-        editorTarget: buildEditorTargetSnapshot(nestedObj, `sobj-${i}-${j}`, itemLocation),
+        editorTarget: buildEditorTargetSnapshot(nestedObj, objectId, itemLocation),
       });
     }
     layers.push({

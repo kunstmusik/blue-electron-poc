@@ -138,8 +138,14 @@ let pendingPatchTimer: ReturnType<typeof setTimeout> | null = null;
 let storeGet: any;
 let storeSet: any;
 const PATCH_FLUSH_DELAY_MS = 100;
+let nextLocalScoreObjectId = 1;
 
 let pendingFlushPromise: Promise<void> | null = null;
+
+function createLocalScoreObjectId(objectType: string): string {
+  const prefix = objectType === 'AudioClip' ? 'aclp' : 'sobj';
+  return `local-${prefix}-${nextLocalScoreObjectId++}`;
+}
 
 const doFlushAsync = async (): Promise<void> => {
   const patches = pendingPatches.slice();
@@ -2910,7 +2916,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         return {
           ...layer,
           items: [...layer.items, ...layerObjects.map((o, j) => {
-            const objectId = `pasted-${Date.now()}-${idx}-${j}`;
+            const objectId = createLocalScoreObjectId(o.objectType);
             const objectIndex = layer.items.length + j;
             const isSObj = o.objectType !== 'AudioClip';
             return {
