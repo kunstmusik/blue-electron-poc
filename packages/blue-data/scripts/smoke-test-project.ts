@@ -1,4 +1,4 @@
-import { writeFileSync } from 'fs';
+import { writeFileSync, mkdirSync } from 'fs';
 import {
   BlueData,
   PolyObject,
@@ -250,6 +250,8 @@ gi.addChild(group);
 data.getArrangement().addInstrument(bsb);
 
 const xml = data.saveToString();
-const outPath = new URL('../../../smoke-test.blue', import.meta.url);
+const outDir = new URL('../../../fixtures/', import.meta.url);
+mkdirSync(outDir, { recursive: true });
+const outPath = new URL('../../../fixtures/smoke-test.blue', import.meta.url);
 writeFileSync(outPath, xml, 'utf-8');
 console.log(`Wrote ${outPath.pathname} (${xml.length} bytes)`);

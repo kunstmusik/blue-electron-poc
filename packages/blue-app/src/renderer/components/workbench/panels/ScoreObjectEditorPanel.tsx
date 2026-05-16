@@ -4,10 +4,15 @@ import { applyBsbInterfacePatchToSnapshot, useProjectStore } from '../../../stor
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
+  JMaskEditorPayload,
   TrackerColumnSnapshot,
   ScoreObjectEditorDocumentSnapshot,
   ScorePatch,
   TypeSpecificScoreObjectEditorSnapshot,
+} from '../../../../shared/project-editor';
+import {
+  applyJMaskPatchToPayload,
+  createJMaskPayloadSummary,
 } from '../../../../shared/project-editor';
 import { resolveEditorComponent } from './score-object/editor-registry';
 import {
@@ -742,7 +747,16 @@ export function applyPatchToDocument(
   if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'structured' && doc.editor.editorFamily === 'PianoRoll') {
     const editor: TypeSpecificScoreObjectEditorSnapshot = {
       ...doc.editor,
-      payload: applyPianoRollPatchToPayload(doc.editor.payload as PianoRollPayload, patch.patch as Record<string, unknown>),
+      payload: applyPianoRollPatchToPayload(doc.editor.payload as unknown as PianoRollPayload, patch.patch as Record<string, unknown>) as unknown as Record<string, unknown>,
+    };
+    return { ...doc, editor };
+  }
+  if (patch.type === 'updateTypeSpecificEditor' && doc.editor.kind === 'structured' && doc.editor.editorFamily === 'JMask') {
+    const payload = applyJMaskPatchToPayload(doc.editor.payload as JMaskEditorPayload, patch.patch as Record<string, unknown>);
+    const editor: TypeSpecificScoreObjectEditorSnapshot = {
+      ...doc.editor,
+      payload,
+      payloadSummary: createJMaskPayloadSummary(payload),
     };
     return { ...doc, editor };
   }

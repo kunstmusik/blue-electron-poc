@@ -2,7 +2,7 @@
 
 **Feature Branch**: `041-jmask-score-object-editor`  
 **Created**: 2026-05-11  
-**Status**: Draft  
+**Status**: Complete
 **Input**: User description: "Split the old grouped Tier 2 score-object follow-up so `JMask` gets its own deeper planning slice, with explicit Java Blue UI/UX analysis reflected in the task breakdown."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -90,6 +90,14 @@ As a composer validating generative results, I need the table-based visualizatio
 - **SC-003**: A reviewer can edit the supported generator, modifier, probability, and table workflows without losing unsupported nested data.
 - **SC-004**: A reviewer can use any preview workflow explicitly claimed by this slice and receive either generated note output or an explicit deferred state tied to the selected target.
 - **SC-005**: Automated tests cover the `@blue/data` JMask subsystem, the `JMask` payload, parameter-stack routing, menu and shortcut behavior, supported nested mutations, removed-target fallback behavior, and any table or preview flows claimed by this slice.
+
+## Closeout Notes
+
+- Completed on 2026-05-16 on branch `041-jmask-score-object-editor`.
+- Delivered a `@blue/data` `JMask` field subsystem with Java Blue-style `Field`, `Parameter`, generator, modifier, probability, table, XML round-trip, and note-generation support.
+- Replaced the seed-only renderer with a Java-style `JMask` top bar, visibility popup, seed controls, scrollable parameter stack, row context menu, double-click rename, generator routing, optional mask/quantizer/accumulator sections, probability sub-editors, table editing, and generated-score preview modal.
+- Final editor payload uses `JMaskEditorPayload` with `seedUsed`, `seed`, and a reload-safe `field` snapshot; renderer code derives the visibility menu, parameter rows, generator editors, modifier sections, and table editors from that canonical field snapshot.
+- Added focused model and app tests for XML/save-load, generation prerequisites, snapshot restoration, app editor document creation, optimistic patching, canonical project patching, Java registry label handling, and modifier-default preservation.
 
 ## Assumptions
 

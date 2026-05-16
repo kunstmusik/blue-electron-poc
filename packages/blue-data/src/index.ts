@@ -132,6 +132,7 @@ export { Scale } from './sound-objects/piano-roll/scale';
 export { FieldDef } from './sound-objects/piano-roll/field-def';
 export { FieldType } from './sound-objects/piano-roll/field-type';
 export { JMask } from './sound-objects/j-mask';
+export { loadFieldFromSnapshot } from './sound-objects/jmask-support';
 export { TrackerObject } from './sound-objects/tracker-object';
 export { TrackList } from './sound-objects/tracker/track-list';
 export { Track } from './sound-objects/tracker/track';

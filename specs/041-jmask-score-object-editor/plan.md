@@ -77,3 +77,23 @@ See [/Users/stevenyi/work/blue-electron/specs/041-jmask-score-object-editor/rese
 - **Engine as External Process**: PASS. No transport or render-engine behavior changes are required.
 - **Test-First for Serialization**: PASS. `@blue/data`, contract, renderer, and nested-mutation tests are required before parity is claimed.
 - **Research Integration**: PASS. The plan turns the Java top bar, parameter-row, generator, modifier, probability, and table hierarchies into explicit design and task work instead of a single placeholder implementation step.
+
+## Closeout Validation
+
+Spec 041 is complete as of 2026-05-16.
+
+- `@blue/data` now owns the canonical `JMask` field/generator/modifier/table model and generated-score path.
+- `@blue/app` renders and patches a Java-style `JMask` auxiliary editor from a `JMaskEditorPayload` field snapshot.
+- The implementation keeps editor-shell state local while sending canonical `seedUsed`, `seed`, and `field` patches through `updateTypeSpecificEditor`.
+- Java Blue parity was checked against `JMask`, `Field`, `Parameter`, `GeneratorRegistry`, `JMaskEditor`, `ParameterEditor`, modifier editors, probability editors, and `TableCanvas`.
+
+Validated commands:
+
+- `pnpm --filter @blue/data test` - 88 files, 849 passed
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/jmask-editor-contract.test.tsx --browser.enabled=false` - 4 passed
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` - 81 files, 880 passed, 2 skipped
+- `pnpm --filter @blue/app test` - 1 file, 4 passed
+- `pnpm --filter @blue/app build:main` - pass
+- `pnpm --filter @blue/app build:preload` - pass
+- `pnpm --filter @blue/app build:renderer` - pass
+- `git diff --check` - pass

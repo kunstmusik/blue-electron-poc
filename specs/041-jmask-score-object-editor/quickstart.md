@@ -7,8 +7,8 @@ Validate that the `JMask` score-object editor no longer behaves like a seed-only
 ## Preconditions
 
 1. Build and run the Electron app from `/Users/stevenyi/work/blue-electron` after this slice is implemented.
-2. Prepare a project containing at least one `JMask` score object with multiple parameters, at least one hidden row, at least one renamed field, and at least one optional section in use.
-3. Keep an example where a table-based or preview-oriented workflow is expected if this slice claims it.
+2. Open `fixtures/jmask-all-generators.blue` or prepare a project containing at least one `JMask` score object with multiple parameters, at least one hidden row, at least one renamed field, and at least one optional section in use.
+3. Use a `JMask` object that includes `Constant`, `Item List`, `Segment`, `Random`, `Probability`, and `Oscillator` parameters when validating the full supported subset.
 
 ## Validation Steps
 
@@ -22,8 +22,8 @@ Validate that the `JMask` score-object editor no longer behaves like a seed-only
 8. Change one supported generator selection or generator field value.
 9. Enable one supported optional section such as mask, quantizer, accumulator, or probability.
 10. Edit the nested section and confirm the canonical object refreshes coherently.
-11. If the slice claims table editing, exercise point insert, drag, and remove behavior on one supported table surface.
-12. If the slice claims preview behavior, trigger it with the button or `Cmd/Ctrl+T` and verify the generated notes or deferred state are tied to the selected target.
+11. Exercise point insert, drag, and remove behavior on one supported table surface.
+12. Trigger preview with the `Test` button or `Cmd/Ctrl+T` and verify generated notes are tied to the selected target duration.
 13. Save or reload the project and confirm supported `JMask` edits persist.
 14. Remove the selected `JMask` target while the editor is open.
 15. Confirm the editor falls back to the removed-target state instead of showing stale nested controls.
@@ -31,6 +31,13 @@ Validate that the `JMask` score-object editor no longer behaves like a seed-only
 ## Expected Results
 
 - `JMask` opens in a real parameter-stack auxiliary editor with the Java-style top bar and row controls claimed by the implementation.
-- Supported generator, optional-section, table, and parameter-list edits mutate canonical state coherently.
-- Unsupported nested data is surfaced explicitly instead of being implied silently.
-- Any claimed table or preview behavior is deliberate and scoped to the selected target.
+- Supported generator, optional-section, table, and parameter-list edits mutate canonical state coherently and survive save/reload through the `@blue/data` field snapshot.
+- The Java registry order is `Constant`, `Item List`, `Segment`, `Random`, `Probability`, `Oscillator`.
+- Supported probability subtype order is `Uniform`, `Linear`, `Triangle`, `Exponential`, `Gaussian`, `Cauchy`, `Beta`, `Weibull`.
+- Table and preview behavior is deliberate and scoped to the selected target.
+
+## Automated Closeout Coverage
+
+- `packages/blue-data/src/sound-objects/j-mask.test.ts`
+- `packages/blue-data/src/sound-objects/jmask-save-load.test.ts`
+- `packages/blue-app/src/renderer/tests/jmask-editor-contract.test.tsx`

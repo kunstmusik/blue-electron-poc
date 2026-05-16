@@ -81,3 +81,9 @@
 - `packages/blue-data/src/sound-objects/j-mask.ts`
 - Existing unsupported-editor messaging patterns from Spec 037
 - Java XML-backed `JMask` model behavior in blue-core
+
+## Closeout Confirmation
+
+The implementation completed the planned model-port path rather than deferring preview. The shipped subset includes the six Java registry generator families (`Constant`, `Item List`, `Segment`, `Random`, `Probability`, `Oscillator`), probability subtypes (`Uniform`, `Linear`, `Triangle`, `Exponential`, `Gaussian`, `Cauchy`, `Beta`, `Weibull`), mask/quantizer/accumulator sections where Java exposes them, table editing for generator and modifier tables, and a read-only generated-score preview.
+
+The final renderer contract snapshots the canonical `Field` tree instead of maintaining separate normalized `visibilityMenu` and `parameters` arrays. That keeps unsupported nested data reload-safe because the same snapshot path is used for XML save/load, optimistic renderer updates, and canonical project patches.

@@ -1,45 +1,78 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-14
-**Branch**: `040-pianoroll-score-object-editor`
+**Date**: 2026-05-16
+**Branch**: `041-jmask-score-object-editor`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: PianoRoll Score Object Editor Parity
+## Current Focus: JMask Score Object Editor Parity
 
-**Branch**: `040-pianoroll-score-object-editor`
+**Branch**: `041-jmask-score-object-editor`
 
 ### Summary
-Spec 040 is complete on branch `040-pianoroll-score-object-editor`: the metadata-only `PianoRoll` placeholder has been replaced with a real Java Blue-style note canvas, field editor, and properties workflow, and the closeout pass tightened canonical field-definition handling plus undo coverage so the claimed shortcut subset stays reload-safe.
+Spec 041 is complete on branch `041-jmask-score-object-editor`: the seed-only `JMask` placeholder has been replaced with a Java Blue-style top bar, visibility popup, scrollable parameter stack, generator/modifier/probability/table editors, and generated-score preview backed by a new `@blue/data` JMask field subsystem.
 
 ### Handoff State
-- `PianoRollEditor.tsx` now hosts a two-surface editor: a notes workspace with ruler, pitch header, note canvas, field lane, shortcuts, and context menu, plus a properties surface for scale, note template, pitch generation, transposition, and field definitions.
-- Shared PianoRoll payload handling now includes explicit `capabilities` and `deferredCapabilities`, optimistic payload patching, and restore-patch helpers for undo or redo.
-- Canonical `updateTypeSpecificEditor` handling now applies scale edits, field-definition add/update/remove flows, ruler settings, snap settings, note-template overrides, and note batches coherently.
-- Field-definition rebuilds now preserve note values by surviving field name when possible, so removing or renaming a field does not silently remap the wrong values.
-- Renderer-local undo now records full PianoRoll payload snapshots and replays canonical restore patches for the claimed shortcut subset.
-- Focused PianoRoll regression coverage now exercises helper patching, undo restore snapshots, note creation, move, field editing, marquee selection, payload creation, and canonical mutation paths.
+- `@blue/data` now ports the Java Blue `Field`, `Parameter`, generator, modifier, probability, table, XML round-trip, and JMask note-generation path.
+- `JMaskEditor.tsx` now renders the Java-style title/options/seed/test top bar plus parameter rows with right-click menus, double-click rename, visibility filtering, generator selection, and supported nested editors.
+- Shared project-editor payload handling now snapshots `seedUsed`, `seed`, and a reload-safe `field` tree, then rebuilds canonical `Field` instances through `loadFieldFromSnapshot()`.
+- `ScoreObjectEditorPanel.tsx` now applies optimistic `JMask` patches so the auxiliary editor stays aligned while canonical project patches are applied.
+- The closeout review fixed Item List generator creation from the Java registry label, Java-style disabled modifier defaults for new/changed parameters, and preview duration propagation.
 
 ### Delivered Scope
-- Java-style `PianoRoll` notes surface with ruler, pitch context, note canvas, selection, note dragging, left or right resize, create-on-shift-drag, marquee selection, and field-lane editing
-- Properties surface with canonical scale editing, field-definition editing, pitch-generation toggles, transposition, global note template, and ruler configuration
-- Clipboard and shortcut subset covering copy, cut, paste, delete, select all, undo, redo, snap toggle, horizontal zoom, and note-row height adjustment
-- Per-note note-template override editing from the notes toolbar
-- Canonical scale and field-definition mutation handling that survives save or reload and preserves surviving field values correctly
-- Optimistic PianoRoll payload patching in `ScoreObjectEditorPanel.tsx` so renderer state stays aligned with canonical writes
-- 22 focused PianoRoll regression tests across renderer helper logic, note-canvas interaction planning, and shared contract or mutation paths
+- Java registry generator order: `Constant`, `Item List`, `Segment`, `Random`, `Probability`, `Oscillator`
+- Probability subtypes: `Uniform`, `Linear`, `Triangle`, `Exponential`, `Gaussian`, `Cauchy`, `Beta`, `Weibull`
+- Mask, quantizer, and accumulator sections for the Java-supported generator families
+- Table editing surface for supported generator/modifier/probability tables
+- Generated-score preview via `Test` and `Cmd/Ctrl+T`
+- Fixture coverage in `fixtures/jmask-all-generators.blue`
+- Focused JMask regression coverage in `j-mask.test.ts`, `jmask-save-load.test.ts`, and `jmask-editor-contract.test.tsx`
 
 ### Validation
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/pianoroll-parity.test.ts src/renderer/tests/score-object-editor-panel.test.tsx --browser.enabled=false` — 22 passed
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 80 files, 876 passed, 2 skipped
-- `pnpm --filter @blue/app test` — 1 file, 4 passed
+- `pnpm --filter @blue/data test` — 88 files, 849 passed
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/jmask-editor-contract.test.tsx --browser.enabled=false` — 4 passed
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 81 files, 880 passed, 2 skipped
+- `pnpm --filter @blue/app test` — 1 file, 4 passed (rerun outside sandbox after local-port EPERM)
+- `pnpm --filter @blue/app build:main` — pass
+- `pnpm --filter @blue/app build:preload` — pass
 - `pnpm --filter @blue/app build:renderer` — pass
 - `git diff --check` — pass
-- Manual `PianoRoll` quickstart scenarios from `quickstart.md` — signed off on 2026-05-14
+- Manual `JMask` quickstart scenarios from `quickstart.md` — covered by closeout code review plus automated render/patch/model validation; no separate Electron GUI session was run in this pass
 
 ### Next Recommended Step
-- Treat Spec 040 as complete and closed.
-- Treat Spec `041-jmask-score-object-editor` as the next heavyweight editor slice.
+- Treat Spec 041 as complete and closed.
 - Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up.
+
+## Spec 041 Package
+
+Spec `041-jmask-score-object-editor` is complete, closed, and validated on branch `041-jmask-score-object-editor`.
+
+- Goal: replace the seed-only `JMask` editor with a Java Blue-style top bar, parameter stack, generator/modifier/probability/table workflow, and generated-score preview backed by a canonical field model
+- Active feature context:
+  - `.specify/feature.json` points to `specs/041-jmask-score-object-editor` at closeout time
+- Delivered scope:
+  - `@blue/data` JMask `Field`, `Parameter`, generator, modifier, probability, table, snapshot, XML, and note-generation support
+  - `JMaskEditorPayload` with `seedUsed`, `seed`, and a canonical field snapshot
+  - renderer top bar with visibility popup, seed controls, test button, and `Cmd/Ctrl+T` shortcut
+  - parameter row context menu for add before/after, remove, push up/down, change type, mask, quantizer, and accumulator
+  - generator editors for `Constant`, `Item List`, `Segment`, `Random`, `Probability`, and `Oscillator`
+  - probability editors for all Java subtypes plus table-backed numeric controls
+  - table editor with point insert, drag, removal, interpolation, and min/max controls
+  - optimistic JMask patching in `ScoreObjectEditorPanel.tsx`
+  - all-generator fixture in `fixtures/jmask-all-generators.blue`
+- Validation:
+  - `pnpm --filter @blue/data test` — 849 pass
+  - `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/jmask-editor-contract.test.tsx --browser.enabled=false` — 4 pass
+  - `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 880 pass, 2 skipped
+  - `pnpm --filter @blue/app test` — 4 pass
+  - `pnpm --filter @blue/app build:main` — pass
+  - `pnpm --filter @blue/app build:preload` — pass
+  - `pnpm --filter @blue/app build:renderer` — pass
+  - `git diff --check` — pass
+- Task status: all 50 tasks checked off in `tasks.md`
+- Handoff notes:
+  - `JMaskEditorPayload` intentionally carries a field snapshot rather than separate normalized visibility/row arrays, so unsupported nested data stays reload-safe through the same path used by XML save/load
+  - the browser-targeted `pnpm --filter @blue/app test` script needs local port binding and may require running outside the sandbox
+  - Spec `042-score-editor-management-navigation` remains the next shell-level follow-up
 
 ## Spec 040 Package
 

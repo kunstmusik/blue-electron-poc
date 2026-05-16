@@ -64,6 +64,7 @@ import {
   Column,
   NotationObject,
   JMask,
+  loadFieldFromSnapshot,
   Sound,
   createSoundObject,
   convertTimePosition,
@@ -345,6 +346,12 @@ export type TypeSpecificScoreObjectEditorSnapshot =
       reason: 'no-selection' | 'multiple-selection' | 'unsupported' | 'removed-target';
       message: string;
     };
+
+export interface JMaskEditorPayload extends Record<string, unknown> {
+  seedUsed: boolean;
+  seed: number;
+  field: Record<string, unknown>;
+}
 
 export interface ScoreObjectEditorDocumentSnapshot {
   target: ScoreObjectEditorTargetSnapshot;
@@ -2641,15 +2648,13 @@ export function createScoreObjectEditorDocument(
         };
       } else if (sObj instanceof JMask) {
         const jm = sObj as JMask;
+        const payload = createJMaskEditorPayload(jm);
         editor = {
           kind: 'structured',
           target,
           editorFamily: objectType,
-          payloadSummary: `seed: ${jm.isSeedUsed() ? jm.getSeed() : 'random'}`,
-          payload: {
-            seedUsed: jm.isSeedUsed(),
-            seed: jm.getSeed(),
-          },
+          payloadSummary: createJMaskPayloadSummary(payload),
+          payload,
         };
       } else if (sObj instanceof Sound) {
         const snd = sObj as Sound;
@@ -4025,6 +4030,114 @@ function createScaleFromSnapshot(snapshot: MidiScaleSnapshot | null): Scale | nu
   return scale;
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function snapshotJMaskValue(value: unknown): unknown {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => snapshotJMaskValue(entry));
+  }
+
+  const valueType = typeof value;
+  if (valueType === 'string' || valueType === 'number' || valueType === 'boolean') {
+    return value;
+  }
+  if (valueType !== 'object') {
+    return value;
+  }
+
+  const snapshot: Record<string, unknown> = {};
+  const ctorName = (value as { constructor?: { name?: string } }).constructor?.name;
+  if (ctorName && ctorName !== 'Object') {
+    snapshot.kind = ctorName;
+  }
+
+  for (const [key, childValue] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof childValue === 'function') {
+      continue;
+    }
+    snapshot[key] = snapshotJMaskValue(childValue);
+  }
+
+  return snapshot;
+}
+
+export function createJMaskEditorPayload(jmask: JMask): JMaskEditorPayload {
+  return {
+    seedUsed: jmask.isSeedUsed(),
+    seed: jmask.getSeed(),
+    field: snapshotJMaskValue(jmask.getField()) as Record<string, unknown>,
+  };
+}
+
+export function createJMaskPayloadSummary(payload: JMaskEditorPayload): string {
+  const parameterCount = Array.isArray(payload.field.parameters) ? payload.field.parameters.length : 0;
+  return payload.seedUsed ? `seed: ${payload.seed}; ${parameterCount} params` : `random; ${parameterCount} params`;
+}
+
+function mergeJMaskSnapshotValue(baseValue: unknown, patchValue: unknown): unknown {
+  if (patchValue === undefined) {
+    return snapshotJMaskValue(baseValue);
+  }
+
+  if (patchValue === null || typeof patchValue !== 'object') {
+    return snapshotJMaskValue(patchValue);
+  }
+
+  if (Array.isArray(patchValue)) {
+    return patchValue.map((entry) => snapshotJMaskValue(entry));
+  }
+
+  const merged: Record<string, unknown> = isPlainObject(baseValue)
+    ? { ...baseValue }
+    : {};
+
+  for (const [key, value] of Object.entries(merged)) {
+    merged[key] = snapshotJMaskValue(value);
+  }
+
+  for (const [key, value] of Object.entries(patchValue as Record<string, unknown>)) {
+    if (value === undefined) {
+      continue;
+    }
+    merged[key] = mergeJMaskSnapshotValue(merged[key], value);
+  }
+
+  return merged;
+}
+
+export function applyJMaskPatchToPayload(payload: JMaskEditorPayload, patch: Record<string, unknown>): JMaskEditorPayload {
+  const nextPayload: JMaskEditorPayload = {
+    ...payload,
+    field: { ...payload.field },
+  };
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      continue;
+    }
+
+    if (key === 'seedUsed' || key === 'seed') {
+      nextPayload[key] = value as never;
+      continue;
+    }
+
+    if (key === 'field') {
+      nextPayload.field = mergeJMaskSnapshotValue(payload.field, value) as Record<string, unknown>;
+      continue;
+    }
+
+    nextPayload[key] = mergeJMaskSnapshotValue((payload as Record<string, unknown>)[key], value) as never;
+  }
+
+  return nextPayload;
+}
+
 function createPianoRollFieldDefSnapshot(fieldDef: FieldDef): {
   fieldName: string;
   fieldType: string;
@@ -4078,45 +4191,7 @@ function applyPianoRollFieldDefinitions(
   }>,
 ): void {
   const nextFieldDefinitions = fieldDefinitions.map(createPianoRollFieldDefFromSnapshot);
-  const setFieldDefinitions = (pr as PianoRoll & { setFieldDefinitions?: (definitions: FieldDef[]) => void }).setFieldDefinitions;
-
-  if (typeof setFieldDefinitions === 'function') {
-    setFieldDefinitions.call(pr, nextFieldDefinitions);
-    return;
-  }
-
-  const rebuiltNotes = pr.getNotes().map((note) => {
-    const rebuilt = new PianoNote();
-    rebuilt.setOctave(note.getOctave());
-    rebuilt.setScaleDegree(note.getScaleDegree());
-    rebuilt.setStart(note.getStart());
-    rebuilt.setDuration(note.getDuration());
-    rebuilt.setNoteTemplate(note.getNoteTemplate());
-    rebuilt.initFields(nextFieldDefinitions);
-
-    const previousFields = note.getFields();
-    const nextFields = rebuilt.getFields();
-    const previousValuesByFieldName = new Map(
-      previousFields.map((field) => [field.getFieldDef().getFieldName(), field.getValue()]),
-    );
-
-    for (let index = 0; index < nextFields.length; index += 1) {
-      const nextFieldDefinition = nextFieldDefinitions[index];
-      const previousField = previousFields[index];
-      const nextValue = nextFieldDefinition
-        ? previousValuesByFieldName.get(nextFieldDefinition.getFieldName()) ?? previousField?.getValue()
-        : previousField?.getValue();
-
-      if (nextValue !== undefined) {
-        nextFields[index]!.setValue(nextValue);
-      }
-    }
-
-    return rebuilt;
-  });
-
-  (pr as PianoRoll & { _fieldDefinitions: FieldDef[]; _notes: PianoNote[] })._fieldDefinitions = nextFieldDefinitions;
-  pr.setNotes(rebuiltNotes);
+  pr.setFieldDefinitions(nextFieldDefinitions);
 }
 
 function createTrackerColumnFromSnapshot(snapshot: TrackerColumnSnapshot): Column {
@@ -4970,6 +5045,10 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         const p = patch.patch;
         if (p.seedUsed !== undefined) jm.setSeedUsed(p.seedUsed as boolean);
         if (p.seed !== undefined) jm.setSeed(p.seed as number);
+        if (p.field !== undefined) {
+          const nextFieldSnapshot = mergeJMaskSnapshotValue(createJMaskEditorPayload(jm).field, p.field) as Record<string, unknown>;
+          jm.setField(loadFieldFromSnapshot(nextFieldSnapshot));
+        }
         return true;
       }
       if (sObj instanceof PianoRoll) {

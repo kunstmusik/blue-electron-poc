@@ -1,0 +1,718 @@
+<blueData version="2.10.1">  <projectProperties>    <title>JMask Generator Test</title>
+    <author>blue-electron</author>
+    <notes></notes>
+    <sampleRate>44100</sampleRate>
+    <ksmps>64</ksmps>
+    <channels>2</channels>
+    <useZeroDbFS>false</useZeroDbFS>
+    <zeroDbFS>32768</zeroDbFS>
+    <diskSampleRate>44100</diskSampleRate>
+    <diskKsmps>64</diskKsmps>
+    <diskChannels>2</diskChannels>
+    <diskUseZeroDbFS>false</diskUseZeroDbFS>
+    <diskZeroDbFS>32768</diskZeroDbFS>
+    <useAudioOut>true</useAudioOut>
+    <useAudioIn>false</useAudioIn>
+    <useMidiIn>false</useMidiIn>
+    <useMidiOut>false</useMidiOut>
+    <noteAmpsEnabled>true</noteAmpsEnabled>
+    <outOfRangeEnabled>true</outOfRangeEnabled>
+    <warningsEnabled>true</warningsEnabled>
+    <benchmarkEnabled>true</benchmarkEnabled>
+    <advancedSettings></advancedSettings>
+    <completeOverride>false</completeOverride>
+    <fileName></fileName>
+    <askOnRender>false</askOnRender>
+    <diskNoteAmpsEnabled>true</diskNoteAmpsEnabled>
+    <diskOutOfRangeEnabled>true</diskOutOfRangeEnabled>
+    <diskWarningsEnabled>true</diskWarningsEnabled>
+    <diskBenchmarkEnabled>true</diskBenchmarkEnabled>
+    <diskAdvancedSettings></diskAdvancedSettings>
+    <diskCompleteOverride>false</diskCompleteOverride>
+    <diskAlwaysRenderEntireProject>false</diskAlwaysRenderEntireProject>
+    <mediaFolder></mediaFolder>
+    <copyToMediaFileOnImport>true</copyToMediaFileOnImport>
+  </projectProperties>
+  <arrangement/>
+  <mixer>    <enabled>true</enabled>
+    <channelList list="channels"/>
+    <channelList list="subChannels"/>
+    <channel>      <name>Master</name>
+      <outChannel>Master</outChannel>
+      <level>0.0</level>
+      <muted>false</muted>
+      <solo>false</solo>
+      <effectsChain bin="pre"/>
+      <effectsChain bin="post"/>
+      <parameter uniqueId="1097290292" name="Volume" label="dB" min="-96.0" max="12.0" bdresolution="-1" automationEnabled="false" value="0.0">        <line name="" version="2" max="12.0" min="-96.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+      </parameter>
+    </channel>
+    <extraRenderTime>0.0</extraRenderTime>
+  </mixer>
+  <tables></tables>
+  <soundObjectLibrary/>
+  <globalOrcSco/>
+  <opcodeList/>
+  <liveData>    <commandLine>csound -Wdo devaudio -L stdin</commandLine>
+    <commandLineEnabled>false</commandLineEnabled>
+    <commandLineOverride>false</commandLineOverride>
+    <liveObjectBins columns="1" rows="8">      <bin>        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+        <null/>
+      </bin>
+    </liveObjectBins>
+    <liveObjectSetList/>
+    <repeat>4</repeat>
+    <tempo>60</tempo>
+    <repeatEnabled>false</repeatEnabled>
+    <liveCodeText></liveCodeText>
+  </liveData>
+  <score>    <timeContext>      <tempoMap>        <enabled>false</enabled>
+        <visible>false</visible>
+        <tempoPoint tempo="60" curve="CONSTANT">          <timePosition type="BEATS">            <csoundBeats>0</csoundBeats>
+          </timePosition>
+        </tempoPoint>
+      </tempoMap>
+      <meterMap>        <measureMeterPair>          <measureNumber>1</measureNumber>
+          <meter>            <numBeats>4</numBeats>
+            <beatLength>4</beatLength>
+          </meter>
+        </measureMeterPair>
+      </meterMap>
+      <smpteFrameRate>30</smpteFrameRate>
+    </timeContext>
+    <timeState version="2">      <zoomIterations>0</zoomIterations>
+      <snapEnabled>false</snapEnabled>
+      <snapValue>BEAT</snapValue>
+      <timeDisplay>BEATS</timeDisplay>
+      <secondaryTimeDisplay>TIME</secondaryTimeDisplay>
+      <secondaryRulerEnabled>false</secondaryRulerEnabled>
+      <tempoRowVisible>true</tempoRowVisible>
+      <meterRowVisible>true</meterRowVisible>
+      <markersRowVisible>true</markersRowVisible>
+      <smpteFrameRate>24.0</smpteFrameRate>
+    </timeState>
+    <noteProcessorChain/>
+    <soundObject type="blue.soundObject.PolyObject">      <startTime type="BEATS">        <csoundBeats>0</csoundBeats>
+      </startTime>
+      <subjectiveDuration type="BEATS">        <csoundBeats>4</csoundBeats>
+      </subjectiveDuration>
+      <name>SoundObject Layer Group</name>
+      <backgroundColor>6710937</backgroundColor>
+      <timeBehavior>2</timeBehavior>
+      <repeatPoint>-1.0</repeatPoint>
+      <noteProcessorChain/>
+      <defaultHeightIndex>0</defaultHeightIndex>
+      <soundLayer name="" muted="false" solo="false" heightIndex="0">        <noteProcessorChain/>
+      </soundLayer>
+    </soundObject>
+    <soundObject type="blue.soundObject.PolyObject">      <startTime type="BEATS">        <csoundBeats>0</csoundBeats>
+      </startTime>
+      <subjectiveDuration type="BEATS">        <csoundBeats>4</csoundBeats>
+      </subjectiveDuration>
+      <name>Root</name>
+      <backgroundColor>6710937</backgroundColor>
+      <timeBehavior>2</timeBehavior>
+      <repeatPoint>-1.0</repeatPoint>
+      <noteProcessorChain/>
+      <defaultHeightIndex>0</defaultHeightIndex>
+      <soundLayer name="Layer 0" muted="false" solo="false" heightIndex="0">        <noteProcessorChain/>
+        <soundObject type="blue.soundObject.JMask">          <startTime type="BEATS">            <csoundBeats>0</csoundBeats>
+          </startTime>
+          <subjectiveDuration type="BEATS">            <csoundBeats>4</csoundBeats>
+          </subjectiveDuration>
+          <name>All Generators</name>
+          <backgroundColor>4210752</backgroundColor>
+          <timeBehavior>0</timeBehavior>
+          <repeatPoint>-1.0</repeatPoint>
+          <noteProcessorChain/>
+          <seedUsed>true</seedUsed>
+          <seed>42</seed>
+          <field>            <parameter visible="true" name="Instrument ID">              <generator type="blue.soundObject.jmask.Constant">                <value>1.0</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="Start">              <generator type="blue.soundObject.jmask.Constant">                <value>0.5</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="Duration">              <generator type="blue.soundObject.jmask.Constant">                <value>0.5</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p4-Constant">              <generator type="blue.soundObject.jmask.Constant">                <value>440.0</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>1</mode>
+                <low>200.0</low>
+                <high>800.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>true</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p5-Random">              <generator type="blue.soundObject.jmask.Random">                <min>0.0</min>
+                <max>1.0</max>
+              </generator>
+              <quantizer>                <gridSize>0.25</gridSize>
+                <strength>0.8</strength>
+                <offset>0.0</offset>
+                <gridSizeTableEnabled>false</gridSizeTableEnabled>
+                <strengthTableEnabled>false</strengthTableEnabled>
+                <offsetTableEnabled>false</offsetTableEnabled>
+                <enabled>true</enabled>
+                <table tableId="gridSizeTable">                  <min>5e-324</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="strengthTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="offsetTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </quantizer>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>3</mode>
+                <low>0.0</low>
+                <high>5.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>true</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p6-ItemList">              <generator type="blue.soundObject.jmask.ItemList">                <listType>0</listType>
+                <index>0</index>
+                <direction>0</direction>
+                <listItems>                  <item>1</item>
+                  <item>2</item>
+                  <item>3</item>
+                  <item>4</item>
+                  <item>5</item>
+                </listItems>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p7-Segment">              <generator type="blue.soundObject.jmask.Segment">                <table>                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0"/>
+                    <point time="0.5" value="1"/>
+                    <point time="1" value="0"/>
+                  </points>
+                </table>
+              </generator>
+              <quantizer>                <gridSize>0.1</gridSize>
+                <strength>1.0</strength>
+                <offset>0.0</offset>
+                <gridSizeTableEnabled>false</gridSizeTableEnabled>
+                <strengthTableEnabled>false</strengthTableEnabled>
+                <offsetTableEnabled>false</offsetTableEnabled>
+                <enabled>true</enabled>
+                <table tableId="gridSizeTable">                  <min>5e-324</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="strengthTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="offsetTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </quantizer>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p8-Oscillator">              <generator type="blue.soundObject.jmask.Oscillator">                <oscillatorType>0</oscillatorType>
+                <phaseInit>0.0</phaseInit>
+                <frequency>2.0</frequency>
+                <freqTableEnabled>false</freqTableEnabled>
+                <table>                  <min>0.001</min>
+                  <max>10.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="1"/>
+                  </points>
+                </table>
+                <exponent>1.0</exponent>
+              </generator>
+              <mask>                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <low>0.0</low>
+                <high>1.0</high>
+                <mapValue>1.0</mapValue>
+                <enabled>true</enabled>
+                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </mask>
+              <quantizer>                <gridSize>0.5</gridSize>
+                <strength>1.0</strength>
+                <offset>0.0</offset>
+                <gridSizeTableEnabled>false</gridSizeTableEnabled>
+                <strengthTableEnabled>false</strengthTableEnabled>
+                <offsetTableEnabled>false</offsetTableEnabled>
+                <enabled>true</enabled>
+                <table tableId="gridSizeTable">                  <min>5e-324</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="strengthTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="offsetTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </quantizer>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>2</mode>
+                <low>-2.0</low>
+                <high>2.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>true</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="p9-Probability">              <generator type="blue.soundObject.jmask.Probability">                <selectedIndex>0</selectedIndex>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Uniform"/>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Linear">                  <direction>0</direction>
+                </probabilityGenerator>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Triangle"/>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Exponential">                  <direction>0</direction>
+                  <lambda>0.5</lambda>
+                  <lambdaTableEnabled>false</lambdaTableEnabled>
+                  <table>                    <min>0.0001</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.50005"/>
+                      <point time="1" value="0.50005"/>
+                    </points>
+                  </table>
+                </probabilityGenerator>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Gaussian">                  <sigma>0.1</sigma>
+                  <mu>0.5</mu>
+                  <sigmaTableEnabled>false</sigmaTableEnabled>
+                  <muTableEnabled>false</muTableEnabled>
+                  <table tableId="sigmaTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.1"/>
+                      <point time="1" value="0.1"/>
+                    </points>
+                  </table>
+                  <table tableId="muTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.5"/>
+                      <point time="1" value="0.5"/>
+                    </points>
+                  </table>
+                </probabilityGenerator>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Cauchy">                  <alpha>0.1</alpha>
+                  <mu>0.5</mu>
+                  <alphaTableEnabled>false</alphaTableEnabled>
+                  <muTableEnabled>false</muTableEnabled>
+                  <table tableId="alphaTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.1"/>
+                      <point time="1" value="0.1"/>
+                    </points>
+                  </table>
+                  <table tableId="muTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.5"/>
+                      <point time="1" value="0.5"/>
+                    </points>
+                  </table>
+                </probabilityGenerator>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Beta">                  <a>0.1</a>
+                  <b>0.1</b>
+                  <aTableEnabled>false</aTableEnabled>
+                  <bTableEnabled>false</bTableEnabled>
+                  <table tableId="aTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.1"/>
+                      <point time="1" value="0.1"/>
+                    </points>
+                  </table>
+                  <table tableId="bTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.1"/>
+                      <point time="1" value="0.1"/>
+                    </points>
+                  </table>
+                </probabilityGenerator>
+                <probabilityGenerator type="blue.soundObject.jmask.probability.Weibull">                  <s>0.5</s>
+                  <t>2.0</t>
+                  <sTableEnabled>false</sTableEnabled>
+                  <tTableEnabled>false</tTableEnabled>
+                  <table tableId="sTable">                    <min>0.0</min>
+                    <max>1.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="0.5"/>
+                      <point time="1" value="0.5"/>
+                    </points>
+                  </table>
+                  <table tableId="tTable">                    <min>0.001</min>
+                    <max>4.0</max>
+                    <interpolationType>1</interpolationType>
+                    <interpolation>0.0</interpolation>
+                    <points>                      <point time="0" value="2"/>
+                      <point time="1" value="2"/>
+                    </points>
+                  </table>
+                </probabilityGenerator>
+              </generator>
+              <mask>                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <low>0.0</low>
+                <high>1.0</high>
+                <mapValue>0.0</mapValue>
+                <enabled>true</enabled>
+                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </mask>
+              <quantizer>                <gridSize>0.25</gridSize>
+                <strength>0.8</strength>
+                <offset>0.0</offset>
+                <gridSizeTableEnabled>false</gridSizeTableEnabled>
+                <strengthTableEnabled>false</strengthTableEnabled>
+                <offsetTableEnabled>false</offsetTableEnabled>
+                <enabled>true</enabled>
+                <table tableId="gridSizeTable">                  <min>5e-324</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="strengthTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="1"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="offsetTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+              </quantizer>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>3</mode>
+                <low>0.0</low>
+                <high>10.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>true</enabled>
+              </accumulator>
+            </parameter>
+          </field>
+        </soundObject>
+      </soundLayer>
+    </soundObject>
+  </score>
+  <scratchPadData>    <isWordWrapEnabled>true</isWordWrapEnabled>
+    <scratchText></scratchText>
+  </scratchPadData>
+  <noteProcessorChainMap/>
+  <renderStartTime>0</renderStartTime>
+  <renderEndTime>-1</renderEndTime>
+  <markersList/>
+  <loopRendering>false</loopRendering>
+  <midiInputProcessor>    <keyMapping>PCH</keyMapping>
+    <velMapping>MIDI</velMapping>
+    <pitchConstant></pitchConstant>
+    <ampConstant></ampConstant>
+    <scale>      <scaleName>12TET</scaleName>
+      <baseFrequency>261.625565</baseFrequency>
+      <octave>2</octave>
+      <ratios>        <ratio>1</ratio>
+        <ratio>1.0594630943592953</ratio>
+        <ratio>1.122462048309373</ratio>
+        <ratio>1.1892071150027212</ratio>
+        <ratio>1.2599210498948734</ratio>
+        <ratio>1.3348398541700346</ratio>
+        <ratio>1.4142135623730954</ratio>
+        <ratio>1.498307076876682</ratio>
+        <ratio>1.5874010519682</ratio>
+        <ratio>1.6817928305074297</ratio>
+        <ratio>1.7817974362806794</ratio>
+        <ratio>1.887748625363388</ratio>
+      </ratios>
+    </scale>
+  </midiInputProcessor>
+  <pluginData/>
+</blueData>

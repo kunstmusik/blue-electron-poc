@@ -54,12 +54,12 @@
             <x>0</x>
             <y>0</y>
             <groupName>Group</groupName>
-            <backgroundColor>0x00000033</backgroundColor>
-            <borderColor>0x000000ff</borderColor>
-            <labelTextColor>0xffffffff</labelTextColor>
             <titleEnabled>true</titleEnabled>
             <width>20</width>
             <height>20</height>
+            <backgroundColor>0x00000033</backgroundColor>
+            <borderColor>0x000000ff</borderColor>
+            <labelTextColor>0xffffffff</labelTextColor>
             <font>              <name>Roboto</name>
               <size>12.0</size>
               <style>0</style>
@@ -99,7 +99,7 @@
               <valueDisplayEnabled>true</valueDisplayEnabled>
               <randomizable>true</randomizable>
               <label>label</label>
-              <labelEnabled>false</labelEnabled>
+              <labelEnabled>true</labelEnabled>
               <font>                <name>Roboto</name>
                 <size>12.0</size>
                 <style>0</style>
@@ -195,7 +195,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderWidth>100</sliderWidth>
+                <sliderWidth>150</sliderWidth>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -207,7 +207,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderWidth>100</sliderWidth>
+                <sliderWidth>150</sliderWidth>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -219,7 +219,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderWidth>100</sliderWidth>
+                <sliderWidth>150</sliderWidth>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -231,7 +231,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderWidth>100</sliderWidth>
+                <sliderWidth>150</sliderWidth>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -255,7 +255,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderHeight>100</sliderHeight>
+                <sliderHeight>150</sliderHeight>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -267,7 +267,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderHeight>100</sliderHeight>
+                <sliderHeight>150</sliderHeight>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -279,7 +279,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderHeight>100</sliderHeight>
+                <sliderHeight>150</sliderHeight>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -291,7 +291,7 @@
                 <maximum>1</maximum>
                 <value>0</value>
                 <bdresolution>0.1</bdresolution>
-                <sliderHeight>100</sliderHeight>
+                <sliderHeight>150</sliderHeight>
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
               </bsbObject>
@@ -300,12 +300,12 @@
               <x>10</x>
               <y>360</y>
               <groupName>Group Container</groupName>
-              <backgroundColor>0x00000033</backgroundColor>
-              <borderColor>0x000000ff</borderColor>
-              <labelTextColor>0xffffffff</labelTextColor>
               <titleEnabled>true</titleEnabled>
               <width>420</width>
               <height>80</height>
+              <backgroundColor>0x00000033</backgroundColor>
+              <borderColor>0x000000ff</borderColor>
+              <labelTextColor>0xffffffff</labelTextColor>
               <font>                <name>Roboto</name>
                 <size>12.0</size>
                 <style>0</style>
@@ -321,7 +321,7 @@
                 <valueDisplayEnabled>true</valueDisplayEnabled>
                 <randomizable>true</randomizable>
                 <label>label</label>
-                <labelEnabled>false</labelEnabled>
+                <labelEnabled>true</labelEnabled>
                 <font>                  <name>Roboto</name>
                   <size>12.0</size>
                   <style>0</style>
@@ -330,26 +330,59 @@
             </bsbObject>
           </bsbObject>
         </graphicInterface>
-        <parameterList/>
+        <parameterList>          <parameter uniqueId="1624838596" name="volume" label="" min="0.0" max="1.0" bdresolution="0.001" automationEnabled="false" value="0.5">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.001" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="991626402" name="filter" label="" min="100.0" max="15000.0" bdresolution="1" automationEnabled="false" value="5000.0">            <line name="" version="2" max="15000.0" min="100.0" bdresolution="1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="204560303" name="pitch" label="" min="0.5" max="2.0" bdresolution="-1" automationEnabled="false" value="1.0">            <line name="" version="2" max="2.0" min="0.5" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="556817451" name="enabled" label="" min="0.0" max="1.0" bdresolution="1" automationEnabled="false" value="1.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1086836699" name="waveform" label="" min="0.0" max="2.0" bdresolution="1" automationEnabled="false" value="0.0">            <line name="" version="2" max="2.0" min="0.0" bdresolution="1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="712801174" name="xypadX" label="" min="0.0" max="1.0" bdresolution="-1" automationEnabled="false" value="0.5">            <line name="" version="2" max="1.0" min="0.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="191955651" name="xypadY" label="" min="0.0" max="1.0" bdresolution="-1" automationEnabled="false" value="0.5">            <line name="" version="2" max="1.0" min="0.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1368229600" name="baseFreq" label="" min="20.0" max="20000.0" bdresolution="-1" automationEnabled="false" value="0.0">            <line name="" version="2" max="20000.0" min="20.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1879246677" name="hbank_0" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="59722563" name="hbank_1" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1401953599" name="hbank_2" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="972376275" name="hbank_3" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="2032884773" name="vbank_0" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1630499907" name="vbank_1" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="543762800" name="vbank_2" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="2110124920" name="vbank_3" label="" min="0.0" max="1.0" bdresolution="0.01" automationEnabled="false" value="0.0">            <line name="" version="2" max="1.0" min="0.0" bdresolution="0.01" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+          <parameter uniqueId="1743255923" name="innerKnob" label="" min="0.0" max="1.0" bdresolution="-1" automationEnabled="false" value="0.5">            <line name="" version="2" max="1.0" min="0.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+          </parameter>
+        </parameterList>
         <opcodeList/>
       </instrument>
     </instrumentAssignment>
   </arrangement>
-  <mixer enabled="true">    <channelList list="channels"/>
+  <mixer>    <enabled>true</enabled>
+    <channelList list="channels"/>
     <channelList list="subChannels"/>
     <channel>      <name>Master</name>
       <outChannel>Master</outChannel>
-      <level>0</level>
-      <volume>1</volume>
-      <pan>0.5</pan>
+      <level>0.0</level>
       <muted>false</muted>
       <solo>false</solo>
       <effectsChain bin="pre"/>
       <effectsChain bin="post"/>
-      <parameter uniqueId="1923368354" name="Volume" label="dB" min="-96.0" max="12.0" bdresolution="-1" automationEnabled="false" value="0.0">        <line name="" version="2" max="12.0" min="-96.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
+      <parameter uniqueId="173045733" name="Volume" label="dB" min="-96.0" max="12.0" bdresolution="-1" automationEnabled="false" value="0.0">        <line name="" version="2" max="12.0" min="-96.0" bdresolution="-1" color="-8355712" rightBound="false" endPointsLinked="false"/>
       </parameter>
     </channel>
-    <extraRenderTime>0</extraRenderTime>
+    <extraRenderTime>0.0</extraRenderTime>
   </mixer>
   <tables></tables>
   <soundObjectLibrary/>
@@ -397,9 +430,22 @@
       <tempoRowVisible>true</tempoRowVisible>
       <meterRowVisible>true</meterRowVisible>
       <markersRowVisible>true</markersRowVisible>
-      <smpteFrameRate>24</smpteFrameRate>
+      <smpteFrameRate>24.0</smpteFrameRate>
     </timeState>
     <noteProcessorChain/>
+    <soundObject type="blue.soundObject.PolyObject">      <startTime type="BEATS">        <csoundBeats>0</csoundBeats>
+      </startTime>
+      <subjectiveDuration type="BEATS">        <csoundBeats>4</csoundBeats>
+      </subjectiveDuration>
+      <name>SoundObject Layer Group</name>
+      <backgroundColor>6710937</backgroundColor>
+      <timeBehavior>2</timeBehavior>
+      <repeatPoint>-1.0</repeatPoint>
+      <noteProcessorChain/>
+      <defaultHeightIndex>0</defaultHeightIndex>
+      <soundLayer name="" muted="false" solo="false" heightIndex="0">        <noteProcessorChain/>
+      </soundLayer>
+    </soundObject>
     <soundObject type="blue.soundObject.PolyObject">      <startTime type="BEATS">        <csoundBeats>0</csoundBeats>
       </startTime>
       <subjectiveDuration type="BEATS">        <csoundBeats>4</csoundBeats>
@@ -485,6 +531,36 @@ console.log("hello")</javaScriptCode>
           <name>Sound</name>
           <backgroundColor>16750950</backgroundColor>
           <noteProcessorChain/>
+          <instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">            <name>untitled</name>
+            <comment></comment>
+            <globalOrc></globalOrc>
+            <globalSco></globalSco>
+            <instrumentText></instrumentText>
+            <alwaysOnInstrumentText></alwaysOnInstrumentText>
+            <graphicInterface editEnabled="true">              <gridSettings>                <width>10</width>
+                <height>10</height>
+                <gridStyle>DOT</gridStyle>
+                <snapGridEnabled>true</snapGridEnabled>
+              </gridSettings>
+              <bsbObject type="blue.orchestra.blueSynthBuilder.BSBGroup">                <objectName></objectName>
+                <x>0</x>
+                <y>0</y>
+                <groupName>Group</groupName>
+                <titleEnabled>true</titleEnabled>
+                <width>20</width>
+                <height>20</height>
+                <backgroundColor>0x00000033</backgroundColor>
+                <borderColor>0x000000ff</borderColor>
+                <labelTextColor>0xffffffff</labelTextColor>
+                <font>                  <name>Roboto</name>
+                  <size>12.0</size>
+                  <style>0</style>
+                </font>
+              </bsbObject>
+            </graphicInterface>
+            <parameterList/>
+            <opcodeList/>
+          </instrument>
           <comment>BSB sound</comment>
         </soundObject>
         <soundObject type="blue.soundObject.LineObject">          <startTime type="BEATS">            <csoundBeats>28</csoundBeats>
@@ -553,6 +629,14 @@ console.log("hello")</javaScriptCode>
           </scale>
           <pchGenerationMethod>0</pchGenerationMethod>
           <transposition>0</transposition>
+          <pixelSecond>64</pixelSecond>
+          <noteHeight>15</noteHeight>
+          <snapEnabled>true</snapEnabled>
+          <snapValueEnum>SIXTEENTH</snapValueEnum>
+          <useGlobalRuler>false</useGlobalRuler>
+          <primaryTimeDisplay>BBF</primaryTimeDisplay>
+          <secondaryTimeDisplay>TIME</secondaryTimeDisplay>
+          <secondaryRulerEnabled>false</secondaryRulerEnabled>
           <fieldDef name="AMP" fieldType="CONTINUOUS" min="0" max="1" default="1"/>
         </soundObject>
         <soundObject type="blue.soundObject.TrackerObject">          <startTime type="BEATS">            <csoundBeats>44</csoundBeats>
@@ -566,7 +650,8 @@ console.log("hello")</javaScriptCode>
           </repeatPoint>
           <noteProcessorChain/>
           <stepsPerBeat>4</stepsPerBeat>
-          <tracks/>
+          <trackList>            <steps>64</steps>
+          </trackList>
         </soundObject>
         <soundObject type="blue.soundObject.JMask">          <startTime type="BEATS">            <csoundBeats>48</csoundBeats>
           </startTime>
@@ -579,6 +664,88 @@ console.log("hello")</javaScriptCode>
           <noteProcessorChain/>
           <seedUsed>false</seedUsed>
           <seed>0</seed>
+          <field>            <parameter visible="true" name="Instrument ID">              <generator type="blue.soundObject.jmask.Constant">                <value>1.0</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="Start">              <generator type="blue.soundObject.jmask.Constant">                <value>1.0</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+            <parameter visible="true" name="Duration">              <generator type="blue.soundObject.jmask.Constant">                <value>1.0</value>
+              </generator>
+              <accumulator>                <table tableId="highTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <table tableId="lowTable">                  <min>0.0</min>
+                  <max>1.0</max>
+                  <interpolationType>1</interpolationType>
+                  <interpolation>0.0</interpolation>
+                  <points>                    <point time="0" value="0.5"/>
+                    <point time="1" value="0.5"/>
+                  </points>
+                </table>
+                <highTableEnabled>false</highTableEnabled>
+                <lowTableEnabled>false</lowTableEnabled>
+                <mode>0</mode>
+                <low>0.0</low>
+                <high>1.0</high>
+                <initialValue>0.0</initialValue>
+                <enabled>false</enabled>
+              </accumulator>
+            </parameter>
+          </field>
         </soundObject>
       </soundLayer>
     </soundObject>
