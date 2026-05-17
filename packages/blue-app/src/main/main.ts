@@ -75,6 +75,7 @@ let javaScriptRuntimeReady: Promise<void> | null = null;
 let recentProjectFiles: string[] = [];
 let currentProjectSessionId = 0;
 let currentFollowPlaybackEnabled = true;
+let currentFollowPlaybackOnStartEnabled = true;
 
 // Set application name early (before ready) so macOS menu bar shows "Blue".
 // NOTE: In dev mode (running `electron` CLI directly), macOS may still show
@@ -387,6 +388,7 @@ function rebuildApplicationMenu(): void {
     recentProjects: getRecentProjectFilesSnapshot(),
     canRevertProject: Boolean(currentFilePath),
     followPlaybackEnabled: currentFollowPlaybackEnabled,
+    followPlaybackOnStartEnabled: currentFollowPlaybackOnStartEnabled,
     onNewFile: () => { void handleNewFile(); },
     onOpenFile: () => { void handleOpenFile(); },
     onOpenRecentProject: (filePath) => { void openRecentProject(filePath); },
@@ -419,8 +421,12 @@ function rebuildApplicationMenu(): void {
       }
     },
     onToggleFollowPlayback: () => { currentFollowPlaybackEnabled = !currentFollowPlaybackEnabled; mainWindow?.webContents.send('native-menu-command', { type: 'toggle-follow-playback' }); rebuildApplicationMenu(); },
-    onToggleFollowPlaybackOnRenderStart: () => { mainWindow?.webContents.send('native-menu-command', { type: 'show-not-yet-implemented' }); },
+    onToggleFollowPlaybackOnStart: () => { currentFollowPlaybackOnStartEnabled = !currentFollowPlaybackOnStartEnabled; mainWindow?.webContents.send('native-menu-command', { type: 'toggle-follow-playback-on-render-start' }); rebuildApplicationMenu(); },
     onToggleLoopRendering: () => { mainWindow?.webContents.send('native-menu-command', { type: 'toggle-loop-rendering' }); },
+    onAddMarker: () => { mainWindow?.webContents.send('native-menu-command', { type: 'add-marker' }); },
+    onNavigateNextMarker: () => { mainWindow?.webContents.send('native-menu-command', { type: 'navigate-next-marker' }); },
+    onNavigatePreviousMarker: () => { mainWindow?.webContents.send('native-menu-command', { type: 'navigate-previous-marker' }); },
+    onRewindToStart: () => { mainWindow?.webContents.send('native-menu-command', { type: 'rewind-to-start' }); },
     onToggleBlueLive: () => { void blueLiveToggle(); },
     onRecompileBlueLive: () => { void blueLiveRecompile(); },
     onBlueLiveAllNotesOff: () => { void blueLiveAllNotesOff(); },
@@ -488,6 +494,12 @@ function createWindow(): void {
 
   // Initialize engine bridge
   engineBridge = new EngineBridge(mainWindow);
+
+  engineBridge.setPlaybackCompleteCallback((stopReason) => {
+    if (stopReason !== 'completed') return;
+    if (!currentData || !currentData.isLoopRendering()) return;
+    void startPlayback();
+  });
 
   let outputBatch: { text: string; type: 'stdout' | 'stderr' }[] = [];
   let outputBatchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1102,6 +1114,13 @@ ipcMain.handle('toggle-play', async () => {
 
 ipcMain.handle('stop-playback', async () => {
   await stopPlayback();
+});
+
+ipcMain.on('sync-follow-playback-state', (_event, enabled: boolean) => {
+  if (currentFollowPlaybackEnabled !== enabled) {
+    currentFollowPlaybackEnabled = enabled;
+    rebuildApplicationMenu();
+  }
 });
 
 ipcMain.handle('generate-csd-to-screen', async () => {

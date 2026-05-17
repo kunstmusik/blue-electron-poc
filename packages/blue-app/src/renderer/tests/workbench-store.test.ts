@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultAuxiliaryLayoutState } from '../components/workbench/auxiliary-layout';
 import { useWorkbenchStore } from '../stores/workbench-store';
 import { useUIStore } from '../stores/ui-store';
+import { usePlaybackStore } from '../stores/playback-store';
+import { useProjectStore } from '../stores/project-store';
 
 const dockviewSnapshot = {
   grid: {
@@ -19,6 +21,23 @@ const dockviewApiStub = {
   toJSON: () => dockviewSnapshot,
 } as any;
 
+const originalAddMarkerAtTime = useProjectStore.getState().addMarkerAtTime;
+
+const markerMenuTransport = {
+  renderStartTime: 8,
+  renderEndTime: -1,
+  loopRendering: false,
+  tempoMap: {
+    enabled: false,
+    points: [{ beat: 0, tempo: 60, curveType: 'constant' }],
+  },
+  meterMap: {
+    entries: [{ measure: 1, numBeats: 4, beatLength: 4 }],
+  },
+  sampleRate: 44100,
+  smpteFrameRate: 24,
+};
+
 afterEach(() => {
   useWorkbenchStore.setState({
     api: null,
@@ -27,6 +46,10 @@ afterEach(() => {
   useUIStore.setState({
     effectsLibraryOpen: false,
     effectsLibraryTarget: null,
+  });
+  usePlaybackStore.getState().reset();
+  useProjectStore.setState({
+    addMarkerAtTime: originalAddMarkerAtTime,
   });
 });
 
@@ -129,5 +152,51 @@ describe('workbench store native menu commands', () => {
     });
 
     expect(useUIStore.getState().effectsLibraryOpen).toBe(true);
+  });
+
+  it('adds menu-created markers at render start when idle', () => {
+    const addMarkerAtTime = vi.fn();
+    useProjectStore.setState({
+      transport: markerMenuTransport,
+      addMarkerAtTime: addMarkerAtTime as never,
+    });
+
+    useWorkbenchStore.getState().handleNativeMenuCommand({
+      type: 'add-marker',
+    });
+
+    expect(addMarkerAtTime).toHaveBeenCalledWith(8);
+  });
+
+  it('adds menu-created markers at the live playhead while playing', () => {
+    const addMarkerAtTime = vi.fn();
+    useProjectStore.setState({
+      transport: { ...markerMenuTransport, renderStartTime: 99 },
+      addMarkerAtTime: addMarkerAtTime as never,
+    });
+    usePlaybackStore.setState({
+      status: 'playing',
+      isPlaying: true,
+      clock: {
+        sessionId: 1,
+        sampleFrames: 0,
+        sequence: 1,
+        sampleRate: 44100,
+        ksmps: 64,
+        receivedAtMs: 0,
+      },
+      display: {
+        sampleFrames: 88200,
+        elapsedSeconds: 2,
+        source: 'engine-authority',
+      },
+      transportAnchor: markerMenuTransport,
+    });
+
+    useWorkbenchStore.getState().handleNativeMenuCommand({
+      type: 'add-marker',
+    });
+
+    expect(addMarkerAtTime).toHaveBeenCalledWith(10);
   });
 });

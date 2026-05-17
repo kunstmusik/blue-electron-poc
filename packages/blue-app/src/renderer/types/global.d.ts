@@ -107,6 +107,7 @@ declare global {
       writeClipboardText: (text: string) => Promise<void>;
       togglePlay: () => Promise<boolean>;
       stopPlayback: () => Promise<void>;
+      syncFollowPlaybackState: (enabled: boolean) => void;
       getProjectInfo: () => Promise<Record<string, string> | null>;
       generateCsdToScreen: () => Promise<void>;
       generateCsdToDisk: () => Promise<void>;

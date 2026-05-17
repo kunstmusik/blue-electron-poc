@@ -128,6 +128,28 @@ endop</udo>
     });
   });
 
+  describe('render range semantics', () => {
+    it('clears render end when render start reaches or passes it', () => {
+      const data = new BlueData();
+      data.setRenderStartTime(4);
+      data.setRenderEndTime(12);
+
+      data.setRenderStartTime(12);
+
+      expect(data.getRenderStartTime()).toBe(12);
+      expect(data.getRenderEndTime()).toBe(-1);
+    });
+
+    it('normalizes render end values at or before render start to the Java no-selection sentinel', () => {
+      const data = new BlueData();
+      data.setRenderStartTime(8);
+
+      data.setRenderEndTime(0);
+
+      expect(data.getRenderEndTime()).toBe(-1);
+    });
+  });
+
   describe('saveToString - Java-compatible ordering', () => {
     it('emits root sections in Java-compatible order', () => {
       const xml = `<blueData version="5.0.0">

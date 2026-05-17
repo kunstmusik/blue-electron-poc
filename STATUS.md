@@ -1,46 +1,80 @@
 # Project Status — blue-electron
 
 **Date**: 2026-05-16
-**Branch**: `041-jmask-score-object-editor`
+**Branch**: `042-score-editor-management-navigation`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: JMask Score Object Editor Parity
+## Current Focus: Spec 042 Closed
 
-**Branch**: `041-jmask-score-object-editor`
+**Branch**: `042-score-editor-management-navigation`
 
 ### Summary
-Spec 041 is complete on branch `041-jmask-score-object-editor`: the seed-only `JMask` placeholder has been replaced with a Java Blue-style top bar, visibility popup, scrollable parameter stack, generator/modifier/probability/table editors, and generated-score preview backed by a new `@blue/data` JMask field subsystem.
+Spec 042 is complete and closed on branch `042-score-editor-management-navigation`. All four user stories are delivered: root-ruler render range interaction, marker authoring parity, Manage workflow, and navigation/follow-playback polish.
 
 ### Handoff State
-- `@blue/data` now ports the Java Blue `Field`, `Parameter`, generator, modifier, probability, table, XML round-trip, and JMask note-generation path.
-- `JMaskEditor.tsx` now renders the Java-style title/options/seed/test top bar plus parameter rows with right-click menus, double-click rename, visibility filtering, generator selection, and supported nested editors.
-- Shared project-editor payload handling now snapshots `seedUsed`, `seed`, and a reload-safe `field` tree, then rebuilds canonical `Field` instances through `loadFieldFromSnapshot()`.
-- `ScoreObjectEditorPanel.tsx` now applies optimistic `JMask` patches so the auxiliary editor stays aligned while canonical project patches are applied.
-- The closeout review fixed Item List generator creation from the Java registry label, Java-style disabled modifier defaults for new/changed parameters, and preview duration propagation.
+- `.specify/feature.json` points to `specs/042-score-editor-management-navigation`.
+- All 34 tasks are checked off in `tasks.md`, including manual validation signed off on 2026-05-16.
+- The `MarkersTopComponent` placeholder has been replaced with a real `MarkersPanel` showing marker list with Go/Delete actions.
+- The `Manage` button stub has been replaced with a real `ScoreManagerDialog` supporting layer-group reorder, rename, add, remove, and layer management.
+- The `Add Marker` menu item and `CmdOrCtrl+M` shortcut now create markers at the Java-style live playhead/render time during playback, and at render start when idle.
+- The `Enable follow playback on render start` menu checkbox is now functional.
+- The root score ruler supports click-to-set-render-start and drag-to-select-render-range with snap awareness.
+- The time pointer is visible during playback as an orange vertical line on the ruler.
+- Marker authoring supports shift-click creation on the marker row, drag-to-move, double-click rename, and right-click remove.
 
 ### Delivered Scope
-- Java registry generator order: `Constant`, `Item List`, `Segment`, `Random`, `Probability`, `Oscillator`
-- Probability subtypes: `Uniform`, `Linear`, `Triangle`, `Exponential`, `Gaussian`, `Cauchy`, `Beta`, `Weibull`
-- Mask, quantizer, and accumulator sections for the Java-supported generator families
-- Table editing surface for supported generator/modifier/probability tables
-- Generated-score preview via `Test` and `Cmd/Ctrl+T`
-- Fixture coverage in `fixtures/jmask-all-generators.blue`
-- Focused JMask regression coverage in `j-mask.test.ts`, `jmask-save-load.test.ts`, and `jmask-editor-contract.test.tsx`
+- `@blue/data` `MarkersList` extended with `addMarker`, `removeMarker`, `setMarkerName`, `setMarkerTime`, `getMarkerName`, `getMarkerTime`, `size`, `getMarker` methods
+- `ScorePatch` extended with `addMarker`, `updateMarker`, `removeMarker`, `moveLayerGroup`, `renameLayerGroup`, `removeLayerGroup`, `addLayer`, `removeLayer`, `moveLayer`, and `renameLayer` variants
+- `NativeMenuCommand` extended with `add-marker` and `toggle-follow-playback-on-render-start`
+- `useScoreRulerSelection` hook for root-ruler click/drag render range interaction
+- Render range visualization: green start line, yellow end line, green translucent range highlight
+- `MarkersBar` with shift-click marker creation, drag-to-move, double-click rename, context menu remove
+- `MarkersPanel` auxiliary panel with marker table, Go (set render start), and Delete actions
+- `ScoreManagerDialog` for layer-group and layer management (reorder, rename, add, remove)
+- Time pointer visualization during playback (orange line on ruler)
+- `followPlaybackOnRenderStart` state in playback store
+- Main process `application-menu.ts` updated with real Add Marker and follow-on-render-start commands
 
 ### Validation
-- `pnpm --filter @blue/data test` — 88 files, 849 passed
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/jmask-editor-contract.test.tsx --browser.enabled=false` — 4 passed
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 81 files, 880 passed, 2 skipped
-- `pnpm --filter @blue/app test` — 1 file, 4 passed (rerun outside sandbox after local-port EPERM)
-- `pnpm --filter @blue/app build:main` — pass
-- `pnpm --filter @blue/app build:preload` — pass
-- `pnpm --filter @blue/app build:renderer` — pass
+- `pnpm --filter @blue/data test` — 864 pass
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 903 pass, 2 skipped
+- `pnpm --filter @blue/app test` — 4 pass (required local port binding outside sandbox)
+- `pnpm --filter @blue/app build` — pass
+- `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
 - `git diff --check` — pass
-- Manual `JMask` quickstart scenarios from `quickstart.md` — covered by closeout code review plus automated render/patch/model validation; no separate Electron GUI session was run in this pass
+- Manual quickstart scenarios from `specs/042-score-editor-management-navigation/quickstart.md` — signed off on 2026-05-16
 
 ### Next Recommended Step
-- Treat Spec 041 as complete and closed.
-- Treat Spec `042-score-editor-management-navigation` as the shell-level follow-up.
+- Spec `042-score-editor-management-navigation` can be treated as closed.
+
+## Spec 042 Package
+
+Spec `042-score-editor-management-navigation` is complete, closed, and validated on branch `042-score-editor-management-navigation`.
+
+- Goal: finish the remaining shell-level score parity work with explicit sequencing for root-ruler render selection, marker authoring, score management, and follow or navigation polish
+- Active feature context:
+  - `.specify/feature.json` points to `specs/042-score-editor-management-navigation`
+- Delivered scope:
+  - root-ruler click-to-set-render-start and drag-to-select-render-range with snap awareness
+  - render range visualization with green start line, yellow end line, and translucent range highlight
+  - marker authoring from ruler (shift-click), menu (`CmdOrCtrl+M`), drag-to-move, double-click rename, right-click remove
+  - Java-style menu marker placement at the live playhead during playback, falling back to render start when idle
+  - `MarkersList` extended with typed mutation methods (addMarker, removeMarker, setMarkerName, setMarkerTime)
+  - `ScorePatch` extended with marker, layer-group, and layer mutation variants
+  - `MarkersPanel` auxiliary panel replacing the placeholder with real marker table and Go/Delete actions
+  - `ScoreManagerDialog` replacing the Manage button stub with layer-group and layer management
+  - time pointer visualization during playback (orange line on ruler)
+  - follow-playback-on-render-start menu checkbox now functional
+- Validation:
+  - all automated tests pass (864 @blue/data, 903 @blue/app renderer, 4 @blue/app browser)
+  - full `@blue/app` build passes
+  - `git diff --check` clean
+  - manual validation signed off on 2026-05-16
+- Task status: all 34 tasks checked off in `tasks.md`
+- Handoff notes:
+  - root-timeline-only authoring is intentional parity for render-range and marker edits
+  - supported layer-group and layer edits flow through canonical score patches and survive save or reload
+  - marker navigation keyboard shortcuts (`[` and `]` for previous/next marker) are deferred to a future slice
 
 ## Spec 041 Package
 
@@ -249,47 +283,24 @@ Spec `036-score-editor-foundation` is complete and validated on branch `036-scor
   - `ObjectBuilder` and other Java-only sound object types require `@blue/data` model-port work before editor parity
   - `.specify/feature.json` still points to `specs/036-score-editor-foundation`; update before starting 037
 
-## Spec 036-042 Planning Package
+## Score Editor Follow-Up Status
 
-Score editor implementation is now split into seven planned or completed specs after breaking the old grouped Tier 2 follow-up into three per-object packages and moving the shell-management slice to Spec `042`. Specs `036`-`038` are complete; Specs `039`-`042` now capture the remaining planned work.
+The score editor follow-up sequence is now complete for Specs `036`-`042`; all shell-level score follow-up work has been delivered.
 
+- Completed packages:
+  - `036-score-editor-foundation`
+  - `037-score-object-editor-parity`
+  - `038-score-object-editor-tier1-parity`
+  - `039-sound-score-object-editor`
+  - `040-pianoroll-score-object-editor`
+  - `041-jmask-score-object-editor`
+  - `042-score-editor-management-navigation`
 - Active feature context:
-  - `.specify/feature.json` points to `specs/039-sound-score-object-editor`
-- Planning artifacts:
-  - `/Users/stevenyi/work/blue-electron/specs/036-score-editor-foundation/`
-  - `/Users/stevenyi/work/blue-electron/specs/037-score-object-editor-parity/`
-  - `/Users/stevenyi/work/blue-electron/specs/038-score-object-editor-tier1-parity/`
-  - `/Users/stevenyi/work/blue-electron/specs/039-sound-score-object-editor/`
-  - `/Users/stevenyi/work/blue-electron/specs/040-pianoroll-score-object-editor/`
-  - `/Users/stevenyi/work/blue-electron/specs/041-jmask-score-object-editor/`
-  - `/Users/stevenyi/work/blue-electron/specs/042-score-editor-management-navigation/`
-- Planned split:
-  - `036-score-editor-foundation`: score graph bridge, `TimeState` parity needed by the score shell, Java-style `ScoreTopComponent` layout, mixed layer-group rendering, rulers, row visibility, snap or zoom state, and nested score-path navigation
-  - `037-score-object-editor-parity`: shared `ScoreObjectPropertiesTopComponent` replacement, plugin-style `ScoreObjectEditorTopComponent`, editors for the score-object types already supported by the TypeScript port plus `AudioClip`, and `Instance` or library-editing behavior
-  - `038-score-object-editor-tier1-parity`: grouped Tier 1 follow-up for `External`, `PolyObject`, and `TrackerObject`, closing the moderate remaining score-object editor gaps with existing model data
-  - `039-sound-score-object-editor`: `Sound` editor tabs, BSB interface reuse, automation workflow, comments, and test-preview parity
-  - `040-pianoroll-score-object-editor`: `PianoRoll` note canvas, field editor, property workflow, and explicit clipboard or undo analysis
-  - `041-jmask-score-object-editor`: `JMask` parameter stack, generator factory, optional-section workflow, and explicit table or preview parity boundaries
-  - `042-score-editor-management-navigation`: shell-level `Manage` workflow, score or layer-group manager dialogs, marker or navigator flows, playback-follow or time-pointer polish, and any score-adjacent placeholder cleanup left after the editor slices
-- Java anchors reviewed during planning:
-  - score shell: `ScoreTopComponent`, `ScoreController`, `ScorePath`, `ScoreObjectBar`, `TimeBar`, `MarkersBar`, `MeterRegionBar`, `TempoEditorControl`, `TempoEditorPanel`
-  - layer-group UI: `LayerGroupUIProvider`, `PolyObjectUIProvider`, `AudioLayerGroupUIProvider`, `PatternsLayerGroupUIProvider`
-  - auxiliary editor surfaces: `SoundObjectPropertiesTopComponent`, `ScoreObjectEditorTopComponent`, registered `ScoreObjectEditor` plugins, `AudioClipEditor`, `SoundEditor`, `PianoRollEditor`, and `JMaskEditor`
-  - interaction and shell follow-up: score mouse and drop listeners, score or layer-group manager dialogs, navigator dialog, marker workflows, and score object action classes
-- Current gap notes after the spec rework:
-  - Tier 1 editor parity is complete for `External`, `PolyObject`, and `TrackerObject`
-  - heavyweight editor parity is now planned separately for `Sound`, `PianoRoll`, and `JMask`
-  - shell-level score management/navigation remains incomplete: the `Manage` workflow is still a stub, marker or navigator tooling is limited, and playback-follow or time-pointer behavior still needs explicit scope
-  - Java-only score-object types such as `ObjectBuilder` still require targeted `@blue/data` model-port work beyond the app-layer score specs
-- Handoff notes:
-  - Specs `039`, `040`, and `041` intentionally isolate the three heavyweight remaining score-object editors instead of treating them as one grouped implementation task
-  - Spec `042-score-editor-management-navigation` assumes the shell and auxiliary surfaces from Specs `036` and `037` are stable and that the heavyweight editor work has already been planned first
-  - if Java-only score-object types such as `ObjectBuilder` need to become fully editable, that may still require targeted `@blue/data` model-port work beyond the app-layer score specs
-- Completion status:
-  - planning only for Specs `039`-`042`; no implementation work has started for those follow-up slices
-  - the reprioritized score follow-up sequence is now documented and internally cross-referenced
-  - the branch is ready for score-editor follow-up planning handoff
-  - next recommended step is implementation work for Spec `039-sound-score-object-editor`
+  - `.specify/feature.json` points to `specs/042-score-editor-management-navigation`
+- Remaining minor gaps:
+  - marker navigation keyboard shortcuts (`[` and `]`) are deferred
+  - layer reorder within a group via push up/down buttons is deferred
+  - Java-only score-object types such as `ObjectBuilder` still require separate `@blue/data` model-port work
 
 ## Spec 035 Package
 

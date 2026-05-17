@@ -111,7 +111,12 @@ export type NativeMenuCommand =
   | { type: 'reset-layout' }
   | { type: 'open-effects-library' }
   | { type: 'toggle-follow-playback' }
+  | { type: 'toggle-follow-playback-on-render-start' }
   | { type: 'toggle-loop-rendering' }
+  | { type: 'add-marker' }
+  | { type: 'navigate-next-marker' }
+  | { type: 'navigate-previous-marker' }
+  | { type: 'rewind-to-start' }
   | { type: 'show-not-yet-implemented' };
 
 export function getPanel(id: string): PanelDescriptor | undefined {

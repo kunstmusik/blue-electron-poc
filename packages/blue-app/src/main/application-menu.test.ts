@@ -19,12 +19,16 @@ function createHandlers() {
     onToggleDevTools: vi.fn(),
     onResetLayout: vi.fn(),
     onToggleFollowPlayback: vi.fn(),
-    onToggleFollowPlaybackOnRenderStart: vi.fn(),
+    onToggleFollowPlaybackOnStart: vi.fn(),
     onToggleLoopRendering: vi.fn(),
     onToggleBlueLive: vi.fn(),
     onRecompileBlueLive: vi.fn(),
     onBlueLiveAllNotesOff: vi.fn(),
     onNotYetImplemented: vi.fn(),
+    onAddMarker: vi.fn(),
+    onNavigateNextMarker: vi.fn(),
+    onNavigatePreviousMarker: vi.fn(),
+    onRewindToStart: vi.fn(),
   };
 }
 
@@ -45,6 +49,7 @@ describe('application menu template', () => {
       recentProjects: ['/one.blue', '/two.blue'],
       canRevertProject: true,
       followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
       ...handlers,
     });
 
@@ -96,6 +101,7 @@ describe('application menu template', () => {
       recentProjects: [],
       canRevertProject: false,
       followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
       ...handlers,
     });
 

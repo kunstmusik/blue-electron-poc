@@ -87,6 +87,7 @@ contextBridge.exposeInMainWorld('blueAPI', {
   // Playback
   togglePlay: () => ipcRenderer.invoke('toggle-play'),
   stopPlayback: () => ipcRenderer.invoke('stop-playback'),
+  syncFollowPlaybackState: (enabled: boolean) => ipcRenderer.send('sync-follow-playback-state', enabled),
 
   // Project info
   getProjectInfo: () => ipcRenderer.invoke('get-project-info'),

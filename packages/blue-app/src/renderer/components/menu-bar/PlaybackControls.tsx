@@ -33,7 +33,7 @@ function ToolbarIconButton({
   );
 }
 
-export default function ToolbarTransport(): React.ReactElement {
+export default function PlaybackControls(): React.ReactElement {
   const hasProject = useProjectStore((s) => s.filePath !== null);
   const isLoading = useProjectStore((s) => s.isLoading);
   const loopRendering = useProjectStore((s) => s.transport.loopRendering);
@@ -45,6 +45,10 @@ export default function ToolbarTransport(): React.ReactElement {
   const toggleFollowPlayback = usePlaybackStore((s) => s.toggleFollowPlayback);
   const togglePlay = usePlaybackStore((s) => s.togglePlay);
   const stopPlayback = usePlaybackStore((s) => s.stop);
+
+  const navigateToNextMarker = useProjectStore((s) => s.navigateToNextMarker);
+  const navigateToPreviousMarker = useProjectStore((s) => s.navigateToPreviousMarker);
+  const rewindToStart = useProjectStore((s) => s.rewindToStart);
 
   const isBusy = status === 'starting' || status === 'stopping';
   const canControl = hasProject && !isLoading;
@@ -58,20 +62,23 @@ export default function ToolbarTransport(): React.ReactElement {
   return (
     <div className="toolbar-group" aria-label="Transport controls">
       <ToolbarIconButton
-        title="Previous marker (not available yet)"
-        disabled
+        title="Previous Marker"
+        disabled={!canControl}
+        onClick={navigateToPreviousMarker}
       >
         <SkipBack className="h-4 w-4" aria-hidden="true" />
       </ToolbarIconButton>
       <ToolbarIconButton
-        title="Next marker (not available yet)"
-        disabled
+        title="Next Marker"
+        disabled={!canControl}
+        onClick={navigateToNextMarker}
       >
         <SkipForward className="h-4 w-4" aria-hidden="true" />
       </ToolbarIconButton>
       <ToolbarIconButton
-        title="Rewind (not available yet)"
-        disabled
+        title="Rewind to Start"
+        disabled={!canControl}
+        onClick={rewindToStart}
       >
         <Rewind className="h-4 w-4" aria-hidden="true" />
       </ToolbarIconButton>

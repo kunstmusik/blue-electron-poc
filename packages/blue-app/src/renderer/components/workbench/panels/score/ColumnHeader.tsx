@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import type {
   ScoreTimeStateSnapshot,
   MarkerSnapshot,
@@ -5,7 +6,7 @@ import type {
   TempoMapSnapshot,
   TempoPointSnapshot,
 } from '../../../../../shared/project-editor';
-import { TimeBase } from '@blue/data';
+import { TimeBase, type SnapValueName } from '@blue/data';
 import MeterRegionBar from './MeterRegionBar';
 import MarkersBar from './MarkersBar';
 
@@ -17,14 +18,24 @@ interface Props {
   totalBeats: number;
   pixelsPerBeat: number;
   sampleRate: number;
+  renderStartTime: number;
+  renderEndTime: number;
+  snapEnabled: boolean;
+  snapValue: SnapValueName;
+  timePointerBeats: number | null;
+  scrollContainerRef: RefObject<HTMLDivElement | null>;
+  rootTimelineOnly: boolean;
+  tempo: number;
+  rulerMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate }: Props) {
+export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate, renderStartTime, renderEndTime, snapEnabled, snapValue, timePointerBeats, scrollContainerRef, rootTimelineOnly, tempo, rulerMouseDown }: Props) {
   const contentWidth = totalBeats * pixelsPerBeat;
   const smpteFrameRate = timeState.smpteFrameRate || 24;
+  const hasRenderEnd = renderEndTime > 0 && renderEndTime > renderStartTime;
 
   return (
-    <div className="sticky top-0 z-10 bg-[#1a1a2e] border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
+    <div className="sticky top-0 z-20 bg-blue-bg border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
       {timeState.tempoRowVisible && (
         <div className={`h-5 border-b border-blue-border/20 flex items-center px-2 text-[9px] overflow-hidden ${tempoMap.enabled ? 'text-green-400' : 'text-blue-muted'}`} style={{ minWidth: contentWidth }}>
           {tempoMap.points.length === 1
@@ -34,7 +45,7 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
       )}
 
       <MeterRegionBar meters={meters} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.meterRowVisible} />
-      <MarkersBar markers={markers} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} />
+      <MarkersBar markers={markers} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} snapEnabled={snapEnabled} snapValue={snapValue} scrollContainerRef={scrollContainerRef} rootTimelineOnly={rootTimelineOnly} tempo={tempo} smpteFrameRate={smpteFrameRate} sampleRate={sampleRate} />
 
       <TimeBar
         timeDisplay={timeState.primaryTimeDisplay}
@@ -44,6 +55,10 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
         meters={meters}
         smpteFrameRate={smpteFrameRate}
         sampleRate={sampleRate}
+        renderStartTime={renderStartTime}
+        renderEndTime={renderEndTime}
+        timePointerBeats={timePointerBeats}
+        onMouseDown={rulerMouseDown}
       />
 
       {timeState.secondaryRulerEnabled && (
@@ -79,7 +94,7 @@ interface MeterTimelineEntry {
 
 const tempoMapAdapterCache = new WeakMap<TempoMapSnapshot, TempoMapAdapter>();
 
-function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smpteFrameRate, sampleRate, secondary }: {
+function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smpteFrameRate, sampleRate, secondary, renderStartTime, renderEndTime, timePointerBeats, onMouseDown }: {
   timeDisplay: string;
   totalBeats: number;
   pixelsPerBeat: number;
@@ -88,6 +103,10 @@ function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smp
   smpteFrameRate: number;
   sampleRate: number;
   secondary?: boolean;
+  renderStartTime?: number;
+  renderEndTime?: number;
+  timePointerBeats?: number | null;
+  onMouseDown?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }) {
   const marks = computeMarks(
     timeDisplay,
@@ -99,12 +118,22 @@ function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smp
     sampleRate,
   );
   const ROW_HEIGHT = 20;
+  const hasRenderEnd = renderEndTime != null && renderEndTime > 0 && renderEndTime > (renderStartTime ?? 0);
+  const startPixel = (renderStartTime ?? -1) >= 0 ? renderStartTime! * pixelsPerBeat : -1;
+  const endPixel = hasRenderEnd ? renderEndTime! * pixelsPerBeat : -1;
 
   return (
     <div
-      className={`relative overflow-hidden border-b border-blue-border/20 ${secondary ? 'bg-[#16162a]' : 'bg-[#1a1a2e]'}`}
+      className={`relative overflow-hidden border-b border-blue-border/20 ${secondary ? 'bg-blue-surface' : 'bg-blue-bg'} ${onMouseDown ? 'cursor-crosshair select-none' : ''}`}
       style={{ height: ROW_HEIGHT, minWidth: totalBeats * pixelsPerBeat }}
+      onMouseDown={onMouseDown}
     >
+      {startPixel >= 0 && hasRenderEnd && (
+        <div
+          className="absolute top-0 bottom-0 bg-green-500/10 border-t border-b border-green-500/20"
+          style={{ left: startPixel, width: endPixel - startPixel }}
+        />
+      )}
       {marks.map((mark, i) => (
         <div
           key={i}
@@ -127,6 +156,24 @@ function TimeBar({ timeDisplay, totalBeats, pixelsPerBeat, tempoMap, meters, smp
           )}
         </div>
       ))}
+      {startPixel >= 0 && (
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-green-400 z-10"
+          style={{ left: startPixel }}
+        />
+      )}
+      {hasRenderEnd && endPixel >= 0 && (
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10"
+          style={{ left: endPixel }}
+        />
+      )}
+      {timePointerBeats != null && timePointerBeats >= 0 && (
+        <div
+          className="absolute top-0 bottom-0 w-0.5 bg-orange-500 z-20"
+          style={{ left: timePointerBeats * pixelsPerBeat }}
+        />
+      )}
     </div>
   );
 }

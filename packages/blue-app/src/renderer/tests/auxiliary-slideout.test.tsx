@@ -11,6 +11,10 @@ vi.mock('../components/workbench/panels/output/OutputPanel', () => ({
   default: () => React.createElement('div', { 'data-testid': 'output-panel' }),
 }));
 
+vi.mock('../components/workbench/panels/MarkersPanel', () => ({
+  default: () => React.createElement('div', { 'data-testid': 'markers-panel' }),
+}));
+
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 function renderRoot(element: React.ReactElement): {
@@ -89,6 +93,29 @@ describe('AuxiliarySlideout', () => {
 
     expect(tree.container.querySelector('[data-testid="output-panel"]')).toBeNull();
     expect(tree.container.textContent).toContain('Placeholder — to be implemented');
+
+    tree.unmount();
+  });
+
+  it('renders the markers panel for the markers slideout', () => {
+    const slideout: AuxiliarySlideoutView = {
+      edge: 'right',
+      groupInstanceId: 'properties-main',
+      panelId: 'MarkersTopComponent',
+      size: 320,
+    };
+
+    const tree = renderRoot(
+      <AuxiliarySlideout
+        slideout={slideout}
+        onClose={vi.fn()}
+        onDock={vi.fn()}
+        onResize={vi.fn()}
+      />,
+    );
+
+    expect(tree.container.querySelector('[data-testid="markers-panel"]')).not.toBeNull();
+    expect(tree.container.textContent).not.toContain('Placeholder — to be implemented');
 
     tree.unmount();
   });

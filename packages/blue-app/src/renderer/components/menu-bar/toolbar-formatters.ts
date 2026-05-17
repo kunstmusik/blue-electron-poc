@@ -4,9 +4,15 @@ import type {
 import type {
   MeterMapSnapshot,
   TempoMapSnapshot,
-  ToolbarProjectTransportSnapshot,
 } from '../../../shared/project-editor';
 import { TimeBase } from '../../../shared/time-base';
+
+interface TransportFormatAdapter {
+  tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
+  smpteFrameRate: number;
+  sampleRate: number;
+}
 
 export type ToolbarDisplaySource = 'idle-anchor' | 'engine-authority' | 'interpolated';
 export type ToolbarDisplayMode = TimeBase | 'sync' | 'off';
@@ -44,6 +50,9 @@ export interface ToolbarSelectionTransportSnapshot {
   renderStartTime: number;
   renderEndTime: number;
   tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
+  smpteFrameRate: number;
+  sampleRate: number;
 }
 
 export interface ToolbarPlaybackSnapshot {
@@ -350,7 +359,7 @@ function formatSmpte(seconds: number, frameRate: number): string {
 function formatToolbarPosition(
   beat: number,
   format: TimeBase,
-  transport: ToolbarProjectTransportSnapshot,
+  transport: TransportFormatAdapter,
 ): string {
   const tempoAdapter = createTempoMapAdapter(transport.tempoMap);
 
@@ -483,10 +492,13 @@ export function buildPlayheadDisplayState(
   };
 }
 
+export const DEFAULT_SELECTION_FORMAT: TimeBase = TimeBase.BBF;
+
 export function buildSelectionDisplayState(
   transport: ToolbarSelectionTransportSnapshot,
+  format: TimeBase = DEFAULT_SELECTION_FORMAT,
 ): ToolbarSelectionDisplayState {
-  if (transport.renderEndTime < 0 || transport.renderEndTime < transport.renderStartTime) {
+  if (transport.renderEndTime <= transport.renderStartTime) {
     return {
       startText: '—',
       endText: '—',
@@ -495,16 +507,13 @@ export function buildSelectionDisplayState(
     };
   }
 
-  const tempoMap = createTempoMapAdapter(transport.tempoMap);
-  const startSeconds = tempoMap.beatsToSeconds(transport.renderStartTime);
-  const endSeconds = tempoMap.beatsToSeconds(transport.renderEndTime);
-  const durationSeconds = Math.max(0, endSeconds - startSeconds);
-  const durationBeats = Math.max(0, transport.renderEndTime - transport.renderStartTime);
+  const hasDuration = transport.renderEndTime > transport.renderStartTime;
+  const durationBeats = hasDuration ? transport.renderEndTime - transport.renderStartTime : 0;
 
   return {
-    startText: `${formatBeatText(transport.renderStartTime)} / ${formatClockText(startSeconds)}`,
-    endText: `${formatBeatText(transport.renderEndTime)} / ${formatClockText(endSeconds)}`,
-    durationText: `${formatBeatText(durationBeats)} / ${formatClockText(durationSeconds)}`,
+    startText: formatToolbarPosition(transport.renderStartTime, format, transport),
+    endText: formatToolbarPosition(transport.renderEndTime, format, transport),
+    durationText: hasDuration ? formatToolbarPosition(durationBeats, format, transport) : '—',
     hasSelection: true,
   };
 }

@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { BlueData, GenericScore, PolyObject, SoundLayer, TimePosition } from '@blue/data';
-import { createProjectEditorSnapshot } from '../../shared/project-editor';
+import {
+  AudioLayerGroup,
+  BlueData,
+  GenericScore,
+  PatternsLayerGroup,
+  PolyObject,
+  SoundLayer,
+  TimePosition,
+} from '@blue/data';
+import { applyProjectDocumentPatch, createProjectEditorSnapshot } from '../../shared/project-editor';
 import { useProjectStore, __testClearPendingPatches } from '../stores/project-store';
 import { useScoreSelectionStore } from '../stores/score-selection-store';
 
@@ -112,5 +120,66 @@ describe('score multigroup object identity', () => {
     expect(updatedGroups[0]!.layers[1]!.items[0]!.objectId).toBe(stationary.objectId);
 
     expect(updatedGroups[1]!.layers[1]!.items).toHaveLength(0);
+  });
+
+  it('persists layer renames through canonical score patches', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const group = new PolyObject(true);
+    const layer = new SoundLayer();
+    layer.setName('Original Layer');
+    group.push(layer);
+    data.getScore().push(group);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const groupId = snapshot.score.layerGroups[0]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'renameLayer',
+        groupId,
+        layerIndex: 0,
+        name: 'Renamed Layer',
+      },
+    });
+
+    expect((data.getScore()[0] as PolyObject)[0]!.getName()).toBe('Renamed Layer');
+    expect(createProjectEditorSnapshot(data, null).score.layerGroups[0]!.layers[0]!.name)
+      .toBe('Renamed Layer');
+  });
+
+  it('moves the targeted root layer group when non-PolyObject groups are present', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audio = new AudioLayerGroup();
+    audio.setName('Audio');
+    const poly = new PolyObject(true);
+    poly.setName('Poly');
+    const patterns = new PatternsLayerGroup();
+    patterns.setName('Patterns');
+
+    data.getScore().push(audio);
+    data.getScore().push(poly);
+    data.getScore().push(patterns);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const polyGroupId = snapshot.score.layerGroups[1]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'moveLayerGroup',
+        groupId: polyGroupId,
+        targetIndex: 0,
+      },
+    });
+
+    const updated = createProjectEditorSnapshot(data, null);
+    expect(updated.score.layerGroups.map((group) => group.name)).toEqual([
+      'Poly',
+      'Audio',
+      'Patterns',
+    ]);
   });
 });

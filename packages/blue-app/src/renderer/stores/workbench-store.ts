@@ -31,6 +31,7 @@ import {
   type AuxiliaryLayoutState,
 } from '../components/workbench/auxiliary-layout';
 import { getPanel } from '../components/workbench/panel-registry';
+import { buildPlayheadDisplayState } from '../components/menu-bar/toolbar-formatters';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
 import { useUIStore } from './ui-store';
 import { usePlaybackStore } from './playback-store';
@@ -75,6 +76,27 @@ interface WorkbenchActions {
   mergeBackToSeededGroup: (groupInstanceId: string) => void;
   resetLayout: () => void;
   handleNativeMenuCommand: (command: NativeMenuCommand) => void;
+}
+
+function getAddMarkerTargetBeat(): number {
+  const project = useProjectStore.getState();
+  const playback = usePlaybackStore.getState();
+  if (
+    (playback.status === 'playing' || playback.status === 'stopping') &&
+    playback.clock !== null
+  ) {
+    const transport = playback.transportAnchor ?? project.transport;
+    return buildPlayheadDisplayState(
+      transport,
+      {
+        status: playback.status,
+        hasClock: true,
+        elapsedSeconds: playback.display.elapsedSeconds,
+        source: playback.display.source,
+      },
+    ).displayBeat;
+  }
+  return project.transport.renderStartTime;
 }
 
 export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
@@ -375,10 +397,25 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
         case 'toggle-follow-playback':
           usePlaybackStore.getState().toggleFollowPlayback();
           return;
+        case 'toggle-follow-playback-on-render-start':
+          usePlaybackStore.getState().toggleFollowPlaybackOnStart();
+          return;
         case 'toggle-loop-rendering':
           useProjectStore.getState().setLoopRendering(
             !useProjectStore.getState().transport.loopRendering,
           );
+          return;
+        case 'add-marker':
+          useProjectStore.getState().addMarkerAtTime(getAddMarkerTargetBeat());
+          return;
+        case 'navigate-next-marker':
+          useProjectStore.getState().navigateToNextMarker();
+          return;
+        case 'navigate-previous-marker':
+          useProjectStore.getState().navigateToPreviousMarker();
+          return;
+        case 'rewind-to-start':
+          useProjectStore.getState().rewindToStart();
           return;
         case 'show-not-yet-implemented':
           window.alert('not yet implemented');

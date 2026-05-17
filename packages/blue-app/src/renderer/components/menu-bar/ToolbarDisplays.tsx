@@ -29,6 +29,7 @@ import {
   getTimeDisplayFormatMenuLabel,
   type ToolbarDisplayMode,
 } from './toolbar-formatters';
+import { TimeBase } from '../../../shared/time-base';
 
 const ToolbarDisplayCard = forwardRef<HTMLElement, ComponentPropsWithoutRef<'section'> & {
   title: string;
@@ -123,18 +124,21 @@ const PlayheadDisplayCard = memo(function PlayheadDisplayCard({
   const status = usePlaybackStore((state) => state.status);
   const clock = usePlaybackStore((state) => state.clock);
   const authoritativeDisplay = usePlaybackStore((state) => state.display);
+  const transportAnchor = usePlaybackStore((state) => state.transportAnchor);
   const display = useInterpolatedPlaybackDisplay(status, clock, authoritativeDisplay);
 
   const playhead = useMemo(
-    () =>
-      buildPlayheadDisplayState(
-        {
-          renderStartTime,
-          tempoMap,
-          meterMap,
-          smpteFrameRate,
-          sampleRate,
-        },
+    () => {
+      const playheadTransport = transportAnchor ?? {
+        renderStartTime,
+        tempoMap,
+        meterMap,
+        smpteFrameRate,
+        sampleRate,
+      };
+
+      return buildPlayheadDisplayState(
+        playheadTransport,
         {
           status,
           hasClock: clock !== null,
@@ -145,8 +149,10 @@ const PlayheadDisplayCard = memo(function PlayheadDisplayCard({
           primaryMode,
           secondaryMode,
         },
-      ),
+      );
+    },
     [
+      transportAnchor,
       renderStartTime,
       tempoMap,
       meterMap,
@@ -175,10 +181,17 @@ const PlayheadDisplayCard = memo(function PlayheadDisplayCard({
   );
 });
 
-const SelectionDisplayCard = memo(function SelectionDisplayCard(): React.ReactElement {
+const SelectionDisplayCard = memo(function SelectionDisplayCard({
+  format,
+}: {
+  format: TimeBase;
+}): React.ReactElement {
   const renderStartTime = useProjectStore((state) => state.transport.renderStartTime);
   const renderEndTime = useProjectStore((state) => state.transport.renderEndTime);
   const tempoMap = useProjectStore((state) => state.transport.tempoMap);
+  const meterMap = useProjectStore((state) => state.transport.meterMap);
+  const smpteFrameRate = useProjectStore((state) => state.transport.smpteFrameRate);
+  const sampleRate = useProjectStore((state) => state.transport.sampleRate);
 
   const selection = useMemo(
     () =>
@@ -186,20 +199,23 @@ const SelectionDisplayCard = memo(function SelectionDisplayCard(): React.ReactEl
         renderStartTime,
         renderEndTime,
         tempoMap,
-      }),
-    [renderStartTime, renderEndTime, tempoMap],
+        meterMap,
+        smpteFrameRate,
+        sampleRate,
+      }, format),
+    [renderStartTime, renderEndTime, tempoMap, meterMap, smpteFrameRate, sampleRate, format],
   );
 
   return (
-    <ToolbarDisplayCard title="Selection" className="w-82">
+    <ToolbarDisplayCard title="Selection" className="w-64">
       <div className="toolbar-display-values toolbar-display-values--selection">
-        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection" title="Selection Start">
           {selection.startText}
         </div>
-        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection" title="Selection End">
           {selection.endText}
         </div>
-        <div className="toolbar-display-secondary toolbar-display-secondary--selection">
+        <div className="toolbar-display-secondary toolbar-display-secondary--selection" title="Selection Duration">
           {selection.durationText}
         </div>
       </div>
@@ -341,9 +357,58 @@ function ToolbarPlayheadMenu({
   );
 }
 
+function ToolbarSelectionMenu({
+  children,
+  format,
+  onFormatChange,
+}: {
+  children: ReactNode;
+  format: ToolbarDisplayMode;
+  onFormatChange: (mode: ToolbarDisplayMode) => void;
+}): React.ReactElement {
+  const portalContainer = typeof document !== 'undefined' ? document.body : undefined;
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
+      {portalContainer ? (
+        <ContextMenu.Portal container={portalContainer}>
+          <ContextMenu.Content
+            className="toolbar-context-menu"
+            sideOffset={6}
+            align="start"
+          >
+            <ContextMenuCheckItem checked={format === 'sync'} onSelect={() => onFormatChange('sync')}>
+              Sync to Ruler
+            </ContextMenuCheckItem>
+
+            <ContextMenu.Separator className="toolbar-context-menu__separator" />
+
+            {TOOLBAR_TIME_DISPLAY_FORMATS.map((fmt) => (
+              <ContextMenuCheckItem
+                key={fmt}
+                checked={format === fmt}
+                onSelect={() => onFormatChange(fmt)}
+              >
+                {getTimeDisplayFormatMenuLabel(fmt)}
+              </ContextMenuCheckItem>
+            ))}
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      ) : null}
+    </ContextMenu.Root>
+  );
+}
+
 export default function ToolbarDisplays(): React.ReactElement {
   const [primaryMode, setPrimaryMode] = useState<ToolbarDisplayMode>(DEFAULT_PLAYHEAD_PRIMARY_MODE);
   const [secondaryMode, setSecondaryMode] = useState<ToolbarDisplayMode>(DEFAULT_PLAYHEAD_SECONDARY_MODE);
+  const [selectionMode, setSelectionMode] = useState<ToolbarDisplayMode>('sync');
+  const primaryTimeDisplay = useProjectStore((state) => state.score.timeState.primaryTimeDisplay);
+
+  const selectionFormat: TimeBase = selectionMode === 'sync'
+    ? (primaryTimeDisplay as TimeBase)
+    : (selectionMode as TimeBase);
 
   return (
     <div className="toolbar-displays flex flex-1 min-w-0 items-center justify-center">
@@ -357,7 +422,9 @@ export default function ToolbarDisplays(): React.ReactElement {
           <PlayheadDisplayCard primaryMode={primaryMode} secondaryMode={secondaryMode} />
         </ToolbarPlayheadMenu>
 
-        <SelectionDisplayCard />
+        <ToolbarSelectionMenu format={selectionMode} onFormatChange={setSelectionMode}>
+          <SelectionDisplayCard format={selectionFormat} />
+        </ToolbarSelectionMenu>
       </div>
     </div>
   );

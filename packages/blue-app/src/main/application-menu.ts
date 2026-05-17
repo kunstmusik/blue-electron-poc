@@ -8,6 +8,7 @@ export interface ApplicationMenuTemplateOptions {
   recentProjects: string[];
   canRevertProject: boolean;
   followPlaybackEnabled: boolean;
+  followPlaybackOnStartEnabled: boolean;
   onNewFile: () => void;
   onOpenFile: () => void;
   onOpenRecentProject: (filePath: string) => void;
@@ -24,8 +25,12 @@ export interface ApplicationMenuTemplateOptions {
   onToggleDevTools: () => void;
   onResetLayout: () => void;
   onToggleFollowPlayback: () => void;
-  onToggleFollowPlaybackOnRenderStart: () => void;
+  onToggleFollowPlaybackOnStart: () => void;
   onToggleLoopRendering: () => void;
+  onAddMarker: () => void;
+  onNavigateNextMarker: () => void;
+  onNavigatePreviousMarker: () => void;
+  onRewindToStart: () => void;
   onToggleBlueLive: () => void;
   onRecompileBlueLive: () => void;
   onBlueLiveAllNotesOff: () => void;
@@ -116,7 +121,11 @@ function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): Menu
     { label: 'Audition ScoreObjects', enabled: false, click: () => options.onNotYetImplemented() },
     { type: 'separator' },
     { label: 'Follow playback by scrolling score', type: 'checkbox', checked: options.followPlaybackEnabled, enabled: hasProject, click: () => options.onToggleFollowPlayback() },
-    buildPlaceholderItem('Enable follow playback on render start', options, { type: 'checkbox', checked: false, enabled: hasProject }),
+    { label: 'Enable follow playback on render start', type: 'checkbox', checked: options.followPlaybackOnStartEnabled, enabled: hasProject, click: () => options.onToggleFollowPlaybackOnStart() },
+    { type: 'separator' },
+    { label: 'Navigate to Next Marker', accelerator: ']', enabled: hasProject, click: () => options.onNavigateNextMarker() },
+    { label: 'Navigate to Previous Marker', accelerator: '[', enabled: hasProject, click: () => options.onNavigatePreviousMarker() },
+    { label: 'Rewind to Start', enabled: hasProject, click: () => options.onRewindToStart() },
     { type: 'separator' },
     {
       label: 'Blue Live',
@@ -131,7 +140,7 @@ function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): Menu
     { type: 'separator' },
     buildPlaceholderItem('Edit Tempo Map...', options, { enabled: hasProject }),
     buildPlaceholderItem('Edit Time Signature Map...', options, { enabled: hasProject }),
-    buildPlaceholderItem('Add Marker', options, { accelerator: 'CmdOrCtrl+M', enabled: hasProject }),
+    { label: 'Add Marker', accelerator: 'CmdOrCtrl+M', enabled: hasProject, click: () => options.onAddMarker() },
     { type: 'separator' },
     { label: 'Toggle Loop Rendering', accelerator: 'CmdOrCtrl+L', enabled: hasProject, click: () => options.onToggleLoopRendering() },
   ];

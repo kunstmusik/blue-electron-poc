@@ -2,12 +2,12 @@ import React from 'react';
 import type { JSX } from 'react';
 import ToolbarBlueLive from './ToolbarBlueLive';
 import ToolbarDisplays from './ToolbarDisplays';
-import ToolbarTransport from './ToolbarTransport';
+import PlaybackControls from './PlaybackControls';
 
 export default function MainToolbar(): React.ReactElement {
   return (
     <header className="toolbar-shell">
-      <ToolbarTransport />
+      <PlaybackControls />
       <ToolbarDisplays />
       <ToolbarBlueLive />
     </header>

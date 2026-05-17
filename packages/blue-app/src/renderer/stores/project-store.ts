@@ -44,6 +44,7 @@ import {
   type ProjectDocumentPatch,
   type ProjectLoadedPayload,
   type ProjectPropertiesSnapshot,
+  type MarkerSnapshot,
   type OrchestraPatch,
   type OrchestraSnapshot,
   type ProjectUdoPatch,
@@ -92,6 +93,7 @@ interface ProjectState {
   blueLive: BlueLiveProjectSnapshot | null;
   midiInput: MidiInputProcessorSnapshot | null;
   score: ScoreDocumentSnapshot;
+  scrollToBeatTarget: number | null;
 }
 
 interface ProjectActions {
@@ -111,6 +113,8 @@ interface ProjectActions {
     patch: Partial<ProjectPropertiesSnapshot>,
   ) => Promise<void>;
   setLoopRendering: (loopRendering: boolean) => Promise<void>;
+  addMarkerAtTime: (timeBeats: number) => void;
+  addMarkerAtRenderStart: () => void;
   updateTablesText: (tablesText: string) => Promise<void>;
   applyProjectUdoPatch: (patch: ProjectUdoPatch) => Promise<void>;
   applyBlueLivePatch: (patch: BlueLivePatch) => Promise<void>;
@@ -129,6 +133,10 @@ interface ProjectActions {
   removeLayer: (groupId: string, layerIndex: number) => void;
   setScoreObjectColor: (objectIds: ReadonlySet<string>, color: number) => void;
   resizeScoreObjects: (resizes: Array<{ objectId: string; targetStartBeats: number; targetDurationBeats: number }>) => void;
+  setScrollToBeatTarget: (beats: number | null) => void;
+  navigateToNextMarker: () => void;
+  navigateToPreviousMarker: () => void;
+  rewindToStart: () => void;
 }
 
 let latestProjectPatchRequestId = 0;
@@ -425,6 +433,7 @@ function buildInitialState(): ProjectState {
     blueLive: snapshot.blueLive ?? null,
     midiInput: snapshot.midiInput ?? null,
     score: snapshot.score ?? createEmptyScoreDocumentSnapshot(),
+    scrollToBeatTarget: null,
   };
 }
 
@@ -1000,6 +1009,18 @@ function applyMixerPatchToSnapshot(
   return reconcileMixerSnapshotWithArrangement(next, orchestra);
 }
 
+function computeEndOfScore(score: ScoreDocumentSnapshot): number {
+  let maxBeat = 0;
+  for (const lg of score.layerGroups) {
+    for (const layer of lg.layers) {
+      for (const item of layer.items) {
+        maxBeat = Math.max(maxBeat, item.startBeats + item.durationBeats);
+      }
+    }
+  }
+  return maxBeat;
+}
+
 function createDefaultMidiInputSnapshot(): MidiInputProcessorSnapshot {
   return {
     keyMapping: 'PCH',
@@ -1201,6 +1222,32 @@ function applyScorePatchToSnapshot(
     return { ...score, layerGroups: nextLayerGroups };
   }
 
+  if (patch.type === 'moveLayer') {
+    const nextLayerGroups = score.layerGroups.map((lg) => {
+      if (lg.groupId !== patch.groupId) return lg;
+      const { layerIndex, targetIndex } = patch;
+      if (layerIndex < 0 || layerIndex >= lg.layers.length) return lg;
+      const clampedTarget = Math.max(0, Math.min(targetIndex, lg.layers.length - 1));
+      if (layerIndex === clampedTarget) return lg;
+      const layers = [...lg.layers];
+      const [moved] = layers.splice(layerIndex, 1);
+      layers.splice(clampedTarget, 0, moved!);
+      return { ...lg, layers };
+    });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'renameLayer') {
+    const nextLayerGroups = score.layerGroups.map((lg) => {
+      if (lg.groupId !== patch.groupId) return lg;
+      if (patch.layerIndex < 0 || patch.layerIndex >= lg.layers.length) return lg;
+      const layers = lg.layers.map((layer, index) =>
+        index === patch.layerIndex ? { ...layer, name: patch.name } : layer);
+      return { ...lg, layers };
+    });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
   if (patch.type === 'updateTimeState') {
     const { patch: tsPatch } = patch;
     return {
@@ -1232,6 +1279,66 @@ function applyScorePatchToSnapshot(
     }));
 
     return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'addMarker') {
+    const name = patch.name ?? `Marker ${score.markers.length + 1}`;
+    const newMarker: MarkerSnapshot = {
+      name,
+      time: patch.timeBeats,
+      timeBase: score.timeState.primaryTimeDisplay,
+      sourceIndex: score.markers.length,
+    };
+    return { ...score, markers: [...score.markers, newMarker] };
+  }
+
+  if (patch.type === 'updateMarker') {
+    const markers = score.markers.map((m, i) => {
+      if (i !== patch.sourceIndex) return m;
+      return {
+        ...m,
+        ...(patch.patch.name !== undefined ? { name: patch.patch.name } : {}),
+        ...(patch.patch.timeBeats !== undefined ? { time: patch.patch.timeBeats } : {}),
+        ...(patch.patch.timeBase !== undefined ? { timeBase: patch.patch.timeBase } : {}),
+      };
+    });
+    return { ...score, markers };
+  }
+
+  if (patch.type === 'removeMarker') {
+    const markers = score.markers
+      .filter((_m, i) => i !== patch.sourceIndex)
+      .map((m, i) => ({ ...m, sourceIndex: i }));
+    return { ...score, markers };
+  }
+
+  if (patch.type === 'moveLayerGroup') {
+    const groups = [...score.layerGroups];
+    const sourceIdx = groups.findIndex((g) => g.groupId === patch.groupId);
+    if (sourceIdx === -1) return score;
+    const clampedTarget = Math.max(0, Math.min(patch.targetIndex, groups.length - 1));
+    if (sourceIdx === clampedTarget) return score;
+    const [removed] = groups.splice(sourceIdx, 1);
+    groups.splice(clampedTarget, 0, removed!);
+    return { ...score, layerGroups: groups };
+  }
+
+  if (patch.type === 'removeLayerGroup') {
+    const layerGroups = score.layerGroups.filter((g) => g.groupId !== patch.groupId);
+    return { ...score, layerGroups };
+  }
+
+  if (patch.type === 'addLayerGroup') {
+    const insertAt = patch.insertAtIndex ?? score.layerGroups.length;
+    const newGroup: ScoreLayerGroupSnapshot = {
+      groupId: `lg-${Date.now()}`,
+      name: 'SoundObject Layer Group',
+      layers: [{ layerId: `layer-${Date.now()}`, name: '', height: 44, muted: false, solo: false, items: [] }],
+      layerCount: 1,
+    };
+    const layerGroups = [...score.layerGroups];
+    layerGroups.splice(insertAt, 0, newGroup);
+    return { ...score, layerGroups };
   }
 
   if (patch.type !== 'updateSharedProperties') return score;
@@ -2769,13 +2876,19 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       }
 
       if (patch.transport) {
-        next.transport = {
+        const nextTransport = {
           ...state.transport,
           ...patch.transport,
           tempoMap: patch.transport.tempoMap
             ? { ...state.transport.tempoMap, ...patch.transport.tempoMap }
             : state.transport.tempoMap,
         };
+
+        if (nextTransport.renderEndTime <= nextTransport.renderStartTime) {
+          nextTransport.renderEndTime = -1;
+        }
+
+        next.transport = nextTransport;
       }
 
       if (patch.tablesText !== undefined) {
@@ -2844,6 +2957,62 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     await get().applyProjectDocumentPatch({
       transport: { loopRendering },
     });
+  },
+
+  addMarkerAtTime: (timeBeats) => {
+    get().applyProjectDocumentPatch({
+      score: { type: 'addMarker', timeBeats: Math.max(0, timeBeats) },
+    });
+  },
+
+  addMarkerAtRenderStart: () => {
+    get().addMarkerAtTime(get().transport.renderStartTime);
+  },
+
+  setScrollToBeatTarget: (beats) => {
+    set({ scrollToBeatTarget: beats });
+  },
+
+  navigateToNextMarker: () => {
+    const { transport, score } = get();
+    const currentStartTime = transport.renderStartTime;
+    const markers = score.markers;
+    let selected: { time: number } | null = null;
+    for (const marker of markers) {
+      if (marker.time > currentStartTime) {
+        selected = marker;
+        break;
+      }
+    }
+    const endOfScore = computeEndOfScore(score);
+    const newStartTime = selected ? selected.time : endOfScore;
+    if (newStartTime > currentStartTime) {
+      get().applyProjectDocumentPatch({ transport: { renderStartTime: newStartTime } });
+      set({ scrollToBeatTarget: newStartTime });
+    }
+  },
+
+  navigateToPreviousMarker: () => {
+    const { transport, score } = get();
+    const currentStartTime = transport.renderStartTime;
+    const markers = score.markers;
+    let selected: { time: number } | null = null;
+    for (let i = markers.length - 1; i >= 0; i--) {
+      if (markers[i]!.time < currentStartTime) {
+        selected = markers[i]!;
+        break;
+      }
+    }
+    const newStartTime = selected ? selected.time : 0;
+    get().applyProjectDocumentPatch({ transport: { renderStartTime: newStartTime } });
+    set({ scrollToBeatTarget: newStartTime });
+  },
+
+  rewindToStart: () => {
+    get().applyProjectDocumentPatch({
+      transport: { renderStartTime: 0, renderEndTime: -1 },
+    });
+    set({ scrollToBeatTarget: 0 });
   },
 
   updateTablesText: async (tablesText) => {

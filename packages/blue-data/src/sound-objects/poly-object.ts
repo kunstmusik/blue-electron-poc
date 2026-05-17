@@ -183,6 +183,7 @@ export class PolyObject extends Array<SoundLayer>
     compileData: CompileData,
     startTime: number,
     endTime: number,
+    _processWithSolo?: boolean,
   ): NoteList {
     const noteList = new NoteList();
 
@@ -191,10 +192,32 @@ export class PolyObject extends Array<SoundLayer>
       noteList.merge(nl);
     }
 
-    // Offset all notes by this PolyObject's own start time
     setScoreStart(noteList, this._startTime.toBeats(context));
 
-    return noteList;
+    let retVal = noteList;
+
+    if (startTime > 0) {
+      setScoreStart(noteList, -startTime);
+      const filtered = new NoteList();
+      for (const note of noteList) {
+        if (note.getStartTime() >= 0) {
+          filtered.add(note);
+        }
+      }
+      retVal = filtered;
+    }
+
+    if (endTime > startTime) {
+      const filtered = new NoteList();
+      for (const note of retVal) {
+        if (note.getStartTime() <= endTime) {
+          filtered.add(note);
+        }
+      }
+      return filtered;
+    }
+
+    return retVal;
   }
 
   // ─── LayerGroup ───

@@ -3,6 +3,8 @@ import { Score } from './score';
 import { PolyObject } from '../sound-objects/poly-object';
 import { SoundLayer } from '../sound-objects/sound-layer';
 import { GenericScore } from '../sound-objects/generic-score';
+import { TimeDuration } from '../time/time-duration';
+import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 
@@ -166,6 +168,28 @@ describe('Score model compatibility', () => {
 
       (copy[1] as PolyObject).setName('Modified');
       expect((score[1] as PolyObject).getName()).toBe('Original');
+    });
+  });
+
+  describe('generateForCSD render window', () => {
+    it('filters root PolyObject notes after the render end', () => {
+      const score = new Score();
+      score.length = 0;
+
+      const poly = new PolyObject(true);
+      const layer = new SoundLayer();
+      const gs = new GenericScore();
+      gs.setSubjectiveDuration(TimeDuration.beats(16));
+      gs.setScoreText('i1 0 1 440\ni1 8 1 440\ni1 12 1 440');
+      layer.push(gs);
+      poly.push(layer);
+      score.push(poly);
+
+      const notes = score.generateForCSD(new CompileData(), 0, 10);
+
+      const startTimes = [...notes].map((note) => note.getStartTime());
+      expect(startTimes).toHaveLength(2);
+      expect(Math.max(...startTimes)).toBeLessThanOrEqual(10);
     });
   });
 });

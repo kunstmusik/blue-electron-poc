@@ -1015,6 +1015,30 @@
   background: rgba(255, 255, 255, 0.25);
 }
 
+.score-timeline-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(111, 168, 255, 0.32) rgba(10, 15, 26, 0.92);
+}
+
+.score-timeline-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.score-timeline-scroll::-webkit-scrollbar-track {
+  background: rgba(10, 15, 26, 0.92);
+}
+
+.score-timeline-scroll::-webkit-scrollbar-thumb {
+  background: rgba(111, 168, 255, 0.32);
+  border: 2px solid rgba(10, 15, 26, 0.92);
+  border-radius: 999px;
+}
+
+.score-timeline-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(111, 168, 255, 0.48);
+}
+
 .mixer-chain-empty {
   display: flex;
   align-items: center;

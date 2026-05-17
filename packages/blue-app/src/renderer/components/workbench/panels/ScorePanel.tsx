@@ -9,15 +9,20 @@ import type {
   ScoreObjectLocationRef,
   PolyObjectLayerGroupSnapshot,
 } from "./score/types";
+import type { TempoMapSnapshot } from "../../../shared/project-editor";
 import type { SnapValueName } from "@blue/data";
 import type { RulerConfigChanges } from "./score/RulerConfigDialog";
 import SplitPane from "./orchestra/SplitPane";
 import ScoreToolbar from "./score/ScoreToolbar";
 import RulerConfigDialog from "./score/RulerConfigDialog";
+import ScoreManagerDialog from "./score/ScoreManagerDialog";
 import ColumnHeader from "./score/ColumnHeader";
 import LayerPanel from "./score/LayerPanel";
 import { useScorePathState } from "./score/useScorePathState";
 import { useScoreSelectionStore } from "../../../stores/score-selection-store";
+import { useScoreRulerSelection } from "./score/useScoreRulerSelection";
+import { usePlaybackStore } from "../../../stores/playback-store";
+import ScoreOverlayLines from "./score/ScoreOverlayLines";
 
 type ScoreMode = "score" | "singleLine" | "multiLine";
 
@@ -37,6 +42,7 @@ export default function ScorePanel() {
     score.timeState.snapValue as SnapValueName,
   );
   const [rulerDialogOpen, setRulerDialogOpen] = useState(false);
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
 
   const [timeState, setTimeState] = useState(score.timeState);
 
@@ -104,6 +110,96 @@ export default function ScorePanel() {
 
   const pixelsPerBeat = computePixelsPerBeat(timeState.zoomIterations);
   const totalBeats = computeTotalBeats(score);
+  const initialTempo = transport.tempoMap.points[0]?.tempo ?? 60;
+
+  const isRootTimeline = !session.activeGroupId;
+
+  const { handleMouseDown: rulerMouseDown } = useScoreRulerSelection({
+    pixelsPerBeat,
+    totalBeats,
+    snapEnabled,
+    snapValue,
+    rootTimelineOnly: isRootTimeline,
+    scrollContainerRef,
+    tempo: initialTempo,
+    smpteFrameRate: timeState.smpteFrameRate || 24,
+    sampleRate: transport.sampleRate,
+  });
+
+  const isPlaying = usePlaybackStore((s) => s.isPlaying);
+  const playbackStatus = usePlaybackStore((s) => s.status);
+  const playbackClock = usePlaybackStore((s) => s.clock);
+  const clockElapsed = usePlaybackStore((s) => s.display.elapsedSeconds);
+  const followPlayback = usePlaybackStore((s) => s.followPlayback);
+  const transportAnchor = usePlaybackStore((s) => s.transportAnchor);
+  const scrollToBeatTarget = useProjectStore((s) => s.scrollToBeatTarget);
+  const clearScrollTarget = useProjectStore((s) => s.setScrollToBeatTarget);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const timer = window.setInterval(() => {
+      usePlaybackStore.getState().tickDisplay();
+    }, 33);
+    return () => window.clearInterval(timer);
+  }, [isPlaying]);
+
+  const livePlayheadTransport = transportAnchor ?? transport;
+  const hasLivePlaybackClock =
+    playbackClock !== null &&
+    (playbackStatus === 'playing' || playbackStatus === 'stopping');
+
+  const timePointerBeats = hasLivePlaybackClock && clockElapsed >= 0
+    ? livePlayheadTransport.renderStartTime
+      + elapsedSecondsToBeats(clockElapsed, livePlayheadTransport.tempoMap)
+    : null;
+
+  useEffect(() => {
+    if (
+      !followPlayback ||
+      !isPlaying ||
+      !isRootTimeline ||
+      timePointerBeats == null
+    ) {
+      return;
+    }
+
+    const timeline = scrollContainerRef.current;
+    if (!timeline) {
+      return;
+    }
+
+    const pointerPixel = timePointerBeats * pixelsPerBeat;
+    const leadPadding = Math.max(96, timeline.clientWidth * 0.35);
+    const leftVisible = timeline.scrollLeft + 48;
+    const rightVisible = timeline.scrollLeft + timeline.clientWidth - leadPadding;
+
+    if (pointerPixel >= leftVisible && pointerPixel <= rightVisible) {
+      return;
+    }
+
+    const targetScrollLeft = Math.max(0, pointerPixel - leadPadding);
+    if (Math.abs(targetScrollLeft - timeline.scrollLeft) < 1) {
+      return;
+    }
+
+    timeline.scrollLeft = targetScrollLeft;
+  }, [
+    followPlayback,
+    isPlaying,
+    isRootTimeline,
+    timePointerBeats,
+    pixelsPerBeat,
+    scrollContainerRef,
+  ]);
+
+  useEffect(() => {
+    if (scrollToBeatTarget == null || !scrollContainerRef.current) return;
+    const pointerPixel = scrollToBeatTarget * pixelsPerBeat;
+    const w = scrollContainerRef.current.clientWidth;
+    const newX = Math.max(0, pointerPixel - (w / 8));
+    scrollContainerRef.current.scrollLeft = newX;
+    clearScrollTarget(null);
+  }, [scrollToBeatTarget, pixelsPerBeat, scrollContainerRef, clearScrollTarget]);
 
   const handleTimelineScroll = useCallback(() => {
     const timeline = scrollContainerRef.current;
@@ -173,6 +269,7 @@ export default function ScorePanel() {
         onSnapToggle={setSnapEnabled}
         onSnapValueChange={setSnapValue}
         onRulerConfig={() => setRulerDialogOpen(true)}
+        onManage={() => setManageDialogOpen(true)}
       />
 
       <SplitPane
@@ -193,37 +290,56 @@ export default function ScorePanel() {
             layerGroups={effectiveLayerGroups}
             leftHeaderRef={leftHeaderRef}
             onLeftScroll={handleLeftHeaderScroll}
+            onManage={() => setManageDialogOpen(true)}
           />
         }
         second={
           <div
             ref={scrollContainerRef}
-            className="h-full overflow-auto"
+            className="score-timeline-scroll h-full w-full overflow-auto"
             onScroll={handleTimelineScroll}
           >
-            <ColumnHeader
-              timeState={timeState}
-              markers={score.markers}
-              meters={transport.meterMap.entries}
-              tempoMap={transport.tempoMap}
-              totalBeats={totalBeats}
-              pixelsPerBeat={pixelsPerBeat}
-              sampleRate={transport.sampleRate}
-            />
-            <LayerPanel
-              layerGroups={effectiveLayerGroups}
-              onOpenNested={navigateToGroup}
-              pixelsPerBeat={pixelsPerBeat}
-              totalBeats={totalBeats}
-              snapEnabled={snapEnabled}
-              snapValue={snapValue}
-              tempo={
-                transport.tempoMap.points.length > 0
-                  ? transport.tempoMap.points[0].tempo
-                  : 60
-              }
-              smpteFrameRate={timeState.smpteFrameRate || 24}
-            />
+            <div className="relative">
+              <ColumnHeader
+                timeState={timeState}
+                markers={score.markers}
+                meters={transport.meterMap.entries}
+                tempoMap={transport.tempoMap}
+                totalBeats={totalBeats}
+                pixelsPerBeat={pixelsPerBeat}
+                sampleRate={transport.sampleRate}
+                renderStartTime={transport.renderStartTime}
+                renderEndTime={transport.renderEndTime}
+                snapEnabled={snapEnabled}
+                snapValue={snapValue}
+                timePointerBeats={timePointerBeats}
+                scrollContainerRef={scrollContainerRef}
+                rootTimelineOnly={isRootTimeline}
+                tempo={initialTempo}
+                rulerMouseDown={rulerMouseDown}
+              />
+              <ScoreOverlayLines
+                renderStartTime={transport.renderStartTime}
+                renderEndTime={transport.renderEndTime}
+                timePointerBeats={timePointerBeats}
+                pixelsPerBeat={pixelsPerBeat}
+              >
+                <LayerPanel
+                  layerGroups={effectiveLayerGroups}
+                  onOpenNested={navigateToGroup}
+                  pixelsPerBeat={pixelsPerBeat}
+                  totalBeats={totalBeats}
+                  snapEnabled={snapEnabled}
+                  snapValue={snapValue}
+                  tempo={
+                    transport.tempoMap.points.length > 0
+                      ? transport.tempoMap.points[0].tempo
+                      : 60
+                  }
+                  smpteFrameRate={timeState.smpteFrameRate || 24}
+                />
+              </ScoreOverlayLines>
+            </div>
           </div>
         }
       />
@@ -233,6 +349,13 @@ export default function ScorePanel() {
           timeState={timeState}
           onApply={handleRulerConfigApply}
           onClose={() => setRulerDialogOpen(false)}
+        />
+      )}
+
+      {manageDialogOpen && (
+        <ScoreManagerDialog
+          score={score}
+          onClose={() => setManageDialogOpen(false)}
         />
       )}
     </div>
@@ -247,6 +370,7 @@ interface LeftPanelProps {
   layerGroups: ScoreLayerGroupSnapshot[];
   leftHeaderRef: React.RefObject<HTMLDivElement | null>;
   onLeftScroll: () => void;
+  onManage: () => void;
 }
 
 function LeftPanel({
@@ -257,6 +381,7 @@ function LeftPanel({
   layerGroups,
   leftHeaderRef,
   onLeftScroll,
+  onManage,
 }: LeftPanelProps) {
   const visibleGroups = layerGroups;
 
@@ -288,7 +413,10 @@ function LeftPanel({
           </RowHeader>
         )}
         <RowHeader onContextMenu={onRowVisibilityChange} center rowVisibility={timeState}>
-          <button className="text-[9px] text-blue-muted hover:text-blue-text px-2 py-0 border border-blue-border/30 rounded-sm bg-blue-surface/50 hover:bg-blue-surface">
+          <button
+            className="text-[9px] text-blue-muted hover:text-blue-text px-2 py-0 border border-blue-border/30 rounded-sm bg-blue-surface/50 hover:bg-blue-surface"
+            onClick={onManage}
+          >
             Manage
           </button>
         </RowHeader>
@@ -655,4 +783,40 @@ function computeTotalBeats(score: ScoreDocumentSnapshot): number {
     }
   }
   return maxBeat + 16;
+}
+
+function elapsedSecondsToBeats(seconds: number, tempoMap: TempoMapSnapshot): number {
+  if (!tempoMap.enabled || tempoMap.points.length === 0) {
+    return seconds;
+  }
+  const points = [...tempoMap.points].sort((a, b) => a.beat - b.beat);
+  const t0 = points[0]!.tempo;
+  if (points.length === 1) {
+    return seconds * (t0 / 60);
+  }
+  const cumSec: number[] = [0];
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]!;
+    const cur = points[i]!;
+    const deltaBeats = cur.beat - prev.beat;
+    if (deltaBeats <= 0) { cumSec.push(cumSec[i - 1]!); continue; }
+    const f1 = 60 / prev.tempo;
+    const accel = (60 / cur.tempo - f1) / deltaBeats;
+    cumSec.push(cumSec[i - 1]! + f1 * deltaBeats + 0.5 * accel * deltaBeats * deltaBeats);
+  }
+  let idx = 0;
+  for (let i = points.length - 1; i >= 0; i--) {
+    if (seconds >= cumSec[i]!) { idx = i; break; }
+  }
+  const p = points[idx]!;
+  const elapsed = seconds - cumSec[idx]!;
+  if (idx >= points.length - 1) {
+    return p.beat + elapsed * (p.tempo / 60);
+  }
+  const next = points[idx + 1]!;
+  const f1 = 60 / p.tempo;
+  const accel = (60 / next.tempo - f1) / (next.beat - p.beat);
+  if (accel === 0) return p.beat + elapsed / f1;
+  const disc = f1 * f1 + 2 * accel * elapsed;
+  return p.beat + (Math.sqrt(Math.max(0, disc)) - f1) / accel;
 }

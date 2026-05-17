@@ -16,6 +16,7 @@ interface Props {
   onSnapToggle: (enabled: boolean) => void;
   onSnapValueChange: (value: SnapValueName) => void;
   onRulerConfig: () => void;
+  onManage: () => void;
 }
 
 const MODE_OPTIONS: { value: ScoreMode; label: string }[] = [
@@ -43,6 +44,7 @@ export default function ScoreToolbar({
   onSnapToggle,
   onSnapValueChange,
   onRulerConfig,
+  onManage,
 }: Props) {
   const snapDef = getSnapValue(snapValue);
 
@@ -174,6 +176,15 @@ export default function ScoreToolbar({
         title="Ruler configuration"
       >
         Ruler
+      </button>
+
+      {/* Manage button */}
+      <button
+        className="px-2 py-0.5 text-[11px] border border-blue-border/40 rounded bg-blue-surface hover:bg-blue-hover text-blue-text cursor-pointer transition-colors ml-1"
+        onClick={onManage}
+        title="Manage score structure"
+      >
+        Manage
       </button>
     </div>
   );

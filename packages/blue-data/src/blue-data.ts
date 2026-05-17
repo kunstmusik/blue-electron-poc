@@ -206,13 +206,16 @@ export class BlueData implements BlueDataObject {
   }
   setRenderStartTime(t: number): void {
     this.renderStartTime = t;
+    if (this.renderStartTime >= this.renderEndTime) {
+      this.renderEndTime = -1;
+    }
   }
 
   getRenderEndTime(): number {
     return this.renderEndTime;
   }
   setRenderEndTime(t: number): void {
-    this.renderEndTime = t;
+    this.renderEndTime = t <= this.renderStartTime ? -1 : t;
   }
 
   isLoopRendering(): boolean {

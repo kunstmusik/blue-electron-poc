@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import type { PlaybackClockSnapshot } from '../../shared/project-editor';
+import type {
+  PlaybackClockSnapshot,
+  ToolbarProjectTransportSnapshot,
+} from '../../shared/project-editor';
+import { useProjectStore } from './project-store';
 
 export type PlaybackStatus = 'idle' | 'starting' | 'playing' | 'stopping' | 'stopped' | 'error';
 
@@ -20,13 +24,17 @@ export interface PlaybackDisplayState {
   source: PlaybackClockSource;
 }
 
+export type PlaybackTransportAnchor = ToolbarProjectTransportSnapshot;
+
 interface PlaybackState {
   isPlaying: boolean;
   status: PlaybackStatus;
   message: string;
   followPlayback: boolean;
+  followPlaybackOnStart: boolean;
   clock: PlaybackClockState | null;
   display: PlaybackDisplayState;
+  transportAnchor: PlaybackTransportAnchor | null;
 }
 
 interface PlaybackActions {
@@ -37,6 +45,8 @@ interface PlaybackActions {
   setError: (error: string) => void;
   acceptPlaybackClock: (snapshot: PlaybackClockSnapshot) => void;
   toggleFollowPlayback: () => void;
+  toggleFollowPlaybackOnStart: () => void;
+  tickDisplay: () => void;
   reset: () => void;
 }
 
@@ -70,13 +80,34 @@ export function derivePlaybackDisplayState(
   };
 }
 
+function clonePlaybackTransportAnchor(
+  transport: ToolbarProjectTransportSnapshot,
+): PlaybackTransportAnchor {
+  return {
+    renderStartTime: transport.renderStartTime,
+    renderEndTime: transport.renderEndTime,
+    loopRendering: transport.loopRendering,
+    tempoMap: {
+      enabled: transport.tempoMap.enabled,
+      points: transport.tempoMap.points.map((point) => ({ ...point })),
+    },
+    meterMap: {
+      entries: transport.meterMap.entries.map((entry) => ({ ...entry })),
+    },
+    sampleRate: transport.sampleRate,
+    smpteFrameRate: transport.smpteFrameRate,
+  };
+}
+
 export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, get) => ({
   isPlaying: false,
   status: 'idle',
   message: '',
   followPlayback: true,
+  followPlaybackOnStart: true,
   clock: null,
   display: createIdlePlaybackDisplayState(),
+  transportAnchor: null,
 
   togglePlay: async () => {
     if (get().status === 'starting' || get().status === 'stopping') {
@@ -97,6 +128,21 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
         display: createIdlePlaybackDisplayState(),
       });
 
+      if (get().followPlaybackOnStart) {
+        set({ followPlayback: true });
+        window.blueAPI.syncFollowPlaybackState?.(true);
+      }
+
+      await useProjectStore.getState().flushPendingPatches();
+
+      const transportAnchor = clonePlaybackTransportAnchor(
+        useProjectStore.getState().transport,
+      );
+      set((state) => ({
+        ...state,
+        transportAnchor,
+      }));
+
       const playing = await window.blueAPI.togglePlay();
 
       if (get().status === 'starting') {
@@ -104,6 +150,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
           isPlaying: playing,
           status: playing ? 'playing' : 'stopped',
           message: playing ? 'Playing via blue-engine' : '',
+          transportAnchor: playing ? transportAnchor : null,
         });
       }
     } catch (err: unknown) {
@@ -135,25 +182,32 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
         ? status
         : 'idle';
 
-    const nextState: Partial<PlaybackState> = {
-      status: normalizedStatus,
-      isPlaying: normalizedStatus === 'playing' || normalizedStatus === 'stopping',
-      message: message || '',
-    };
+    set((state) => {
+      const nextState: Partial<PlaybackState> = {
+        status: normalizedStatus,
+        isPlaying: normalizedStatus === 'playing' || normalizedStatus === 'stopping',
+        message: message || '',
+      };
 
-    if (normalizedStatus === 'starting') {
-      nextState.clock = null;
-      nextState.display = createIdlePlaybackDisplayState();
-    } else if (
-      normalizedStatus === 'idle' ||
-      normalizedStatus === 'stopped' ||
-      normalizedStatus === 'error'
-    ) {
-      nextState.clock = null;
-      nextState.display = createIdlePlaybackDisplayState();
-    }
+      if (normalizedStatus === 'starting') {
+        nextState.clock = null;
+        nextState.display = createIdlePlaybackDisplayState();
+      } else if (
+        normalizedStatus === 'idle' ||
+        normalizedStatus === 'stopped' ||
+        normalizedStatus === 'error'
+      ) {
+        nextState.clock = null;
+        nextState.display = createIdlePlaybackDisplayState();
+        nextState.transportAnchor = null;
+      } else if (normalizedStatus === 'playing' && state.transportAnchor === null) {
+        nextState.transportAnchor = clonePlaybackTransportAnchor(
+          useProjectStore.getState().transport,
+        );
+      }
 
-    set(nextState);
+      return nextState;
+    });
   },
 
   setError: (error) => {
@@ -163,6 +217,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
       message: error,
       clock: null,
       display: createIdlePlaybackDisplayState(),
+      transportAnchor: null,
     });
   },
 
@@ -208,14 +263,30 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
     }));
   },
 
+  toggleFollowPlaybackOnStart: () => {
+    set((state) => ({
+      followPlaybackOnStart: !state.followPlaybackOnStart,
+    }));
+  },
+
+  tickDisplay: () => {
+    const { clock } = get();
+    if (!clock) return;
+    set({
+      display: derivePlaybackDisplayState(clock, Date.now()),
+    });
+  },
+
   reset: () => {
     set({
       isPlaying: false,
       status: 'idle',
       message: '',
       followPlayback: true,
+      followPlaybackOnStart: true,
       clock: null,
       display: createIdlePlaybackDisplayState(),
+      transportAnchor: null,
     });
   },
 }));

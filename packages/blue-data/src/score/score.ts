@@ -27,7 +27,7 @@ export class Score extends Array<LayerGroup<Layer>> {
 
   constructor(other?: Score) {
     super();
-    if (other) {
+    if (other instanceof Score) {
       this.timeContext = new TimeContext(other.timeContext);
       this.timeState = new TimeState(other.timeState);
       this.npc = new NoteProcessorChain(other.npc);
@@ -35,7 +35,7 @@ export class Score extends Array<LayerGroup<Layer>> {
         this.push(layerGroup.deepCopyLG() as LayerGroup<Layer>);
       }
       this.timeContext.setSmpteFrameRate(this.timeState.getSmpteFrameRate());
-    } else {
+    } else if (!other) {
       const rootPolyObject = new PolyObject(true);
       rootPolyObject.newLayerAt(-1);
       this.push(rootPolyObject);

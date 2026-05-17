@@ -113,6 +113,7 @@ export interface ScoreTimeStateSnapshot {
 export interface MarkerSnapshot {
   name: string;
   time: number;
+  timeBase: string;
   sourceIndex: number;
 }
 
@@ -430,7 +431,21 @@ export type ScorePatch =
       type: 'removeLayer';
       groupId: string;
       layerIndex: number;
-    };
+    }
+  | {
+      type: 'moveLayer';
+      groupId: string;
+      layerIndex: number;
+      targetIndex: number;
+    }
+  | { type: 'renameLayer'; groupId: string; layerIndex: number; name: string }
+  | { type: 'addMarker'; timeBeats: number; name?: string }
+  | { type: 'updateMarker'; sourceIndex: number; patch: { name?: string; timeBeats?: number; timeBase?: string } }
+  | { type: 'removeMarker'; sourceIndex: number }
+  | { type: 'moveLayerGroup'; groupId: string; targetIndex: number }
+  | { type: 'renameLayerGroup'; groupId: string; name: string }
+  | { type: 'addLayerGroup'; insertAtIndex?: number }
+  | { type: 'removeLayerGroup'; groupId: string };
 
 // ─── End Score Snapshot Types ───
 
@@ -1892,14 +1907,15 @@ function createMarkerSnapshots(data: BlueData): MarkerSnapshot[] {
   const markers: MarkerSnapshot[] = [];
   const markersList = data.getMarkersList();
   if (!markersList) return markers;
+  const context = data.getScore().getTimeContext();
   const elements = markersList.getMarkers();
   for (let i = 0; i < elements.length; i++) {
     const elem = elements[i];
     if (!elem) continue;
     const name = elem.getAttribute('name') ?? elem.getName() ?? '';
-    const timeText = elem.getTextString() ?? elem.getAttribute('time') ?? '0';
-    const time = parseFloat(timeText) || 0;
-    markers.push({ name, time, sourceIndex: i });
+    const position = markersList.getMarkerTimePosition(i);
+    const time = position.toBeats(context);
+    markers.push({ name, time, timeBase: position.getTimeBase(), sourceIndex: i });
   }
   return markers;
 }
@@ -4337,6 +4353,58 @@ function findPolyObjectByGroupIdRecursive(pObj: PolyObject, groupId: string): Po
   return null;
 }
 
+type ManagedLayerGroup = PolyObject | AudioLayerGroup | PatternsLayerGroup;
+
+function isManagedLayerGroup(value: unknown): value is ManagedLayerGroup {
+  return value instanceof PolyObject || value instanceof AudioLayerGroup || value instanceof PatternsLayerGroup;
+}
+
+function findLayerGroupByGroupId(score: Score, groupId: string): ManagedLayerGroup | null {
+  for (let i = 0; i < score.length; i++) {
+    const lg = score[i];
+    if (!isManagedLayerGroup(lg)) continue;
+    if (assignLayerGroupId(lg) === groupId) return lg;
+    if (lg instanceof PolyObject) {
+      const found = findPolyObjectByGroupIdRecursive(lg, groupId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function findRootLayerGroupIndexByGroupId(score: Score, groupId: string): number {
+  for (let i = 0; i < score.length; i++) {
+    const lg = score[i];
+    if (isManagedLayerGroup(lg) && assignLayerGroupId(lg) === groupId) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function moveLayerInManagedGroup(
+  group: ManagedLayerGroup,
+  layerIndex: number,
+  targetIndex: number,
+): boolean {
+  if (group instanceof PolyObject) {
+    const [layer] = group.splice(layerIndex, 1);
+    if (!layer) return false;
+    group.splice(targetIndex, 0, layer);
+    return true;
+  }
+  if (group instanceof AudioLayerGroup) {
+    const [layer] = group.splice(layerIndex, 1);
+    if (!layer) return false;
+    group.splice(targetIndex, 0, layer);
+    return true;
+  }
+  const [layer] = group.splice(layerIndex, 1);
+  if (!layer) return false;
+  group.splice(targetIndex, 0, layer);
+  return true;
+}
+
 function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: 'addScoreObjects' }): boolean {
   const score = data.getScore();
 
@@ -4428,6 +4496,32 @@ function removeScoreObjectByTarget(data: BlueData, target: ScoreObjectEditorTarg
   return true;
 }
 
+function applyMoveLayerGroupPatch(data: BlueData, patch: ScorePatch & { type: 'moveLayerGroup' }): boolean {
+  const score = data.getScore();
+  const sourceIdx = findRootLayerGroupIndexByGroupId(score, patch.groupId);
+  if (sourceIdx === -1) return false;
+  const clampedTarget = Math.max(0, Math.min(patch.targetIndex, score.length - 1));
+  if (sourceIdx === clampedTarget) return false;
+  const [removed] = score.splice(sourceIdx, 1);
+  score.splice(clampedTarget, 0, removed);
+  return true;
+}
+
+function applyRenameLayerGroupPatch(data: BlueData, patch: ScorePatch & { type: 'renameLayerGroup' }): boolean {
+  const targetGroup = findLayerGroupByGroupId(data.getScore(), patch.groupId);
+  if (!targetGroup) return false;
+  targetGroup.setName(patch.name);
+  return true;
+}
+
+function applyRemoveLayerGroupPatch(data: BlueData, patch: ScorePatch & { type: 'removeLayerGroup' }): boolean {
+  const score = data.getScore();
+  const idx = findRootLayerGroupIndexByGroupId(score, patch.groupId);
+  if (idx === -1) return false;
+  score.splice(idx, 1);
+  return true;
+}
+
 function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
   if (patch.type === 'addScoreObjects') {
     return applyAddScoreObjectsPatch(data, patch);
@@ -4449,7 +4543,7 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
 
   if (patch.type === 'addLayer') {
     const score = data.getScore();
-    const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
+    const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
     if (!targetGroup) return false;
     targetGroup.newLayerAt(patch.layerIndex + 1);
     return true;
@@ -4457,7 +4551,7 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
 
   if (patch.type === 'removeLayer') {
     const score = data.getScore();
-    const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
+    const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
     if (!targetGroup) return false;
     if (patch.layerIndex >= 0 && patch.layerIndex < targetGroup.length) {
       targetGroup.removeLayers(patch.layerIndex, patch.layerIndex);
@@ -4465,8 +4559,79 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
     return true;
   }
 
+  if (patch.type === 'moveLayer') {
+    const score = data.getScore();
+    const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
+    if (!targetGroup) return false;
+    const { layerIndex, targetIndex } = patch;
+    if (layerIndex < 0 || layerIndex >= targetGroup.length) return false;
+    const clampedTarget = Math.max(0, Math.min(targetIndex, targetGroup.length - 1));
+    if (layerIndex === clampedTarget) return false;
+    return moveLayerInManagedGroup(targetGroup, layerIndex, clampedTarget);
+  }
+
+  if (patch.type === 'renameLayer') {
+    const score = data.getScore();
+    const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
+    if (!targetGroup) return false;
+    if (patch.layerIndex < 0 || patch.layerIndex >= targetGroup.length) return false;
+    targetGroup[patch.layerIndex]!.setName(patch.name);
+    return true;
+  }
+
+  if (patch.type === 'addLayerGroup') {
+    const score = data.getScore();
+    const pObj = new PolyObject(true);
+    const insertAt = patch.insertAtIndex ?? score.length;
+    score.splice(insertAt, 0, pObj);
+    return true;
+  }
+
   if (patch.type === 'updateTimeState') {
     return applyScoreTimeStatePatch(data, patch.patch);
+  }
+
+  if (patch.type === 'addMarker') {
+    const name = patch.name ?? `Marker ${data.getMarkersList().size() + 1}`;
+    const context = data.getScore().getTimeContext();
+    const targetBase = data.getScore().getTimeState().getTimeDisplay();
+    data.getMarkersList().addMarkerPosition(name, beatsToTimePosition(patch.timeBeats, targetBase, context));
+    return true;
+  }
+
+  if (patch.type === 'updateMarker') {
+    const ml = data.getMarkersList();
+    if (patch.patch.name !== undefined) {
+      ml.setMarkerName(patch.sourceIndex, patch.patch.name);
+    }
+    if (patch.patch.timeBeats !== undefined || patch.patch.timeBase !== undefined) {
+      const context = data.getScore().getTimeContext();
+      const currentPosition = ml.getMarkerTimePosition(patch.sourceIndex);
+      const targetBase = (patch.patch.timeBase ?? currentPosition.getTimeBase()) as TimeBase;
+      const targetBeats = patch.patch.timeBeats ?? currentPosition.toBeats(context);
+      ml.setMarkerTimePosition(
+        patch.sourceIndex,
+        beatsToTimePosition(targetBeats, targetBase, context),
+      );
+    }
+    return true;
+  }
+
+  if (patch.type === 'removeMarker') {
+    data.getMarkersList().removeMarker(patch.sourceIndex);
+    return true;
+  }
+
+  if (patch.type === 'moveLayerGroup') {
+    return applyMoveLayerGroupPatch(data, patch);
+  }
+
+  if (patch.type === 'renameLayerGroup') {
+    return applyRenameLayerGroupPatch(data, patch);
+  }
+
+  if (patch.type === 'removeLayerGroup') {
+    return applyRemoveLayerGroupPatch(data, patch);
   }
 
   const target = (patch as { target: ScoreObjectEditorTargetSnapshot }).target;

@@ -1,17 +1,62 @@
+// @vitest-environment jsdom
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   derivePlaybackDisplayState,
   usePlaybackStore,
 } from '../stores/playback-store';
+import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
+import { useProjectStore } from '../stores/project-store';
+
+function seedProject(renderStartTime = 8): void {
+  const snapshot = createEmptyProjectEditorSnapshot();
+
+  useProjectStore.getState().setProjectInfo({
+    title: 'Playback Test',
+    author: 'Test Author',
+    sampleRate: '44100',
+    version: '2.10.0',
+    filePath: '/tmp/playback-test.blue',
+    loaded: true,
+    globalOrc: snapshot.globalOrc,
+    globalSco: snapshot.globalSco,
+    orchestra: {
+      ...snapshot.orchestra,
+      loaded: true,
+    },
+    projectProperties: {
+      ...snapshot.projectProperties,
+      title: 'Playback Test',
+      author: 'Test Author',
+    },
+    transport: {
+      ...snapshot.transport,
+      renderStartTime,
+      tempoMap: {
+        enabled: true,
+        points: [
+          { beat: 0, tempo: 120, curveType: 'constant' },
+          { beat: 8, tempo: 120, curveType: 'constant' },
+        ],
+      },
+    },
+  });
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
   usePlaybackStore.getState().reset();
+  useProjectStore.getState().clearProject();
+  (window as typeof window & { blueAPI?: unknown }).blueAPI = {
+    togglePlay: vi.fn().mockResolvedValue(true),
+    stopPlayback: vi.fn().mockResolvedValue(undefined),
+  };
 });
 
 afterEach(() => {
   usePlaybackStore.getState().reset();
+  useProjectStore.getState().clearProject();
   vi.useRealTimers();
 });
 
@@ -81,5 +126,18 @@ describe('playback store authoritative clock', () => {
     expect(usePlaybackStore.getState().display.sampleFrames).toBe(0);
     expect(usePlaybackStore.getState().display.elapsedSeconds).toBe(0);
     expect(usePlaybackStore.getState().display.source).toBe('idle-anchor');
+  });
+
+  it('captures a stable transport anchor at playback start', async () => {
+    seedProject(8);
+
+    await usePlaybackStore.getState().togglePlay();
+
+    expect(usePlaybackStore.getState().transportAnchor?.renderStartTime).toBe(8);
+
+    seedProject(20);
+
+    expect(usePlaybackStore.getState().transportAnchor?.renderStartTime).toBe(8);
+    expect(usePlaybackStore.getState().transportAnchor?.tempoMap.points[0]?.tempo).toBe(120);
   });
 });

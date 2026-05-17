@@ -141,6 +141,68 @@ describe('Toolbar display render isolation', () => {
     tree.unmount();
   });
 
+  it('keeps the playhead anchored to playback-start transport when render start changes mid-playback', () => {
+    seedProject();
+
+    const tree = renderRoot(<ToolbarDisplays />);
+
+    act(() => {
+      usePlaybackStore.setState((state) => ({
+        ...state,
+        status: 'playing',
+        transportAnchor: {
+          ...useProjectStore.getState().transport,
+          tempoMap: {
+            ...useProjectStore.getState().transport.tempoMap,
+            points: useProjectStore.getState().transport.tempoMap.points.map((point) => ({ ...point })),
+          },
+          meterMap: {
+            entries: useProjectStore.getState().transport.meterMap.entries.map((entry) => ({ ...entry })),
+          },
+        },
+        clock: {
+          sessionId: 1,
+          sampleFrames: 0,
+          sequence: 0,
+          sampleRate: 44100,
+          ksmps: 64,
+          receivedAtMs: Date.now(),
+        },
+        display: {
+          sampleFrames: 44100,
+          elapsedSeconds: 1,
+          source: 'engine-authority',
+        },
+      }));
+    });
+
+    expect(tree.container.querySelector('.toolbar-display-main--playhead')?.textContent).toBe('10.00');
+
+    act(() => {
+      const current = useProjectStore.getState();
+      useProjectStore.getState().setProjectInfo({
+        title: current.title,
+        author: current.author,
+        sampleRate: current.sampleRate,
+        version: current.version,
+        filePath: current.filePath,
+        loaded: current.loaded,
+        globalOrc: current.globalOrc,
+        globalSco: current.globalSco,
+        orchestra: current.orchestra,
+        projectProperties: current.projectProperties,
+        transport: {
+          ...current.transport,
+          renderStartTime: 20,
+        },
+      });
+    });
+
+    expect(tree.container.querySelector('.toolbar-display-main--playhead')?.textContent).toBe('10.00');
+
+    tree.unmount();
+  });
+
   it('does not recompute selection text during local playhead interpolation ticks', () => {
     seedProject();
 

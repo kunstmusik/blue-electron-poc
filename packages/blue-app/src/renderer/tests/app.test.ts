@@ -52,6 +52,7 @@ const mockLocalStorage: Storage = {
 };
 
 beforeEach(() => {
+  vi.useRealTimers();
   vi.stubGlobal('window', { blueAPI: mockBlueAPI });
   vi.stubGlobal('localStorage', mockLocalStorage);
   // Reset all stores
@@ -61,6 +62,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
   __testClearPendingPatches();
@@ -620,7 +622,10 @@ describe('Playback Store', () => {
     expect(usePlaybackStore.getState().status).toBe('starting');
     expect(usePlaybackStore.getState().isPlaying).toBe(false);
 
-    resolveToggle?.(true);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(mockBlueAPI.togglePlay).toHaveBeenCalledOnce();
+    expect(resolveToggle).toBeDefined();
+    resolveToggle!(true);
     await pending;
 
     expect(usePlaybackStore.getState().status).toBe('playing');
@@ -638,10 +643,12 @@ describe('Playback Store', () => {
     const first = usePlaybackStore.getState().togglePlay();
     const second = usePlaybackStore.getState().togglePlay();
 
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(mockBlueAPI.togglePlay).toHaveBeenCalledOnce();
     expect(usePlaybackStore.getState().status).toBe('starting');
 
-    resolveToggle?.(true);
+    expect(resolveToggle).toBeDefined();
+    resolveToggle!(true);
     await first;
     await second;
 
@@ -753,14 +760,14 @@ describe('Toolbar Shell', () => {
     };
 
     const playhead = buildPlayheadDisplayState(transport, playback);
-    const selection = buildSelectionDisplayState(transport);
+    const selection = buildSelectionDisplayState(transport, TimeBase.BEATS);
 
     expect(playhead.primaryText).toBe('10.00');
     expect(playhead.secondaryText).toBe('0:05.000');
     expect(playhead.source).toBe('engine-authority');
-    expect(selection.startText).toBe('8.00 / 0:04.000');
-    expect(selection.endText).toBe('12.00 / 0:06.000');
-    expect(selection.durationText).toBe('4.00 / 0:02.000');
+    expect(selection.startText).toBe('8.00');
+    expect(selection.endText).toBe('12.00');
+    expect(selection.durationText).toBe('4.00');
   });
 
   it('formats BBF with canonical hundredths in the toolbar', () => {

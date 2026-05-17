@@ -80,6 +80,7 @@ function isUnsupportedIpcEndpointError(stderr: string): boolean {
 }
 
 export type EngineOutputCallback = (text: string, type: 'stdout' | 'stderr') => void;
+export type PlaybackCompleteCallback = (stopReason: string) => void;
 
 export class EngineBridge {
   private engineProcess: ChildProcess | null = null;
@@ -95,6 +96,7 @@ export class EngineBridge {
   private statePollingTimer: ReturnType<typeof setInterval> | null = null;
   private engineStateUnsubscribe: (() => void) | null = null;
   private outputCallback: EngineOutputCallback | null = null;
+  private playbackCompleteCallback: PlaybackCompleteCallback | null = null;
   private awaitingPlaybackTerminalState = false;
   private lastEngineStateSequence = 0;
   private pendingPolledTerminalState: PendingTerminalStateCandidate | null = null;
@@ -119,6 +121,10 @@ export class EngineBridge {
 
   setOutputCallback(cb: EngineOutputCallback | null): void {
     this.outputCallback = cb;
+  }
+
+  setPlaybackCompleteCallback(cb: PlaybackCompleteCallback | null): void {
+    this.playbackCompleteCallback = cb;
   }
 
   setWorkingDirectory(directory?: string | null): void {
@@ -315,9 +321,11 @@ export class EngineBridge {
 
     this.terminalCleanupPromise = (async () => {
       this.isPlaying = false;
+      const stopReason = snapshot.stopReason ?? 'none';
       await this.teardownClient();
       this.killEngineProcess();
       this.sendPlaybackStatus(status, message);
+      this.playbackCompleteCallback?.(stopReason);
     })().finally(() => {
       this.terminalCleanupPromise = null;
     });

@@ -16,6 +16,7 @@ import OutputPanel from './panels/output/OutputPanel';
 import ScorePanel from './panels/ScorePanel';
 import ScoreObjectPropertiesPanel from './panels/ScoreObjectPropertiesPanel';
 import ScoreObjectEditorPanel from './panels/ScoreObjectEditorPanel';
+import MarkersPanel from './panels/MarkersPanel';
 
 const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
   function DockviewPanel(props, ref) {
@@ -60,6 +61,8 @@ const DockviewPanel = forwardRef<HTMLDivElement, IDockviewPanelProps>(
             <ScoreObjectPropertiesPanel />
           ) : descriptor.id === 'ScoreObjectEditorTopComponent' ? (
             <ScoreObjectEditorPanel />
+          ) : descriptor.id === 'MarkersTopComponent' ? (
+            <MarkersPanel />
           ) : (
             <PlaceholderPanel descriptor={descriptor} showHeader={false} />
           )}
