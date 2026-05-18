@@ -86,4 +86,32 @@ export class PresetGroup {
 
     return group;
   }
+
+  private cloneForDuplicate(presetIdMap: Map<string, string>): PresetGroup {
+    const copy = new PresetGroup();
+    copy.presetGroupName = this.presetGroupName;
+    copy.currentPresetUniqueId = this.currentPresetUniqueId;
+    copy.currentPresetModified = this.currentPresetModified;
+    copy.presets = this.presets.map((preset) => preset.deepCopy(presetIdMap));
+    copy.subGroups = this.subGroups.map((group) => group.cloneForDuplicate(presetIdMap));
+    return copy;
+  }
+
+  private rewriteCurrentPresetIds(presetIdMap: Map<string, string>): void {
+    const nextCurrentId = presetIdMap.get(this.currentPresetUniqueId);
+    if (nextCurrentId) {
+      this.currentPresetUniqueId = nextCurrentId;
+    }
+
+    for (const group of this.subGroups) {
+      group.rewriteCurrentPresetIds(presetIdMap);
+    }
+  }
+
+  deepCopy(): PresetGroup {
+    const presetIdMap = new Map<string, string>();
+    const copy = this.cloneForDuplicate(presetIdMap);
+    copy.rewriteCurrentPresetIds(presetIdMap);
+    return copy;
+  }
 }

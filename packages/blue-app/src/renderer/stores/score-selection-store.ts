@@ -12,6 +12,7 @@ export interface ScoreObjectClipboardEntry {
   layerIndex: number;
   groupId: string;
   editorTarget?: ScoreObjectEditorTargetSnapshot;
+  serializedXml?: string;
 }
 
 export interface ScoreSelectionEntry {

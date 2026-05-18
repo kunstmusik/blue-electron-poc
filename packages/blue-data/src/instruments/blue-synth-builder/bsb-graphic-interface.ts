@@ -23,6 +23,12 @@ import { BSBLabel } from "./bsb-label";
 import { BSBLineObject } from "./bsb-line-object";
 import { BSBWidget } from "./bsb-widget";
 import { Parameter } from "../../automation/parameter";
+import {
+  type BsbWidgetIdRepair,
+  createUniqueBsbWidgetId,
+  findBsbWidgetById,
+  normalizeBsbWidgetIds,
+} from './bsb-identity';
 
 export type GridStyle = "NONE" | "DOT" | "LINE";
 
@@ -56,17 +62,6 @@ const WIDGET_TYPE_REGISTRY: Record<string, BSBWidgetCtor> = {
 
 function createDefaultGridSettings(): GridSettingsData {
   return { enabled: false, snapEnabled: true, width: 10, height: 10, gridStyle: "DOT" };
-}
-
-let _nextWidgetId = 1;
-
-function assignWidgetIds(widgets: BSBWidget[]): void {
-  for (const w of widgets) {
-    if (!w.id) w.id = `w${_nextWidgetId++}`;
-    if (w instanceof BSBGroup) {
-      assignWidgetIds(w.getChildren());
-    }
-  }
 }
 
 export class BSBGraphicInterface {
@@ -103,8 +98,8 @@ export class BSBGraphicInterface {
     this.rootGroup.collectReplacements(unit, parameters);
   }
 
-  loadFromXML(data: Element): void {
-    _nextWidgetId = 1;
+  loadFromXML(data: Element): BsbWidgetIdRepair[] {
+    this.rootGroup = new BSBGroup();
     const editEnabledAttr = data.getAttribute("editEnabled");
     if (editEnabledAttr !== null) this.editEnabled = editEnabledAttr === "true";
 
@@ -122,7 +117,8 @@ export class BSBGraphicInterface {
         }
       }
     }
-    assignWidgetIds(this.rootGroup.getChildren());
+
+    return normalizeBsbWidgetIds(this.rootGroup);
   }
 
   private loadGridSettings(data: Element): void {
@@ -168,18 +164,18 @@ export class BSBGraphicInterface {
     return elem;
   }
 
+  deepCopy(): BSBGraphicInterface {
+    const copy = new BSBGraphicInterface();
+    copy.rootGroup = this.rootGroup.deepCopy();
+    normalizeBsbWidgetIds(copy.rootGroup);
+    copy.gridSettingsRaw = this.gridSettingsRaw;
+    copy.gridSettingsData = { ...this.gridSettingsData };
+    copy.editEnabled = this.editEnabled;
+    return copy;
+  }
+
   findWidgetById(id: string): BSBWidget | null {
-    const visit = (widgets: BSBWidget[]): BSBWidget | null => {
-      for (const w of widgets) {
-        if (w.id === id) return w;
-        if (w instanceof BSBGroup) {
-          const found = visit(w.getChildren());
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-    return visit(this.rootGroup.getChildren());
+    return findBsbWidgetById(this.rootGroup, id);
   }
 
   createWidgetByType(typeName: string): BSBWidget | null {
@@ -187,7 +183,7 @@ export class BSBGraphicInterface {
     if (!Ctor) return null;
     const widget = new Ctor();
     if (!widget.id) {
-      widget.id = `w${_nextWidgetId++}`;
+      widget.id = createUniqueBsbWidgetId(this.rootGroup);
     }
     return widget;
   }
@@ -196,12 +192,13 @@ export class BSBGraphicInterface {
     const remove = (parent: BSBGroup): boolean => {
       if (parent.removeChildById(widgetId)) return true;
       for (const child of parent.getChildren()) {
-        if (child instanceof BSBGroup) {
-          if (remove(child as BSBGroup)) return true;
+        if (child instanceof BSBGroup && remove(child)) {
+          return true;
         }
       }
       return false;
     };
+
     return remove(this.rootGroup);
   }
 }

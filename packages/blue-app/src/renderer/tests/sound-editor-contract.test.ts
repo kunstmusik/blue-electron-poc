@@ -6,6 +6,7 @@ import {
   Sound,
 } from '@blue/data';
 import {
+  createProjectEditorSnapshot,
   createScoreObjectEditorDocument,
   applyProjectDocumentPatch,
   type ScoreObjectEditorTargetSnapshot,
@@ -55,11 +56,10 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
   <instrumentText>instr 1\n  out(oscili(&lt;knob1&gt;, 440))\nendin</instrumentText>
   <alwaysOnInstrumentText></alwaysOnInstrumentText>
   <graphicInterface>
-    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="knob1-id">
       <objectName>knob1</objectName>
       <x>0</x>
       <y>0</y>
-      <id>knob1-id</id>
       <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
@@ -86,11 +86,10 @@ const UNNAMED_AUTOMATABLE_BSB_XML = `<instrument type="blue.orchestra.BlueSynthB
   <instrumentText>instr 1\n  out(oscili(0.5, 440))\nendin</instrumentText>
   <alwaysOnInstrumentText></alwaysOnInstrumentText>
   <graphicInterface>
-    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="knob1-id">
       <objectName></objectName>
       <x>0</x>
       <y>0</y>
-      <id>knob1-id</id>
       <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
@@ -136,6 +135,57 @@ describe('Sound Score Object Editor', () => {
       expect(payload.bsbInstrument!.instrumentText).toContain('oscili');
       expect(payload.bsbInstrument!.objectNames).toContain('knob1');
       expect(payload.availableTabs).toEqual(['interface', 'automation', 'code', 'udo', 'comments']);
+    });
+
+    it('pastes Sound score objects with embedded BSB widgets intact and rekeyed', () => {
+      const { data, target } = createDataWithSound(MINIMAL_BSB_XML);
+      const snapshot = createProjectEditorSnapshot(data, null);
+      const group = snapshot.score.layerGroups[0];
+      if (!group || group.groupType !== 'polyObject') {
+        throw new Error('Expected root polyObject group');
+      }
+      const sourceItem = group.layers[0]?.items[0];
+      if (!sourceItem?.serializedXml) {
+        throw new Error('Expected copied score object XML');
+      }
+
+      const originalDoc = createScoreObjectEditorDocument(data, { target });
+      const originalPayload = (originalDoc.editor as any).payload as SoundEditorPayload;
+      const originalWidget = originalPayload.bsbInstrument?.widgetTree.children?.[0];
+
+      const changed = applyProjectDocumentPatch(data, {
+        score: {
+          type: 'addScoreObjects',
+          groupId: group.groupId,
+          objects: [
+            {
+              layerIndex: 0,
+              objectType: sourceItem.objectType,
+              name: sourceItem.name,
+              startBeats: 8,
+              durationBeats: sourceItem.durationBeats,
+              backgroundColor: sourceItem.backgroundColor,
+              serializedXml: sourceItem.serializedXml,
+            },
+          ],
+        },
+      });
+
+      expect(changed).toBe(true);
+
+      const pastedTarget: ScoreObjectEditorTargetSnapshot = {
+        ...target,
+        selectionId: 'sobj-0-1',
+        location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 1 },
+      };
+      const pastedDoc = createScoreObjectEditorDocument(data, { target: pastedTarget });
+      const pastedPayload = (pastedDoc.editor as any).payload as SoundEditorPayload;
+      const pastedWidget = pastedPayload.bsbInstrument?.widgetTree.children?.[0];
+
+      expect(pastedPayload.bsbInstrument?.objectNames).toContain('knob1');
+      expect(pastedWidget?.type).toBe('BSBKnob');
+      expect(pastedWidget?.id).toBeTruthy();
+      expect(pastedWidget?.id).not.toBe(originalWidget?.id);
     });
 
     it('extracts automation parameters from BSB', () => {

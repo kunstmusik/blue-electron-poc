@@ -8,6 +8,8 @@ import { TimeContext } from '../time/time-context';
 import { PolyObject } from './poly-object';
 import { SoundLayer } from './sound-layer';
 import { Sound } from './sound';
+import { BlueSynthBuilder } from '../instruments/blue-synth-builder';
+import { collectBsbWidgetIds } from '../instruments/blue-synth-builder/bsb-identity';
 
 const BSB_FOR_CSD = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
   <name>TestSound</name>
@@ -46,6 +48,36 @@ outc aout, aout</instrumentText>
       <line name="freq" version="2" max="800.0" min="100.0" bdresolution="-1" color="-8355712" rightBound="true" endPointsLinked="false">
         <linePoint x="0.0" y="100.0"/>
         <linePoint x="0.5" y="300.0"/>
+        <linePoint x="1.0" y="500.0"/>
+      </line>
+    </parameter>
+  </parameterList>
+  <opcodeList/>
+</instrument>`;
+
+const BSB_WITH_IDENTITIES = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
+  <name>IdentitySound</name>
+  <comment></comment>
+  <globalOrc></globalOrc>
+  <globalSco></globalSco>
+  <instrumentText>aout oscili 0.25, &lt;freq&gt;
+outc aout, aout</instrumentText>
+  <alwaysOnInstrumentText></alwaysOnInstrumentText>
+  <graphicInterface>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="sound-widget">
+      <objectName>freq</objectName>
+      <x>0</x>
+      <y>0</y>
+      <label>Freq</label>
+      <value>440</value>
+      <minimum>100</minimum>
+      <maximum>800</maximum>
+    </bsbObject>
+  </graphicInterface>
+  <parameterList>
+    <parameter uniqueId="sound-param" name="freq" label="Freq" min="100.0" max="800.0" bdresolution="-1" automationEnabled="true" value="440.0">
+      <line name="freq" version="2" max="800.0" min="100.0" bdresolution="-1" color="-8355712" rightBound="true" endPointsLinked="false">
+        <linePoint x="0.0" y="100.0"/>
         <linePoint x="1.0" y="500.0"/>
       </line>
     </parameter>
@@ -204,5 +236,38 @@ describe('Sound XML parity', () => {
       { time: 6, value: 300 },
       { time: 10, value: 500 },
     ]);
+  });
+
+  it('preserves embedded BSB identities during ordinary save and reload', () => {
+    const sound = new Sound();
+    sound.setBSBInstrumentText(BSB_WITH_IDENTITIES);
+
+    const savedXml = sound.saveAsXML().toXml();
+    const reloaded = Sound.loadFromXML(Element.parse(savedXml));
+    const reloadedBuilder = BlueSynthBuilder.loadFromXML(Element.parse(reloaded.getBSBInstrumentText()));
+
+    expect(savedXml).toContain('uniqueId="sound-widget"');
+    expect(savedXml).toContain('uniqueId="sound-param"');
+    expect(collectBsbWidgetIds(reloadedBuilder.getGraphicInterface().getRootGroup())).toEqual(['sound-widget']);
+    expect(reloadedBuilder.getParameters().map((parameter) => parameter.getUniqueId())).toEqual(['sound-param']);
+  });
+
+  it('deep-copies embedded BSB data with fresh widget and parameter identities', () => {
+    const sound = new Sound();
+    sound.setBSBInstrumentText(BSB_WITH_IDENTITIES);
+
+    const duplicate = sound.deepCopy() as Sound;
+    const originalBuilder = BlueSynthBuilder.loadFromXML(Element.parse(sound.getBSBInstrumentText()));
+    const duplicateBuilder = BlueSynthBuilder.loadFromXML(Element.parse(duplicate.getBSBInstrumentText()));
+
+    expect(collectBsbWidgetIds(duplicateBuilder.getGraphicInterface().getRootGroup())).not.toEqual(
+      collectBsbWidgetIds(originalBuilder.getGraphicInterface().getRootGroup()),
+    );
+    expect(duplicateBuilder.getParameters().map((parameter) => parameter.getUniqueId())).not.toEqual(
+      originalBuilder.getParameters().map((parameter) => parameter.getUniqueId()),
+    );
+    expect(duplicateBuilder.getParameters().map((parameter) => parameter.getName())).toEqual(
+      originalBuilder.getParameters().map((parameter) => parameter.getName()),
+    );
   });
 });

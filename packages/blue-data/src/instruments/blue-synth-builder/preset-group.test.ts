@@ -80,4 +80,40 @@ describe("PresetGroup", () => {
     const zebraPos = xml.indexOf('name="zebra"');
     expect(alphaPos).toBeLessThan(zebraPos);
   });
+
+  it('duplicates preset group trees with fresh preset ids', () => {
+    const group = new PresetGroup();
+    group.presetGroupName = 'Root';
+    group.currentPresetUniqueId = 'preset-a';
+
+    const preset = new Preset();
+    preset.presetName = 'Preset A';
+    preset.uniqueId = 'preset-a';
+    preset.setValue('gain', 'ver2:0.5');
+
+    const subGroup = new PresetGroup();
+    subGroup.presetGroupName = 'Sub';
+
+    const nestedPreset = new Preset();
+    nestedPreset.presetName = 'Preset B';
+    nestedPreset.uniqueId = 'preset-b';
+    nestedPreset.setValue('gain', 'ver2:0.8');
+
+    subGroup.presets.push(nestedPreset);
+    group.presets.push(preset);
+    group.subGroups.push(subGroup);
+
+    const copy = group.deepCopy();
+    copy.presets[0].setValue('gain', 'ver2:0.2');
+    copy.subGroups[0].presets[0].presetName = 'Changed';
+
+    expect(copy).not.toBe(group);
+    expect(copy.presets[0]).not.toBe(group.presets[0]);
+    expect(copy.subGroups[0]).not.toBe(group.subGroups[0]);
+    expect(copy.presets[0].getUniqueId()).not.toBe('preset-a');
+    expect(copy.subGroups[0].presets[0].getUniqueId()).not.toBe('preset-b');
+    expect(copy.currentPresetUniqueId).toBe(copy.presets[0].getUniqueId());
+    expect(group.presets[0].getValue('gain')).toBe('ver2:0.5');
+    expect(group.subGroups[0].presets[0].getPresetName()).toBe('Preset B');
+  });
 });

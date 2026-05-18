@@ -25,8 +25,8 @@ export class ParameterList extends Array<Parameter> {
 
   deepCopy(): ParameterList {
     const copy = new ParameterList();
-    for (const p of this) {
-      copy.push(p.deepCopy() as Parameter);
+    for (const parameter of this) {
+      copy.push(parameter.deepCopy() as Parameter);
     }
     return copy;
   }

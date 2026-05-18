@@ -30,7 +30,7 @@ describe('BlueSynthBuilder', () => {
       <comment>builder comment</comment>
       <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
       <graphicInterface>
-        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" uniqueId="amp-id">
           <objectName>amp</objectName>
           <x>10</x>
           <y>20</y>
@@ -93,21 +93,23 @@ describe('BlueSynthBuilder', () => {
 
     const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
     const firstId = instrument.getGraphicInterface().getRootGroup().getChildren()[0]?.id;
+    const savedXml = instrument.saveAsXML().toXml();
 
-    const reloaded = BlueSynthBuilder.loadFromXML(Element.parse(instrument.saveAsXML().toXml()));
+    const reloaded = BlueSynthBuilder.loadFromXML(Element.parse(savedXml));
     const secondId = reloaded.getGraphicInterface().getRootGroup().getChildren()[0]?.id;
 
     expect(firstId).toBeTruthy();
+    expect(savedXml).toContain(`uniqueId="${firstId}"`);
+    expect(savedXml).not.toContain('<id>');
     expect(secondId).toBe(firstId);
   });
 
-  it('loads persisted widget ids from XML when present', () => {
+  it('loads persisted widget uniqueIds from XML when present', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Explicit Id</name>
       <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
       <graphicInterface>
-        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
-          <id>knob1-id</id>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" uniqueId="knob1-id">
           <objectName>amp</objectName>
           <x>10</x>
           <y>20</y>
@@ -121,7 +123,31 @@ describe('BlueSynthBuilder', () => {
     expect(instrument.getGraphicInterface().getRootGroup().getChildren()[0]?.id).toBe('knob1-id');
   });
 
-  it('accepts widget patches using ids captured from a separate parse of the same XML', () => {
+  it('still accepts legacy child id elements for widget identity', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Legacy Id</name>
+      <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <id>legacy-knob-id</id>
+          <objectName>amp</objectName>
+          <x>10</x>
+          <y>20</y>
+          <value>0.5</value>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    expect(instrument.getGraphicInterface().getRootGroup().getChildren()[0]?.id).toBe('legacy-knob-id');
+
+    const savedXml = instrument.saveAsXML().toXml();
+    expect(savedXml).toContain('uniqueId="legacy-knob-id"');
+    expect(savedXml).not.toContain('<id>legacy-knob-id</id>');
+  });
+
+  it('accepts widget patches using ids persisted through save and reload', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Patch By Id</name>
       <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
@@ -138,8 +164,9 @@ describe('BlueSynthBuilder', () => {
 
     const initial = BlueSynthBuilder.loadFromXML(Element.parse(xml));
     const widgetId = initial.getGraphicInterface().getRootGroup().getChildren()[0]?.id ?? '';
+    const savedXml = initial.saveAsXML().toXml();
 
-    const reparsed = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const reparsed = BlueSynthBuilder.loadFromXML(Element.parse(savedXml));
     expect(reparsed.updateWidgetProperties(widgetId, { objectName: 'gain' })).toBe(true);
     expect(reparsed.getGraphicInterface().getRootGroup().getChildren()[0]?.objectName).toBe('gain');
   });
@@ -775,10 +802,9 @@ xout aOut</codeBody>
       <name>Range Rescale</name>
       <instrumentText>code</instrumentText>
       <graphicInterface>
-        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="gain-id">
           <objectName>gain</objectName>
           <x>0</x><y>0</y>
-          <id>gain-id</id>
           <automationAllowed>true</automationAllowed>
           <value>0.5</value>
           <minimum>0</minimum>

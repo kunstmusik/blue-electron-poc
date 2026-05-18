@@ -1,8 +1,9 @@
 import { Element } from "../../serialization/xml-reader";
+import { generatePrefixedUuid } from "../../utilities/uuid";
 
 export class Preset {
   presetName = "";
-  uniqueId = "";
+  uniqueId = generatePrefixedUuid('preset');
   private _valuesMap = new Map<string, string>();
 
   getPresetName(): string {
@@ -69,7 +70,10 @@ export class Preset {
   static loadFromXML(data: Element): Preset {
     const preset = new Preset();
     preset.presetName = data.getAttribute("name") ?? "";
-    preset.uniqueId = data.getAttribute("uniqueId") ?? "";
+    const uniqueId = data.getAttribute("uniqueId");
+    if (uniqueId) {
+      preset.uniqueId = uniqueId;
+    }
     const settings = data.getElements("setting");
     while (settings.hasMoreElements()) {
       const setting = settings.next();
@@ -80,5 +84,15 @@ export class Preset {
       }
     }
     return preset;
+  }
+
+  deepCopy(presetIdMap?: Map<string, string>): Preset {
+    const copy = new Preset();
+    copy.presetName = this.presetName;
+    if (this.uniqueId) {
+      presetIdMap?.set(this.uniqueId, copy.uniqueId);
+    }
+    copy._valuesMap = new Map(this._valuesMap);
+    return copy;
   }
 }

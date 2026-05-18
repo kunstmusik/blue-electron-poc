@@ -34,4 +34,23 @@ describe('Parameter compatibility', () => {
 
     expect(parameter.getValue(10)).toBeCloseTo(0.75, 6);
   });
+
+  it('duplicates automation data with a fresh unique id', () => {
+    const parameter = new Parameter();
+    parameter.setUniqueId('p1');
+    parameter.setName('gain');
+    parameter.setLabel('Gain');
+    parameter.setMinimum(0);
+    parameter.setMaximum(1);
+    parameter.setAutomationEnabled(true);
+    parameter.setFixedValue(0.5);
+    parameter.addPoint(0, 0.25);
+    parameter.addPoint(4, 0.75);
+
+    const duplicate = parameter.deepCopy() as Parameter;
+
+    expect(duplicate.getUniqueId()).not.toBe('p1');
+    expect(duplicate.getName()).toBe('gain');
+    expect(duplicate.getPoints()).toEqual(parameter.getPoints());
+  });
 });

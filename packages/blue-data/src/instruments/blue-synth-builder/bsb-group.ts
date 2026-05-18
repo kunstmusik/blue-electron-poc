@@ -129,6 +129,7 @@ export class BSBGroup extends BSBWidget {
 
   loadFromXML(data: Element): void {
     this.loadFromXMLCommon(data);
+    this.clearChildren();
     const gnAttr = data.getAttribute("groupName");
     if (gnAttr) this.groupName = gnAttr;
     const gn = data.getTextString('groupName');
@@ -266,7 +267,7 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
   }
 
   if (widget.id) {
-    addPrimitiveElement(elem, 'id', widget.id);
+    elem.setAttribute('uniqueId', widget.id);
   }
   addPrimitiveElement(elem, 'objectName', widget.objectName);
   addPrimitiveElement(elem, 'x', widget.x);

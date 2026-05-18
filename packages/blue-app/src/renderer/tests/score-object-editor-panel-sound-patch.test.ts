@@ -15,13 +15,12 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
   <instrumentText>instr 1\n  out(oscili(&lt;knob1&gt;, 440))\nendin</instrumentText>
   <alwaysOnInstrumentText></alwaysOnInstrumentText>
   <graphicInterface>
-    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="knob1-id">
       <objectName>knob1</objectName>
       <x>10</x>
       <y>12</y>
       <width>60</width>
       <height>60</height>
-      <id>knob1-id</id>
       <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
@@ -48,13 +47,12 @@ const UNNAMED_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
   <instrumentText>instr 1\n  out(oscili(0.5, 440))\nendin</instrumentText>
   <alwaysOnInstrumentText></alwaysOnInstrumentText>
   <graphicInterface>
-    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="knob1-id">
       <objectName></objectName>
       <x>10</x>
       <y>12</y>
       <width>60</width>
       <height>60</height>
-      <id>knob1-id</id>
       <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
@@ -66,6 +64,37 @@ const UNNAMED_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
   <opcodeList/>
 </instrument>`;
 
+const UUID_STYLE_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
+  <name>UuidBSB</name>
+  <comment></comment>
+  <globalOrc></globalOrc>
+  <globalSco></globalSco>
+  <instrumentText>instr 1\n  out(oscili(&lt;uuidGain&gt;, 440))\nendin</instrumentText>
+  <alwaysOnInstrumentText></alwaysOnInstrumentText>
+  <graphicInterface>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2" uniqueId="w-123e4567-e89b-12d3-a456-426614174000">
+      <objectName>uuidGain</objectName>
+      <x>10</x>
+      <y>12</y>
+      <width>60</width>
+      <height>60</height>
+      <automationAllowed>true</automationAllowed>
+      <label>UUID Gain</label>
+      <value>0.5</value>
+      <minimum>0</minimum>
+      <maximum>1</maximum>
+    </bsbObject>
+  </graphicInterface>
+  <parameterList>
+    <parameter uniqueId="param-123e4567-e89b-12d3-a456-426614174000" name="uuidGain" label="UUID Gain" min="0.0" max="1.0" automationEnabled="true" value="0.5">
+      <line>
+        <linePoint x="0.0" y="0.5"/>
+      </line>
+    </parameter>
+  </parameterList>
+  <opcodeList/>
+</instrument>`;
+
 const SLIDER_BANK_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
   <name>SliderBankBSB</name>
   <comment></comment>
@@ -74,11 +103,10 @@ const SLIDER_BANK_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" 
   <instrumentText>instr 1\n  out(oscili(&lt;bank_0&gt;, 440))\nendin</instrumentText>
   <alwaysOnInstrumentText></alwaysOnInstrumentText>
   <graphicInterface>
-    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank" uniqueId="bank-id">
       <objectName>bank</objectName>
       <x>10</x>
       <y>12</y>
-      <id>bank-id</id>
       <automationAllowed>true</automationAllowed>
       <minimum>0</minimum>
       <maximum>1</maximum>
@@ -218,6 +246,36 @@ describe('ScoreObjectEditorPanel Sound optimistic patching', () => {
         maximum: 0.9,
       },
     ]);
+  });
+
+  it('treats UUID-style widget ids as opaque keys for Sound BSB patches', () => {
+    const widgetId = 'w-123e4567-e89b-12d3-a456-426614174000';
+    const doc = makeSoundDocument(UUID_STYLE_BSB_XML);
+
+    const next = applyPatchToDocument(doc, {
+      type: 'updateTypeSpecificEditor',
+      target: doc.target,
+      patch: {
+        bsbInterfacePatch: {
+          type: 'updateWidgetProperties',
+          widgetId,
+          properties: {
+            objectName: 'uuidGainEdited',
+            value: 0.25,
+          },
+        },
+      },
+    });
+
+    expect(next.editor.kind).toBe('structured');
+    if (next.editor.kind !== 'structured') return;
+
+    const payload = getPayload(next as ReturnType<typeof makeSoundDocument>);
+    const widget = findWidgetById(payload.bsbInstrument?.widgetTree.children, widgetId);
+
+    expect(widget?.objectName).toBe('uuidGainEdited');
+    expect(widget?.value).toBe(0.25);
+    expect(payload.bsbInstrument?.objectNames).toEqual(['uuidGainEdited']);
   });
 
   it('adds and removes Sound BSB widgets optimistically', () => {

@@ -43,6 +43,8 @@ import {
   normalizeBsbLinePatch,
 } from './blue-synth-builder/bsb-line-object';
 import { replaceOpcodeNames } from "../utilities/text";
+import { generatePrefixedUuid } from '../utilities/uuid';
+import { collectBsbWidgets } from './blue-synth-builder/bsb-identity';
 
 function parseUdoBlock(
   block: string,
@@ -173,6 +175,85 @@ function rescaleWidgetRangeMaximum(widget: BSBWidget, newMaximum: number): void 
   }
 }
 
+function dropdownPresetReferenceKey(objectName: string, itemId: string): string {
+  return `${objectName}\0${itemId}`;
+}
+
+function collectDuplicateDropdownItemIdMap(
+  previousRoot: BSBGroup,
+  duplicateRoot: BSBGroup,
+): Map<string, string> {
+  const previousDropdowns = collectBsbWidgets(previousRoot).filter(
+    (widget): widget is BSBDropdown => widget instanceof BSBDropdown,
+  );
+  const duplicateDropdowns = collectBsbWidgets(duplicateRoot).filter(
+    (widget): widget is BSBDropdown => widget instanceof BSBDropdown,
+  );
+  const itemIdMap = new Map<string, string>();
+
+  for (let dropdownIndex = 0; dropdownIndex < previousDropdowns.length; dropdownIndex += 1) {
+    const previousDropdown = previousDropdowns[dropdownIndex];
+    const duplicateDropdown = duplicateDropdowns[dropdownIndex];
+    if (!previousDropdown || !duplicateDropdown || !previousDropdown.objectName) {
+      continue;
+    }
+
+    for (let itemIndex = 0; itemIndex < previousDropdown.dropdownItems.length; itemIndex += 1) {
+      const previousId = previousDropdown.dropdownItems[itemIndex]?.uniqueId;
+      const duplicateId = duplicateDropdown.dropdownItems[itemIndex]?.uniqueId;
+      if (previousId && duplicateId && previousId !== duplicateId) {
+        itemIdMap.set(
+          dropdownPresetReferenceKey(previousDropdown.objectName, previousId),
+          duplicateId,
+        );
+      }
+    }
+  }
+
+  return itemIdMap;
+}
+
+function rewriteDuplicateDropdownPresetReferences(
+  presetGroup: PresetGroup,
+  itemIdMap: Map<string, string>,
+): void {
+  if (itemIdMap.size === 0) {
+    return;
+  }
+
+  for (const preset of presetGroup.getPresets()) {
+    const values = preset.getValuesMap();
+    for (const [objectName, value] of values) {
+      if (!value.startsWith('id:')) {
+        continue;
+      }
+      const nextId = itemIdMap.get(dropdownPresetReferenceKey(objectName, value.substring(3)));
+      if (nextId) {
+        preset.setValue(objectName, `id:${nextId}`);
+      }
+    }
+  }
+
+  for (const group of presetGroup.getSubGroups()) {
+    rewriteDuplicateDropdownPresetReferences(group, itemIdMap);
+  }
+}
+
+function hasLegacyBsbWidgetChildId(element: Element): boolean {
+  if (element.getName() === 'bsbObject' && element.getElement('id') !== null) {
+    return true;
+  }
+
+  const children = element.getElements();
+  while (children.hasMoreElements()) {
+    if (hasLegacyBsbWidgetChildId(children.next())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = "";
   private _alwaysOnInstrumentText = "";
@@ -180,7 +261,7 @@ export class BlueSynthBuilder extends Instrument {
   private _globalSco = "";
   private _graphicInterface = new BSBGraphicInterface();
   private _graphicInterfaceXML: Element | null = null;
-  private _parameters: Parameter[] = [];
+  private _parameters = new ParameterList();
   private _opcodeList = new OpcodeList();
   private _presetGroup: PresetGroup | null = null;
   private _udoReplacementValues: Map<string, string> | null = null;
@@ -188,6 +269,7 @@ export class BlueSynthBuilder extends Instrument {
   constructor(other?: BlueSynthBuilder) {
     super();
     if (other) {
+      const previousRootGroup = other._graphicInterface.getRootGroup();
       this._name = other._name;
       this._enabled = other._enabled;
       this._comment = other._comment;
@@ -196,18 +278,19 @@ export class BlueSynthBuilder extends Instrument {
       this._globalOrc = other._globalOrc;
       this._globalSco = other._globalSco;
       this._editEnabled = other._editEnabled;
-      this._opcodeList = OpcodeList.loadFromXML(other._opcodeList.saveAsXML());
-      this._graphicInterfaceXML = other._graphicInterfaceXML
-        ? Element.parse(other._graphicInterfaceXML.toXml())
-        : null;
-      // Deep copy graphic interface
-      this._graphicInterface = new BSBGraphicInterface();
-      this._graphicInterface.loadFromXML(other._graphicInterface.saveAsXML());
-      // Deep copy parameters
-      this._parameters = other._parameters.map(p => p.deepCopy() as Parameter);
-      // Deep copy preset group
+      this._opcodeList = new OpcodeList(other._opcodeList);
+      this._graphicInterface = other._graphicInterface.deepCopy();
+      this._graphicInterfaceXML = null;
+      this._parameters = other._parameters.deepCopy();
       if (other._presetGroup) {
-        this._presetGroup = PresetGroup.loadFromXML(other._presetGroup.saveAsXML());
+        this._presetGroup = other._presetGroup.deepCopy();
+        rewriteDuplicateDropdownPresetReferences(
+          this._presetGroup,
+          collectDuplicateDropdownItemIdMap(
+            previousRootGroup,
+            this._graphicInterface.getRootGroup(),
+          ),
+        );
       }
     } else {
       this.setName('untitled');
@@ -406,7 +489,7 @@ export class BlueSynthBuilder extends Instrument {
       existingByName.set(parameter.getName(), parameter);
     }
 
-    const nextParameters: Parameter[] = [];
+    const nextParameters = new ParameterList();
     const seenNames = new Set<string>();
     let mutatedWidgetState = false;
 
@@ -786,16 +869,14 @@ export class BlueSynthBuilder extends Instrument {
           if (widget instanceof BSBDropdown && Array.isArray(value)) {
             widget.dropdownItems = value.map((item) => {
               const record = item as Record<string, unknown>;
-                  return {
-                    name: typeof record.name === 'string' ? record.name : '',
-                    value: typeof record.value === 'string' ? record.value : '',
-                    uniqueId: typeof record.uniqueId === 'string' && record.uniqueId.length > 0
-                      ? record.uniqueId
-                      : (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-                          ? `dropdown-${crypto.randomUUID()}`
-                          : `dropdown-${Date.now()}-${Math.random().toString(16).slice(2)}`),
-                  };
-                });
+              return {
+                name: typeof record.name === 'string' ? record.name : '',
+                value: typeof record.value === 'string' ? record.value : '',
+                uniqueId: typeof record.uniqueId === 'string' && record.uniqueId.length > 0
+                  ? record.uniqueId
+                  : generatePrefixedUuid('dropdown'),
+              };
+            });
           }
           break;
         case "fontSize":
@@ -1050,8 +1131,11 @@ export class BlueSynthBuilder extends Instrument {
     // Load graphic interface
     const giElem = data.getElement("graphicInterface");
     if (giElem) {
-      bsb._graphicInterfaceXML = Element.parse(giElem.toXml());
-      bsb._graphicInterface.loadFromXML(giElem);
+      const hasLegacyWidgetIds = hasLegacyBsbWidgetChildId(giElem);
+      const idRepairs = bsb._graphicInterface.loadFromXML(giElem);
+      bsb._graphicInterfaceXML = idRepairs.length === 0 && !hasLegacyWidgetIds
+        ? Element.parse(giElem.toXml())
+        : null;
     }
 
     // Load preset group
@@ -1084,8 +1168,8 @@ export class BlueSynthBuilder extends Instrument {
   /**
    * Load parameters from <parameterList> XML.
    */
-  private static _loadParameters(data: Element): Parameter[] {
-    const parameters: Parameter[] = [];
+  private static _loadParameters(data: Element): ParameterList {
+    const parameters = new ParameterList();
     const paramElems = data.getElements("parameter");
 
     while (paramElems.hasMoreElements()) {

@@ -124,7 +124,7 @@ interface ProjectActions {
   flushPendingPatches: () => Promise<void>;
   moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>) => void;
   removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean }>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
   setLayerMute: (layerId: string, muted: boolean) => void;
   setLayerSolo: (layerId: string, solo: boolean) => void;
   renameLayer: (layerId: string, name: string) => void;
@@ -3198,6 +3198,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
               durationBeats: o.durationBeats,
               backgroundColor: o.backgroundColor,
               isContainer: o.isContainer,
+              serializedXml: o.serializedXml,
               editorTarget: {
                 selectionId: objectId,
                 selectedObjectType: o.objectType,
@@ -3234,6 +3235,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           startBeats: o.startBeats,
           durationBeats: o.durationBeats,
           backgroundColor: o.backgroundColor,
+          serializedXml: o.serializedXml,
+          sourceTarget: o.editorTarget,
         })),
       },
     }).then(() => __testFlushPendingPatches());

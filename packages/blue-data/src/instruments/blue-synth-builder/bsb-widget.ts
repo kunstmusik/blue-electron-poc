@@ -9,6 +9,7 @@ import { Element } from '../../serialization/xml-reader';
 import { BSBCompilationUnit } from './bsb-compilation-unit';
 import { Parameter } from '../../automation/parameter';
 import { formatBlueNumber } from '../../utilities/number-format';
+import { generatePrefixedUuid } from '../../utilities/uuid';
 
 export abstract class BSBWidget {
   objectName = '';
@@ -87,7 +88,7 @@ export abstract class BSBWidget {
   static loadCommonFromXML(widget: BSBWidget, data: Element): void {
     const objName = data.getTextString('objectName');
     if (objName) widget.objectName = objName;
-    const id = data.getTextString('id');
+    const id = data.getAttribute('uniqueId') ?? data.getAttribute('id') ?? data.getTextString('id');
     if (id) widget.id = id;
     const x = data.getTextString('x');
     if (x) widget.x = parseInt(x, 10);
@@ -115,7 +116,7 @@ export abstract class BSBWidget {
     BSBWidget.loadCommonFromXML(this, data);
   }
 
-  deepCopy(): this {
+  private cloneWidget(): this {
     const Ctor = this.constructor as new () => this;
     const clone = new Ctor();
 
@@ -147,7 +148,20 @@ export abstract class BSBWidget {
         (clone as any)[key] = cloneValue(val);
       }
     }
-    clone.id = '';
+
+    clone.id = this.id ? generatePrefixedUuid('w') : '';
+
+    const dropdownItems = (clone as unknown as { dropdownItems?: Array<{ uniqueId?: string }> }).dropdownItems;
+    if (Array.isArray(dropdownItems)) {
+      for (const item of dropdownItems) {
+        item.uniqueId = generatePrefixedUuid('dropdown');
+      }
+    }
+
     return clone;
+  }
+
+  deepCopy(): this {
+    return this.cloneWidget();
   }
 }

@@ -19,7 +19,32 @@ import { BlueSynthBuilder } from '../instruments/blue-synth-builder';
 
 export class Sound extends AbstractSoundObject {
   private _comment = '';
-  private _bsbInstrumentText = '';
+  private _blueSynthBuilder = new BlueSynthBuilder();
+
+  private static loadBlueSynthBuilderFromText(source: string): BlueSynthBuilder {
+    const trimmed = source.trim();
+    if (!trimmed) {
+      return new BlueSynthBuilder();
+    }
+
+    try {
+      const root = Element.parse(trimmed);
+      if (root.getName() === 'instrument') {
+        return BlueSynthBuilder.loadFromXML(root);
+      }
+
+      const nestedInstrument = root.getElement('instrument');
+      if (nestedInstrument) {
+        return BlueSynthBuilder.loadFromXML(nestedInstrument);
+      }
+    } catch {
+      // Fall through to legacy plain-text migration behavior.
+    }
+
+    const legacy = new BlueSynthBuilder();
+    legacy.setInstrumentText(source);
+    return legacy;
+  }
 
   constructor(other?: Sound) {
     super();
@@ -27,15 +52,20 @@ export class Sound extends AbstractSoundObject {
     if (other) {
       this.copyFrom(other);
       this._comment = other._comment;
-      this._bsbInstrumentText = other._bsbInstrumentText;
+      this._blueSynthBuilder = other._blueSynthBuilder.deepCopy() as BlueSynthBuilder;
     }
   }
 
   getComment(): string { return this._comment; }
   setComment(text: string): void { this._comment = text; }
 
-  getBSBInstrumentText(): string { return this._bsbInstrumentText; }
-  setBSBInstrumentText(text: string): void { this._bsbInstrumentText = text; }
+  getBlueSynthBuilder(): BlueSynthBuilder { return this._blueSynthBuilder; }
+  setBlueSynthBuilder(bsb: BlueSynthBuilder): void { this._blueSynthBuilder = bsb; }
+
+  getBSBInstrumentText(): string { return this._blueSynthBuilder.saveAsXML().toXml(); }
+  setBSBInstrumentText(text: string): void {
+    this._blueSynthBuilder = Sound.loadBlueSynthBuilderFromText(text);
+  }
 
 
   override getTimeBehavior(): TimeBehavior {
@@ -48,10 +78,7 @@ export class Sound extends AbstractSoundObject {
     startTime: number,
     endTime: number,
   ): NoteList {
-    const bsb = this.loadBlueSynthBuilder();
-    if (!bsb) {
-      return new NoteList();
-    }
+    const bsb = this._blueSynthBuilder.deepCopy() as BlueSynthBuilder;
 
     // Java parity: clear compilation variable names for score Sound objects
     // so widget values resolve directly (not gk automation vars from arrangement scope).
@@ -99,42 +126,9 @@ export class Sound extends AbstractSoundObject {
     return notes;
   }
 
-  private loadBlueSynthBuilder(): BlueSynthBuilder | null {
-    const bsbXml = this._bsbInstrumentText.trim();
-    if (!bsbXml) {
-      return new BlueSynthBuilder();
-    }
-
-    try {
-      const root = Element.parse(bsbXml);
-      if (root.getName() === 'instrument') {
-        return BlueSynthBuilder.loadFromXML(root);
-      }
-      const nestedInstrument = root.getElement('instrument');
-      if (nestedInstrument) {
-        return BlueSynthBuilder.loadFromXML(nestedInstrument);
-      }
-    } catch {
-      // Fall through to legacy plain-text migration behavior.
-    }
-
-    const legacy = new BlueSynthBuilder();
-    legacy.setInstrumentText(this._bsbInstrumentText);
-    return legacy;
-  }
-
   override saveAsXML(_objRefMap?: ObjRefSaveMap): Element {
     const elem = getBasicXML(this, 'blue.soundObject.Sound');
-    if (this._bsbInstrumentText.trim().length > 0) {
-      try {
-        const instrElem = Element.parse(this._bsbInstrumentText);
-        elem.addElement(instrElem);
-      } catch {
-        elem.addElement('instrumentText').setText(this._bsbInstrumentText);
-      }
-    } else {
-      elem.addElement(new BlueSynthBuilder().saveAsXML());
-    }
+    elem.addElement(this._blueSynthBuilder.saveAsXML());
     elem.addElement('comment').setText(this._comment);
     return elem;
   }
@@ -145,13 +139,13 @@ export class Sound extends AbstractSoundObject {
 
     const instrElem = data.getElement('instrument');
     if (instrElem !== null) {
-      obj._bsbInstrumentText = instrElem.toXml();
+      obj.setBlueSynthBuilder(BlueSynthBuilder.loadFromXML(instrElem));
     } else {
       const instrText = data.getTextString('instrumentText');
       if (instrText !== null) {
         const migratedInstrument = new BlueSynthBuilder();
         migratedInstrument.setInstrumentText(instrText);
-        obj._bsbInstrumentText = migratedInstrument.saveAsXML().toXml();
+        obj.setBlueSynthBuilder(migratedInstrument);
       }
     }
 

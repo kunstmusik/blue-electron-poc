@@ -4,6 +4,7 @@
  */
 import { Element } from '../serialization/xml-reader';
 import { BlueDataObject } from '../blue-data-object';
+import { generatePrefixedUuid } from '../utilities/uuid';
 
 export interface AutomationPoint {
   time: number;
@@ -62,7 +63,7 @@ export class Parameter implements BlueDataObject {
   private _fixedValue = 0;
 
   private static generateUniqueId(): string {
-    return Math.abs(Math.floor(Math.random() * 2147483647)).toString();
+    return generatePrefixedUuid('param');
   }
 
   private static formatDouble(v: number): string {
@@ -338,13 +339,12 @@ export class Parameter implements BlueDataObject {
 
   deepCopy(): BlueDataObject {
     const copy = new Parameter();
-    copy._uniqueId = this._uniqueId;
     copy._name = this._name;
     copy._label = this._label;
     copy._minimum = this._minimum;
     copy._maximum = this._maximum;
     copy._curve = this._curve;
-    copy._points = [...this._points];
+    copy._points = this._points.map((point) => ({ ...point }));
     copy._enabled = this._enabled;
     copy._resolution = this._resolution;
     copy._resolutionScale = this._resolutionScale;

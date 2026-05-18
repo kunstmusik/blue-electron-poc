@@ -1321,7 +1321,7 @@ function EmptyAreaContextMenu({ menuItemClass, sepClass, clipboard, contextMenuP
   group: PolyObjectLayerGroupSnapshot;
   onPaste: () => void;
   snapBeatValue: (b: number) => number;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean }>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
 }) {
   const ni = () => alert('Not yet implemented');
 

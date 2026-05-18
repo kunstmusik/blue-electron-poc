@@ -67,6 +67,7 @@ import {
   loadFieldFromSnapshot,
   Sound,
   createSoundObject,
+  loadSoundObjectFromXML,
   convertTimePosition,
   beatsToTimePosition,
   beatsToDuration,
@@ -126,6 +127,7 @@ export interface ScoreRowObjectSnapshot {
   backgroundColor: number;
   isContainer: boolean;
   editorTarget: ScoreObjectEditorTargetSnapshot;
+  serializedXml?: string;
 }
 
 export interface ScoreLayerSnapshot {
@@ -407,6 +409,8 @@ export type ScorePatch =
         startBeats: number;
         durationBeats: number;
         backgroundColor: number;
+        serializedXml?: string;
+        sourceTarget?: ScoreObjectEditorTargetSnapshot;
       }>;
     }
   | {
@@ -1961,6 +1965,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
         backgroundColor: sObj.getBackgroundColor(),
         isContainer: sObj instanceof PolyObject,
         editorTarget: buildEditorTargetSnapshot(sObj, objectId, location),
+        serializedXml: sObj.saveAsXML().toXml(),
       });
     }
     layers.push({
@@ -2011,6 +2016,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
           supportsRepeatPoint: false,
           supportsNoteProcessorChain: false,
         },
+        serializedXml: clip.saveAsXML().toXml(),
       });
     }
     layers.push({
@@ -4412,20 +4418,35 @@ function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: '
   if (!targetGroup) return false;
 
   for (const obj of patch.objects) {
-    const sObj = createSoundObject(obj.objectType);
+    let sObj: SoundObject | null = null;
+
+    if (obj.serializedXml) {
+      try {
+        const serialized = Element.parse(obj.serializedXml);
+        if (serialized.getName() !== 'audioClip') {
+          sObj = loadSoundObjectFromXML(serialized)?.deepCopy() ?? null;
+        }
+      } catch {
+        sObj = null;
+      }
+    }
+
+    if (!sObj && obj.sourceTarget?.location) {
+      const source = resolveTimelineTarget(score, obj.sourceTarget.location);
+      if (source && !(source.sObj instanceof AudioClip)) {
+        sObj = source.sObj.deepCopy();
+      }
+    }
+
+    if (!sObj) {
+      sObj = createSoundObject(obj.objectType);
+    }
     if (!sObj) continue;
 
-    if (sObj instanceof AbstractSoundObject) {
-      sObj.setName(obj.name);
-      sObj.setStartTime(TimePosition.beats(obj.startBeats));
-      sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
-      sObj.setBackgroundColor(obj.backgroundColor);
-    } else if (sObj instanceof PolyObject) {
-      sObj.setName(obj.name);
-      sObj.setStartTime(TimePosition.beats(obj.startBeats));
-      sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
-      sObj.setBackgroundColor(obj.backgroundColor);
-    }
+    sObj.setName(obj.name);
+    sObj.setStartTime(TimePosition.beats(obj.startBeats));
+    sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
+    sObj.setBackgroundColor(obj.backgroundColor);
 
     if (obj.layerIndex >= 0 && obj.layerIndex < targetGroup.length) {
       targetGroup[obj.layerIndex].push(sObj);

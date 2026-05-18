@@ -461,7 +461,8 @@ describe('BSB Widget XML Round-Trip', () => {
       const orig = populateSlider();
       const copy = orig.deepCopy();
       expect(copy).not.toBe(orig);
-      expect(copy.id).toBe('');
+      expect(copy.id).toBeTruthy();
+      expect(copy.id).not.toBe('test-id');
       expect(copy.objectName).toBe('mySlider');
       expect(copy.x).toBe(42);
       expect(copy.y).toBe(99);
@@ -515,6 +516,7 @@ describe('BSB Widget XML Round-Trip', () => {
       expect(copy.objectName).toBe('mode');
       expect(copy.dropdownItems).toHaveLength(2);
       expect(copy.dropdownItems[0].name).toBe('Chorus');
+      expect(copy.dropdownItems.map((item) => item.uniqueId)).not.toEqual(['a', 'b']);
       expect(copy.dropdownItems).not.toBe(orig.dropdownItems);
       copy.dropdownItems[0].name = 'Changed';
       expect(orig.dropdownItems[0].name).toBe('Chorus');
@@ -560,7 +562,8 @@ describe('BSB Widget XML Round-Trip', () => {
       orig.addChild(nestedGroup);
 
       const copy = orig.deepCopy();
-      expect(copy.id).toBe('');
+      expect(copy.id).toBeTruthy();
+      expect(copy.id).not.toBe('grp1');
       expect(copy.objectName).toBe('');
       expect(copy.width).toBe(300);
       expect(copy.height).toBe(200);
@@ -575,17 +578,20 @@ describe('BSB Widget XML Round-Trip', () => {
       const copiedSlider = copyChildren[0] as BSBHSlider;
       expect(copiedSlider.objectName).toBe('innerSlider');
       expect(copiedSlider.value).toBe(0.5);
-      expect(copiedSlider.id).toBe('');
+      expect(copiedSlider.id).toBeTruthy();
+      expect(copiedSlider.id).not.toBe('child1');
 
       const copiedNested = copyChildren[1] as BSBGroup;
       expect(copiedNested.groupName).toBe('Sub');
-      expect(copiedNested.id).toBe('');
+      expect(copiedNested.id).toBeTruthy();
+      expect(copiedNested.id).not.toBe('nested1');
       const nestedChildren = copiedNested.getChildren();
       expect(nestedChildren).toHaveLength(1);
       const copiedDeep = nestedChildren[0] as BSBCheckBox;
       expect(copiedDeep.objectName).toBe('deepCheck');
       expect(copiedDeep.selected).toBe(true);
-      expect(copiedDeep.id).toBe('');
+      expect(copiedDeep.id).toBeTruthy();
+      expect(copiedDeep.id).not.toBe('deep1');
 
       copiedSlider.value = 0;
       expect((orig.getChildren()[0] as BSBHSlider).value).toBe(0.5);
@@ -617,7 +623,8 @@ describe('BSB Widget XML Round-Trip', () => {
         w.y = 20;
         w.value = 0.5;
         const copy = w.deepCopy();
-        expect(copy.id).toBe('');
+        expect(copy.id).toBeTruthy();
+        expect(copy.id).not.toBe(`${name}-id`);
         expect(copy.objectName).toBe(name);
         expect(copy.x).toBe(10);
         expect(copy.y).toBe(20);
