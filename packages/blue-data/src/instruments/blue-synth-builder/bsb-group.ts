@@ -265,6 +265,9 @@ export function saveBsbWidgetAsXML(widget: BSBWidget): Element {
     elem.setAttribute('version', '2');
   }
 
+  if (widget.id) {
+    addPrimitiveElement(elem, 'id', widget.id);
+  }
   addPrimitiveElement(elem, 'objectName', widget.objectName);
   addPrimitiveElement(elem, 'x', widget.x);
   addPrimitiveElement(elem, 'y', widget.y);

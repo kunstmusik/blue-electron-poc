@@ -77,6 +77,102 @@ interface BSBParameterSpec {
   resolution: number;
 }
 
+function clampToRange(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function snapToResolution(value: number, minimum: number, maximum: number, resolution: number): number {
+  if (!Number.isFinite(resolution) || resolution <= 0) {
+    return clampToRange(value, minimum, maximum);
+  }
+
+  const snapped = minimum + (Math.round((value - minimum) / resolution) * resolution);
+  return clampToRange(snapped, minimum, maximum);
+}
+
+function rescaleValue(
+  value: number,
+  oldMinimum: number,
+  oldMaximum: number,
+  newMinimum: number,
+  newMaximum: number,
+  resolution: number,
+): number {
+  if (oldMaximum === oldMinimum) {
+    return snapToResolution(newMinimum, newMinimum, newMaximum, resolution);
+  }
+
+  const normalized = (value - oldMinimum) / (oldMaximum - oldMinimum);
+  const nextValue = newMinimum + (normalized * (newMaximum - newMinimum));
+  return snapToResolution(nextValue, newMinimum, newMaximum, resolution);
+}
+
+function getWidgetResolution(widget: BSBWidget): number {
+  if (widget instanceof BSBHSlider || widget instanceof BSBVSlider) {
+    return widget.resolution;
+  }
+
+  if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+    return widget.resolution;
+  }
+
+  return -1;
+}
+
+function rescaleScalarWidgetValue(
+  widget: BSBWidget,
+  oldMinimum: number,
+  oldMaximum: number,
+  newMinimum: number,
+  newMaximum: number,
+): void {
+  const nextValue = rescaleValue(
+    widget instanceof BSBValue ? widget.defaultValue : widget.value,
+    oldMinimum,
+    oldMaximum,
+    newMinimum,
+    newMaximum,
+    getWidgetResolution(widget),
+  );
+  widget.setValue(nextValue);
+}
+
+function rescaleWidgetRangeMinimum(widget: BSBWidget, newMinimum: number): void {
+  const oldMinimum = widget.minimum;
+  const oldMaximum = widget.maximum;
+
+  if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+    widget.minimum = newMinimum;
+    for (const slider of widget.sliders) {
+      slider.setValue(rescaleValue(slider.value, oldMinimum, oldMaximum, newMinimum, oldMaximum, widget.resolution));
+    }
+    return;
+  }
+
+  widget.minimum = newMinimum;
+  if (widget instanceof BSBKnob || widget instanceof BSBHSlider || widget instanceof BSBVSlider || widget instanceof BSBValue) {
+    rescaleScalarWidgetValue(widget, oldMinimum, oldMaximum, newMinimum, oldMaximum);
+  }
+}
+
+function rescaleWidgetRangeMaximum(widget: BSBWidget, newMaximum: number): void {
+  const oldMinimum = widget.minimum;
+  const oldMaximum = widget.maximum;
+
+  if (widget instanceof BSBHSliderBank || widget instanceof BSBVSliderBank) {
+    widget.maximum = newMaximum;
+    for (const slider of widget.sliders) {
+      slider.setValue(rescaleValue(slider.value, oldMinimum, oldMaximum, oldMinimum, newMaximum, widget.resolution));
+    }
+    return;
+  }
+
+  widget.maximum = newMaximum;
+  if (widget instanceof BSBKnob || widget instanceof BSBHSlider || widget instanceof BSBVSlider || widget instanceof BSBValue) {
+    rescaleScalarWidgetValue(widget, oldMinimum, oldMaximum, oldMinimum, newMaximum);
+  }
+}
+
 export class BlueSynthBuilder extends Instrument {
   private _instrumentText = "";
   private _alwaysOnInstrumentText = "";
@@ -770,10 +866,14 @@ export class BlueSynthBuilder extends Instrument {
           }
           break;
         case "minimum":
-          if (typeof value === "number") widget.minimum = value;
+          if (typeof value === "number") {
+            rescaleWidgetRangeMinimum(widget, value);
+          }
           break;
         case "maximum":
-          if (typeof value === "number") widget.maximum = value;
+          if (typeof value === "number") {
+            rescaleWidgetRangeMaximum(widget, value);
+          }
           break;
         default:
           if (key in widget) {

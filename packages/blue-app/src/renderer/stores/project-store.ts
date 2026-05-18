@@ -1608,6 +1608,104 @@ export function applyBsbInterfacePatchToSnapshot(
     return typeof node.value === 'number' ? node.value : 0;
   };
 
+  const clampToRange = (value: number, minimum: number, maximum: number): number => (
+    Math.min(maximum, Math.max(minimum, value))
+  );
+
+  const snapToResolution = (value: number, minimum: number, maximum: number, resolution: number): number => {
+    if (!Number.isFinite(resolution) || resolution <= 0) {
+      return clampToRange(value, minimum, maximum);
+    }
+
+    const snapped = minimum + (Math.round((value - minimum) / resolution) * resolution);
+    return clampToRange(snapped, minimum, maximum);
+  };
+
+  const rescaleValue = (
+    value: number,
+    oldMinimum: number,
+    oldMaximum: number,
+    newMinimum: number,
+    newMaximum: number,
+    resolution: number,
+  ): number => {
+    if (oldMaximum === oldMinimum) {
+      return snapToResolution(newMinimum, newMinimum, newMaximum, resolution);
+    }
+
+    const normalized = (value - oldMinimum) / (oldMaximum - oldMinimum);
+    const nextValue = newMinimum + (normalized * (newMaximum - newMinimum));
+    return snapToResolution(nextValue, newMinimum, newMaximum, resolution);
+  };
+
+  const getNodeResolution = (node: BsbWidgetNodeSnapshot): number => (
+    typeof node.properties.resolution === 'number' ? node.properties.resolution : -1
+  );
+
+  const rescaleNodeMinimum = (node: BsbWidgetNodeSnapshot, newMinimum: number): void => {
+    const oldMinimum = node.minimum;
+    const oldMaximum = node.maximum;
+
+    if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+      const sliders = Array.isArray(node.properties.sliders)
+        ? node.properties.sliders as Array<{ value?: number }>
+        : [];
+      node.minimum = newMinimum;
+      node.properties.minimum = newMinimum;
+      node.properties.sliders = sliders.map((slider) => ({
+        ...slider,
+        value: rescaleValue(
+          typeof slider.value === 'number' ? slider.value : oldMinimum,
+          oldMinimum,
+          oldMaximum,
+          newMinimum,
+          oldMaximum,
+          getNodeResolution(node),
+        ),
+      }));
+      return;
+    }
+
+    node.minimum = newMinimum;
+    node.properties.minimum = newMinimum;
+    node.value = rescaleValue(node.value, oldMinimum, oldMaximum, newMinimum, oldMaximum, getNodeResolution(node));
+    if (node.type === 'BSBValue') {
+      node.properties.defaultValue = node.value;
+    }
+  };
+
+  const rescaleNodeMaximum = (node: BsbWidgetNodeSnapshot, newMaximum: number): void => {
+    const oldMinimum = node.minimum;
+    const oldMaximum = node.maximum;
+
+    if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+      const sliders = Array.isArray(node.properties.sliders)
+        ? node.properties.sliders as Array<{ value?: number }>
+        : [];
+      node.maximum = newMaximum;
+      node.properties.maximum = newMaximum;
+      node.properties.sliders = sliders.map((slider) => ({
+        ...slider,
+        value: rescaleValue(
+          typeof slider.value === 'number' ? slider.value : oldMinimum,
+          oldMinimum,
+          oldMaximum,
+          oldMinimum,
+          newMaximum,
+          getNodeResolution(node),
+        ),
+      }));
+      return;
+    }
+
+    node.maximum = newMaximum;
+    node.properties.maximum = newMaximum;
+    node.value = rescaleValue(node.value, oldMinimum, oldMaximum, oldMinimum, newMaximum, getNodeResolution(node));
+    if (node.type === 'BSBValue') {
+      node.properties.defaultValue = node.value;
+    }
+  };
+
   const syncWidgetListFromTree = (): void => {
     if (!instrument.widgetTree?.children) {
       instrument.widgets = [];
@@ -2089,8 +2187,12 @@ export function applyBsbInterfacePatchToSnapshot(
                 node.value = value as number;
               }
               break;
-            case 'minimum': node.minimum = value as number; break;
-            case 'maximum': node.maximum = value as number; break;
+            case 'minimum':
+              rescaleNodeMinimum(node, value as number);
+              break;
+            case 'maximum':
+              rescaleNodeMaximum(node, value as number);
+              break;
             case 'selectedIndex':
               node.properties.selectedIndex = value as number;
               node.value = value as number;

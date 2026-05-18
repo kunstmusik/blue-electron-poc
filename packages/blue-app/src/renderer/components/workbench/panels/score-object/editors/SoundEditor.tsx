@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
   InstrumentPatch,
   SoundEditorPayload,
@@ -11,6 +10,11 @@ import type { OrchestraPatch } from '../../../../../../shared/project-editor';
 import BSBInterfaceEditor from '../../orchestra/bsb/BSBInterfaceEditor';
 import BSBCodeEditor from '../../orchestra/bsb/BSBCodeEditor';
 import BSBUDOPanel from '../../orchestra/bsb/BSBUDOPanel';
+import {
+  EditableLineCanvas,
+  getJavaLineColor,
+  useMeasuredElementSize,
+} from '../../shared/line-editor/EditableLineCanvas';
 
 type SoundTabId = 'interface' | 'automation' | 'code' | 'udo' | 'comments';
 
@@ -150,15 +154,6 @@ export default function SoundEditor({ document, onPatch }: ScoreObjectEditorComp
 
 // ─── Sound Automation Panel ───
 
-const LINE_COLORS = [
-  '#20dd00', '#0000ff', '#ffa500', '#008b00', '#ff00ff',
-  '#cd3700', '#68228b', '#00688b', '#2f4f4f', '#cd1076',
-  '#8b6914', '#458b74', '#8b4513', '#4169e1', '#8b7d6b',
-  '#000080', '#7cfc00', '#483d8b', '#ffd700', '#838b8b',
-  '#8b1a1a', '#7fff00', '#8b2323', '#8b7355', '#458b74',
-  '#fa8072', '#8b3e2f', '#008b8b', '#458b00', '#a020f0',
-];
-
 interface SoundAutomationPanelProps {
   parameters: SoundAutomationParameterSnapshot[];
   onAutomationPatch: (parameterId: string, updates: { automationEnabled?: boolean; points?: Array<{ x: number; y: number }>; curve?: string }) => void;
@@ -166,27 +161,20 @@ interface SoundAutomationPanelProps {
   durationBeats: number;
 }
 
-interface AutomationLineView extends SoundAutomationParameterSnapshot {
-  color: string;
+interface AutomationLineView {
+  parameterId: string;
+  name: string;
   displayName: string;
+  color: number;
+  min: number;
+  max: number;
+  rightBound: boolean;
+  endPointsLinked: boolean;
+  points: Array<{ x: number; y: number }>;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
-}
-
-function normalizePointY(line: Pick<AutomationLineView, 'minimum' | 'maximum'>, value: number): number {
-  const range = line.maximum - line.minimum || 1;
-  return clamp(1 - ((value - line.minimum) / range), 0, 1);
-}
-
-function darkenColor(color: string, ratio = 0.7): string {
-  const hex = color.replace('#', '');
-  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return color;
-  const r = Math.floor(parseInt(hex.slice(0, 2), 16) * ratio);
-  const g = Math.floor(parseInt(hex.slice(2, 4), 16) * ratio);
-  const b = Math.floor(parseInt(hex.slice(4, 6), 16) * ratio);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
 function ensureAutomationPoints(parameter: SoundAutomationParameterSnapshot): Array<{ x: number; y: number }> | undefined {
@@ -204,6 +192,22 @@ function ensureAutomationPoints(parameter: SoundAutomationParameterSnapshot): Ar
     { x: point.x, y: clamp(point.y, parameter.minimum, parameter.maximum) },
     { x: otherX, y: clamp(point.y, parameter.minimum, parameter.maximum) },
   ].sort((left, right) => left.x - right.x);
+}
+
+function pointsEqual(left: Array<{ x: number; y: number }>, right: Array<{ x: number; y: number }>): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftPoint = left[index];
+    const rightPoint = right[index];
+    if (!leftPoint || !rightPoint || leftPoint.x !== rightPoint.x || leftPoint.y !== rightPoint.y) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function SoundAutomationPanel({
@@ -225,15 +229,28 @@ function SoundAutomationPanel({
     () => sortedParameters
       .filter((parameter) => parameter.automationEnabled)
       .map((parameter, index) => ({
-        ...parameter,
+        parameterId: parameter.parameterId,
+        name: parameter.name || parameter.label || parameter.parameterId,
         displayName: parameter.name || parameter.label || parameter.parameterId,
-        color: LINE_COLORS[index % LINE_COLORS.length] ?? '#51cf66',
+        color: getJavaLineColor(index),
+        min: parameter.minimum,
+        max: parameter.maximum,
+        rightBound: true,
+        endPointsLinked: false,
+        points: (ensureAutomationPoints(parameter) ?? parameter.points).map((point) => ({ ...point })),
       })),
     [sortedParameters],
   );
   const [selectedParamId, setSelectedParamId] = useState<string | null>(lines[0]?.parameterId ?? null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [draftEnabledMap, setDraftEnabledMap] = useState<Record<string, boolean>>({});
+  const selectedLineIndex = useMemo(() => {
+    if (lines.length === 0) {
+      return 0;
+    }
+    const index = lines.findIndex((line) => line.parameterId === selectedParamId);
+    return index >= 0 ? index : 0;
+  }, [lines, selectedParamId]);
 
   useEffect(() => {
     if (lines.length === 0) {
@@ -245,53 +262,22 @@ function SoundAutomationPanel({
     }
   }, [lines, selectedParamId]);
 
-  const handlePointDrag = useCallback((parameterId: string, pointIndex: number, newX: number, newY: number) => {
-    const parameter = parameters.find((value) => value.parameterId === parameterId);
-    if (!parameter) return;
-
-    const isFirstPoint = pointIndex === 0;
-    const isLastPoint = pointIndex === parameter.points.length - 1;
-    const previous = parameter.points[pointIndex - 1];
-    const next = parameter.points[pointIndex + 1];
-    const minX = previous ? previous.x : 0;
-    const maxX = next ? next.x : 1;
-    const clampedX = isFirstPoint
-      ? 0
-      : isLastPoint
-        ? 1
-        : clamp(newX, minX, maxX);
-    const clampedY = clamp(newY, parameter.minimum, parameter.maximum);
-
-    const points = parameter.points.map((point, index) => (
-      index === pointIndex ? { x: clampedX, y: clampedY } : point
-    ));
-
-    onAutomationPatch(parameterId, { points });
-  }, [onAutomationPatch, parameters]);
-
-  const handleAddPoint = useCallback((parameterId: string, x: number, y: number) => {
-    const parameter = parameters.find((value) => value.parameterId === parameterId);
-    if (!parameter || !parameter.automationEnabled) return;
-
-    const points = [
-      ...parameter.points,
-      {
-        x: clamp(x, 0, 1),
-        y: clamp(y, parameter.minimum, parameter.maximum),
-      },
-    ].sort((left, right) => left.x - right.x);
-
-    onAutomationPatch(parameterId, { points });
-  }, [onAutomationPatch, parameters]);
-
-  const handleRemovePoint = useCallback((parameterId: string, pointIndex: number) => {
-    const parameter = parameters.find((value) => value.parameterId === parameterId);
-    if (!parameter || parameter.points.length <= 2) return;
-    if (pointIndex <= 0 || pointIndex >= parameter.points.length - 1) return;
-
-    const points = parameter.points.filter((_, index) => index !== pointIndex);
-    onAutomationPatch(parameterId, { points });
-  }, [onAutomationPatch, parameters]);
+  const handleLinesChange = useCallback((nextLines: AutomationLineView[]) => {
+    nextLines.forEach((nextLine, index) => {
+      const previousLine = lines[index];
+      if (!previousLine || previousLine.parameterId !== nextLine.parameterId) {
+        onAutomationPatch(nextLine.parameterId, {
+          points: nextLine.points.map((point) => ({ ...point })),
+        });
+        return;
+      }
+      if (!pointsEqual(previousLine.points, nextLine.points)) {
+        onAutomationPatch(nextLine.parameterId, {
+          points: nextLine.points.map((point) => ({ ...point })),
+        });
+      }
+    });
+  }, [lines, onAutomationPatch]);
 
   const openEditDialog = useCallback(() => {
     const initial: Record<string, boolean> = {};
@@ -329,13 +315,10 @@ function SoundAutomationPanel({
       <div className="min-h-0 flex-1">
         <SoundAutomationCanvas
           lines={lines}
-          selectedParamId={selectedParamId}
+          selectedLineIndex={selectedLineIndex}
           startTimeBeats={startTimeBeats}
           durationBeats={durationBeats}
-          onSelectLine={setSelectedParamId}
-          onPointDrag={handlePointDrag}
-          onAddPoint={handleAddPoint}
-          onRemovePoint={handleRemovePoint}
+          onLinesChange={handleLinesChange}
         />
       </div>
       <div className="flex items-center gap-2 border-t border-blue-border bg-[#1d2c45] px-2 py-1 text-xs text-gray-100">
@@ -426,181 +409,31 @@ function SoundAutomationPanel({
 
 interface SoundAutomationCanvasProps {
   lines: AutomationLineView[];
-  selectedParamId: string | null;
+  selectedLineIndex: number;
   startTimeBeats: number;
   durationBeats: number;
-  onSelectLine: (parameterId: string) => void;
-  onPointDrag: (parameterId: string, pointIndex: number, x: number, y: number) => void;
-  onAddPoint: (parameterId: string, x: number, y: number) => void;
-  onRemovePoint: (parameterId: string, pointIndex: number) => void;
+  onLinesChange: (nextLines: AutomationLineView[]) => void;
 }
 
 function SoundAutomationCanvas({
   lines,
-  selectedParamId,
+  selectedLineIndex,
   startTimeBeats,
   durationBeats,
-  onSelectLine,
-  onPointDrag,
-  onAddPoint,
-  onRemovePoint,
+  onLinesChange,
 }: SoundAutomationCanvasProps): React.ReactElement {
-  const canUseDom = typeof document !== 'undefined';
-  const graphContainerRef = useRef<HTMLDivElement | null>(null);
-  const graphRef = useRef<SVGSVGElement | null>(null);
-  const [dragState, setDragState] = useState<{ parameterId: string; pointIndex: number } | null>(null);
-  const [hoverState, setHoverState] = useState<{ parameterId: string; pointIndex: number } | null>(null);
-  const [plotSize, setPlotSize] = useState({ width: 1, height: 1 });
-
-  const selectedLine = useMemo(
-    () => lines.find((line) => line.parameterId === selectedParamId) ?? lines[0] ?? null,
-    [lines, selectedParamId],
-  );
+  const { ref: canvasHostRef, size: canvasSize } = useMeasuredElementSize<HTMLDivElement>({ width: 720, height: 360 });
   const effectiveDuration = durationBeats > 0 ? durationBeats : 1;
-  const plotWidth = Math.max(1, plotSize.width);
-  const plotHeight = Math.max(1, plotSize.height);
-
-  useEffect(() => {
-    const element = graphContainerRef.current;
-    if (!element) return undefined;
-
-    const updateSize = () => {
-      const rect = element.getBoundingClientRect();
-      setPlotSize({
-        width: Math.max(1, Math.round(rect.width)),
-        height: Math.max(1, Math.round(rect.height)),
-      });
-    };
-
-    updateSize();
-    const observer = new ResizeObserver(updateSize);
-    observer.observe(element);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  const getCoords = useCallback((clientX: number, clientY: number) => {
-    const svg = graphRef.current;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    const x = clamp((clientX - rect.left) / rect.width, 0, 1);
-    const yFromTop = clamp((clientY - rect.top) / rect.height, 0, 1);
-    return { x, yFromTop, rect };
-  }, []);
-
-  const findPointHit = useCallback((clientX: number, clientY: number, lineFilterId?: string) => {
-    const coords = getCoords(clientX, clientY);
-    if (!coords) return null;
-
-    let best: { parameterId: string; pointIndex: number; distance: number } | null = null;
-
-    for (const line of lines) {
-      if (lineFilterId && line.parameterId !== lineFilterId) continue;
-      for (let index = 0; index < line.points.length; index++) {
-        const point = line.points[index];
-        const px = point.x * coords.rect.width;
-        const py = normalizePointY(line, point.y) * coords.rect.height;
-        const dx = px - (coords.x * coords.rect.width);
-        const dy = py - (coords.yFromTop * coords.rect.height);
-        const distance = Math.hypot(dx, dy);
-        if (distance <= 8 && (!best || distance < best.distance)) {
-          best = { parameterId: line.parameterId, pointIndex: index, distance };
-        }
-      }
-    }
-
-    if (!best) return null;
-    return { parameterId: best.parameterId, pointIndex: best.pointIndex };
-  }, [getCoords, lines]);
-
-  const handleMouseDown = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
-    if (event.button !== 0) return;
-    const hit = findPointHit(event.clientX, event.clientY);
-    if (hit) {
-      event.preventDefault();
-      event.stopPropagation();
-      onSelectLine(hit.parameterId);
-      setHoverState(hit);
-      setDragState(hit);
-      return;
-    }
-
-    if (!selectedLine) return;
-    const coords = getCoords(event.clientX, event.clientY);
-    if (!coords) return;
-
-    const value = selectedLine.minimum + ((1 - coords.yFromTop) * (selectedLine.maximum - selectedLine.minimum || 1));
-    onAddPoint(selectedLine.parameterId, coords.x, value);
-    onSelectLine(selectedLine.parameterId);
-  }, [findPointHit, getCoords, onAddPoint, onSelectLine, selectedLine]);
-
-  const handleMouseMove = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
-    if (!selectedLine || dragState) return;
-    const hit = findPointHit(event.clientX, event.clientY, selectedLine.parameterId);
-    setHoverState(hit);
-  }, [dragState, findPointHit, selectedLine]);
-
-  useEffect(() => {
-    if (!dragState || !selectedLine) return undefined;
-
-    const handleWindowMouseMove = (event: MouseEvent) => {
-      const coords = getCoords(event.clientX, event.clientY);
-      if (!coords) return;
-
-      const pointIndex = dragState.pointIndex;
-      const previous = selectedLine.points[pointIndex - 1];
-      const next = selectedLine.points[pointIndex + 1];
-      const minX = previous ? previous.x : 0;
-      const maxX = next ? next.x : 1;
-      const x = clamp(coords.x, minX, maxX);
-      const y = selectedLine.minimum + ((1 - coords.yFromTop) * (selectedLine.maximum - selectedLine.minimum || 1));
-      onPointDrag(selectedLine.parameterId, pointIndex, x, y);
-      setHoverState({ parameterId: selectedLine.parameterId, pointIndex });
-    };
-
-    const handleWindowMouseUp = () => {
-      setDragState(null);
-    };
-
-    window.addEventListener('mousemove', handleWindowMouseMove);
-    window.addEventListener('mouseup', handleWindowMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleWindowMouseMove);
-      window.removeEventListener('mouseup', handleWindowMouseUp);
-    };
-  }, [dragState, getCoords, onPointDrag, selectedLine]);
-
-  const handleContextMenu = useCallback((event: React.MouseEvent<SVGSVGElement>) => {
-    event.preventDefault();
-    if (!selectedLine) return;
-    const hit = findPointHit(event.clientX, event.clientY, selectedLine.parameterId);
-    if (!hit) return;
-    onRemovePoint(selectedLine.parameterId, hit.pointIndex);
-  }, [findPointHit, onRemovePoint, selectedLine]);
-
-  const hoverTooltip = useMemo(() => {
-    if (!hoverState) return null;
-    const line = lines.find((candidate) => candidate.parameterId === hoverState.parameterId);
-    if (!line) return null;
-    const point = line.points[hoverState.pointIndex];
-    if (!point) return null;
-    const svg = graphRef.current;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-
-    return {
-      pointX: rect.left + (point.x * rect.width),
-      pointY: rect.top + (normalizePointY(line, point.y) * rect.height),
-      canvasTop: rect.top,
-      xText: (startTimeBeats + (point.x * effectiveDuration)).toFixed(3),
-      yText: point.y.toFixed(4),
-      label: line.label || line.name || '',
-    };
-  }, [effectiveDuration, hoverState, lines, startTimeBeats]);
+  const tooltipFormatter = useCallback(({ line, point }: {
+    line: AutomationLineView;
+    point: { x: number; y: number };
+    lineIndex: number;
+    pointIndex: number;
+  }) => ({
+    xText: (startTimeBeats + (point.x * effectiveDuration)).toFixed(3),
+    yText: point.y.toFixed(4),
+    ySuffix: line.displayName,
+  }), [effectiveDuration, startTimeBeats]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-black">
@@ -616,70 +449,21 @@ function SoundAutomationCanvas({
           );
         })}
       </div>
-      <div ref={graphContainerRef} className="min-h-0 flex-1 bg-black">
-        <svg
-          ref={graphRef}
-          className="block h-full w-full cursor-crosshair select-none"
-          width={plotWidth}
-          height={plotHeight}
-          viewBox={`0 0 ${plotWidth} ${plotHeight}`}
-          preserveAspectRatio="none"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => {
-            if (!dragState) setHoverState(null);
-          }}
-          onContextMenu={handleContextMenu}
-        >
-          {lines.map((line) => {
-            if (line.points.length === 0) return null;
-            const points = [...line.points].sort((left, right) => left.x - right.x);
-            const selected = selectedLine?.parameterId === line.parameterId;
-            const color = selected ? line.color : darkenColor(line.color);
-            const segments = points.map((point) => `${point.x * plotWidth},${normalizePointY(line, point.y) * plotHeight}`);
-            return (
-              <g key={line.parameterId}>
-                <polyline
-                  points={segments.join(' ')}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2}
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-                {selected && points.map((point, index) => {
-                  const hovered = hoverState?.parameterId === line.parameterId && hoverState.pointIndex === index;
-                  return (
-                    <circle
-                      key={`${line.parameterId}-${index}`}
-                      cx={point.x * plotWidth}
-                      cy={normalizePointY(line, point.y) * plotHeight}
-                      r={hovered ? 4 : 3.5}
-                      fill="#000000"
-                      stroke={hovered ? '#ff4d4f' : line.color}
-                      strokeWidth={1.2}
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  );
-                })}
-              </g>
-            );
-          })}
-        </svg>
+      <div ref={canvasHostRef} className="min-h-0 flex-1 bg-black">
+        <EditableLineCanvas
+          lines={lines}
+          selectedLineIndex={selectedLineIndex}
+          onLinesChange={onLinesChange}
+          canvasWidth={canvasSize.width}
+          canvasHeight={canvasSize.height}
+          interactive
+          className="h-full w-full"
+          backgroundColor="#000000"
+          plotBackgroundColor="#000000"
+          plotBorderColor="#d3d3d3"
+          tooltipFormatter={tooltipFormatter}
+        />
       </div>
-      {canUseDom && hoverTooltip && createPortal(
-        <div
-          className="pointer-events-none fixed z-9998 min-w-35 rounded border border-[#2b3f5f] bg-[#0a0f1a] px-3 py-2 font-mono text-[10px] text-white shadow-lg"
-          style={{
-            left: Math.max(8, Math.min(hoverTooltip.pointX + 10, window.innerWidth - 176)),
-            top: Math.max(8, Math.min(hoverTooltip.canvasTop - 44, window.innerHeight - 44)),
-          }}
-        >
-          <div>x: {hoverTooltip.xText}</div>
-          <div>y: {hoverTooltip.yText} {hoverTooltip.label}</div>
-        </div>,
-        document.body,
-      )}
     </div>
   );
 }

@@ -4,7 +4,9 @@ import { applyBsbInterfacePatchToSnapshot, useProjectStore } from '../../../stor
 import type {
   BlueSynthBuilderInstrumentSnapshot,
   BsbInterfacePatch,
+  BsbWidgetNodeSnapshot,
   JMaskEditorPayload,
+  SoundAutomationParameterSnapshot,
   TrackerColumnSnapshot,
   ScoreObjectEditorDocumentSnapshot,
   ScorePatch,
@@ -26,6 +28,288 @@ function EmptyState({ message }: { message: string }): React.ReactElement {
       <div className="text-sm">{message}</div>
     </div>
   );
+}
+
+interface SnapshotAutomationSpec {
+  name: string;
+  value: number;
+  minimum: number;
+  maximum: number;
+  resolution: number;
+}
+
+function clampAutomationValue(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function snapAutomationValue(value: number, minimum: number, maximum: number, resolution: number): number {
+  if (!Number.isFinite(resolution) || resolution <= 0) {
+    return clampAutomationValue(value, minimum, maximum);
+  }
+
+  const snapped = minimum + (Math.round((value - minimum) / resolution) * resolution);
+  return clampAutomationValue(snapped, minimum, maximum);
+}
+
+function rescaleAutomationValue(
+  value: number,
+  oldMinimum: number,
+  oldMaximum: number,
+  newMinimum: number,
+  newMaximum: number,
+  resolution: number,
+): number {
+  if (oldMaximum === oldMinimum) {
+    return snapAutomationValue(newMinimum, newMinimum, newMaximum, resolution);
+  }
+
+  const normalized = (value - oldMinimum) / (oldMaximum - oldMinimum);
+  const nextValue = newMinimum + (normalized * (newMaximum - newMinimum));
+  return snapAutomationValue(nextValue, newMinimum, newMaximum, resolution);
+}
+
+function findBsbWidgetNodeById(
+  node: BsbWidgetNodeSnapshot | undefined,
+  widgetId: string,
+): BsbWidgetNodeSnapshot | null {
+  if (!node) {
+    return null;
+  }
+
+  if (node.id === widgetId) {
+    return node;
+  }
+
+  for (const child of node.children ?? []) {
+    const found = findBsbWidgetNodeById(child, widgetId);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function getSnapshotAutomationResolution(node: BsbWidgetNodeSnapshot): number {
+  if (node.type === 'BSBDropdown' || node.type === 'BSBCheckBox') {
+    return 1;
+  }
+
+  return typeof node.properties.resolution === 'number' ? node.properties.resolution : -1;
+}
+
+function getSnapshotAutomationAllowed(node: BsbWidgetNodeSnapshot): boolean {
+  return node.properties.automationAllowed === true;
+}
+
+function getSnapshotScalarValue(node: BsbWidgetNodeSnapshot): number {
+  if (node.type === 'BSBValue' && typeof node.properties.defaultValue === 'number') {
+    return node.properties.defaultValue;
+  }
+
+  if (node.type === 'BSBCheckBox') {
+    return node.properties.selected === true ? 1 : 0;
+  }
+
+  if (node.type === 'BSBDropdown' && typeof node.properties.selectedIndex === 'number') {
+    return node.properties.selectedIndex;
+  }
+
+  return typeof node.value === 'number' ? node.value : 0;
+}
+
+function buildAutomationSpecsFromSnapshotNode(node: BsbWidgetNodeSnapshot): SnapshotAutomationSpec[] {
+  const objectName = node.objectName.trim();
+  if (!objectName) {
+    return [];
+  }
+
+  if (node.type === 'BSBXYController') {
+    return [
+      {
+        name: `${objectName}X`,
+        value: typeof node.properties.xValue === 'number' ? node.properties.xValue : 0,
+        minimum: typeof node.properties.xMin === 'number' ? node.properties.xMin : 0,
+        maximum: typeof node.properties.xMax === 'number' ? node.properties.xMax : 1,
+        resolution: -1,
+      },
+      {
+        name: `${objectName}Y`,
+        value: typeof node.properties.yValue === 'number' ? node.properties.yValue : 0,
+        minimum: typeof node.properties.yMin === 'number' ? node.properties.yMin : 0,
+        maximum: typeof node.properties.yMax === 'number' ? node.properties.yMax : 1,
+        resolution: -1,
+      },
+    ];
+  }
+
+  if (node.type === 'BSBHSliderBank' || node.type === 'BSBVSliderBank') {
+    const sliders = Array.isArray(node.properties.sliders)
+      ? node.properties.sliders as Array<{ value?: number }>
+      : [];
+    return sliders.map((slider, index) => ({
+      name: `${objectName}_${index}`,
+      value: typeof slider.value === 'number' ? slider.value : node.minimum,
+      minimum: node.minimum,
+      maximum: node.maximum,
+      resolution: getSnapshotAutomationResolution(node),
+    }));
+  }
+
+  if (node.type === 'BSBCheckBox') {
+    return [{
+      name: objectName,
+      value: getSnapshotScalarValue(node),
+      minimum: 0,
+      maximum: 1,
+      resolution: 1,
+    }];
+  }
+
+  if (node.type === 'BSBDropdown') {
+    const dropdownItems = Array.isArray(node.properties.dropdownItems)
+      ? node.properties.dropdownItems
+      : [];
+    return [{
+      name: objectName,
+      value: getSnapshotScalarValue(node),
+      minimum: 0,
+      maximum: Math.max(0, dropdownItems.length - 1),
+      resolution: 1,
+    }];
+  }
+
+  if (
+    node.type === 'BSBHSlider'
+    || node.type === 'BSBVSlider'
+    || node.type === 'BSBKnob'
+    || node.type === 'BSBValue'
+  ) {
+    return [{
+      name: objectName,
+      value: getSnapshotScalarValue(node),
+      minimum: node.minimum,
+      maximum: node.maximum,
+      resolution: getSnapshotAutomationResolution(node),
+    }];
+  }
+
+  return [];
+}
+
+function buildSoundAutomationRenameMap(
+  previousInstrument: BlueSynthBuilderInstrumentSnapshot,
+  patch: BsbInterfacePatch,
+): Map<string, string> {
+  if (patch.type !== 'updateWidgetProperties' || typeof patch.properties.objectName !== 'string') {
+    return new Map();
+  }
+
+  const previousNode = findBsbWidgetNodeById(previousInstrument.widgetTree ?? undefined, patch.widgetId);
+  if (!previousNode) {
+    return new Map();
+  }
+
+  const previousSpecs = buildAutomationSpecsFromSnapshotNode(previousNode);
+  if (previousSpecs.length === 0) {
+    return new Map();
+  }
+
+  const nextNode: BsbWidgetNodeSnapshot = {
+    ...previousNode,
+    objectName: patch.properties.objectName,
+    properties: { ...previousNode.properties },
+  };
+  const nextSpecs = buildAutomationSpecsFromSnapshotNode(nextNode);
+
+  const renameMap = new Map<string, string>();
+  for (let index = 0; index < Math.min(previousSpecs.length, nextSpecs.length); index += 1) {
+    renameMap.set(nextSpecs[index]!.name, previousSpecs[index]!.name);
+  }
+  return renameMap;
+}
+
+function buildSoundAutomationParametersFromSnapshot(
+  previousInstrument: BlueSynthBuilderInstrumentSnapshot,
+  nextInstrument: BlueSynthBuilderInstrumentSnapshot,
+  previousParameters: SoundAutomationParameterSnapshot[],
+  patch: BsbInterfacePatch,
+): SoundAutomationParameterSnapshot[] {
+  const existingByName = new Map(previousParameters.map((parameter) => [parameter.name, parameter]));
+  const renameMap = buildSoundAutomationRenameMap(previousInstrument, patch);
+  const nextParameters: SoundAutomationParameterSnapshot[] = [];
+  const seenNames = new Set<string>();
+
+  const visit = (node: BsbWidgetNodeSnapshot): void => {
+    if (node.type === 'BSBGroup' || node.type === 'BSBRootGroup') {
+      for (const child of node.children ?? []) {
+        visit(child);
+      }
+      return;
+    }
+
+    const specs = buildAutomationSpecsFromSnapshotNode(node);
+    if (specs.length === 0) {
+      return;
+    }
+
+    const hasAutomatedParameter = specs.some((spec) => {
+      const renamed = renameMap.get(spec.name);
+      return existingByName.get(spec.name)?.automationEnabled || (renamed ? existingByName.get(renamed)?.automationEnabled : false);
+    });
+
+    if (!getSnapshotAutomationAllowed(node) && !hasAutomatedParameter) {
+      return;
+    }
+
+    for (const spec of specs) {
+      if (seenNames.has(spec.name)) {
+        continue;
+      }
+
+      const previousParameter = existingByName.get(spec.name)
+        ?? (() => {
+          const renamed = renameMap.get(spec.name);
+          return renamed ? existingByName.get(renamed) : undefined;
+        })();
+      const rangeChanged = previousParameter
+        ? previousParameter.minimum !== spec.minimum || previousParameter.maximum !== spec.maximum
+        : false;
+
+      nextParameters.push({
+        parameterId: previousParameter?.parameterId ?? spec.name,
+        name: spec.name,
+        label: previousParameter?.label ?? '',
+        automationEnabled: previousParameter?.automationEnabled ?? false,
+        value: spec.value,
+        minimum: spec.minimum,
+        maximum: spec.maximum,
+        curve: previousParameter?.curve ?? 'LINEAR',
+        points: previousParameter
+          ? previousParameter.points.map((point) => ({
+              x: point.x,
+              y: rangeChanged
+                ? rescaleAutomationValue(
+                    point.y,
+                    previousParameter.minimum,
+                    previousParameter.maximum,
+                    spec.minimum,
+                    spec.maximum,
+                    spec.resolution,
+                  )
+                : point.y,
+            }))
+          : [],
+      });
+      seenNames.add(spec.name);
+    }
+  };
+
+  if (nextInstrument.widgetTree) {
+    visit(nextInstrument.widgetTree);
+  }
+
+  return nextParameters;
 }
 
 export function applyPatchToDocument(
@@ -783,9 +1067,19 @@ export function applyPatchToDocument(
 
     // Sound-specific BSB interface patches (optimistic)
     if (p.bsbInterfacePatch !== undefined && payload.bsbInstrument) {
-      const bsbInstr = { ...(payload.bsbInstrument as BlueSynthBuilderInstrumentSnapshot) };
-      applyBsbInterfacePatchToSnapshot(bsbInstr, p.bsbInterfacePatch as BsbInterfacePatch);
+      const previousInstrument = payload.bsbInstrument as BlueSynthBuilderInstrumentSnapshot;
+      const bsbInstr = { ...previousInstrument };
+      const interfacePatch = p.bsbInterfacePatch as BsbInterfacePatch;
+      applyBsbInterfacePatchToSnapshot(bsbInstr, interfacePatch);
       payload.bsbInstrument = bsbInstr;
+      payload.automationParameters = buildSoundAutomationParametersFromSnapshot(
+        previousInstrument,
+        bsbInstr,
+        Array.isArray(payload.automationParameters)
+          ? payload.automationParameters as SoundAutomationParameterSnapshot[]
+          : [],
+        interfacePatch,
+      );
     }
 
     // Sound-specific BSB code patches (optimistic)

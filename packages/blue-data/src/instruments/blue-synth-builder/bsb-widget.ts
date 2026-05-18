@@ -87,6 +87,8 @@ export abstract class BSBWidget {
   static loadCommonFromXML(widget: BSBWidget, data: Element): void {
     const objName = data.getTextString('objectName');
     if (objName) widget.objectName = objName;
+    const id = data.getTextString('id');
+    if (id) widget.id = id;
     const x = data.getTextString('x');
     if (x) widget.x = parseInt(x, 10);
     const y = data.getTextString('y');

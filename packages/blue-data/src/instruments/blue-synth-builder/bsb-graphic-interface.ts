@@ -104,6 +104,7 @@ export class BSBGraphicInterface {
   }
 
   loadFromXML(data: Element): void {
+    _nextWidgetId = 1;
     const editEnabledAttr = data.getAttribute("editEnabled");
     if (editEnabledAttr !== null) this.editEnabled = editEnabledAttr === "true";
 

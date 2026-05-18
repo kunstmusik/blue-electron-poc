@@ -76,6 +76,74 @@ describe('BlueSynthBuilder', () => {
     expect(savedXml).toContain('<value>0.75</value>');
   });
 
+  it('keeps widget ids stable across XML round-trips', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Stable Ids</name>
+      <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <objectName>amp</objectName>
+          <x>10</x>
+          <y>20</y>
+          <value>0.5</value>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const firstId = instrument.getGraphicInterface().getRootGroup().getChildren()[0]?.id;
+
+    const reloaded = BlueSynthBuilder.loadFromXML(Element.parse(instrument.saveAsXML().toXml()));
+    const secondId = reloaded.getGraphicInterface().getRootGroup().getChildren()[0]?.id;
+
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBe(firstId);
+  });
+
+  it('loads persisted widget ids from XML when present', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Explicit Id</name>
+      <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <id>knob1-id</id>
+          <objectName>amp</objectName>
+          <x>10</x>
+          <y>20</y>
+          <value>0.5</value>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    expect(instrument.getGraphicInterface().getRootGroup().getChildren()[0]?.id).toBe('knob1-id');
+  });
+
+  it('accepts widget patches using ids captured from a separate parse of the same XML', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Patch By Id</name>
+      <instrumentText>aout oscili &lt;amp&gt;, 440</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob">
+          <objectName>amp</objectName>
+          <x>10</x>
+          <y>20</y>
+          <value>0.5</value>
+        </bsbObject>
+      </graphicInterface>
+      <opcodeList/>
+    </instrument>`;
+
+    const initial = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widgetId = initial.getGraphicInterface().getRootGroup().getChildren()[0]?.id ?? '';
+
+    const reparsed = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    expect(reparsed.updateWidgetProperties(widgetId, { objectName: 'gain' })).toBe(true);
+    expect(reparsed.getGraphicInterface().getRootGroup().getChildren()[0]?.objectName).toBe('gain');
+  });
+
   it('synthesizes missing BSB parameters from automatable widgets', () => {
     const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
       <name>Generated Params</name>
@@ -700,6 +768,47 @@ xout aOut</codeBody>
     expect(savedXml).toContain('name="Sub"');
     expect(savedXml).toContain('ver2:0.8');
     expect(savedXml).toContain('ver2:0.3');
+  });
+
+  it('rescales widget and automation parameter values when widget bounds change', () => {
+    const xml = `<instrument type="blue.orchestra.BlueSynthBuilder">
+      <name>Range Rescale</name>
+      <instrumentText>code</instrumentText>
+      <graphicInterface>
+        <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+          <objectName>gain</objectName>
+          <x>0</x><y>0</y>
+          <id>gain-id</id>
+          <automationAllowed>true</automationAllowed>
+          <value>0.5</value>
+          <minimum>0</minimum>
+          <maximum>1</maximum>
+        </bsbObject>
+      </graphicInterface>
+      <parameterList>
+        <parameter uniqueId="gain-param" name="gain" min="0.0" max="1.0" automationEnabled="false">
+          <line>
+            <linePoint x="0.0" y="0.5"/>
+            <linePoint x="1.0" y="0.5"/>
+          </line>
+        </parameter>
+      </parameterList>
+      <opcodeList/>
+    </instrument>`;
+
+    const instrument = BlueSynthBuilder.loadFromXML(Element.parse(xml));
+    const widget = instrument.getGraphicInterface().getRootGroup().getChildren()[0] as BSBKnob;
+
+    expect(instrument.updateWidgetProperties(widget.id, { maximum: 10 })).toBe(true);
+
+    const parameter = instrument.getParameters().find((candidate) => candidate.getName() === 'gain');
+    expect(widget.value).toBe(5);
+    expect(parameter?.getMaximum()).toBe(10);
+    expect(parameter?.getFixedValue()).toBe(5);
+    expect(parameter?.getPoints()).toEqual([
+      { time: 0, value: 5 },
+      { time: 1, value: 5 },
+    ]);
   });
 
   it('exposes Java default constructor values for the common BSB widgets', () => {

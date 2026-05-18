@@ -78,6 +78,30 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
   <opcodeList/>
 </instrument>`;
 
+const UNNAMED_AUTOMATABLE_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
+  <name>TestBSB</name>
+  <comment></comment>
+  <globalOrc></globalOrc>
+  <globalSco></globalSco>
+  <instrumentText>instr 1\n  out(oscili(0.5, 440))\nendin</instrumentText>
+  <alwaysOnInstrumentText></alwaysOnInstrumentText>
+  <graphicInterface>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+      <objectName></objectName>
+      <x>0</x>
+      <y>0</y>
+      <id>knob1-id</id>
+      <automationAllowed>true</automationAllowed>
+      <label>Knob 1</label>
+      <value>0.5</value>
+      <minimum>0</minimum>
+      <maximum>1</maximum>
+    </bsbObject>
+  </graphicInterface>
+  <parameterList/>
+  <opcodeList/>
+</instrument>`;
+
 describe('Sound Score Object Editor', () => {
   describe('T004: SoundEditorSnapshot contract', () => {
     it('creates Sound editor document with full tabs and default BSB snapshot for empty BSB', () => {
@@ -184,6 +208,67 @@ describe('Sound Score Object Editor', () => {
       });
       expect(changed).toBe(true);
       expect(sound.getBSBInstrumentText()).toContain('knob1');
+    });
+
+    it('adds newly named automatable widgets to the Sound automation payload', () => {
+      const { data, target, sound } = createDataWithSound(UNNAMED_AUTOMATABLE_BSB_XML);
+      const initialDoc = createScoreObjectEditorDocument(data, { target });
+      const widgetId = ((initialDoc.editor as any).payload as SoundEditorPayload).bsbInstrument?.widgetTree.children?.[0]?.id;
+
+      expect(widgetId).toBeTruthy();
+      expect(widgetId).toBe('knob1-id');
+
+      const changed = applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTypeSpecificEditor',
+          target,
+          patch: {
+            bsbInterfacePatch: { type: 'updateWidgetProperties', widgetId: widgetId ?? '', properties: { objectName: 'gain' } },
+          },
+        },
+      });
+
+      expect(changed).toBe(true);
+  expect(sound.getBSBInstrumentText()).toContain('<objectName>gain</objectName>');
+
+      const doc = createScoreObjectEditorDocument(data, { target });
+      const payload = (doc.editor as any).payload as SoundEditorPayload;
+      expect(payload.automationParameters).toHaveLength(1);
+      expect(payload.automationParameters[0]?.name).toBe('gain');
+      expect(payload.automationParameters[0]?.parameterId).toBeTruthy();
+    });
+
+    it('rescales Sound automation ranges and points when widget bounds change', () => {
+      const { data, target, sound } = createDataWithSound(MINIMAL_BSB_XML);
+      const initialDoc = createScoreObjectEditorDocument(data, { target });
+      const widgetId = ((initialDoc.editor as any).payload as SoundEditorPayload).bsbInstrument?.widgetTree.children?.[0]?.id;
+
+      expect(widgetId).toBeTruthy();
+      expect(widgetId).toBe('knob1-id');
+
+      const changed = applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateTypeSpecificEditor',
+          target,
+          patch: {
+            bsbInterfacePatch: { type: 'updateWidgetProperties', widgetId: widgetId ?? '', properties: { maximum: 10 } },
+          },
+        },
+      });
+
+      expect(changed).toBe(true);
+  expect(sound.getBSBInstrumentText()).toContain('<maximum>10</maximum>');
+
+      const doc = createScoreObjectEditorDocument(data, { target });
+      const payload = (doc.editor as any).payload as SoundEditorPayload;
+      const parameter = payload.automationParameters[0];
+
+      expect(parameter?.maximum).toBe(10);
+      expect(parameter?.value).toBe(5);
+      expect(parameter?.points).toEqual([
+        { x: 0, y: 5 },
+        { x: 1, y: 5 },
+      ]);
     });
   });
 

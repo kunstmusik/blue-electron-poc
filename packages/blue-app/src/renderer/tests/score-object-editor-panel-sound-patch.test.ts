@@ -22,10 +22,73 @@ const MINIMAL_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" edit
       <width>60</width>
       <height>60</height>
       <id>knob1-id</id>
+      <automationAllowed>true</automationAllowed>
       <label>Knob 1</label>
       <value>0.5</value>
       <minimum>0</minimum>
       <maximum>1</maximum>
+    </bsbObject>
+  </graphicInterface>
+  <parameterList>
+    <parameter uniqueId="knob1-param" name="knob1" label="Knob 1" min="0.0" max="1.0" automationEnabled="true" value="0.5">
+      <line>
+        <linePoint x="0.0" y="0.5"/>
+        <linePoint x="1.0" y="0.5"/>
+      </line>
+    </parameter>
+  </parameterList>
+  <opcodeList/>
+</instrument>`;
+
+const UNNAMED_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
+  <name>TestBSB</name>
+  <comment></comment>
+  <globalOrc></globalOrc>
+  <globalSco></globalSco>
+  <instrumentText>instr 1\n  out(oscili(0.5, 440))\nendin</instrumentText>
+  <alwaysOnInstrumentText></alwaysOnInstrumentText>
+  <graphicInterface>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBKnob" version="2">
+      <objectName></objectName>
+      <x>10</x>
+      <y>12</y>
+      <width>60</width>
+      <height>60</height>
+      <id>knob1-id</id>
+      <automationAllowed>true</automationAllowed>
+      <label>Knob 1</label>
+      <value>0.5</value>
+      <minimum>0</minimum>
+      <maximum>1</maximum>
+    </bsbObject>
+  </graphicInterface>
+  <parameterList/>
+  <opcodeList/>
+</instrument>`;
+
+const SLIDER_BANK_BSB_XML = `<instrument type="blue.orchestra.BlueSynthBuilder" editEnabled="true">
+  <name>SliderBankBSB</name>
+  <comment></comment>
+  <globalOrc></globalOrc>
+  <globalSco></globalSco>
+  <instrumentText>instr 1\n  out(oscili(&lt;bank_0&gt;, 440))\nendin</instrumentText>
+  <alwaysOnInstrumentText></alwaysOnInstrumentText>
+  <graphicInterface>
+    <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSliderBank">
+      <objectName>bank</objectName>
+      <x>10</x>
+      <y>12</y>
+      <id>bank-id</id>
+      <automationAllowed>true</automationAllowed>
+      <minimum>0</minimum>
+      <maximum>1</maximum>
+      <sliderWidth>120</sliderWidth>
+      <gap>5</gap>
+      <bdresolution>-1</bdresolution>
+      <bsbObject type="blue.orchestra.blueSynthBuilder.BSBHSlider">
+        <objectName>bank_0</objectName>
+        <value>0.5</value>
+      </bsbObject>
     </bsbObject>
   </graphicInterface>
   <parameterList/>
@@ -46,13 +109,13 @@ function makeSoundTarget(): ScoreObjectEditorTargetSnapshot {
   };
 }
 
-function makeSoundDocument() {
+function makeSoundDocument(xml: string = MINIMAL_BSB_XML) {
   const data = new BlueData();
   data.getScore().length = 0;
   const poly = new PolyObject();
   const layer = new SoundLayer();
   const sound = new Sound();
-  sound.setBSBInstrumentText(MINIMAL_BSB_XML);
+  sound.setBSBInstrumentText(xml);
   layer.push(sound);
   poly.push(layer);
   data.getScore().push(poly);
@@ -135,7 +198,7 @@ describe('ScoreObjectEditorPanel Sound optimistic patching', () => {
     if (next.editor.kind !== 'structured') return;
 
     const payload = getPayload(next as ReturnType<typeof makeSoundDocument>);
-  const widget = findWidgetById(payload.bsbInstrument?.widgetTree.children, sourceWidget.id);
+    const widget = findWidgetById(payload.bsbInstrument?.widgetTree.children, sourceWidget.id);
 
     expect(widget?.objectName).toBe('gain');
     expect(widget?.x).toBe(48);
@@ -209,5 +272,148 @@ describe('ScoreObjectEditorPanel Sound optimistic patching', () => {
     expect(removedPayload.bsbInstrument?.widgetTree.children).toHaveLength(1);
     expect(findWidgetByType(removedPayload.bsbInstrument?.widgetTree.children, 'BSBLabel')).toBeNull();
     expect(findWidgetById(removedPayload.bsbInstrument?.widgetTree.children, originalWidget.id)).not.toBeNull();
+  });
+
+  it('adds a new automation parameter immediately when an automatable widget gets an object name', () => {
+    const doc = makeSoundDocument(UNNAMED_BSB_XML);
+    const sourcePayload = getPayload(doc);
+    const sourceWidget = findWidgetByType(sourcePayload.bsbInstrument?.widgetTree.children, 'BSBKnob');
+
+    if (!sourceWidget?.id) {
+      throw new Error('Expected Sound snapshot to contain a BSBKnob widget with an id');
+    }
+
+    const next = applyPatchToDocument(doc, {
+      type: 'updateTypeSpecificEditor',
+      target: doc.target,
+      patch: {
+        bsbInterfacePatch: {
+          type: 'updateWidgetProperties',
+          widgetId: sourceWidget.id,
+          properties: {
+            objectName: 'gain',
+          },
+        },
+      },
+    });
+
+    expect(next.editor.kind).toBe('structured');
+    if (next.editor.kind !== 'structured') return;
+
+    const payload = getPayload(next as ReturnType<typeof makeSoundDocument>);
+    expect(payload.automationParameters).toEqual([
+      expect.objectContaining({
+        parameterId: 'gain',
+        name: 'gain',
+        minimum: 0,
+        maximum: 1,
+        value: 0.5,
+      }),
+    ]);
+  });
+
+  it('rescales Sound automation points immediately when widget bounds change', () => {
+    const doc = makeSoundDocument();
+    const sourcePayload = getPayload(doc);
+    const sourceWidget = findWidgetByType(sourcePayload.bsbInstrument?.widgetTree.children, 'BSBKnob');
+
+    if (!sourceWidget?.id) {
+      throw new Error('Expected Sound snapshot to contain a BSBKnob widget with an id');
+    }
+
+    const next = applyPatchToDocument(doc, {
+      type: 'updateTypeSpecificEditor',
+      target: doc.target,
+      patch: {
+        bsbInterfacePatch: {
+          type: 'updateWidgetProperties',
+          widgetId: sourceWidget.id,
+          properties: {
+            maximum: 10,
+          },
+        },
+      },
+    });
+
+    expect(next.editor.kind).toBe('structured');
+    if (next.editor.kind !== 'structured') return;
+
+    const payload = getPayload(next as ReturnType<typeof makeSoundDocument>);
+    const widget = findWidgetById(payload.bsbInstrument?.widgetTree.children, sourceWidget.id);
+
+    expect(widget?.maximum).toBe(10);
+    expect(widget?.value).toBe(5);
+    expect(payload.automationParameters).toEqual([
+      expect.objectContaining({
+        parameterId: 'knob1-param',
+        name: 'knob1',
+        maximum: 10,
+        value: 5,
+        points: [
+          { x: 0, y: 5 },
+          { x: 1, y: 5 },
+        ],
+      }),
+    ]);
+  });
+
+  it('keeps slider bank property ranges synchronized during optimistic bound changes', () => {
+    const doc = makeSoundDocument(SLIDER_BANK_BSB_XML);
+    const sourcePayload = getPayload(doc);
+    const sourceWidget = findWidgetByType(sourcePayload.bsbInstrument?.widgetTree.children, 'BSBHSliderBank');
+
+    if (!sourceWidget?.id) {
+      throw new Error('Expected Sound snapshot to contain a BSBHSliderBank widget with an id');
+    }
+
+    const withMinimum = applyPatchToDocument(doc, {
+      type: 'updateTypeSpecificEditor',
+      target: doc.target,
+      patch: {
+        bsbInterfacePatch: {
+          type: 'updateWidgetProperties',
+          widgetId: sourceWidget.id,
+          properties: {
+            minimum: -1,
+          },
+        },
+      },
+    });
+
+    expect(withMinimum.editor.kind).toBe('structured');
+    if (withMinimum.editor.kind !== 'structured') return;
+
+    const minimumPayload = getPayload(withMinimum as ReturnType<typeof makeSoundDocument>);
+    const minimumWidget = findWidgetById(minimumPayload.bsbInstrument?.widgetTree.children, sourceWidget.id);
+    const minimumSliders = minimumWidget?.properties.sliders as Array<{ value?: number }> | undefined;
+
+    expect(minimumWidget?.minimum).toBe(-1);
+    expect(minimumWidget?.properties.minimum).toBe(-1);
+    expect(minimumSliders?.[0]?.value).toBe(0);
+
+    const withMaximum = applyPatchToDocument(doc, {
+      type: 'updateTypeSpecificEditor',
+      target: doc.target,
+      patch: {
+        bsbInterfacePatch: {
+          type: 'updateWidgetProperties',
+          widgetId: sourceWidget.id,
+          properties: {
+            maximum: 10,
+          },
+        },
+      },
+    });
+
+    expect(withMaximum.editor.kind).toBe('structured');
+    if (withMaximum.editor.kind !== 'structured') return;
+
+    const maximumPayload = getPayload(withMaximum as ReturnType<typeof makeSoundDocument>);
+    const maximumWidget = findWidgetById(maximumPayload.bsbInstrument?.widgetTree.children, sourceWidget.id);
+    const maximumSliders = maximumWidget?.properties.sliders as Array<{ value?: number }> | undefined;
+
+    expect(maximumWidget?.maximum).toBe(10);
+    expect(maximumWidget?.properties.maximum).toBe(10);
+    expect(maximumSliders?.[0]?.value).toBe(5);
   });
 });

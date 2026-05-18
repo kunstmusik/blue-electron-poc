@@ -16,6 +16,36 @@ export enum AutomationCurve {
   EXPONENTIAL = 'EXPONENTIAL',
 }
 
+function clamp(value: number, minimum: number, maximum: number): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function snapToResolution(value: number, minimum: number, maximum: number, resolution: number): number {
+  if (!Number.isFinite(resolution) || resolution <= 0) {
+    return clamp(value, minimum, maximum);
+  }
+
+  const snapped = minimum + (Math.round((value - minimum) / resolution) * resolution);
+  return clamp(snapped, minimum, maximum);
+}
+
+function rescale(
+  value: number,
+  oldMinimum: number,
+  oldMaximum: number,
+  newMinimum: number,
+  newMaximum: number,
+  resolution: number,
+): number {
+  if (oldMaximum === oldMinimum) {
+    return snapToResolution(newMinimum, newMinimum, newMaximum, resolution);
+  }
+
+  const normalized = (value - oldMinimum) / (oldMaximum - oldMinimum);
+  const nextValue = newMinimum + (normalized * (newMaximum - newMinimum));
+  return snapToResolution(nextValue, newMinimum, newMaximum, resolution);
+}
+
 export class Parameter implements BlueDataObject {
   private _uniqueId = Parameter.generateUniqueId();
   private _name = '';
@@ -51,10 +81,46 @@ export class Parameter implements BlueDataObject {
   setLabel(label: string): void { this._label = label; }
 
   getMinimum(): number { return this._minimum; }
-  setMinimum(v: number): void { this._minimum = v; }
+  setMinimum(v: number, truncate = false): void {
+    if (this._minimum === v) {
+      return;
+    }
+
+    const oldMinimum = this._minimum;
+    this._minimum = v;
+
+    this._points = this._points.map((point) => ({
+      ...point,
+      value: truncate
+        ? snapToResolution(clamp(point.value, this._minimum, this._maximum), this._minimum, this._maximum, this._resolution)
+        : rescale(point.value, oldMinimum, this._maximum, this._minimum, this._maximum, this._resolution),
+    }));
+
+    this._fixedValue = truncate
+      ? snapToResolution(clamp(this._fixedValue, this._minimum, this._maximum), this._minimum, this._maximum, this._resolution)
+      : rescale(this._fixedValue, oldMinimum, this._maximum, this._minimum, this._maximum, this._resolution);
+  }
 
   getMaximum(): number { return this._maximum; }
-  setMaximum(v: number): void { this._maximum = v; }
+  setMaximum(v: number, truncate = false): void {
+    if (this._maximum === v) {
+      return;
+    }
+
+    const oldMaximum = this._maximum;
+    this._maximum = v;
+
+    this._points = this._points.map((point) => ({
+      ...point,
+      value: truncate
+        ? snapToResolution(clamp(point.value, this._minimum, this._maximum), this._minimum, this._maximum, this._resolution)
+        : rescale(point.value, this._minimum, oldMaximum, this._minimum, this._maximum, this._resolution),
+    }));
+
+    this._fixedValue = truncate
+      ? snapToResolution(clamp(this._fixedValue, this._minimum, this._maximum), this._minimum, this._maximum, this._resolution)
+      : rescale(this._fixedValue, this._minimum, oldMaximum, this._minimum, this._maximum, this._resolution);
+  }
 
   getCurve(): AutomationCurve { return this._curve; }
   setCurve(c: AutomationCurve): void { this._curve = c; }
