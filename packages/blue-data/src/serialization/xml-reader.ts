@@ -345,6 +345,10 @@ export class Element {
       parts.push(this._escapeText(this._text));
     }
 
+    if (this._children.length > 0) {
+      parts.push('\n');
+    }
+
     for (const child of this._children) {
       child._serializeTo(parts, depth + 1);
     }
