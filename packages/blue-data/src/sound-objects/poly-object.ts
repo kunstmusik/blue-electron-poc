@@ -18,7 +18,7 @@ import { TimeContext } from '../time/time-context';
 import { CompileData } from '../compile-data';
 import { NoteList } from './note-list';
 import { Element } from '../serialization/xml-reader';
-import { setScoreStart } from '../utilities/score';
+import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { LayerGroupDataEvent, LayerGroupDataEventType } from '../score/layers/layer-group-data-event';
 import { LayerGroupListener } from '../score/layers/layer-group-listener';
@@ -184,23 +184,59 @@ export class PolyObject extends Array<SoundLayer>
     compileData: CompileData,
     startTime: number,
     endTime: number,
-    _processWithSolo?: boolean,
+    processWithSolo?: boolean,
   ): NoteList {
     const noteList = new NoteList();
+    const shouldProcessWithSolo = processWithSolo ?? this.hasSoloLayers();
 
-    for (const layer of this) {
-      const nl = layer.generateForCSD(context, compileData, startTime, endTime);
-      noteList.merge(nl);
+    if (shouldProcessWithSolo) {
+      for (const layer of this) {
+        if (!layer.isSolo() || layer.isMuted()) {
+          continue;
+        }
+
+        const nl = layer.generateForCSD(context, compileData, startTime, endTime);
+        noteList.merge(nl);
+      }
+    } else {
+      for (const layer of this) {
+        if (layer.isMuted()) {
+          continue;
+        }
+
+        const nl = layer.generateForCSD(context, compileData, startTime, endTime);
+        noteList.merge(nl);
+      }
     }
 
-    setScoreStart(noteList, this._startTime.toBeats(context));
+    return this.processGeneratedNotes(context, noteList, startTime, endTime);
+  }
 
-    let retVal = noteList;
+  private processGeneratedNotes(
+    context: TimeContext,
+    noteList: NoteList,
+    startTime: number,
+    endTime: number,
+  ): NoteList {
+    const processed = applyNoteProcessorChain(noteList, this._npc);
+    const duration = this._subjectiveDuration.toBeats(context);
+    const repeatPointBeats = this._repeatPoint ? this._repeatPoint.toBeats(context) : -1;
+
+    applyTimeBehavior(
+      processed,
+      this._timeBehavior,
+      duration,
+      repeatPointBeats,
+    );
+
+    setScoreStart(processed, this._startTime.toBeats(context));
+
+    let retVal = processed;
 
     if (startTime > 0) {
-      setScoreStart(noteList, -startTime);
+      setScoreStart(processed, -startTime);
       const filtered = new NoteList();
-      for (const note of noteList) {
+      for (const note of processed) {
         if (note.getStartTime() >= 0) {
           filtered.add(note);
         }
@@ -223,7 +259,9 @@ export class PolyObject extends Array<SoundLayer>
 
   // ─── LayerGroup ───
 
-  hasSoloLayers(): boolean { return false; }
+  hasSoloLayers(): boolean {
+    return this.some((layer) => layer.isSolo());
+  }
 
   newLayerAt(index: number): SoundLayer {
     const layer = new SoundLayer();
@@ -290,10 +328,10 @@ export class PolyObject extends Array<SoundLayer>
     for (const layer of this) {
       const layerElem = new Element('soundLayer');
       layerElem.setAttribute('name', layer.getName());
-      layerElem.setAttribute('muted', 'false');
-      layerElem.setAttribute('solo', 'false');
-      layerElem.setAttribute('heightIndex', '0');
-      layerElem.addElement('noteProcessorChain');
+      layerElem.setAttribute('muted', layer.isMuted().toString());
+      layerElem.setAttribute('solo', layer.isSolo().toString());
+      layerElem.setAttribute('heightIndex', layer.getHeightIndex().toString());
+      layerElem.addElement(layer.getNoteProcessorChain().saveAsXML());
 
       for (const sObj of layer) {
         layerElem.addElement(sObj.saveAsXML(objRefMap));
@@ -345,12 +383,22 @@ export class PolyObject extends Array<SoundLayer>
         const layerName = node.getAttribute('name');
         if (layerName) layer.setName(layerName);
 
+        layer.setMuted(node.getAttribute('muted') === 'true');
+        layer.setSolo(node.getAttribute('solo') === 'true');
+
+        const heightIndex = node.getAttribute('heightIndex');
+        if (heightIndex) {
+          layer.setHeightIndex(parseInt(heightIndex, 10));
+        }
+
         const sObjNodes = node.getElements();
         while (sObjNodes.hasMoreElements()) {
           const sObjNode = sObjNodes.next();
           if (sObjNode.getName() === 'soundObject') {
             const sObj = loadNestedSoundObject(sObjNode, _objRefMap);
             if (sObj) layer.push(sObj);
+          } else if (sObjNode.getName() === 'noteProcessorChain') {
+            layer.setNoteProcessorChain(NoteProcessorChain.loadFromXML(sObjNode));
           }
         }
 
@@ -373,12 +421,7 @@ export class PolyObject extends Array<SoundLayer>
     copy._npc = new NoteProcessorChain(this._npc);
     // Deep copy layers
     for (const layer of this) {
-      const layerCopy = new SoundLayer();
-      layerCopy.setName(layer.getName());
-      for (const sObj of layer) {
-        layerCopy.push(sObj.deepCopy());
-      }
-      copy.push(layerCopy);
+      copy.push(layer.deepCopy());
     }
     return copy;
   }

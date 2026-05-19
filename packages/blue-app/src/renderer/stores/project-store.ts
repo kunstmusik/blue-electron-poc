@@ -125,8 +125,8 @@ interface ProjectActions {
   moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>) => void;
   removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
   addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
-  setLayerMute: (layerId: string, muted: boolean) => void;
-  setLayerSolo: (layerId: string, solo: boolean) => void;
+  setLayerMute: (groupId: string, layerIndex: number, muted: boolean) => void;
+  setLayerSolo: (groupId: string, layerIndex: number, solo: boolean) => void;
   renameLayer: (layerId: string, name: string) => void;
   setLayerHeight: (layerId: string, heightIndex: number) => void;
   addLayer: (groupId: string, layerIndex: number) => void;
@@ -1234,6 +1234,27 @@ function applyScorePatchToSnapshot(
       layers.splice(clampedTarget, 0, moved!);
       return { ...lg, layers };
     });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'updateLayerState') {
+    const nextLayerGroups = score.layerGroups.map((lg) => {
+      if (lg.groupId !== patch.groupId) return lg;
+      if (patch.layerIndex < 0 || patch.layerIndex >= lg.layers.length) return lg;
+
+      const layers = lg.layers.map((layer, index) => {
+        if (index !== patch.layerIndex) return layer;
+
+        return {
+          ...layer,
+          ...(patch.patch.muted !== undefined ? { muted: patch.patch.muted } : {}),
+          ...(patch.patch.solo !== undefined ? { solo: patch.patch.solo } : {}),
+        };
+      });
+
+      return { ...lg, layers };
+    });
+
     return { ...score, layerGroups: nextLayerGroups };
   }
 
@@ -3242,27 +3263,25 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
     }).then(() => __testFlushPendingPatches());
   },
 
-  setLayerMute: (layerId, muted) => {
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => ({
-        ...lg,
-        layers: lg.layers.map((l) =>
-          l.layerId === layerId ? { ...l, muted } : l
-        ),
-      }));
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+  setLayerMute: (groupId, layerIndex, muted) => {
+    void get().applyProjectDocumentPatch({
+      score: {
+        type: 'updateLayerState',
+        groupId,
+        layerIndex,
+        patch: { muted },
+      },
     });
   },
 
-  setLayerSolo: (layerId, solo) => {
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => ({
-        ...lg,
-        layers: lg.layers.map((l) =>
-          l.layerId === layerId ? { ...l, solo } : l
-        ),
-      }));
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+  setLayerSolo: (groupId, layerIndex, solo) => {
+    void get().applyProjectDocumentPatch({
+      score: {
+        type: 'updateLayerState',
+        groupId,
+        layerIndex,
+        patch: { solo },
+      },
     });
   },
 

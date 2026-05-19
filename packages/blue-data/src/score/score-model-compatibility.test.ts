@@ -3,10 +3,18 @@ import { Score } from './score';
 import { PolyObject } from '../sound-objects/poly-object';
 import { SoundLayer } from '../sound-objects/sound-layer';
 import { GenericScore } from '../sound-objects/generic-score';
+import { TimeBehavior } from '../sound-objects/time-behavior';
 import { TimeDuration } from '../time/time-duration';
 import { CompileData } from '../compile-data';
 import { Element } from '../serialization/xml-reader';
 import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
+
+function createSingleNoteScore(instr: number): GenericScore {
+  const score = new GenericScore();
+  score.setScoreText(`i${instr} 0 1 440`);
+  score.setSubjectiveDuration(TimeDuration.beats(1));
+  return score;
+}
 
 describe('Score model compatibility', () => {
   describe('default score', () => {
@@ -190,6 +198,85 @@ describe('Score model compatibility', () => {
       const startTimes = [...notes].map((note) => note.getStartTime());
       expect(startTimes).toHaveLength(2);
       expect(Math.max(...startTimes)).toBeLessThanOrEqual(10);
+    });
+
+    it('skips muted SoundLayers when no solo layer exists', () => {
+      const score = new Score();
+      score.length = 0;
+
+      const poly = new PolyObject(true);
+
+      const activeLayer = new SoundLayer();
+      activeLayer.push(createSingleNoteScore(1));
+
+      const mutedLayer = new SoundLayer();
+      mutedLayer.setMuted(true);
+      mutedLayer.push(createSingleNoteScore(2));
+
+      poly.push(activeLayer);
+      poly.push(mutedLayer);
+      score.push(poly);
+
+      const notes = score.generateForCSD(new CompileData(), 0, -1);
+
+      expect([...notes].map((note) => note.getPField(1))).toEqual(['1']);
+    });
+
+    it('renders only solo-enabled SoundLayers in a root PolyObject', () => {
+      const score = new Score();
+      score.length = 0;
+
+      const poly = new PolyObject(true);
+
+      const normalLayer = new SoundLayer();
+      normalLayer.push(createSingleNoteScore(1));
+
+      const soloLayer = new SoundLayer();
+      soloLayer.setSolo(true);
+      soloLayer.push(createSingleNoteScore(2));
+
+      const mutedSoloLayer = new SoundLayer();
+      mutedSoloLayer.setSolo(true);
+      mutedSoloLayer.setMuted(true);
+      mutedSoloLayer.push(createSingleNoteScore(3));
+
+      poly.push(normalLayer);
+      poly.push(soloLayer);
+      poly.push(mutedSoloLayer);
+      score.push(poly);
+
+      const notes = score.generateForCSD(new CompileData(), 0, -1);
+
+      expect([...notes].map((note) => note.getPField(1))).toEqual(['2']);
+    });
+
+    it('uses local solo state for nested PolyObjects rendered as sound objects', () => {
+      const score = new Score();
+      score.length = 0;
+
+      const root = new PolyObject(true);
+      const rootLayer = new SoundLayer();
+
+      const nested = new PolyObject(false);
+      nested.setTimeBehavior(TimeBehavior.NONE);
+      nested.setSubjectiveDuration(TimeDuration.beats(4));
+
+      const nestedNormalLayer = new SoundLayer();
+      nestedNormalLayer.push(createSingleNoteScore(1));
+
+      const nestedSoloLayer = new SoundLayer();
+      nestedSoloLayer.setSolo(true);
+      nestedSoloLayer.push(createSingleNoteScore(2));
+
+      nested.push(nestedNormalLayer);
+      nested.push(nestedSoloLayer);
+      rootLayer.push(nested);
+      root.push(rootLayer);
+      score.push(root);
+
+      const notes = score.generateForCSD(new CompileData(), 0, -1);
+
+      expect([...notes].map((note) => note.getPField(1))).toEqual(['2']);
     });
   });
 });

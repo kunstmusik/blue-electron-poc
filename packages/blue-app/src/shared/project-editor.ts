@@ -442,6 +442,15 @@ export type ScorePatch =
       layerIndex: number;
       targetIndex: number;
     }
+  | {
+      type: 'updateLayerState';
+      groupId: string;
+      layerIndex: number;
+      patch: {
+        muted?: boolean;
+        solo?: boolean;
+      };
+    }
   | { type: 'renameLayer'; groupId: string; layerIndex: number; name: string }
   | { type: 'addMarker'; timeBeats: number; name?: string }
   | { type: 'updateMarker'; sourceIndex: number; patch: { name?: string; timeBeats?: number; timeBase?: string } }
@@ -1972,6 +1981,8 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
       layerId: `${groupId}-layer-${i}`,
       name: layer.getName(),
       height: 44,
+      muted: layer.isMuted(),
+      solo: layer.isSolo(),
       items,
     });
   }
@@ -2904,6 +2915,9 @@ function isValidTimeBase(value: unknown): value is TimeBase {
 
 function isNonEmptyScorePatch(patch: ScorePatch): boolean {
   if (patch.type === 'updateTimeState') {
+    return Object.keys(patch.patch).length > 0;
+  }
+  if (patch.type === 'updateLayerState') {
     return Object.keys(patch.patch).length > 0;
   }
   if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor') {
@@ -4418,6 +4432,53 @@ function moveLayerInManagedGroup(
   return true;
 }
 
+type LayerStateManagedLayer = {
+  isMuted(): boolean;
+  setMuted(muted: boolean): void;
+  isSolo(): boolean;
+  setSolo(solo: boolean): void;
+};
+
+function isLayerStateManagedLayer(value: unknown): value is LayerStateManagedLayer {
+  return typeof value === 'object'
+    && value !== null
+    && 'isMuted' in value
+    && typeof value.isMuted === 'function'
+    && 'setMuted' in value
+    && typeof value.setMuted === 'function'
+    && 'isSolo' in value
+    && typeof value.isSolo === 'function'
+    && 'setSolo' in value
+    && typeof value.setSolo === 'function';
+}
+
+function applyUpdateLayerStatePatch(
+  data: BlueData,
+  patch: ScorePatch & { type: 'updateLayerState' },
+): boolean {
+  const score = data.getScore();
+  const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
+  if (!targetGroup) return false;
+  if (patch.layerIndex < 0 || patch.layerIndex >= targetGroup.length) return false;
+
+  const layer = targetGroup[patch.layerIndex];
+  if (!isLayerStateManagedLayer(layer)) return false;
+
+  let changed = false;
+
+  if (patch.patch.muted !== undefined && layer.isMuted() !== patch.patch.muted) {
+    layer.setMuted(patch.patch.muted);
+    changed = true;
+  }
+
+  if (patch.patch.solo !== undefined && layer.isSolo() !== patch.patch.solo) {
+    layer.setSolo(patch.patch.solo);
+    changed = true;
+  }
+
+  return changed;
+}
+
 function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: 'addScoreObjects' }): boolean {
   const score = data.getScore();
 
@@ -4643,6 +4704,10 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
       );
     }
     return true;
+  }
+
+  if (patch.type === 'updateLayerState') {
+    return applyUpdateLayerStatePatch(data, patch);
   }
 
   if (patch.type === 'removeMarker') {
@@ -6485,6 +6550,8 @@ export function createNestedPolyObjectSnapshot(
       layerId: `${groupId}-layer-${i}`,
       name: subLayer.getName(),
       height: 44,
+      muted: subLayer.isMuted(),
+      solo: subLayer.isSolo(),
       items,
     });
   }

@@ -8,7 +8,11 @@ import {
   SoundLayer,
   TimePosition,
 } from '@blue/data';
-import { applyProjectDocumentPatch, createProjectEditorSnapshot } from '../../shared/project-editor';
+import {
+  applyProjectDocumentPatch,
+  createNestedPolyObjectSnapshot,
+  createProjectEditorSnapshot,
+} from '../../shared/project-editor';
 import { useProjectStore, __testClearPendingPatches } from '../stores/project-store';
 import { useScoreSelectionStore } from '../stores/score-selection-store';
 
@@ -147,6 +151,73 @@ describe('score multigroup object identity', () => {
     expect((data.getScore()[0] as PolyObject)[0]!.getName()).toBe('Renamed Layer');
     expect(createProjectEditorSnapshot(data, null).score.layerGroups[0]!.layers[0]!.name)
       .toBe('Renamed Layer');
+  });
+
+  it('includes mute/solo state in root and nested PolyObject snapshots', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const root = new PolyObject(true);
+    const rootLayer = new SoundLayer();
+    rootLayer.setName('Root Layer');
+    rootLayer.setMuted(true);
+
+    const nested = new PolyObject(false);
+    const nestedLayer = new SoundLayer();
+    nestedLayer.setName('Nested Layer');
+    nestedLayer.setSolo(true);
+    nested.push(nestedLayer);
+
+    rootLayer.push(nested);
+    root.push(rootLayer);
+    data.getScore().push(root);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    expect(snapshot.score.layerGroups[0]!.layers[0]!.muted).toBe(true);
+    expect(snapshot.score.layerGroups[0]!.layers[0]!.solo).toBe(false);
+
+    const nestedSnapshot = createNestedPolyObjectSnapshot(data, {
+      rootGroupIndex: 0,
+      containerPath: [],
+      layerIndex: 0,
+      objectIndex: 0,
+    });
+
+    expect(nestedSnapshot?.layers[0]!.muted).toBe(false);
+    expect(nestedSnapshot?.layers[0]!.solo).toBe(true);
+  });
+
+  it('persists layer mute and solo through canonical score patches', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const group = new PolyObject(true);
+    const layer = new SoundLayer();
+    group.push(layer);
+    data.getScore().push(group);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const groupId = snapshot.score.layerGroups[0]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'updateLayerState',
+        groupId,
+        layerIndex: 0,
+        patch: {
+          muted: true,
+          solo: true,
+        },
+      },
+    });
+
+    const updatedLayer = (data.getScore()[0] as PolyObject)[0]!;
+    expect(updatedLayer.isMuted()).toBe(true);
+    expect(updatedLayer.isSolo()).toBe(true);
+
+    const updatedSnapshot = createProjectEditorSnapshot(data, null);
+    expect(updatedSnapshot.score.layerGroups[0]!.layers[0]!.muted).toBe(true);
+    expect(updatedSnapshot.score.layerGroups[0]!.layers[0]!.solo).toBe(true);
   });
 
   it('moves the targeted root layer group when non-PolyObject groups are present', () => {

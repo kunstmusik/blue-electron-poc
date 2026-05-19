@@ -13,12 +13,29 @@ import { SoundObject } from '../sound-objects/sound-object';
 import { TimeContext } from '../time/time-context';
 import { CompileData } from '../compile-data';
 import { NoteList } from './note-list';
+import { NoteProcessorChain } from '../note-processors/note-processor-chain';
+import { applyNoteProcessorChain } from '../utilities/score';
 
 export class SoundLayer extends Array<SoundObject> implements Layer {
   private _name = '';
+  private _muted = false;
+  private _solo = false;
+  private _heightIndex = 0;
+  private _npc = new NoteProcessorChain();
 
-  constructor() {
+  constructor(other?: SoundLayer) {
     super();
+    if (other) {
+      this._name = other._name;
+      this._muted = other._muted;
+      this._solo = other._solo;
+      this._heightIndex = other._heightIndex;
+      this._npc = new NoteProcessorChain(other._npc);
+
+      for (const sObj of other) {
+        this.push(sObj.deepCopy());
+      }
+    }
   }
 
   // ─── Layer implementation ───
@@ -32,7 +49,39 @@ export class SoundLayer extends Array<SoundObject> implements Layer {
   }
 
   getLayerHeight(): number {
-    return LAYER_HEIGHT;
+    return LAYER_HEIGHT * (this._heightIndex + 1);
+  }
+
+  isMuted(): boolean {
+    return this._muted;
+  }
+
+  setMuted(muted: boolean): void {
+    this._muted = muted;
+  }
+
+  isSolo(): boolean {
+    return this._solo;
+  }
+
+  setSolo(solo: boolean): void {
+    this._solo = solo;
+  }
+
+  getHeightIndex(): number {
+    return this._heightIndex;
+  }
+
+  setHeightIndex(heightIndex: number): void {
+    this._heightIndex = heightIndex;
+  }
+
+  getNoteProcessorChain(): NoteProcessorChain {
+    return this._npc;
+  }
+
+  setNoteProcessorChain(chain: NoteProcessorChain): void {
+    this._npc = chain;
   }
 
   accepts(object: ScoreObject): boolean {
@@ -110,11 +159,10 @@ export class SoundLayer extends Array<SoundObject> implements Layer {
       noteList.merge(nl);
     }
 
-    return noteList;
+    return applyNoteProcessorChain(noteList, this._npc);
   }
 
   deepCopy(): SoundLayer {
-    // SoundLayers are deep-copied by their containing PolyObject
-    throw new Error('SoundLayer deepCopy should be called via PolyObject');
+    return new SoundLayer(this);
   }
 }

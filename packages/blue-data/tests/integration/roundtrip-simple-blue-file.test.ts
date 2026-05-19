@@ -242,6 +242,9 @@ describe('Round-trip: individual types', () => {
 
     const layer = new SoundLayer();
     layer.setName('Layer 1');
+    layer.setMuted(true);
+    layer.setSolo(true);
+    layer.setHeightIndex(2);
 
     const gs = new GenericScore();
     gs.setName('Score 1');
@@ -257,6 +260,9 @@ describe('Round-trip: individual types', () => {
     expect(reloaded.getTimeBehavior()).toBe(TimeBehavior.SCALE);
     expect(reloaded.length).toBe(1);
     expect(reloaded[0].getName()).toBe('Layer 1');
+    expect(reloaded[0].isMuted()).toBe(true);
+    expect(reloaded[0].isSolo()).toBe(true);
+    expect(reloaded[0].getHeightIndex()).toBe(2);
   });
 
   it('CSD generation works', () => {

@@ -689,7 +689,7 @@ function SoundLayerHeader({
               title="Mute"
               onClick={(e) => {
                 e.stopPropagation();
-                setLayerMute(layer.layerId, !layer.muted);
+                setLayerMute(groupId, layerIndex, !(layer.muted ?? false));
               }}
             >
               M
@@ -700,7 +700,7 @@ function SoundLayerHeader({
               style={layer.solo ? { color: "#fff" } : {}}
               onClick={(e) => {
                 e.stopPropagation();
-                setLayerSolo(layer.layerId, !layer.solo);
+                setLayerSolo(groupId, layerIndex, !(layer.solo ?? false));
               }}
             >
               S

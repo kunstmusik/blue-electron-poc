@@ -1,11 +1,12 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BlueData, PolyObject, SoundLayer } from '@blue/data';
 import { useProjectStore, __testFlushPendingPatches, __testAwaitPendingPatches, __testClearPendingPatches } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
 import { useSettingsStore } from '../stores/settings-store';
-import { createEmptyProjectEditorSnapshot } from '../../shared/project-editor';
+import { createEmptyProjectEditorSnapshot, createProjectEditorSnapshot } from '../../shared/project-editor';
 import { getWindowTitle } from '../../shared/window-title';
 import { TimeBase } from '../../shared/time-base';
 import MainToolbar from '../components/menu-bar/MainToolbar';
@@ -165,6 +166,63 @@ describe('Project Store', () => {
     expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
     expect(useProjectStore.getState().title).toBe('Edited Title');
     expect(useProjectStore.getState().isDirty).toBe(true);
+  });
+
+  it('T349: layer mute and solo actions batch canonical score layer state patches', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
+
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const group = new PolyObject(true);
+    group.push(new SoundLayer());
+    data.getScore().push(group);
+
+    const snapshot = createProjectEditorSnapshot(data, '/path/to/test.blue');
+
+    useProjectStore.getState().setProjectInfo({
+      ...snapshot,
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+        sampleRate: '44100',
+      },
+    });
+
+    const groupId = useProjectStore.getState().score.layerGroups[0]!.groupId;
+
+    useProjectStore.getState().setLayerMute(groupId, 0, true);
+    useProjectStore.getState().setLayerSolo(groupId, 0, true);
+
+    expect(useProjectStore.getState().score.layerGroups[0]!.layers[0]!.muted).toBe(true);
+    expect(useProjectStore.getState().score.layerGroups[0]!.layers[0]!.solo).toBe(true);
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        score: {
+          type: 'updateLayerState',
+          groupId,
+          layerIndex: 0,
+          patch: { muted: true },
+        },
+      },
+      {
+        score: {
+          type: 'updateLayerState',
+          groupId,
+          layerIndex: 0,
+          patch: { solo: true },
+        },
+      },
+    ]);
+    expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
   });
 
   it('clears the active project session when the project is closed', () => {
