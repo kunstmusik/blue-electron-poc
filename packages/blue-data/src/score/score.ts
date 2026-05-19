@@ -19,6 +19,7 @@ import { NoteList } from '../sound-objects/note-list';
 import { PolyObject } from '../sound-objects/poly-object';
 import { AudioLayerGroup } from './audio/audio-layer-group';
 import { PatternsLayerGroup } from './patterns/patterns-layer-group';
+import type { JavaScriptSession } from '../javascript-runtime';
 
 export class Score extends Array<LayerGroup<Layer>> {
   private timeContext = new TimeContext();
@@ -79,16 +80,23 @@ export class Score extends Array<LayerGroup<Layer>> {
       const layerGroup = this[i];
 
       if (!hasSolo) {
-        // No solo layers — generate all non-muted layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, false);
         noteList.merge(nl);
       } else {
-        // Solo mode — generate only solo layers
         const nl = layerGroup.generateForCSD(context, compileData, startTime, endTime, true);
         noteList.merge(nl);
       }
     }
     return noteList;
+  }
+
+  processOnLoad(session?: JavaScriptSession): void {
+    const context = this.timeContext;
+    for (const lg of this) {
+      if (lg instanceof PolyObject) {
+        lg.processOnLoad(context, session);
+      }
+    }
   }
 
   // ─── XML Serialization ───

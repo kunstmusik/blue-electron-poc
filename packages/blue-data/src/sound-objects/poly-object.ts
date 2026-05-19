@@ -42,6 +42,7 @@ import { JMask } from './j-mask';
 import { TrackerObject } from './tracker-object';
 import { NotationObject } from './notation-object';
 import { FrozenSoundObject } from './frozen-sound-object';
+import type { JavaScriptSession } from '../javascript-runtime';
 
 /**
  * Normalize a Java class name type to a short name.
@@ -248,7 +249,25 @@ export class PolyObject extends Array<SoundLayer>
   }
 
   onLoadComplete(_context: TimeContext): void {
-    // Initialize layers if needed
+    // No-op — use processOnLoad() for OnLoadProcessable support
+  }
+
+  processOnLoad(context: TimeContext, session?: JavaScriptSession): void {
+    for (const layer of this) {
+      for (const sObj of layer) {
+        if (sObj instanceof PolyObject) {
+          sObj.processOnLoad(context, session);
+        } else if (sObj instanceof JavaScriptObject) {
+          if (sObj.isOnLoadProcessable()) {
+            sObj.processOnLoad(context, session);
+          }
+        } else if (sObj instanceof PythonObject) {
+          if (sObj.isOnLoadProcessable()) {
+            sObj.processOnLoad(context);
+          }
+        }
+      }
+    }
   }
 
   addLayerGroupListener(listener: LayerGroupListener): void {

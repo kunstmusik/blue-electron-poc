@@ -31,6 +31,11 @@ export class PythonObject extends AbstractSoundObject {
   isOnLoadProcessable(): boolean { return this._onLoadProcessable; }
   setOnLoadProcessable(val: boolean): void { this._onLoadProcessable = val; }
 
+  processOnLoad(_context: TimeContext): void {
+    if (!this._onLoadProcessable) return;
+    console.warn('PythonObject.processOnLoad skipped: requires Java subprocess');
+  }
+
   override generateForCSD(
     _context: TimeContext,
     _compileData: CompileData,

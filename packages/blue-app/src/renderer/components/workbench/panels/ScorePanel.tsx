@@ -70,7 +70,9 @@ export default function ScorePanel() {
   }, [sessionId, resetSession]);
 
   const leftHeaderRef = useRef<HTMLDivElement>(null);
+  const timelineHeaderRef = useRef<HTMLDivElement>(null);
   const [nestedSnapshot, setNestedSnapshot] = useState<PolyObjectLayerGroupSnapshot | null>(null);
+  const [scrollOverlayLeft, setScrollOverlayLeft] = useState(0);
 
   const activeSegment = session.segments[session.segments.length - 1];
 
@@ -204,8 +206,19 @@ export default function ScorePanel() {
   const handleTimelineScroll = useCallback(() => {
     const timeline = scrollContainerRef.current;
     const left = leftHeaderRef.current;
-    if (timeline && left) {
-      left.scrollTop = timeline.scrollTop;
+    const header = timelineHeaderRef.current;
+    if (timeline) {
+      if (left) left.scrollTop = timeline.scrollTop;
+      if (header) header.scrollLeft = timeline.scrollLeft;
+      setScrollOverlayLeft(timeline.scrollLeft);
+    }
+  }, [scrollContainerRef]);
+
+  const handleTimelineHeaderScroll = useCallback(() => {
+    const timeline = scrollContainerRef.current;
+    const header = timelineHeaderRef.current;
+    if (timeline && header) {
+      timeline.scrollLeft = header.scrollLeft;
     }
   }, [scrollContainerRef]);
 
@@ -294,12 +307,12 @@ export default function ScorePanel() {
           />
         }
         second={
-          <div
-            ref={scrollContainerRef}
-            className="score-timeline-scroll h-full w-full overflow-auto"
-            onScroll={handleTimelineScroll}
-          >
-            <div className="relative">
+          <div className="h-full w-full flex flex-col">
+            <div
+              ref={timelineHeaderRef}
+              className="flex-shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              onScroll={handleTimelineHeaderScroll}
+            >
               <ColumnHeader
                 timeState={timeState}
                 markers={score.markers}
@@ -318,11 +331,12 @@ export default function ScorePanel() {
                 tempo={initialTempo}
                 rulerMouseDown={rulerMouseDown}
               />
-              <ScoreOverlayLines
-                renderStartTime={transport.renderStartTime}
-                renderEndTime={transport.renderEndTime}
-                timePointerBeats={timePointerBeats}
-                pixelsPerBeat={pixelsPerBeat}
+            </div>
+            <div className="relative flex-1 min-h-0">
+              <div
+                ref={scrollContainerRef}
+                className="score-timeline-scroll absolute inset-0 overflow-auto"
+                onScroll={handleTimelineScroll}
               >
                 <LayerPanel
                   layerGroups={effectiveLayerGroups}
@@ -338,7 +352,14 @@ export default function ScorePanel() {
                   }
                   smpteFrameRate={timeState.smpteFrameRate || 24}
                 />
-              </ScoreOverlayLines>
+              </div>
+              <ScoreOverlayLines
+                renderStartTime={transport.renderStartTime}
+                renderEndTime={transport.renderEndTime}
+                timePointerBeats={timePointerBeats}
+                pixelsPerBeat={pixelsPerBeat}
+                scrollLeft={scrollOverlayLeft}
+              />
             </div>
           </div>
         }

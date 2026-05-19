@@ -45,7 +45,8 @@ import { Channel } from "./mixer/channel";
 import { Send } from "./mixer/send";
 import { UDOStyle } from "./opcodes/udo-style";
 import { formatBlueNumber, formatJavaDouble } from "./utilities/number-format";
-import { disposeJavaScriptCompileState } from './javascript-runtime';
+import { disposeJavaScriptCompileState, setJavaScriptSession } from './javascript-runtime';
+import type { JavaScriptSession } from './javascript-runtime';
 import { parseUDOText } from "./opcodes/udo-utilities";
 import { TimeContext } from "./time/time-context";
 import { TempoMap } from "./time/tempo-map";
@@ -465,21 +466,25 @@ export class BlueData implements BlueDataObject {
    *   </CsScore>
    *   </CsoundSynthesizer>
   */
-  toCSD(): string {
-    return this.buildStandardCSD("realtime").csdText;
+  toCSD(session?: JavaScriptSession): string {
+    return this.buildStandardCSD("realtime", session).csdText;
   }
 
-  toDiskCSD(): string {
-    return this.buildStandardCSD("disk").csdText;
+  toDiskCSD(session?: JavaScriptSession): string {
+    return this.buildStandardCSD("disk", session).csdText;
   }
 
-  toRealtimePlaybackCSD(): RenderCsdResult {
-    return this.buildStandardCSD("realtime");
+  toRealtimePlaybackCSD(session?: JavaScriptSession): RenderCsdResult {
+    return this.buildStandardCSD("realtime", session);
   }
 
-  private buildStandardCSD(profile: CsdRenderProfile): RenderCsdResult {
+  processOnLoad(session?: JavaScriptSession): void {
+    this.score.processOnLoad(session);
+  }
+
+  private buildStandardCSD(profile: CsdRenderProfile, session?: JavaScriptSession): RenderCsdResult {
     const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
-      this.createRenderSnapshot();
+      this.createRenderSnapshot(session);
     let generationError: unknown = null;
     const logPrefix =
       profile === "disk" ? "[BlueData.toDiskCSD]" : "[BlueData.toCSD]";
@@ -721,9 +726,9 @@ export class BlueData implements BlueDataObject {
     }
   }
 
-  toBlueLiveCSD(): RenderCsdResult {
+  toBlueLiveCSD(session?: JavaScriptSession): RenderCsdResult {
     const { arrangement: clonedArrangement, tables: clonedTables, mixer: clonedMixer, compileData } =
-      this.createRenderSnapshot();
+      this.createRenderSnapshot(session);
     let generationError: unknown = null;
 
     try {
@@ -1305,7 +1310,7 @@ export class BlueData implements BlueDataObject {
     );
   }
 
-  private createRenderSnapshot(): {
+  private createRenderSnapshot(session?: JavaScriptSession): {
     arrangement: Arrangement;
     tables: Tables;
     mixer: Mixer;
@@ -1316,6 +1321,10 @@ export class BlueData implements BlueDataObject {
     const tables = new Tables(this.tableSet);
     const mixer = this.mixer.deepCopy() as Mixer;
     const compileData = new CompileData(arrangement, tables, true);
+
+    if (session) {
+      setJavaScriptSession(compileData, session);
+    }
 
     return {
       arrangement,

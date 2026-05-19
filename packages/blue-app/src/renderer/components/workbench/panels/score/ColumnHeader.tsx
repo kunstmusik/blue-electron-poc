@@ -35,7 +35,7 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
   const hasRenderEnd = renderEndTime > 0 && renderEndTime > renderStartTime;
 
   return (
-    <div className="sticky top-0 z-20 bg-blue-bg border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
+    <div className="bg-blue-bg border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
       {timeState.tempoRowVisible && (
         <div className={`h-5 border-b border-blue-border/20 flex items-center px-2 text-[9px] overflow-hidden ${tempoMap.enabled ? 'text-green-400' : 'text-blue-muted'}`} style={{ minWidth: contentWidth }}>
           {tempoMap.points.length === 1

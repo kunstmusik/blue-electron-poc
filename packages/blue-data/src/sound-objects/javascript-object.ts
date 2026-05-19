@@ -9,7 +9,8 @@ import { ObjRefSaveMap, ObjRefLoadMap } from '../serialization/obj-ref-map';
 import { SoundObject } from './sound-object';
 import { initBasicFromXML, getBasicXML } from './sound-object-utilities';
 import { applyNoteProcessorChain, applyTimeBehavior, setScoreStart } from '../utilities/score';
-import { getJavaScriptCompileContext } from '../javascript-runtime';
+import { getJavaScriptCompileContext, setJavaScriptSession } from '../javascript-runtime';
+import type { JavaScriptSession } from '../javascript-runtime';
 
 function parseScoreText(scoreText: string): NoteList {
   const notes = new NoteList();
@@ -86,6 +87,21 @@ export class JavaScriptObject extends AbstractSoundObject {
 
   isOnLoadProcessable(): boolean { return this._onLoadProcessable; }
   setOnLoadProcessable(val: boolean): void { this._onLoadProcessable = val; }
+
+  processOnLoad(context: TimeContext, session?: JavaScriptSession): void {
+    if (!this._onLoadProcessable || !session) return;
+
+    const compileData = CompileData.createEmptyCompileData();
+    setJavaScriptSession(compileData, session);
+
+    try {
+      const duration = this.getSubjectiveDuration().toBeats(context);
+      executeJavaScriptCode(this._javaScriptCode, duration, compileData);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`JavaScriptObject.processOnLoad error: ${msg}`);
+    }
+  }
 
   override generateForCSD(
     context: TimeContext,

@@ -2372,11 +2372,18 @@ export function createScoreObjectEditorDocument(
 
   switch (family) {
     case 'code': {
+      const auxiliaryFlags: Record<string, string | number | boolean> | undefined =
+        sObj instanceof JavaScriptObject
+          ? { onLoadProcessable: sObj.isOnLoadProcessable() }
+          : sObj instanceof PythonObject
+            ? { onLoadProcessable: sObj.isOnLoadProcessable() }
+            : undefined;
       editor = {
         kind: 'code',
         target,
         syntax: getSyntaxForType(objectType),
         text: getCodeText(sObj as SoundObject),
+        ...(auxiliaryFlags ? { auxiliaryFlags } : {}),
       };
       break;
     }
@@ -4723,6 +4730,20 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
     case 'updateTypeSpecificEditor': {
       if (patch.patch.text !== undefined) {
         return setCodeText(sObj as SoundObject, patch.patch.text as string);
+      }
+      if (sObj instanceof JavaScriptObject) {
+        const p = patch.patch;
+        if (p.onLoadProcessable !== undefined) {
+          sObj.setOnLoadProcessable(p.onLoadProcessable as boolean);
+          return true;
+        }
+      }
+      if (sObj instanceof PythonObject) {
+        const p = patch.patch;
+        if (p.onLoadProcessable !== undefined) {
+          sObj.setOnLoadProcessable(p.onLoadProcessable as boolean);
+          return true;
+        }
       }
       if (sObj instanceof External) {
         const ext = sObj as External;

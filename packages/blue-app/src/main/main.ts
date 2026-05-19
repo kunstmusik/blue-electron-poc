@@ -12,9 +12,9 @@ import {
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, setExternalCommandExecutor } from '@blue/data';
+import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, JavaScriptObject, setExternalCommandExecutor, CompileData, setJavaScriptSession } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
-import { initializeJavaScriptRuntime } from '@blue/data';
+import { initializeJavaScriptRuntime, JavaScriptSession } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
 import { BlueLiveEngineSession } from './blue-live-engine';
@@ -72,6 +72,7 @@ let pendingQuit = false;
 let shutdownPromise: Promise<void> | null = null;
 let playbackStartPromise: Promise<boolean> | null = null;
 let javaScriptRuntimeReady: Promise<void> | null = null;
+let javaScriptSession: JavaScriptSession | null = null;
 let recentProjectFiles: string[] = [];
 let currentProjectSessionId = 0;
 let currentFollowPlaybackEnabled = true;
@@ -666,6 +667,14 @@ async function openFile(): Promise<void> {
     rebuildApplicationMenu();
     updateWindowTitle();
 
+    disposeJavaScriptSession();
+    try {
+      javaScriptSession = await createJavaScriptSession();
+      data.processOnLoad(javaScriptSession);
+    } catch (sessionErr: unknown) {
+      console.warn('[App] Failed to create JavaScript session or run processOnLoad:', sessionErr);
+    }
+
     // Debug: log arrangement IDs and UDOs
     const arr = data.getArrangement();
     console.log(`[App] Loaded project with ${arr.size()} instrument assignments:`);
@@ -715,6 +724,14 @@ async function openFilePath(filePath: string): Promise<void> {
     rebuildApplicationMenu();
     updateWindowTitle();
 
+    disposeJavaScriptSession();
+    try {
+      javaScriptSession = await createJavaScriptSession();
+      data.processOnLoad(javaScriptSession);
+    } catch (sessionErr: unknown) {
+      console.warn('[App] Failed to create JavaScript session or run processOnLoad:', sessionErr);
+    }
+
     mainWindow.webContents.send('project-loaded', {
       ...createProjectEditorSnapshot(data, filePath, currentProjectSessionId),
       title: data.getProjectProperties().title || path.basename(filePath),
@@ -745,6 +762,13 @@ async function newFile(): Promise<void> {
   rebuildApplicationMenu();
   updateWindowTitle();
 
+  disposeJavaScriptSession();
+  try {
+    javaScriptSession = await createJavaScriptSession();
+  } catch (sessionErr: unknown) {
+    console.warn('[App] Failed to create JavaScript session for new project:', sessionErr);
+  }
+
   mainWindow.webContents.send('project-loaded', {
     ...createProjectEditorSnapshot(data, null, currentProjectSessionId),
     title: 'Untitled',
@@ -758,6 +782,7 @@ async function closeProject(): Promise<void> {
 
   if (!(await confirmSaveBeforeReplace())) return;
 
+  disposeJavaScriptSession();
   currentData = null;
   currentFilePath = null;
   currentProjectRevision = 0;
@@ -926,6 +951,18 @@ async function ensureJavaScriptEngine(): Promise<void> {
   await javaScriptRuntimeReady;
 }
 
+async function createJavaScriptSession(): Promise<JavaScriptSession> {
+  await ensureJavaScriptEngine();
+  return new JavaScriptSession();
+}
+
+function disposeJavaScriptSession(): void {
+  if (javaScriptSession) {
+    javaScriptSession.dispose();
+    javaScriptSession = null;
+  }
+}
+
 // ─── Playback ───
 
 async function togglePlay(): Promise<boolean> {
@@ -965,7 +1002,7 @@ async function startPlayback(): Promise<boolean> {
 
     await ensureJavaScriptEngine();
 
-    const render = currentData.toRealtimePlaybackCSD();
+    const render = currentData.toRealtimePlaybackCSD(javaScriptSession ?? undefined);
     const csd = render.csdText;
     const parameters = render.parameters;
 
@@ -1019,7 +1056,7 @@ async function blueLiveToggle(): Promise<ReturnType<BlueLiveEngineSession['start
   currentProjectRevision++;
   mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
   mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
-  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory());
+  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory(), javaScriptSession ?? undefined);
 }
 
 async function blueLiveRecompile(): Promise<void> {
@@ -1027,7 +1064,7 @@ async function blueLiveRecompile(): Promise<void> {
   currentProjectRevision++;
   mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
   mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
-  await blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory());
+  await blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory(), javaScriptSession ?? undefined);
 }
 
 async function blueLiveAllNotesOff(): Promise<void> {
@@ -1043,7 +1080,7 @@ async function generateCsdToScreen(): Promise<void> {
   }
   try {
     await ensureJavaScriptEngine();
-    const csdText = currentData.toCSD();
+    const csdText = currentData.toCSD(javaScriptSession ?? undefined);
     mainWindow.webContents.send('generated-csd', csdText);
   } catch (err) {
     mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
@@ -1062,6 +1099,7 @@ async function generateCsdToDisk(): Promise<void> {
       currentData,
       currentFilePath,
       mainWindow,
+      session: javaScriptSession ?? undefined,
     });
   } catch (err) {
     mainWindow?.webContents.send('generated-csd-error', err instanceof Error ? err.message : String(err));
@@ -1211,7 +1249,7 @@ ipcMain.handle('blue-live:toggle', async () => {
   currentProjectRevision++;
   mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
   mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
-  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory());
+  return blueLiveSession.start(currentData, currentProjectRevision, getCurrentProjectDirectory(), javaScriptSession ?? undefined);
 });
 
 ipcMain.handle('blue-live:stop', async () => {
@@ -1228,7 +1266,7 @@ ipcMain.handle('blue-live:recompile', async () => {
   currentProjectRevision++;
   mainWindow?.webContents.send('engine-output-reset', { tabName: 'Csound (Blue Live)' });
   mainWindow?.webContents.send('engine-output-select', { tabName: 'Csound (Blue Live)' });
-  return blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory());
+  return blueLiveSession.recompile(currentData, currentProjectRevision, getCurrentProjectDirectory(), javaScriptSession ?? undefined);
 });
 
 ipcMain.handle('blue-live:all-notes-off', async () => {
@@ -1620,6 +1658,41 @@ ipcMain.handle('test-external-sound-object', async (_event, request: ScoreObject
     const noteList = ext.generateForCSD(
       currentData.getScore().getTimeContext(),
       { getCloneDataDirectives: () => '' } as any,
+      0.0,
+      -1.0,
+    );
+    return { ok: true, output: noteList.toScoreText() };
+  } catch (err) {
+    return { ok: false, output: '', error: err instanceof Error ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('test-javascript-sound-object', async (_event, request: ScoreObjectEditorRequest) => {
+  if (!currentData) return { ok: false, output: '', error: 'No project loaded.' };
+
+  const loc = request.target.location;
+  if (!loc) return { ok: false, output: '', error: 'No location for selected object.' };
+  const score = currentData.getScore();
+  const lg = score[loc.rootGroupIndex];
+  if (!lg) return { ok: false, output: '', error: 'Layer group not found.' };
+  const layer = (lg as any)[loc.layerIndex];
+  if (!layer) return { ok: false, output: '', error: 'Layer not found.' };
+  const sObj = layer[loc.objectIndex];
+
+  if (!(sObj instanceof JavaScriptObject)) {
+    return { ok: false, output: '', error: 'Selected object is not a JavaScriptObject.' };
+  }
+
+  await ensureJavaScriptEngine();
+
+  try {
+    const compileData = CompileData.createEmptyCompileData();
+    if (javaScriptSession) {
+      setJavaScriptSession(compileData, javaScriptSession);
+    }
+    const noteList = sObj.generateForCSD(
+      currentData.getScore().getTimeContext(),
+      compileData,
       0.0,
       -1.0,
     );

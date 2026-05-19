@@ -5,6 +5,7 @@ import type {
   TypeSpecificScoreObjectEditorSnapshot,
 } from '../../../../../shared/project-editor';
 import CodeBackedScoreObjectEditor from './editors/CodeBackedScoreObjectEditor';
+import JavaScriptObjectEditor from './editors/JavaScriptObjectEditor';
 import ExternalScoreObjectEditor from './editors/ExternalScoreObjectEditor';
 import AudioClipScoreObjectEditor from './editors/AudioClipScoreObjectEditor';
 import FileBackedScoreObjectEditor from './editors/FileBackedScoreObjectEditor';
@@ -48,6 +49,7 @@ export function resolveEditorComponent(
 ): ScoreObjectEditorComponent {
   switch (editor.kind) {
     case 'code':
+      if (editor.syntax === 'javascript') return JavaScriptObjectEditor;
       return CodeBackedScoreObjectEditor;
     case 'external':
       return ExternalScoreObjectEditor;

@@ -1,6 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { EngineBridge, EngineOutputCallback } from './engine-bridge';
-import type { BlueData } from '@blue/data';
+import type { BlueData, JavaScriptSession } from '@blue/data';
 import { LiveData, mapMidiTrigger } from '@blue/data';
 import type { EngineStateSnapshot } from '@blue/engine-client';
 import { formatRenderCommandLine, writeTempCsdSnapshot } from './render-command';
@@ -234,6 +234,7 @@ export class BlueLiveEngineSession {
     data: BlueData,
     revision: number,
     projectDirectory?: string | null,
+    session?: JavaScriptSession,
   ): Promise<BlueLiveStatusSnapshot> {
     if (this.status === 'starting' || this.status === 'running' || this.status === 'stopping') {
       return this.getSnapshot();
@@ -247,7 +248,7 @@ export class BlueLiveEngineSession {
 
     try {
       const liveData = data.getLiveData();
-      const csd = data.toBlueLiveCSD();
+      const csd = data.toBlueLiveCSD(session);
       const { orchestra, score, options } = parseCSD(csd.csdText);
       this.namedInstrumentNumbers = resolveNamedInstrumentNumbers(orchestra);
       const runtimeScore = normalizeScoreForEngineApi(score, this.namedInstrumentNumbers);
@@ -341,9 +342,10 @@ export class BlueLiveEngineSession {
     data: BlueData,
     revision: number,
     projectDirectory?: string | null,
+    session?: JavaScriptSession,
   ): Promise<BlueLiveStatusSnapshot> {
     await this.stop();
-    return this.start(data, revision, projectDirectory ?? this.projectDirectory);
+    return this.start(data, revision, projectDirectory ?? this.projectDirectory, session);
   }
 
   async sendAllNotesOff(): Promise<{ ok: boolean; message?: string }> {

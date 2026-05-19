@@ -91,6 +91,9 @@ declare global {
       testExternalSoundObject: (
         request: ScoreObjectEditorRequest,
       ) => Promise<{ ok: boolean; output: string; error?: string }>;
+      testJavascriptSoundObject: (
+        request: ScoreObjectEditorRequest,
+      ) => Promise<{ ok: boolean; output: string; error?: string }>;
       getNestedPolyObjectSnapshot: (
         location: ScoreObjectLocationRef,
       ) => Promise<PolyObjectLayerGroupSnapshot | null>;
