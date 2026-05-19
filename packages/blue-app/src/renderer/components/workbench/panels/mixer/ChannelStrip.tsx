@@ -1,7 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { Effect, Element } from '@blue/data';
 import type {
   EffectEditorRequest,
+  EffectEditorSnapshot,
+  EffectEditablePatch,
   MixerChainEntrySnapshot,
   MixerChainKind,
   MixerChannelSnapshot,
@@ -9,6 +12,11 @@ import type {
   MixerSendEntrySnapshot,
   MixerSnapshot,
   EffectsLibrarySnapshot,
+  ProjectEffectRef,
+} from '../../../../../shared/project-editor';
+import {
+  applyEffectEditablePatchToEffect,
+  createEffectEditorSnapshot,
 } from '../../../../../shared/project-editor';
 import {
   getValidOutputTargets,
@@ -16,6 +24,8 @@ import {
   validateOutputTarget,
   validateSendTarget,
 } from '../../../../../shared/mixer-routing-validation';
+import EffectEditorPanel from '../../../effect-editor/EffectEditorPanel';
+import { createDefaultEffectXml } from '../../../../utils/program-settings-defaults';
 import EffectsChainContextMenu from './EffectsChainContextMenu';
 
 const MIXER_SLIDER_WIDTH = 32;
@@ -31,9 +41,15 @@ interface ChannelStripProps {
   librarySnapshot: EffectsLibrarySnapshot | null;
   onPatch: (patch: Record<string, unknown>) => void;
   onOpenLibrary: (channelId: string, chain: MixerChainKind) => void;
-  onOpenEffectEditor: (request: EffectEditorRequest) => void;
   onOpenEffectInterface: (request: EffectEditorRequest) => void;
   onRemoveSubChannel?: (channelId: string) => void;
+}
+
+interface EffectDialogState {
+  mode: 'create' | 'edit';
+  chain: MixerChainKind;
+  entryId: string;
+  snapshot: EffectEditorSnapshot;
 }
 
 function getLevelDisplay(level: number): string {
@@ -58,6 +74,27 @@ function buildEffectRequest(channelId: string, entry: MixerEffectEntrySnapshot):
           effectId: entry.entryId,
           projectRef: { channelId, chain: 'pre' as MixerChainKind, entryId: entry.entryId },
         };
+}
+
+function createProjectEffectSnapshotFromXml(
+  effectXml: string,
+  entryId: string,
+  projectRef: ProjectEffectRef,
+): EffectEditorSnapshot {
+  const effect = Effect.loadFromXML(Element.parse(effectXml));
+  return createEffectEditorSnapshot(effect, entryId, 'project', { projectRef });
+}
+
+function applyEffectPatchToSnapshot(
+  snapshot: EffectEditorSnapshot,
+  patch: EffectEditablePatch,
+): EffectEditorSnapshot {
+  const effect = Effect.loadFromXML(Element.parse(snapshot.effectXml));
+  applyEffectEditablePatchToEffect(effect, patch);
+  return createEffectEditorSnapshot(effect, snapshot.effectId, snapshot.ownerType, {
+    projectRef: snapshot.projectRef,
+    libraryRef: snapshot.libraryRef,
+  });
 }
 
 function ChainEntry({ entry }: { entry: MixerChainEntrySnapshot }): React.ReactElement {
@@ -203,6 +240,7 @@ function ChainList({
   isMaster,
   librarySnapshot,
   onPatch,
+  onAddNewEffect,
   onOpenEffectInterface,
   onOpenSendEditor,
   onOpenEditEffectDialog,
@@ -215,9 +253,10 @@ function ChainList({
   isMaster: boolean;
   librarySnapshot: EffectsLibrarySnapshot | null;
   onPatch: (patch: Record<string, unknown>) => void;
+  onAddNewEffect: (chain: MixerChainKind) => void;
   onOpenEffectInterface: (entry: MixerEffectEntrySnapshot) => void;
   onOpenSendEditor: (entry: MixerSendEntrySnapshot, chain: MixerChainKind) => void;
-  onOpenEditEffectDialog: (entry: MixerEffectEntrySnapshot) => void;
+  onOpenEditEffectDialog: (entry: MixerEffectEntrySnapshot, chain: MixerChainKind) => void;
   onOpenLibrary: () => void;
 }): React.ReactElement {
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -264,6 +303,7 @@ function ChainList({
         channelId={channel.id}
         isMaster={isMaster}
         onPatch={onPatch}
+        onAddNewEffect={() => onAddNewEffect(chain)}
         onOpenEffectEditor={onOpenEffectInterface}
         onOpenSendEditor={onOpenSendEditor}
         onOpenEditEffectDialog={onOpenEditEffectDialog}
@@ -379,6 +419,46 @@ function SendEditorDialog({
   );
 }
 
+function MixerEffectEditorDialog({
+  title,
+  snapshot,
+  onPatch,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  snapshot: EffectEditorSnapshot;
+  onPatch: (patch: EffectEditablePatch) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}): React.ReactElement {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onCancel}>
+      <div
+        className="flex h-[82vh] w-[88vw] max-w-7xl flex-col overflow-hidden rounded-md border border-blue-border bg-[#0d1524] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex flex-none items-center border-b border-blue-border bg-[#10192a] px-4 py-3">
+          <div className="text-sm font-medium text-gray-100">{title}</div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <EffectEditorPanel snapshot={snapshot} onPatch={onPatch} />
+        </div>
+
+        <div className="flex flex-none items-center justify-end gap-2 border-t border-blue-border bg-[#10192a] px-4 py-3">
+          <button type="button" className="toolbar-text-button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" className="toolbar-text-button" onClick={onConfirm}>
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChannelStrip({
   mixer,
   channel,
@@ -387,7 +467,6 @@ export default function ChannelStrip({
   librarySnapshot,
   onPatch,
   onOpenLibrary,
-  onOpenEffectEditor,
   onOpenEffectInterface,
   onRemoveSubChannel,
 }: ChannelStripProps): React.ReactElement {
@@ -397,6 +476,7 @@ export default function ChannelStrip({
   const [nameInput, setNameInput] = useState('');
   const [sendEditorEntryId, setSendEditorEntryId] = useState<string | null>(null);
   const [sendEditorChain, setSendEditorChain] = useState<MixerChainKind>('pre');
+  const [effectDialog, setEffectDialog] = useState<EffectDialogState | null>(null);
   const nameRef = useRef<HTMLDivElement>(null);
 
   const sliderValue = getSliderValue(channel.level);
@@ -463,14 +543,9 @@ export default function ChannelStrip({
 
   const handleOpenInterface = useCallback(
     (entry: MixerEffectEntrySnapshot) => {
-      const request = buildEffectRequest(channel.id, entry);
-      void window.blueAPI.focusEffectEditor(request).then((focused) => {
-        if (!focused) {
-          void window.blueAPI.openEffectInterface(request);
-        }
-      });
+      onOpenEffectInterface(buildEffectRequest(channel.id, entry));
     },
-    [channel.id],
+    [channel.id, onOpenEffectInterface],
   );
 
   const handleOpenSendEditorForEntry = useCallback(
@@ -482,11 +557,74 @@ export default function ChannelStrip({
   );
 
   const handleOpenEditDialog = useCallback(
-    (entry: MixerEffectEntrySnapshot) => {
-      onOpenEffectEditor(buildEffectRequest(channel.id, entry));
+    (entry: MixerEffectEntrySnapshot, chain: MixerChainKind) => {
+      const projectRef = entry.projectRef ?? { channelId: channel.id, chain, entryId: entry.entryId };
+      setEffectDialog({
+        mode: 'edit',
+        chain,
+        entryId: entry.entryId,
+        snapshot: createProjectEffectSnapshotFromXml(entry.effectXml, entry.entryId, projectRef),
+      });
     },
-    [channel.id, onOpenEffectEditor],
+    [channel.id],
   );
+
+  const handleAddNewEffectDialog = useCallback(
+    (chain: MixerChainKind) => {
+      void (async () => {
+        const entryId = crypto.randomUUID();
+        const effectXml = await createDefaultEffectXml();
+        const projectRef = { channelId: channel.id, chain, entryId };
+        setEffectDialog({
+          mode: 'create',
+          chain,
+          entryId,
+          snapshot: createProjectEffectSnapshotFromXml(effectXml, entryId, projectRef),
+        });
+      })();
+    },
+    [channel.id],
+  );
+
+  const handleEffectDialogPatch = useCallback((patch: EffectEditablePatch) => {
+    setEffectDialog((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        snapshot: applyEffectPatchToSnapshot(current.snapshot, patch),
+      };
+    });
+  }, []);
+
+  const handleConfirmEffectDialog = useCallback(() => {
+    if (!effectDialog) {
+      return;
+    }
+
+    if (effectDialog.mode === 'create') {
+      onPatch({
+        type: 'addEffectFromLibrary',
+        channelId: channel.id,
+        chain: effectDialog.chain,
+        libraryEffectId: '__new__',
+        effectXml: effectDialog.snapshot.effectXml,
+        entryId: effectDialog.entryId,
+      });
+    } else {
+      onPatch({
+        type: 'updateEffect',
+        channelId: channel.id,
+        chain: effectDialog.chain,
+        entryId: effectDialog.entryId,
+        patch: { effectXml: effectDialog.snapshot.effectXml },
+      });
+    }
+
+    setEffectDialog(null);
+  }, [channel.id, effectDialog, onPatch]);
 
   const handleNameDoubleClick = useCallback(() => {
     if (!canRename) return;
@@ -542,6 +680,7 @@ export default function ChannelStrip({
         isMaster={isMaster}
         librarySnapshot={librarySnapshot}
         onPatch={onPatch}
+        onAddNewEffect={handleAddNewEffectDialog}
         onOpenEffectInterface={handleOpenInterface}
         onOpenSendEditor={handleOpenSendEditorForEntry}
         onOpenEditEffectDialog={handleOpenEditDialog}
@@ -590,6 +729,7 @@ export default function ChannelStrip({
         isMaster={isMaster}
         librarySnapshot={librarySnapshot}
         onPatch={onPatch}
+        onAddNewEffect={handleAddNewEffectDialog}
         onOpenEffectInterface={handleOpenInterface}
         onOpenSendEditor={handleOpenSendEditorForEntry}
         onOpenEditEffectDialog={handleOpenEditDialog}
@@ -628,7 +768,7 @@ export default function ChannelStrip({
             </div>
           </ContextMenu.Trigger>
           <ContextMenu.Portal>
-            <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+            <ContextMenu.Content className="editor-context-menu">
               <ContextMenu.Item
                 className="editor-context-menu__item"
                 onSelect={() => onRemoveSubChannel?.(channel.id)}
@@ -653,6 +793,16 @@ export default function ChannelStrip({
           onPatch={onPatch}
           chain={sendEditorChain}
           onClose={() => setSendEditorEntryId(null)}
+        />
+      )}
+
+      {effectDialog && (
+        <MixerEffectEditorDialog
+          title={effectDialog.mode === 'create' ? 'New Effect' : 'Edit Effect Definition'}
+          snapshot={effectDialog.snapshot}
+          onPatch={handleEffectDialogPatch}
+          onConfirm={handleConfirmEffectDialog}
+          onCancel={() => setEffectDialog(null)}
         />
       )}
     </>

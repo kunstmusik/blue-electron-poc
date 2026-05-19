@@ -7,6 +7,10 @@ import type {
 } from '../../../shared/project-editor';
 import EffectEditorPanel from './EffectEditorPanel';
 
+function closeWindow(): void {
+  window.close();
+}
+
 function parseRequestFromLocation(): { request: EffectEditorRequest; mode: 'interface' | 'edit' } | null {
   const params = new URLSearchParams(window.location.search);
   const effectId = params.get('effectId');
@@ -94,8 +98,17 @@ export default function EffectEditorPage(): React.ReactElement {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-blue-bg text-sm text-blue-muted">
-        {error}
+      <div className="flex h-screen items-center justify-center bg-blue-bg px-6 text-sm text-blue-muted">
+        <div className="flex max-w-md flex-col items-center gap-4 rounded border border-blue-border bg-[#10192a] px-6 py-5 text-center shadow-xl">
+          <div>{error}</div>
+          <button
+            type="button"
+            className="rounded border border-blue-border bg-[#0a0f1a] px-3 py-1.5 text-xs text-gray-100 hover:border-blue-accent"
+            onClick={closeWindow}
+          >
+            Close Window
+          </button>
+        </div>
       </div>
     );
   }

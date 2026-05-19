@@ -50,6 +50,16 @@ describe('program-settings-usage matrix', () => {
     expect(ids).toContain('disk-render-execution');
     expect(ids).toContain('utility-freeze-unfreeze');
     expect(ids).toContain('soundfont-utility');
+    expect(ids).not.toContain('udo-effect-creation-runtime');
+  });
+
+  it('marks defaultUdoStyle as used by active creation workflows', () => {
+    const matrix = buildUsageMatrix();
+    const entry = matrix.find((item) => item.settingKey === 'projectDefaults.defaultUdoStyle');
+
+    expect(entry).toBeDefined();
+    expect(entry!.currentStatus).toBe('used-by-workflow');
+    expect(entry!.consumerPath).toContain('UdoWorkspacePanel');
   });
 
   it('keeps used realtime driver settings out of the device discovery dependency', () => {

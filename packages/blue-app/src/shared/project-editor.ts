@@ -768,7 +768,7 @@ export interface EffectsLibrarySnapshot {
 
 export type EffectsLibraryPatch =
   | { type: 'addCategory'; parentCategoryId?: string; name?: string; insertIndex?: number; categoryId?: string }
-  | { type: 'addEffect'; parentCategoryId?: string; name?: string; insertIndex?: number; effectId?: string }
+  | { type: 'addEffect'; parentCategoryId?: string; name?: string; insertIndex?: number; effectId?: string; style?: 'CLASSIC' | 'MODERN' }
   | { type: 'renameCategory'; categoryId: string; name: string }
   | { type: 'reorderCategory'; parentCategoryId?: string; from: number; to: number }
   | { type: 'removeCategory'; categoryId: string }

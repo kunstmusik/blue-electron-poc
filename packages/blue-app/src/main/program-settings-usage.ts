@@ -78,14 +78,6 @@ export const MISSING_FEATURES: readonly MissingFeatureDependency[] = [
     recommendedSpecScope: 'Create a code-repository spec if default code repository insertion is desired.',
   },
   {
-    id: 'udo-effect-creation-runtime',
-    title: 'UDO/Effect Creation Runtime',
-    affectedSettings: ['projectDefaults.defaultUdoStyle'],
-    javaWorkflow: 'Java Blue uses defaultUdoStyle when creating new UDOs or effects to set MODERN vs LEGACY style.',
-    currentAppStatus: 'UDO/effect creation in the score editor is not yet implemented.',
-    recommendedSpecScope: 'Wire defaultUdoStyle into UDO/effect creation when the score editor supports adding UDOs and effects.',
-  },
-  {
     id: 'alpha-marquee-csound-error-warning',
     title: 'Alpha Marquee and Csound Error Warning',
     affectedSettings: [
@@ -130,7 +122,7 @@ export function buildUsageMatrix(): UsageParityMatrixEntry[] {
     entry('projectDefaults', 'projectDefaults.defaultAuthor', 'Default Author', '(empty)', 'New project author', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
     entry('projectDefaults', 'projectDefaults.mixerEnabled', 'Mixer Enabled', 'true', 'New project mixer state', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
     entry('projectDefaults', 'projectDefaults.layerHeightDefault', 'Default Layer Height', '0 (1)', 'Root layer group height', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
-    entry('projectDefaults', 'projectDefaults.defaultUdoStyle', 'Default UDO Style', 'MODERN', 'Default style when creating new UDOs or effects', 'blocked-by-missing-feature', { missingFeature: 'udo-effect-creation-runtime' }),
+    entry('projectDefaults', 'projectDefaults.defaultUdoStyle', 'Default UDO Style', 'MODERN', 'Default style when creating new UDOs or effects', 'used-by-workflow', { consumerPath: 'renderer: UdoWorkspacePanel, EffectsChainContextMenu, EffectLibraryModal' }),
     entry('projectDefaults', 'projectDefaults.defaultPrimaryTimeBase', 'Primary Ruler', 'BEATS', 'New project primary ruler', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
     entry('projectDefaults', 'projectDefaults.defaultSecondaryRulerEnabled', 'Secondary Ruler Enabled', 'false', 'New project secondary ruler', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
     entry('projectDefaults', 'projectDefaults.defaultSecondaryTimeBase', 'Secondary Ruler', 'TIME', 'New project secondary ruler timebase', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),

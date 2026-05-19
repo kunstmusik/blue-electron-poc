@@ -141,6 +141,35 @@ describe('EffectEditorPage', () => {
     container.remove();
   });
 
+  it('shows a close action when the effect editor document cannot be loaded', async () => {
+    const closeSpy = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    window.blueAPI.getEffectEditorDocument = vi.fn().mockResolvedValue(null);
+
+    const { container, root } = renderPage();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.textContent).toContain('Unable to load effect editor document');
+
+    await act(async () => {
+      const button = Array.from(container.querySelectorAll('button')).find(
+        (candidate) => candidate.textContent === 'Close Window',
+      ) as HTMLButtonElement | undefined;
+      button?.click();
+      await Promise.resolve();
+    });
+
+    expect(closeSpy).toHaveBeenCalledOnce();
+
+    closeSpy.mockRestore();
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
   it('routes code edits back through the effect editor bridge', async () => {
     const { container, root } = renderPage();
 

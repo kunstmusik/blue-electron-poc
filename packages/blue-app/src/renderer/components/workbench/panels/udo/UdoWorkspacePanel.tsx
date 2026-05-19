@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { UdoDefinitionSnapshot } from '../../../../../shared/project-editor';
 import { useUdoImportExport } from '../../../../hooks/use-udo-actions';
+import { createDefaultUdoSnapshot } from '../../../../utils/program-settings-defaults';
 import SplitPane from '../orchestra/SplitPane';
 import UdoEditor from './UdoEditor';
 import UdoTable, { type UdoSelectionGesture } from './UdoTable';
-import { EMPTY_UDO_SNAPSHOT, cloneUdoSnapshot } from './udo-snapshot-utils';
+import { cloneUdoSnapshot } from './udo-snapshot-utils';
 
 interface UdoWorkspacePanelProps {
   udos: UdoDefinitionSnapshot[];
@@ -126,12 +127,15 @@ export default function UdoWorkspacePanel({
   );
 
   const handleAdd = useCallback(() => {
-    const insertIndex =
-      selectedIndices.length > 0 ? Math.max(...selectedIndices) + 1 : udos.length;
-    onInsertUdos([cloneUdoSnapshot(EMPTY_UDO_SNAPSHOT)], insertIndex);
-    const nextSelection = [insertIndex];
-    setSelectedIndices(nextSelection);
-    anchorIndexRef.current = insertIndex;
+    void (async () => {
+      const insertIndex =
+        selectedIndices.length > 0 ? Math.max(...selectedIndices) + 1 : udos.length;
+      const definition = await createDefaultUdoSnapshot();
+      onInsertUdos([definition], insertIndex);
+      const nextSelection = [insertIndex];
+      setSelectedIndices(nextSelection);
+      anchorIndexRef.current = insertIndex;
+    })();
   }, [onInsertUdos, selectedIndices, udos.length]);
 
   const handleImport = useCallback(

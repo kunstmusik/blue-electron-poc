@@ -11,6 +11,7 @@ import type {
 } from '../../../../shared/project-editor';
 import { useProjectStore } from '../../../stores/project-store';
 import { useUIStore } from '../../../stores/ui-store';
+import { getDefaultUdoStyle } from '../../../utils/program-settings-defaults';
 import SplitPane from './orchestra/SplitPane';
 import EffectEditorPanel from '../../effect-editor/EffectEditorPanel';
 import EffectLibraryTree, {
@@ -237,9 +238,11 @@ export default function EffectLibraryModal(): React.ReactElement | null {
       setEffectEditorSnapshot(null);
     },
     onAddEffect: async (parentId: string) => {
+      const style = await getDefaultUdoStyle();
       const next = await window.blueAPI.updateEffectsLibrary({
         type: 'addEffect',
         parentCategoryId: parentId,
+        style,
       });
       setSnapshot(next);
       setHasSessionMutations(true);

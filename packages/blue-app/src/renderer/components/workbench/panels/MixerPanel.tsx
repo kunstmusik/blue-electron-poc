@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import type {
-  EffectEditorRequest,
   EffectsLibrarySnapshot,
   MixerChainKind,
   MixerPatch,
@@ -18,6 +17,7 @@ export default function MixerPanel(): React.ReactElement {
   const loaded = useProjectStore((state) => state.loaded);
   const mixer = useProjectStore((state) => state.mixer);
   const applyProjectDocumentPatch = useProjectStore((state) => state.applyProjectDocumentPatch);
+  const flushPendingPatches = useProjectStore((state) => state.flushPendingPatches);
   const openEffectsLibrary = useUIStore((state) => state.openEffectsLibrary);
 
   const playbackStatus = usePlaybackStore((s) => s.status);
@@ -52,13 +52,15 @@ export default function MixerPanel(): React.ReactElement {
     [openEffectsLibrary],
   );
 
-  const handleOpenEffectEditor = useCallback((request: EffectEditorRequest) => {
-    void window.blueAPI.openEffectEditor(request);
-  }, []);
-
-  const handleOpenEffectInterface = useCallback((request: EffectEditorRequest) => {
-    void window.blueAPI.openEffectInterface(request);
-  }, []);
+  const handleOpenEffectInterface = useCallback((request: { ownerType: 'project' | 'library'; effectId: string; projectRef?: { channelId: string; chain: 'pre' | 'post'; entryId: string }; libraryRef?: { libraryEffectId: string } }) => {
+    void (async () => {
+      await flushPendingPatches();
+      const focused = await window.blueAPI.focusEffectEditor(request);
+      if (!focused) {
+        await window.blueAPI.openEffectInterface(request);
+      }
+    })();
+  }, [flushPendingPatches]);
 
   const handleRemoveSubChannel = useCallback(
     (channelId: string) => {
@@ -130,7 +132,6 @@ export default function MixerPanel(): React.ReactElement {
                     librarySnapshot={librarySnapshot}
                     onPatch={handleMixerPatch}
                     onOpenLibrary={handleOpenLibrary}
-                    onOpenEffectEditor={handleOpenEffectEditor}
                     onOpenEffectInterface={handleOpenEffectInterface}
                   />
                 ))}
@@ -148,7 +149,6 @@ export default function MixerPanel(): React.ReactElement {
                     librarySnapshot={librarySnapshot}
                     onPatch={handleMixerPatch}
                     onOpenLibrary={handleOpenLibrary}
-                    onOpenEffectEditor={handleOpenEffectEditor}
                     onOpenEffectInterface={handleOpenEffectInterface}
                     onRemoveSubChannel={handleRemoveSubChannel}
                   />
@@ -166,7 +166,6 @@ export default function MixerPanel(): React.ReactElement {
               librarySnapshot={librarySnapshot}
               onPatch={handleMixerPatch}
               onOpenLibrary={handleOpenLibrary}
-              onOpenEffectEditor={handleOpenEffectEditor}
               onOpenEffectInterface={handleOpenEffectInterface}
             />
           </div>

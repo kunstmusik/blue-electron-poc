@@ -1,7 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { BlueData, PolyObject, SoundLayer } from '@blue/data';
+import { BlueData, Effect, PolyObject, SoundLayer } from '@blue/data';
 import { useProjectStore, __testFlushPendingPatches, __testAwaitPendingPatches, __testClearPendingPatches } from '../stores/project-store';
 import { usePlaybackStore } from '../stores/playback-store';
 import { useUIStore } from '../stores/ui-store';
@@ -166,6 +166,69 @@ describe('Project Store', () => {
     expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
     expect(useProjectStore.getState().title).toBe('Edited Title');
     expect(useProjectStore.getState().isDirty).toBe(true);
+  });
+
+  it('preserves generated subchannel ids across optimistic mixer patches and committed patches', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
+    const snapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: snapshot.transport,
+      mixer: snapshot.mixer,
+    });
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      mixer: { type: 'addSubChannel' },
+    });
+
+    const subChannelId = useProjectStore.getState().mixer.subChannels[0]!.id;
+    const effect = new Effect();
+    effect.setName('New Effect');
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      mixer: {
+        type: 'addEffectFromLibrary',
+        channelId: subChannelId,
+        chain: 'pre',
+        libraryEffectId: '__new__',
+        effectXml: effect.saveAsXML().toXml(),
+      },
+    });
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        mixer: {
+          type: 'addSubChannel',
+          channelId: subChannelId,
+        },
+      },
+      {
+        mixer: {
+          type: 'addEffectFromLibrary',
+          channelId: subChannelId,
+          chain: 'pre',
+          libraryEffectId: '__new__',
+          effectXml: effect.saveAsXML().toXml(),
+          entryId: expect.any(String),
+        },
+      },
+    ]);
   });
 
   it('T349: layer mute and solo actions batch canonical score layer state patches', async () => {

@@ -59,6 +59,17 @@ describe('MixerEffectsLibrarySession import/export/reload', () => {
     expect(snapshot.root.effects[1]!.name).toBe('Delay');
   });
 
+  it('applyPatch addEffect uses the provided default UDO style', () => {
+    const session = new MixerEffectsLibrarySession({ libraryPath });
+    const snapshot = session.applyPatch({
+      type: 'addEffect',
+      style: 'CLASSIC',
+    });
+
+    expect(snapshot.root.effects).toHaveLength(2);
+    expect(snapshot.root.effects[1]!.style).toBe('CLASSIC');
+  });
+
   it('importEffectFromXml adds to a specific category', () => {
     const session = new MixerEffectsLibrarySession({ libraryPath });
     const afterAdd = session.applyPatch({

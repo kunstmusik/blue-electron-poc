@@ -150,6 +150,28 @@ let nextLocalScoreObjectId = 1;
 
 let pendingFlushPromise: Promise<void> | null = null;
 
+function normalizeMixerPatchIdentifiers(patch: MixerPatch): MixerPatch {
+  switch (patch.type) {
+    case 'addSubChannel':
+      return patch.channelId ? patch : { ...patch, channelId: crypto.randomUUID() };
+    case 'addEffectFromLibrary':
+      return patch.entryId ? patch : { ...patch, entryId: crypto.randomUUID() };
+    case 'addSend':
+      return patch.entryId ? patch : { ...patch, entryId: crypto.randomUUID() };
+    default:
+      return patch;
+  }
+}
+
+function normalizeProjectDocumentPatch(patch: ProjectDocumentPatch): ProjectDocumentPatch {
+  if (!patch.mixer) {
+    return patch;
+  }
+
+  const mixer = normalizeMixerPatchIdentifiers(patch.mixer);
+  return mixer === patch.mixer ? patch : { ...patch, mixer };
+}
+
 function createLocalScoreObjectId(objectType: string): string {
   const prefix = objectType === 'AudioClip' ? 'aclp' : 'sobj';
   return `local-${prefix}-${nextLocalScoreObjectId++}`;
@@ -2934,23 +2956,25 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
   },
 
   applyProjectDocumentPatch: async (patch) => {
+    const normalizedPatch = normalizeProjectDocumentPatch(patch);
+
     if (!get().loaded) {
       toast.error('No project is loaded');
       return;
     }
 
     if (
-      patch.globalOrc === undefined &&
-      patch.globalSco === undefined &&
-      patch.orchestra === undefined &&
-      patch.mixer === undefined &&
-      patch.tablesText === undefined &&
-      patch.projectUdo === undefined &&
-      patch.blueLive === undefined &&
-      patch.midiInput === undefined &&
-      (!patch.score) &&
-      (!patch.projectProperties || Object.keys(patch.projectProperties).length === 0) &&
-      (!patch.transport || Object.keys(patch.transport).length === 0)
+      normalizedPatch.globalOrc === undefined &&
+      normalizedPatch.globalSco === undefined &&
+      normalizedPatch.orchestra === undefined &&
+      normalizedPatch.mixer === undefined &&
+      normalizedPatch.tablesText === undefined &&
+      normalizedPatch.projectUdo === undefined &&
+      normalizedPatch.blueLive === undefined &&
+      normalizedPatch.midiInput === undefined &&
+      (!normalizedPatch.score) &&
+      (!normalizedPatch.projectProperties || Object.keys(normalizedPatch.projectProperties).length === 0) &&
+      (!normalizedPatch.transport || Object.keys(normalizedPatch.transport).length === 0)
     ) {
       return;
     }
@@ -2961,49 +2985,49 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         isDirty: true,
       };
 
-      if (patch.globalOrc !== undefined) {
-        next.globalOrc = patch.globalOrc;
+      if (normalizedPatch.globalOrc !== undefined) {
+        next.globalOrc = normalizedPatch.globalOrc;
       }
 
-      if (patch.globalSco !== undefined) {
-        next.globalSco = patch.globalSco;
+      if (normalizedPatch.globalSco !== undefined) {
+        next.globalSco = normalizedPatch.globalSco;
       }
 
-      if (patch.orchestra !== undefined) {
-        next.orchestra = applyOrchestraPatchSnapshot(state.orchestra, patch.orchestra);
+      if (normalizedPatch.orchestra !== undefined) {
+        next.orchestra = applyOrchestraPatchSnapshot(state.orchestra, normalizedPatch.orchestra);
       }
 
-      if (patch.mixer !== undefined) {
+      if (normalizedPatch.mixer !== undefined) {
         next.mixer = applyMixerPatchToSnapshot(
           state.mixer ?? createEmptyMixerSnapshot(),
           next.orchestra,
-          patch.mixer,
+          normalizedPatch.mixer,
         );
       }
 
-      if (patch.projectProperties) {
+      if (normalizedPatch.projectProperties) {
         next.projectProperties = mergeProjectProperties(
           state.projectProperties,
-          patch.projectProperties,
+          normalizedPatch.projectProperties,
         );
 
-        if (patch.projectProperties.title !== undefined) {
-          next.title = patch.projectProperties.title;
+        if (normalizedPatch.projectProperties.title !== undefined) {
+          next.title = normalizedPatch.projectProperties.title;
         }
-        if (patch.projectProperties.author !== undefined) {
-          next.author = patch.projectProperties.author;
+        if (normalizedPatch.projectProperties.author !== undefined) {
+          next.author = normalizedPatch.projectProperties.author;
         }
-        if (patch.projectProperties.sampleRate !== undefined) {
-          next.sampleRate = patch.projectProperties.sampleRate;
+        if (normalizedPatch.projectProperties.sampleRate !== undefined) {
+          next.sampleRate = normalizedPatch.projectProperties.sampleRate;
         }
       }
 
-      if (patch.transport) {
+      if (normalizedPatch.transport) {
         const nextTransport = {
           ...state.transport,
-          ...patch.transport,
-          tempoMap: patch.transport.tempoMap
-            ? { ...state.transport.tempoMap, ...patch.transport.tempoMap }
+          ...normalizedPatch.transport,
+          tempoMap: normalizedPatch.transport.tempoMap
+            ? { ...state.transport.tempoMap, ...normalizedPatch.transport.tempoMap }
             : state.transport.tempoMap,
         };
 
@@ -3014,31 +3038,31 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         next.transport = nextTransport;
       }
 
-      if (patch.tablesText !== undefined) {
-        next.tablesText = patch.tablesText;
+      if (normalizedPatch.tablesText !== undefined) {
+        next.tablesText = normalizedPatch.tablesText;
       }
 
-      if (patch.projectUdo !== undefined) {
-        next.projectUdos = applyProjectUdoPatchToSnapshot(state.projectUdos, patch.projectUdo);
+      if (normalizedPatch.projectUdo !== undefined) {
+        next.projectUdos = applyProjectUdoPatchToSnapshot(state.projectUdos, normalizedPatch.projectUdo);
       }
 
-      if (patch.blueLive !== undefined && state.blueLive) {
-        next.blueLive = applyBlueLivePatchToSnapshot(state.blueLive, patch.blueLive);
+      if (normalizedPatch.blueLive !== undefined && state.blueLive) {
+        next.blueLive = applyBlueLivePatchToSnapshot(state.blueLive, normalizedPatch.blueLive);
       }
 
-      if (patch.midiInput !== undefined) {
+      if (normalizedPatch.midiInput !== undefined) {
         next.midiInput = applyMidiInputPatchToSnapshot(
           state.midiInput ?? createDefaultMidiInputSnapshot(),
-          patch.midiInput,
+          normalizedPatch.midiInput,
         );
       }
 
-      if (patch.score !== undefined) {
-        next.score = applyScorePatchToSnapshot(state.score, patch.score);
-        next.lastScorePatch = patch.score;
+      if (normalizedPatch.score !== undefined) {
+        next.score = applyScorePatchToSnapshot(state.score, normalizedPatch.score);
+        next.lastScorePatch = normalizedPatch.score;
       }
 
-      if (patch.orchestra !== undefined || patch.mixer !== undefined) {
+      if (normalizedPatch.orchestra !== undefined || normalizedPatch.mixer !== undefined) {
         next.mixer = reconcileMixerSnapshotWithArrangement(
           next.mixer,
           next.orchestra,
@@ -3048,14 +3072,14 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       return next;
     });
 
-    const realtimeUpdate = buildRealtimeControlUpdate(patch);
+    const realtimeUpdate = buildRealtimeControlUpdate(normalizedPatch);
     if (realtimeUpdate) {
       void window.blueAPI.sendBsbRealtimeControlUpdate(realtimeUpdate).catch((err: unknown) => {
         toast.error(`Realtime BSB update failed: ${err instanceof Error ? err.message : String(err)}`);
       });
     }
 
-    pendingPatches.push(patch);
+    pendingPatches.push(normalizedPatch);
 
     scheduleFlush();
   },

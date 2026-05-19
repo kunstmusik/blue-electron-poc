@@ -19,9 +19,10 @@ interface EffectsChainContextMenuProps {
   channelId: string;
   isMaster: boolean;
   onPatch: MixerPatcher;
+  onAddNewEffect: () => void;
   onOpenEffectEditor: (entry: MixerEffectEntrySnapshot) => void;
   onOpenSendEditor: (entry: MixerSendEntrySnapshot, chain: MixerChainKind) => void;
-  onOpenEditEffectDialog: (entry: MixerEffectEntrySnapshot) => void;
+  onOpenEditEffectDialog: (entry: MixerEffectEntrySnapshot, chain: MixerChainKind) => void;
   librarySnapshot: EffectsLibrarySnapshot | null;
 }
 
@@ -92,6 +93,7 @@ export default function EffectsChainContextMenu({
   channelId,
   isMaster,
   onPatch,
+  onAddNewEffect,
   onOpenEffectEditor,
   onOpenSendEditor,
   onOpenEditEffectDialog,
@@ -124,18 +126,9 @@ export default function EffectsChainContextMenu({
     <ContextMenu.Root>
       <ContextMenu.Trigger asChild>{children}</ContextMenu.Trigger>
       <ContextMenu.Portal>
-        <ContextMenu.Content className="editor-context-menu" sideOffset={4}>
+        <ContextMenu.Content className="editor-context-menu">
           <MenuItem
-            onSelect={() => {
-              onPatch({
-                type: 'addEffectFromLibrary',
-                channelId,
-                chain,
-                libraryEffectId: '__new__',
-                effectXml: '<effect name="New Effect" enabled="true" numIns="2" numOuts="2" style="CLASSIC"><code></code><comments></comments></effect>',
-                entryId: crypto.randomUUID(),
-              });
-            }}
+            onSelect={onAddNewEffect}
           >
             Add New Effect
           </MenuItem>
@@ -228,11 +221,11 @@ export default function EffectsChainContextMenu({
             disabled={!isEffect || !hasSelection}
             onSelect={() => {
               if (isEffect && selected) {
-                onOpenEditEffectDialog(selected);
+                onOpenEditEffectDialog(selected, chain);
               }
             }}
           >
-            Edit Effect
+            Edit Effect Definition
           </MenuItem>
 
           <MenuItem
@@ -301,9 +294,9 @@ export default function EffectsChainContextMenu({
             Copy
           </MenuItem>
           <MenuItem
-            disabled={bufferedEntry == null}
+            disabled={bufferedEntry == null || bufferedEntry.kind !== 'effect'}
             onSelect={() => {
-              if (bufferedEntry) {
+              if (bufferedEntry?.kind === 'effect') {
                 onPatch({
                   type: 'addEffectFromLibrary',
                   channelId,

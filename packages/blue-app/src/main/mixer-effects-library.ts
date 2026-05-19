@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 
-import { Element, Effect } from '@blue/data';
+import { Element, Effect, UDOStyle } from '@blue/data';
 import {
   applyEffectEditablePatchToEffect,
   createEffectEditorSnapshot,
@@ -427,6 +427,9 @@ export class MixerEffectsLibrarySession {
         }
 
         const effect = new Effect();
+        if (patch.style) {
+          effect.setStyle(UDOStyle[patch.style as keyof typeof UDOStyle]);
+        }
         const effectNode = createEffectNode(effect, patch.effectId);
         effectNode.effect.setName(
           ensureUniqueEffectName(parent.effects, patch.name ?? 'New Effect'),
