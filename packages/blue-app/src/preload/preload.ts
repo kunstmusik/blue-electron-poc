@@ -23,6 +23,13 @@ import type {
 } from '../shared/project-editor';
 import type { NativeMenuCommand } from '../shared/workbench-menu';
 import type { EngineOutputPayload } from '../shared/io-provider';
+import type {
+  ProgramSettingsSnapshot,
+  ProgramSettingsSaveResult,
+  ProgramSettingsPanelId,
+  CurrentAppSettingsSnapshot,
+  UsageParityMatrixEntry,
+} from '../shared/program-settings';
 
 contextBridge.exposeInMainWorld('blueAPI', {
   // File operations
@@ -188,6 +195,16 @@ contextBridge.exposeInMainWorld('blueAPI', {
 
   // Settings
   openSettingsWindow: () => ipcRenderer.invoke('settings:open'),
+  getProgramSettings: () =>
+    ipcRenderer.invoke('program-settings:get') as Promise<ProgramSettingsSnapshot>,
+  saveProgramSettings: (snapshot: ProgramSettingsSnapshot) =>
+    ipcRenderer.invoke('program-settings:save', snapshot) as Promise<ProgramSettingsSaveResult>,
+  resetProgramSettingsPanel: (panel: ProgramSettingsPanelId) =>
+    ipcRenderer.invoke('program-settings:reset-panel', panel) as Promise<ProgramSettingsSnapshot>,
+  getProgramSettingsUsageMatrix: () =>
+    ipcRenderer.invoke('program-settings:usage-matrix') as Promise<UsageParityMatrixEntry[]>,
+  syncLegacyRendererSettings: (snapshot: CurrentAppSettingsSnapshot) =>
+    ipcRenderer.invoke('program-settings:sync-legacy-renderer-settings', snapshot) as Promise<ProgramSettingsSnapshot>,
 
   // Evaluate Code
   evaluateCode: (request: { editorKind: string; text: string; sourcePanelId: string }) =>

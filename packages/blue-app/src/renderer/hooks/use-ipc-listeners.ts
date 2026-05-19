@@ -8,6 +8,7 @@ import { useWorkbenchStore } from '../stores/workbench-store';
 import { useOutputStore } from '../stores/output-store';
 import { useBlueLiveStore } from '../stores/blue-live-store';
 import type { EngineOutputPayload } from '../../shared/io-provider';
+import type { ProgramSettingsSnapshot } from '../../shared/program-settings';
 
 export function useIPCListeners(): void {
   const setProjectInfo = useProjectStore((s) => s.setProjectInfo);
@@ -24,7 +25,30 @@ export function useIPCListeners(): void {
   const resetTab = useOutputStore((s) => s.resetTab);
   const setBlueLiveStatus = useBlueLiveStore((s) => s.setStatusFromSnapshot);
   const resetBlueLive = useBlueLiveStore((s) => s.reset);
+  const hydrateFromProgramSettings = usePlaybackStore((s) => s.hydrateFromProgramSettings);
   const recentFiles = useSettingsStore((s) => s.recentFiles);
+
+  useEffect(() => {
+    if (!window.blueAPI?.getProgramSettings) return;
+    window.blueAPI.getProgramSettings().then((settings: ProgramSettingsSnapshot) => {
+      hydrateFromProgramSettings(settings);
+    }).catch(() => {});
+  }, [hydrateFromProgramSettings]);
+
+  useEffect(() => {
+    if (!window.blueAPI?.syncLegacyRendererSettings) return;
+    const state = useSettingsStore.getState();
+    window.blueAPI.syncLegacyRendererSettings({
+      enginePath: state.enginePath,
+      recentFiles: state.recentFiles,
+      windowBounds: state.windowBounds,
+      midiInputDevice: state.midiInputDevice,
+      midiOutputDevice: state.midiOutputDevice,
+      oscInputPort: state.oscInputPort,
+      oscOutputHost: state.oscOutputHost,
+      oscOutputPort: state.oscOutputPort,
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!window.blueAPI) return;

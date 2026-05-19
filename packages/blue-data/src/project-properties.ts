@@ -146,7 +146,7 @@ export class ProjectProperties {
     return options;
   }
 
-  private getRealtimeMessageLevelFlag(): string {
+  getRealtimeMessageLevelFlag(): string {
     let level = 0;
 
     if (this.noteAmpsEnabled) level += 1;

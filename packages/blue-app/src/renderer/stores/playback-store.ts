@@ -3,6 +3,7 @@ import type {
   PlaybackClockSnapshot,
   ToolbarProjectTransportSnapshot,
 } from '../../shared/project-editor';
+import type { ProgramSettingsSnapshot } from '../../shared/program-settings';
 import { useProjectStore } from './project-store';
 
 export type PlaybackStatus = 'idle' | 'starting' | 'playing' | 'stopping' | 'stopped' | 'error';
@@ -32,6 +33,7 @@ interface PlaybackState {
   message: string;
   followPlayback: boolean;
   followPlaybackOnStart: boolean;
+  latencyCorrection: number;
   clock: PlaybackClockState | null;
   display: PlaybackDisplayState;
   transportAnchor: PlaybackTransportAnchor | null;
@@ -46,6 +48,7 @@ interface PlaybackActions {
   acceptPlaybackClock: (snapshot: PlaybackClockSnapshot) => void;
   toggleFollowPlayback: () => void;
   toggleFollowPlaybackOnStart: () => void;
+  hydrateFromProgramSettings: (settings: ProgramSettingsSnapshot) => void;
   tickDisplay: () => void;
   reset: () => void;
 }
@@ -105,6 +108,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
   message: '',
   followPlayback: true,
   followPlaybackOnStart: true,
+  latencyCorrection: 0,
   clock: null,
   display: createIdlePlaybackDisplayState(),
   transportAnchor: null,
@@ -269,12 +273,27 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
     }));
   },
 
-  tickDisplay: () => {
-    const { clock } = get();
-    if (!clock) return;
+  hydrateFromProgramSettings: (settings: ProgramSettingsSnapshot) => {
     set({
-      display: derivePlaybackDisplayState(clock, Date.now()),
+      followPlayback: settings.playback.followPlayback,
+      followPlaybackOnStart: settings.playback.followPlaybackOnStart,
+      latencyCorrection: settings.playback.playbackLatencyCorrection,
     });
+  },
+
+  tickDisplay: () => {
+    const { clock, latencyCorrection } = get();
+    if (!clock) return;
+    const raw = derivePlaybackDisplayState(clock, Date.now());
+    if (latencyCorrection !== 0 && raw.source !== 'idle-anchor') {
+      const sampleRate = clock.sampleRate && clock.sampleRate > 0 ? clock.sampleRate : null;
+      if (sampleRate) {
+        const correctedFrames = Math.max(0, raw.sampleFrames - latencyCorrection * sampleRate);
+        raw.sampleFrames = correctedFrames;
+        raw.elapsedSeconds = correctedFrames / sampleRate;
+      }
+    }
+    set({ display: raw });
   },
 
   reset: () => {
@@ -284,6 +303,7 @@ export const usePlaybackStore = create<PlaybackState & PlaybackActions>()((set, 
       message: '',
       followPlayback: true,
       followPlaybackOnStart: true,
+      latencyCorrection: 0,
       clock: null,
       display: createIdlePlaybackDisplayState(),
       transportAnchor: null,

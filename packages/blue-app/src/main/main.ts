@@ -14,6 +14,16 @@ import * as fs from 'fs';
 
 import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, JavaScriptObject, setExternalCommandExecutor, CompileData, setJavaScriptSession } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
+import {
+  loadProgramSettings,
+  saveProgramSettings,
+  resetPanel,
+  syncLegacyRendererSettings,
+  clearSettingsCache,
+} from './program-settings-store';
+import { applyProgramSettingsToNewProject } from './program-settings-application';
+import { buildRealtimeEngineOptions as buildRealtimeEngineOptionsFromSettings, buildUsageMatrix } from './program-settings-usage';
+import type { ProgramSettingsSnapshot } from '../shared/program-settings';
 import { initializeJavaScriptRuntime, JavaScriptSession } from '@blue/data';
 import type { TempoMap } from '@blue/data';
 import { EngineBridge } from './engine-bridge';
@@ -313,18 +323,8 @@ function getRealtimeSfDirOption(projectDirectory: string | null): string | null 
 }
 
 function buildRealtimeEngineOptions(data: BlueData, projectDirectory: string | null): string[] {
-  const options: string[] = [];
-
-  // Java parity: GeneralSettings.messageColorsEnabled defaults false,
-  // so commandlines include -+msg_color=false unless explicitly overridden.
-  options.push('-+msg_color=false');
-
-  // Java parity: displaysDisabled comes from app-level realtime settings (-d),
-  // not from project properties.
-  options.push('-d');
-
-  // Project-level realtime flags/messages/advanced settings.
-  options.push(...data.getProjectProperties().getRealtimeCsoundOptions());
+  const settings = loadProgramSettings();
+  const options = buildRealtimeEngineOptionsFromSettings(data, projectDirectory, settings);
 
   const sfDirOption = getRealtimeSfDirOption(projectDirectory);
   if (sfDirOption) {
@@ -755,6 +755,8 @@ async function newFile(): Promise<void> {
   closeEffectEditorWindowsForOwner('project');
 
   const data = new BlueData();
+  const settings = loadProgramSettings();
+  applyProgramSettingsToNewProject(data, settings);
   currentData = data;
   currentFilePath = null;
   currentProjectRevision = 0;
@@ -1296,6 +1298,28 @@ ipcMain.handle('blue-live:get-status', async () => {
 ipcMain.handle('settings:open', async () => {
   if (!mainWindow) return;
   openSettingsWindow(mainWindow);
+});
+
+// ─── Program Settings IPC Handlers ───
+
+ipcMain.handle('program-settings:get', () => {
+  return loadProgramSettings();
+});
+
+ipcMain.handle('program-settings:save', (_event, snapshot: ProgramSettingsSnapshot) => {
+  return saveProgramSettings(snapshot);
+});
+
+ipcMain.handle('program-settings:reset-panel', (_event, panel: string) => {
+  return resetPanel(panel as any);
+});
+
+ipcMain.handle('program-settings:usage-matrix', () => {
+  return buildUsageMatrix();
+});
+
+ipcMain.handle('program-settings:sync-legacy-renderer-settings', (_event, legacy: any) => {
+  return syncLegacyRendererSettings(legacy);
 });
 
 ipcMain.handle('open-effect-editor', async (_event, request: EffectEditorRequest) => {

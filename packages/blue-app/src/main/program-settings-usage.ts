@@ -1,0 +1,274 @@
+import type { BlueData } from '@blue/data';
+import type { ProgramSettingsSnapshot, UsageParityMatrixEntry } from '../shared/program-settings';
+
+export type { UsageParityMatrixEntry } from '../shared/program-settings';
+
+export interface MissingFeatureDependency {
+  id: string;
+  title: string;
+  affectedSettings: string[];
+  javaWorkflow: string;
+  currentAppStatus: string;
+  recommendedSpecScope: string;
+}
+
+import { UsageStatus } from '../shared/program-settings';
+
+export const MISSING_FEATURES: readonly MissingFeatureDependency[] = [
+  {
+    id: 'disk-render-execution',
+    title: 'Disk Render Execution',
+    affectedSettings: [
+      'diskRender.csoundExecutable',
+      'diskRender.fileFormat',
+      'diskRender.sampleFormat',
+      'diskRender.savePeakInformation',
+      'diskRender.ditherOutput',
+      'diskRender.rewriteHeader',
+      'diskRender.renderMethod',
+      'diskRender.externalPlayCommandEnabled',
+      'diskRender.externalPlayCommand',
+      'diskRender.externalOpenCommand',
+    ],
+    javaWorkflow: 'Java Blue executes Csound to render audio to disk with format/sample/header flags, render-and-play, and render-and-open commands.',
+    currentAppStatus: 'CSD generation and export exist; full disk render execution, render-and-play, and render-and-open are not implemented.',
+    recommendedSpecScope: 'Create a disk-render-execution spec to implement Csound subprocess invocation for disk rendering with format/sample/header flags, external play/open commands.',
+  },
+  {
+    id: 'utility-freeze-unfreeze',
+    title: 'Utility Freeze/Unfreeze',
+    affectedSettings: [
+      'utility.csoundExecutable',
+      'utility.freezeFlags',
+    ],
+    javaWorkflow: 'Java Blue uses Utility Csound executable and freeze flags to pre-render SoundObjects to audio files.',
+    currentAppStatus: 'SoundObject freeze/unfreeze workflow is not implemented.',
+    recommendedSpecScope: 'Create a score-utility-freeze spec to implement SoundObject freeze/unfreeze using the Utility Csound executable and freeze flags.',
+  },
+  {
+    id: 'soundfont-utility',
+    title: 'SoundFont Utility',
+    affectedSettings: ['utility.csoundExecutable'],
+    javaWorkflow: 'Java Blue uses the Utility Csound executable for SoundFont file inspection.',
+    currentAppStatus: 'SoundFont utility is not implemented.',
+    recommendedSpecScope: 'Create a soundfont-utility spec if SoundFont inspection is desired.',
+  },
+  {
+    id: 'device-discovery-render-method',
+    title: 'Device Discovery and Render Method Selection',
+    affectedSettings: ['realtimeRender.renderMethod'],
+    javaWorkflow: 'Java Blue lists audio/MIDI devices and render service factories via NetBeans Lookup.',
+    currentAppStatus: 'Realtime driver settings use static Java-compatible choice lists; runtime device discovery and render-method selection are not implemented.',
+    recommendedSpecScope: 'Create a device-discovery spec to enumerate audio/MIDI devices and render service factories at runtime, or explicitly keep renderMethod unavailable while retaining static driver lists.',
+  },
+  {
+    id: 'general-work-directory-consumers',
+    title: 'General Work Directory Consumers',
+    affectedSettings: ['general.workDirectory'],
+    javaWorkflow: 'Java Blue uses Work Directory as the default start directory for file choosers in import/export flows.',
+    currentAppStatus: 'No import/export file chooser workflows consume work directory yet.',
+    recommendedSpecScope: 'Wire work directory into file chooser defaults as import/export workflows are implemented.',
+  },
+  {
+    id: 'new-user-defaults',
+    title: 'New User Defaults',
+    affectedSettings: ['general.newUserDefaultsEnabled'],
+    javaWorkflow: 'Java Blue inserts default code repository entries for new users.',
+    currentAppStatus: 'Code repository default insertion workflow is not implemented.',
+    recommendedSpecScope: 'Create a code-repository spec if default code repository insertion is desired.',
+  },
+  {
+    id: 'udo-effect-creation-runtime',
+    title: 'UDO/Effect Creation Runtime',
+    affectedSettings: ['projectDefaults.defaultUdoStyle'],
+    javaWorkflow: 'Java Blue uses defaultUdoStyle when creating new UDOs or effects to set MODERN vs LEGACY style.',
+    currentAppStatus: 'UDO/effect creation in the score editor is not yet implemented.',
+    recommendedSpecScope: 'Wire defaultUdoStyle into UDO/effect creation when the score editor supports adding UDOs and effects.',
+  },
+  {
+    id: 'alpha-marquee-csound-error-warning',
+    title: 'Alpha Marquee and Csound Error Warning',
+    affectedSettings: [
+      'general.drawAlphaBackgroundOnMarquee',
+      'general.csoundErrorWarningEnabled',
+    ],
+    javaWorkflow: 'Java Blue uses alpha marquee for score selection drawing and Csound error warning for output parsing.',
+    currentAppStatus: 'Score selection marquee and Csound error output warning behaviors are not implemented.',
+    recommendedSpecScope: 'Implement score selection marquee alpha drawing and Csound output error warning in their respective UI specs.',
+  },
+];
+
+function entry(
+  panel: string,
+  settingKey: string,
+  displayName: string,
+  javaDefault: string,
+  javaUsage: string,
+  currentStatus: UsageStatus,
+  opts?: { consumerPath?: string; missingFeature?: string },
+): UsageParityMatrixEntry {
+  return {
+    panel,
+    settingKey,
+    displayName,
+    javaDefault,
+    javaUsage,
+    currentStatus,
+    ...opts,
+  };
+}
+
+export function buildUsageMatrix(): UsageParityMatrixEntry[] {
+  return [
+    entry('general', 'general.workDirectory', 'Work Directory', '(empty)', 'File chooser default start directory', 'blocked-by-missing-feature', { missingFeature: 'general-work-directory-consumers' }),
+    entry('general', 'general.newUserDefaultsEnabled', 'New User Defaults Enabled', 'true', 'Code repository default insertion for new users', 'blocked-by-missing-feature', { missingFeature: 'new-user-defaults' }),
+    entry('general', 'general.drawAlphaBackgroundOnMarquee', 'Draw Alpha Background on Marquee', 'false', 'Score selection marquee drawing', 'blocked-by-missing-feature', { missingFeature: 'alpha-marquee-csound-error-warning' }),
+    entry('general', 'general.messageColorsEnabled', 'Message Colors Enabled', 'false', 'Csound -+msg_color command flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('general', 'general.csoundErrorWarningEnabled', 'Csound Error Warning Enabled', 'true', 'Csound output error warning behavior', 'blocked-by-missing-feature', { missingFeature: 'alpha-marquee-csound-error-warning' }),
+    entry('general', 'general.directoryTempFileLimit', 'Max Temp Files per Directory', '3', 'Temp CSD snapshot cleanup limit', 'used-by-workflow', { consumerPath: 'render-command.ts' }),
+
+    entry('projectDefaults', 'projectDefaults.defaultAuthor', 'Default Author', '(empty)', 'New project author', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.mixerEnabled', 'Mixer Enabled', 'true', 'New project mixer state', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.layerHeightDefault', 'Default Layer Height', '0 (1)', 'Root layer group height', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultUdoStyle', 'Default UDO Style', 'MODERN', 'Default style when creating new UDOs or effects', 'blocked-by-missing-feature', { missingFeature: 'udo-effect-creation-runtime' }),
+    entry('projectDefaults', 'projectDefaults.defaultPrimaryTimeBase', 'Primary Ruler', 'BEATS', 'New project primary ruler', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultSecondaryRulerEnabled', 'Secondary Ruler Enabled', 'false', 'New project secondary ruler', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultSecondaryTimeBase', 'Secondary Ruler', 'TIME', 'New project secondary ruler timebase', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultSnapEnabled', 'Snap Enabled', 'false', 'New project snap state', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultSnapValue', 'Snap Value', 'BEAT', 'New project snap value', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('projectDefaults', 'projectDefaults.defaultSmpteFrameRate', 'SMPTE Frame Rate', '24', 'New project SMPTE frame rate', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+
+    entry('playback', 'playback.playbackFps', 'Time Pointer Animation FPS', '24', 'Playhead update frequency', 'used-by-workflow', { consumerPath: 'playback-store.ts' }),
+    entry('playback', 'playback.playbackLatencyCorrection', 'Latency Correction', '0.0', 'Playhead latency correction', 'used-by-workflow', { consumerPath: 'playback-store.ts' }),
+    entry('playback', 'playback.followPlayback', 'Score Follows Playback', 'true', 'Auto-scroll follow behavior', 'used-by-workflow', { consumerPath: 'playback-store.ts' }),
+    entry('playback', 'playback.followPlaybackOnStart', 'Follow on Render Start', 'true', 'Enable follow on playback start', 'used-by-workflow', { consumerPath: 'playback-store.ts' }),
+
+    entry('utility', 'utility.csoundExecutable', 'Csound Executable', '/usr/local/bin/csound (macOS)', 'Freeze and SoundFont utility Csound', 'blocked-by-missing-feature', { missingFeature: 'utility-freeze-unfreeze' }),
+    entry('utility', 'utility.freezeFlags', 'Freeze Flags', '-Ado (macOS)', 'SoundObject freeze render flags', 'blocked-by-missing-feature', { missingFeature: 'utility-freeze-unfreeze' }),
+
+    entry('realtimeRender', 'realtimeRender.csoundExecutable', 'Csound Executable', '/usr/local/bin/csound (macOS)', 'Realtime render executable selection', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.defaultSr', 'Default sr', '44100', 'New project realtime sample rate', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.defaultKsmps', 'Default ksmps', '1', 'New project realtime ksmps', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.defaultNchnls', 'Default nchnls', '2', 'New project realtime channels', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.useZeroDbfs', '0dbfs Enabled', 'true', 'New project 0dbfs enabled', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.zeroDbfs', '0dbfs Value', '1', 'New project 0dbfs value', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.audioDriverEnabled', 'Audio Driver Enabled', 'true', 'Realtime audio driver flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.audioDriver', 'Audio Driver', 'pa_bl (macOS)', 'Realtime audio driver selection', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.audioOutEnabled', 'Audio Out Enabled', 'true', 'Seeds project useAudioOut (include -o flag)', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.audioOutText', 'Audio Out', 'dac', 'Realtime audio out device (program-level)', 'used-by-workflow', { consumerPath: 'program-settings-usage.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.audioInEnabled', 'Audio In Enabled', 'false', 'Seeds project useAudioIn (include -i flag)', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.audioInText', 'Audio In', 'adc', 'Realtime audio in device (program-level)', 'used-by-workflow', { consumerPath: 'program-settings-usage.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.midiDriverEnabled', 'MIDI Driver Enabled', 'true', 'Realtime MIDI driver flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.midiDriver', 'MIDI Driver', 'PortMidi', 'Realtime MIDI driver selection', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.midiOutEnabled', 'MIDI Out Enabled', 'false', 'Seeds project useMidiOut (include -Q flag)', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.midiOutText', 'MIDI Out', '(empty)', 'Realtime MIDI out device (program-level)', 'used-by-workflow', { consumerPath: 'program-settings-usage.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.midiInEnabled', 'MIDI In Enabled', 'false', 'Seeds project useMidiIn (include -M flag)', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.midiInText', 'MIDI In', '(empty)', 'Realtime MIDI in device (program-level)', 'used-by-workflow', { consumerPath: 'program-settings-usage.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.softwareBufferEnabled', 'Software Buffer Enabled', 'false', 'Realtime software buffer flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.softwareBufferSize', 'Software Buffer Size', '1024 (macOS)', 'Realtime software buffer size', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.hardwareBufferEnabled', 'Hardware Buffer Enabled', 'false', 'Realtime hardware buffer flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.hardwareBufferSize', 'Hardware Buffer Size', '4096 (macOS)', 'Realtime hardware buffer size', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.noteAmpsEnabled', 'Note Amplitudes', 'true', 'New project realtime message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.outOfRangeEnabled', 'Out-of-Range Messages', 'true', 'New project realtime message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.warningsEnabled', 'Warnings', 'true', 'New project realtime message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.benchmarkEnabled', 'Benchmark Information', 'true', 'New project realtime message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.displaysDisabled', 'Disable Displays', 'true', 'Realtime -d flag', 'used-by-workflow', { consumerPath: 'main.ts:buildRealtimeEngineOptions' }),
+    entry('realtimeRender', 'realtimeRender.advancedSettings', 'Advanced Settings', '(empty)', 'New project realtime advanced settings', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('realtimeRender', 'realtimeRender.renderMethod', 'Render Method', '(first available)', 'Render service factory selection', 'blocked-by-missing-feature', { missingFeature: 'device-discovery-render-method' }),
+
+    entry('diskRender', 'diskRender.csoundExecutable', 'Csound Executable', '/usr/local/bin/csound (macOS)', 'Disk render executable selection', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.defaultSr', 'Default sr', '44100', 'New project disk sample rate', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.defaultKsmps', 'Default ksmps', '1', 'New project disk ksmps', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.defaultNchnls', 'Default nchnls', '2', 'New project disk channels', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.useZeroDbfs', '0dbfs Enabled', 'true', 'New project disk 0dbfs enabled', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.zeroDbfs', '0dbfs Value', '1', 'New project disk 0dbfs value', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.fileFormatEnabled', 'File Format Enabled', 'true', 'Disk render file format flag', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.fileFormat', 'File Format', 'WAV', 'Disk render output file format', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.sampleFormatEnabled', 'Sample Format Enabled', 'true', 'Disk render sample format flag', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.sampleFormat', 'Sample Format', 'SHORT', 'Disk render output sample format', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.savePeakInformation', 'Save Peak Information', 'true', 'Disk render peak info in header', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.ditherOutput', 'Dither Output', 'false', 'Disk render dither', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.rewriteHeader', 'Rewrite Header', 'true', 'Disk render header rewrite while rendering', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.noteAmpsEnabled', 'Note Amplitudes', 'true', 'New project disk message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.outOfRangeEnabled', 'Out-of-Range Messages', 'true', 'New project disk message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.warningsEnabled', 'Warnings', 'true', 'New project disk message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.benchmarkEnabled', 'Benchmark Information', 'true', 'New project disk message flag', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.displaysDisabled', 'Disable Displays', 'true', 'Disk render -d flag', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.advancedSettings', 'Advanced Settings', '(empty)', 'New project disk advanced settings', 'used-as-new-project-default', { consumerPath: 'program-settings-application.ts' }),
+    entry('diskRender', 'diskRender.renderMethod', 'Render Method', '(first available)', 'Disk render service factory', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.externalPlayCommandEnabled', 'Render and Play Enabled', 'false', 'External play command after render', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.externalPlayCommand', 'Render and Play Command', 'command $outfile', 'External play command template', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+    entry('diskRender', 'diskRender.externalOpenCommand', 'Render and Open Command', 'command $outfile', 'External open command template', 'blocked-by-missing-feature', { missingFeature: 'disk-render-execution' }),
+
+    entry('(stale)', 'textSettings.resourceOnly', 'Text Settings (resource-only)', '(stale)', 'Resource bundle strings without active panel/controller', 'resource-only-stale'),
+  ];
+}
+
+export function getMissingFeatureById(id: string): MissingFeatureDependency | undefined {
+  return MISSING_FEATURES.find((f) => f.id === id);
+}
+
+export function buildRealtimeEngineOptions(
+  data: BlueData,
+  projectDirectory: string | null,
+  settings: ProgramSettingsSnapshot,
+): string[] {
+  const options: string[] = [];
+  const props = data.getProjectProperties();
+  const rt = settings.realtimeRender;
+
+  void projectDirectory;
+
+  if (!settings.general.messageColorsEnabled) {
+    options.push('-+msg_color=false');
+  }
+
+  if (rt.displaysDisabled) {
+    options.push('-d');
+  }
+
+  if (props.completeOverride) {
+    options.push(...props.getRealtimeCsoundOptions());
+    return options;
+  }
+
+  if (rt.audioDriverEnabled && rt.audioDriver) {
+    options.push(`-+rtaudio=${rt.audioDriver}`);
+  }
+
+  if (props.useAudioOut && rt.audioOutText) {
+    options.push(`-o${rt.audioOutText}`);
+  }
+
+  if (props.useAudioIn && rt.audioInText) {
+    options.push(`-i${rt.audioInText}`);
+  }
+
+  if ((props.useMidiIn || props.useMidiOut) && rt.midiDriverEnabled && rt.midiDriver) {
+    options.push(`-+rtmidi=${rt.midiDriver}`);
+  }
+
+  if (props.useMidiIn && rt.midiInText) {
+    options.push(`-M${rt.midiInText}`);
+  }
+
+  if (props.useMidiOut && rt.midiOutText) {
+    options.push(`-Q${rt.midiOutText}`);
+  }
+
+  if (rt.softwareBufferEnabled) {
+    options.push(`-b${rt.softwareBufferSize}`);
+  }
+
+  if (rt.hardwareBufferEnabled) {
+    options.push(`-B${rt.hardwareBufferSize}`);
+  }
+
+  options.push(
+    ...props.getRealtimeCsoundOptions().filter(
+      (option) => option !== '-odac' && option !== '-iadc',
+    ),
+  );
+
+  return options;
+}

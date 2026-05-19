@@ -1,0 +1,32 @@
+import { defineConfig } from 'vitest/config';
+import { resolve } from 'path';
+import { playwright } from '@vitest/browser-playwright';
+
+export default defineConfig({
+  test: {
+    include: ['src/renderer/browser/**/*.browser.test.tsx'],
+    globals: true,
+    browser: {
+      enabled: true,
+      provider: playwright({
+        launchOptions: {
+          channel: 'chrome',
+        },
+      }),
+      instances: [
+        {
+          browser: 'chromium',
+          name: 'bsb-geometry',
+          headless: true,
+          fileParallelism: false,
+          viewport: { width: 1280, height: 960 },
+        },
+      ],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src/renderer'),
+    },
+  },
+});

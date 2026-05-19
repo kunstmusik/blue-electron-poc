@@ -169,7 +169,7 @@ describe('Sound XML parity', () => {
     const data = new BlueData();
     data.getScore().length = 0;
 
-    const poly = new PolyObject();
+    const poly = new PolyObject(true);
     const layer = new SoundLayer();
     const sound = new Sound();
     sound.setStartTime(TimePosition.beats(1.25));
@@ -189,7 +189,7 @@ describe('Sound XML parity', () => {
     const data = new BlueData();
     data.getScore().length = 0;
 
-    const poly = new PolyObject();
+    const poly = new PolyObject(true);
     const layer = new SoundLayer();
     const sound = new Sound();
     sound.setStartTime(TimePosition.beats(2));
@@ -214,7 +214,7 @@ describe('Sound XML parity', () => {
     const data = new BlueData();
     data.getScore().length = 0;
 
-    const poly = new PolyObject();
+    const poly = new PolyObject(true);
     const layer = new SoundLayer();
     const sound = new Sound();
     sound.setStartTime(TimePosition.beats(2));

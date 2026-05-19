@@ -85,7 +85,7 @@ describe('LineObject CSD parity', () => {
     const data = new BlueData();
     data.getScore().length = 0;
 
-    const poly = new PolyObject();
+    const poly = new PolyObject(true);
     const layer = new SoundLayer();
     const lineObject = new LineObject();
     lineObject.setStartTime(TimePosition.beats(0.5));

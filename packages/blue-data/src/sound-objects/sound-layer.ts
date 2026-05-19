@@ -23,7 +23,12 @@ export class SoundLayer extends Array<SoundObject> implements Layer {
   private _heightIndex = 0;
   private _npc = new NoteProcessorChain();
 
-  constructor(other?: SoundLayer) {
+  constructor(other?: SoundLayer | number) {
+    if (typeof other === 'number') {
+      super(other);
+      return;
+    }
+
     super();
     if (other) {
       this._name = other._name;

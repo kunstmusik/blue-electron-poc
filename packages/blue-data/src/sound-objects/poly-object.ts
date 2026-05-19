@@ -128,6 +128,14 @@ export class PolyObject extends Array<SoundLayer>
   private _layerGroupListeners: LayerGroupListener[] = [];
   private _defaultHeightIndex = 0;
 
+  getDefaultHeightIndex(): number {
+    return this._defaultHeightIndex;
+  }
+
+  setDefaultHeightIndex(index: number): void {
+    this._defaultHeightIndex = index;
+  }
+
   constructor(isRoot = false) {
     super();
     this._backgroundColor = 0x666699;
@@ -265,6 +273,7 @@ export class PolyObject extends Array<SoundLayer>
 
   newLayerAt(index: number): SoundLayer {
     const layer = new SoundLayer();
+    layer.setHeightIndex(this._defaultHeightIndex);
     const insertIdx = Math.min(index, this.length);
     this.splice(insertIdx, 0, layer);
     return layer;

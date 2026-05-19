@@ -1,46 +1,67 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-18
-**Branch**: `043-uuid-deepcopy-safety`
+**Date**: 2026-05-19
+**Branch**: `044-program-settings-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: Spec 043 Closed
+## Current Focus: Spec 044 Closed
 
-**Branch**: `043-uuid-deepcopy-safety`
+**Branch**: `044-program-settings-parity`
 
 ### Summary
-Spec 043 is closed and validated. BSB load normalization now repairs missing or duplicate widget uniqueIds, new widget creation is collision-safe, user-visible duplicates rekey clone-sensitive widget and automation identities, structural copy is explicit instead of relying on XML round trips, and `Sound` now owns structured embedded BSB state while preserving Java-compatible XML output.
+Spec 044 is closed and validated. The app now exposes the six active Java Blue program-settings panels, persists them in a main-process store, seeds new projects from saved defaults, consumes the saved values in current playback/runtime workflows where those workflows exist, and records the remaining Java-only gaps in the usage matrix plus missing-feature report.
 
 ### Handoff State
-- `.specify/feature.json` points to `specs/043-uuid-deepcopy-safety`.
+- `.specify/feature.json` points to `specs/044-program-settings-parity`.
 - `spec.md` status is `Closed`.
-- `plan.md`, `research.md`, `data-model.md`, `contracts/identity-copy-contract.md`, `quickstart.md`, `tasks.md`, and `status.md` are updated for implementation closeout.
-- `tasks.md` reflects completed implementation, automated validation, and manual quickstart validation work.
-- `AGENTS.md` remains aligned with the active feature context.
-- `UUID_AND_DEEPCOPY.md` was not present during this implementation pass; the spec docs were treated as the authoritative source.
+- `plan.md`, `research.md`, `data-model.md`, `contracts/program-settings-surface.md`, `quickstart.md`, `tasks.md`, `missing-feature-report.md`, and `status.md` are updated for closeout.
+- `tasks.md` reflects completed implementation and automated validation work.
+- `AGENTS.md` already matched the SPEC044 feature context; no manual update was required.
+- Fresh manual Settings-window smoke scenarios are still listed in `quickstart.md`, but were not rerun during this final documentation pass.
 
 ### Delivered Scope
-- Shared browser-safe UUID helper for new identity generation in `@blue/data`, kept internal to the package.
-- BSB load normalization that preserves explicit uniqueIds, migrates legacy child `<id>` values to `uniqueId` attributes, assigns missing legacy uniqueIds, repairs duplicate loaded widget uniqueIds, and persists repairs on save.
-- Collision-safe BSB widget creation after loading edited or legacy XML.
-- Clone-sensitive BSB widget uniqueId rekeying for user-visible duplicate and copy-buffer flows.
-- Clone-sensitive automation parameter uniqueId rekeying for duplicate flows while preserving names, ranges, and automation data.
-- Ordinary load/save preservation for explicit widget, automation, preset, and dropdown identities.
-- Programmatic structural copy behavior for BSB aggregate substructures instead of XML round-trip copy semantics.
-- Clone-safe Sound duplication for embedded BSB data, with `Sound` now storing structured `BlueSynthBuilder` state and keeping text adapters only at compatibility boundaries.
+- Main-process JSON-backed program settings store with validation, panel reset, and typed preload IPC.
+- Settings window parity for General, Project Defaults, Playback, Utility, Realtime Render, and Disk Render.
+- New-project seeding for author, mixer state, root layer-height behavior, score rulers, snap state/value, SMPTE, realtime defaults, disk defaults, and realtime audio/MIDI usage flags.
+- Realtime option generation that merges program settings with project-owned runtime flags while preserving `ProjectProperties` advanced-settings and complete-override semantics.
+- Playback store hydration for FPS, latency correction, follow playback, and follow-on-render-start defaults.
+- Usage parity matrix and missing-feature report covering all active Java settings plus stale Text Settings resources.
+- Closeout fixes for validation regressions uncovered while auditing SPEC044, including `PolyObject` default layer-height application, `SoundLayer` array-species safety, and stale test setup in a few `@blue/data` score/sound tests.
 
 ### Validation
-- `pnpm --filter @blue/data test` — pass (`94` files, `891` tests)
-- `pnpm --filter @blue/data build` — pass
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/sound-editor-contract.test.ts --browser.enabled=false` — pass (`1` file, `14` tests)
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/score-object-editor-panel-sound-patch.test.ts --browser.enabled=false` — pass (`1` file, `6` tests)
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/main/program-settings-store.test.ts src/main/program-settings-application.test.ts src/main/program-settings-usage.test.ts src/renderer/tests/program-settings-window.test.tsx --browser.enabled=false` — pass
+- `pnpm --filter @blue/app test` — pass (`91` files, `980` tests, `2` skipped)
 - `pnpm --filter @blue/app build` — pass
+- `pnpm --filter @blue/data test -- --maxWorkers=1` — pass (`94` files, `894` tests)
 - `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
-- Manual quickstart scenarios 1-8 from `specs/043-uuid-deepcopy-safety/quickstart.md` — pass via executable Node validation
 - `git diff --check` — pass
 
 ### Next Recommended Step
-- Spec 043 can be treated as closed. The remaining useful follow-up is a normal commit/PR pass.
+- Spec 044 can be treated as closed. The most useful follow-up specs are UDO/effect creation runtime and disk render execution, since those are the highest-value remaining blocked consumers.
+
+## Spec 044 Package
+
+Spec `044-program-settings-parity` is complete, closed, and validated on branch `044-program-settings-parity`.
+
+- Goal: replace the placeholder settings surface with Java Blue program-settings parity, wire saved values into new-project defaults and current runtime consumers, and classify blocked Java workflows instead of silently ignoring them.
+- Active feature context:
+  - `.specify/feature.json` points to `specs/044-program-settings-parity`
+- Delivered artifacts:
+  - `spec.md`
+  - `plan.md`
+  - `research.md`
+  - `data-model.md`
+  - `contracts/program-settings-surface.md`
+  - `quickstart.md`
+  - `tasks.md`
+  - `missing-feature-report.md`
+  - `status.md`
+- Task status: all 79 tasks checked off in `tasks.md`.
+- Handoff notes:
+  - new-project seeding now includes realtime audio/MIDI usage flags and root-layer default height behavior
+  - `defaultUdoStyle` remains intentionally blocked until UDO/effect creation exists in the TypeScript app
+  - runtime option generation now defers to `ProjectProperties` parsing semantics for advanced settings and complete override
+  - the missing-feature report classifies 75 entries: 20 `used-by-workflow`, 33 `used-as-new-project-default`, 21 `blocked-by-missing-feature`, and 1 `resource-only-stale`
 
 ## Spec 043 Package
 
