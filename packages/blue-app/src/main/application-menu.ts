@@ -34,6 +34,7 @@ export interface ApplicationMenuTemplateOptions {
   onToggleBlueLive: () => void;
   onRecompileBlueLive: () => void;
   onBlueLiveAllNotesOff: () => void;
+  onEditTempoMap: () => void;
   onNotYetImplemented: () => void;
 }
 
@@ -138,7 +139,7 @@ function buildProjectMenuTemplate(options: ApplicationMenuTemplateOptions): Menu
       ],
     },
     { type: 'separator' },
-    buildPlaceholderItem('Edit Tempo Map...', options, { enabled: hasProject }),
+    { label: 'Edit Tempo Map...', enabled: hasProject, click: () => options.onEditTempoMap() },
     buildPlaceholderItem('Edit Time Signature Map...', options, { enabled: hasProject }),
     { label: 'Add Marker', accelerator: 'CmdOrCtrl+M', enabled: hasProject, click: () => options.onAddMarker() },
     { type: 'separator' },

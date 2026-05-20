@@ -72,7 +72,10 @@ export class TempoMap {
 
   isVisible(): boolean { return this._visible; }
   setVisible(visible: boolean): void {
-    this._visible = visible;
+    if (this._visible !== visible) {
+      this._visible = visible;
+      this.fireListeners();
+    }
   }
 
   size(): number { return this.points.length; }

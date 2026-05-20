@@ -1,6 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { Check } from "lucide-react";
+import { Check, ChevronRight, ChevronDown } from "lucide-react";
 import { useProjectStore } from "../../../stores/project-store";
 import type {
   ScoreDocumentSnapshot,
@@ -9,13 +9,14 @@ import type {
   ScoreObjectLocationRef,
   PolyObjectLayerGroupSnapshot,
 } from "./score/types";
-import type { TempoMapSnapshot } from "../../../shared/project-editor";
+import type { TempoMapSnapshot, TempoMapPatch } from "../../../shared/project-editor";
 import type { SnapValueName } from "@blue/data";
 import type { RulerConfigChanges } from "./score/RulerConfigDialog";
 import SplitPane from "./orchestra/SplitPane";
 import ScoreToolbar from "./score/ScoreToolbar";
 import RulerConfigDialog from "./score/RulerConfigDialog";
 import ScoreManagerDialog from "./score/ScoreManagerDialog";
+import TempoMapEditorDialog from "./score/TempoMapEditorDialog";
 import ColumnHeader from "./score/ColumnHeader";
 import LayerPanel from "./score/LayerPanel";
 import { useScorePathState } from "./score/useScorePathState";
@@ -43,6 +44,7 @@ export default function ScorePanel() {
   );
   const [rulerDialogOpen, setRulerDialogOpen] = useState(false);
   const [manageDialogOpen, setManageDialogOpen] = useState(false);
+  const [tempoMapEditorOpen, setTempoMapEditorOpen] = useState(false);
 
   const [timeState, setTimeState] = useState(score.timeState);
 
@@ -68,6 +70,12 @@ export default function ScorePanel() {
   useEffect(() => {
     resetSession();
   }, [sessionId, resetSession]);
+
+  useEffect(() => {
+    const handler = () => setTempoMapEditorOpen(true);
+    window.addEventListener('blue-edit-tempo-map', handler);
+    return () => window.removeEventListener('blue-edit-tempo-map', handler);
+  }, []);
 
   const leftHeaderRef = useRef<HTMLDivElement>(null);
   const timelineHeaderRef = useRef<HTMLDivElement>(null);
@@ -258,7 +266,15 @@ export default function ScorePanel() {
   }, []);
 
   const handleTempoEnabledChange = useCallback((enabled: boolean) => {
-    useProjectStore.getState().applyPatchToDocument({ transport: { tempoMap: { enabled } } });
+    useProjectStore.getState().applyProjectDocumentPatch({ transport: { tempoMap: { enabled } } });
+  }, []);
+
+  const handleTempoVisibleChange = useCallback((visible: boolean) => {
+    useProjectStore.getState().applyProjectDocumentPatch({ transport: { tempoMap: { visible } } });
+  }, []);
+
+  const handleTempoPatch = useCallback((patch: TempoMapPatch) => {
+    useProjectStore.getState().applyProjectDocumentPatch({ transport: { tempoMapPatch: patch } });
   }, []);
 
   if (!loaded) {
@@ -298,7 +314,9 @@ export default function ScorePanel() {
           <LeftPanel
             timeState={timeState}
             tempoMapEnabled={transport.tempoMap.enabled}
+            tempoMapVisible={transport.tempoMap.visible}
             onTempoEnabledChange={handleTempoEnabledChange}
+            onTempoVisibleChange={handleTempoVisibleChange}
             onRowVisibilityChange={handleRowVisibilityChange}
             layerGroups={effectiveLayerGroups}
             leftHeaderRef={leftHeaderRef}
@@ -330,6 +348,7 @@ export default function ScorePanel() {
                 rootTimelineOnly={isRootTimeline}
                 tempo={initialTempo}
                 rulerMouseDown={rulerMouseDown}
+                onTempoPatch={handleTempoPatch}
               />
             </div>
             <div className="relative flex-1 min-h-0">
@@ -379,6 +398,14 @@ export default function ScorePanel() {
           onClose={() => setManageDialogOpen(false)}
         />
       )}
+
+      {tempoMapEditorOpen && (
+        <TempoMapEditorDialog
+          tempoMap={transport.tempoMap}
+          onCommit={handleTempoPatch}
+          onClose={() => setTempoMapEditorOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -386,7 +413,9 @@ export default function ScorePanel() {
 interface LeftPanelProps {
   timeState: ScoreDocumentSnapshot["timeState"];
   tempoMapEnabled: boolean;
+  tempoMapVisible: boolean;
   onTempoEnabledChange: (enabled: boolean) => void;
+  onTempoVisibleChange: (visible: boolean) => void;
   onRowVisibilityChange: (key: 'tempoRowVisible' | 'meterRowVisible' | 'markersRowVisible', value: boolean) => void;
   layerGroups: ScoreLayerGroupSnapshot[];
   leftHeaderRef: React.RefObject<HTMLDivElement | null>;
@@ -397,7 +426,9 @@ interface LeftPanelProps {
 function LeftPanel({
   timeState,
   tempoMapEnabled,
+  tempoMapVisible,
   onTempoEnabledChange,
+  onTempoVisibleChange,
   onRowVisibilityChange,
   layerGroups,
   leftHeaderRef,
@@ -408,20 +439,26 @@ function LeftPanel({
 
   return (
     <div className="h-full flex flex-col bg-blue-surface border-r border-blue-border/40">
-      <div className="flex-shrink-0 flex flex-col">
+      <div className="shrink-0 flex flex-col">
         {timeState.tempoRowVisible && (
-          <RowHeader onContextMenu={onRowVisibilityChange} rowVisibility={timeState}>
-            <label className="flex items-center gap-0.5 text-[9px] text-blue-muted cursor-pointer select-none">
-              <input type="checkbox" className="w-2.5 h-2.5" checked={tempoMapEnabled} onChange={(e) => onTempoEnabledChange(e.target.checked)} />
-              Use Tempo
-            </label>
-            <button
-              className="w-3.5 h-3.5 text-[8px] text-blue-muted hover:text-blue-text flex items-center justify-center"
-              title="Toggle tempo editor"
-            >
-              &#9660;
-            </button>
-          </RowHeader>
+          <>
+            <RowHeader onContextMenu={onRowVisibilityChange} rowVisibility={timeState}>
+              <label className="flex items-center gap-1.5 text-[9px] text-blue-muted cursor-pointer select-none">
+                <input type="checkbox" className="w-2.5 h-2.5" checked={tempoMapEnabled} onChange={(e) => onTempoEnabledChange(e.target.checked)} />
+                Use Tempo
+              </label>
+              <button
+                className="group w-fit h-3.5 flex items-center justify-center cursor-pointer text-blue-muted hover:text-white"
+                title="Toggle tempo editor"
+                onClick={() => onTempoVisibleChange(!tempoMapVisible)}
+              >
+                {tempoMapVisible ? <ChevronDown size={10} className="text-blue-text group-hover:text-white" /> : <ChevronRight size={10} className="group-hover:text-white" />}
+              </button>
+            </RowHeader>
+            {tempoMapVisible && (
+              <div className="border-b border-blue-border/20 bg-blue-surface/30" style={{ height: 80 }} />
+            )}
+          </>
         )}
         {timeState.meterRowVisible && (
           <RowHeader onContextMenu={onRowVisibilityChange} borderLeft rowVisibility={timeState}>

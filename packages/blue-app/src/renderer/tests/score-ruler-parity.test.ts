@@ -5,6 +5,7 @@ import { __testOnly } from '../components/workbench/panels/score/ColumnHeader';
 
 const TEMPO_60: TempoMapSnapshot = {
   enabled: true,
+  visible: false,
   points: [{ beat: 0, tempo: 60, curveType: 'constant' }],
 };
 

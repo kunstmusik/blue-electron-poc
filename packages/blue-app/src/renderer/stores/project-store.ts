@@ -54,6 +54,7 @@ import {
   type ScoreObjectLocationRef,
   type ScorePatch,
   type SupportedNewInstrumentType,
+  type TempoMapPatch,
   type ToolbarProjectTransportSnapshot,
   type UdoDefinitionSnapshot,
 } from '../../shared/project-editor';
@@ -508,6 +509,58 @@ function applyProjectUdoPatchToSnapshot(
   }
 
   return list;
+}
+
+function applyTempoMapPatchToSnapshot(
+  snap: import('../../../shared/project-editor').TempoMapSnapshot,
+  patch: import('../../../shared/project-editor').TempoMapPatch,
+): import('../../../shared/project-editor').TempoMapSnapshot {
+  switch (patch.type) {
+    case 'setTempoEnabled':
+      return { ...snap, enabled: patch.enabled };
+    case 'setTempoVisible':
+      return { ...snap, visible: patch.visible };
+    case 'addTempoPoint': {
+      if (!isFinite(patch.point.beat) || patch.point.beat < 0) return snap;
+      if (!isFinite(patch.point.tempo) || patch.point.tempo <= 0) return snap;
+      for (const ep of snap.points) {
+        if (Math.abs(ep.beat - patch.point.beat) < 0.001) return snap;
+      }
+      return { ...snap, points: [...snap.points, { ...patch.point }].sort((a, b) => a.beat - b.beat) };
+    }
+    case 'updateTempoPoint': {
+      const idx = patch.index;
+      if (idx < 0 || idx >= snap.points.length) return snap;
+      const current = snap.points[idx];
+      const newBeat = patch.patch.beat ?? current.beat;
+      const newTempo = patch.patch.tempo ?? current.tempo;
+      const newCurve = patch.patch.curveType ?? current.curveType;
+      if (idx === 0 && newBeat !== 0) return snap;
+      if (!isFinite(newTempo) || newTempo <= 0) return snap;
+      if (idx > 0 && newBeat <= snap.points[idx - 1].beat) return snap;
+      if (idx < snap.points.length - 1 && newBeat >= snap.points[idx + 1].beat) return snap;
+      const newPoints = [...snap.points];
+      newPoints[idx] = { ...current, beat: newBeat, tempo: newTempo, curveType: newCurve };
+      return { ...snap, points: newPoints };
+    }
+    case 'setTempoCurveType': {
+      const idx = patch.index;
+      if (idx < 0 || idx >= snap.points.length) return snap;
+      if (snap.points[idx].curveType === patch.curveType) return snap;
+      const newPoints = [...snap.points];
+      newPoints[idx] = { ...newPoints[idx], curveType: patch.curveType };
+      return { ...snap, points: newPoints };
+    }
+    case 'removeTempoPoint': {
+      if (patch.index <= 0 || patch.index >= snap.points.length || snap.points.length <= 1) return snap;
+      return { ...snap, points: snap.points.filter((_, i) => i !== patch.index) };
+    }
+    case 'replaceTempoMap': {
+      return { ...patch.map };
+    }
+    default:
+      return snap;
+  }
 }
 
 function applyBlueLivePatchToSnapshot(
@@ -3030,6 +3083,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
             ? { ...state.transport.tempoMap, ...normalizedPatch.transport.tempoMap }
             : state.transport.tempoMap,
         };
+
+        if (normalizedPatch.transport.tempoMapPatch) {
+          nextTransport.tempoMap = applyTempoMapPatchToSnapshot(
+            nextTransport.tempoMap,
+            normalizedPatch.transport.tempoMapPatch,
+          );
+        }
 
         if (nextTransport.renderEndTime <= nextTransport.renderStartTime) {
           nextTransport.renderEndTime = -1;

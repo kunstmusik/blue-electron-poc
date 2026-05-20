@@ -24,6 +24,7 @@ function createHandlers() {
     onToggleBlueLive: vi.fn(),
     onRecompileBlueLive: vi.fn(),
     onBlueLiveAllNotesOff: vi.fn(),
+    onEditTempoMap: vi.fn(),
     onNotYetImplemented: vi.fn(),
     onAddMarker: vi.fn(),
     onNavigateNextMarker: vi.fn(),
@@ -129,5 +130,39 @@ describe('application menu template', () => {
 
     const toolsMenu = getSubmenu(template[3]);
     expect(toolsMenu.find((item) => item.label === 'Effects Library')).toBeTruthy();
+  });
+
+  it('enables Edit Tempo Map only when a project is loaded and wires the handler', () => {
+    const handlers = createHandlers();
+
+    const enabledTemplate = buildApplicationMenuTemplate({
+      hasLoadedProject: true,
+      isDarwin: false,
+      recentProjects: [],
+      canRevertProject: false,
+      followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
+      ...handlers,
+    });
+    const enabledProjectMenu = getSubmenu(enabledTemplate[2]);
+    const enabledEditTempoMap = enabledProjectMenu.find((item) => item.label === 'Edit Tempo Map...');
+
+    expect(enabledEditTempoMap?.enabled).toBe(true);
+    enabledEditTempoMap?.click?.();
+    expect(handlers.onEditTempoMap).toHaveBeenCalledTimes(1);
+
+    const disabledTemplate = buildApplicationMenuTemplate({
+      hasLoadedProject: false,
+      isDarwin: false,
+      recentProjects: [],
+      canRevertProject: false,
+      followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
+      ...createHandlers(),
+    });
+    const disabledProjectMenu = getSubmenu(disabledTemplate[2]);
+    const disabledEditTempoMap = disabledProjectMenu.find((item) => item.label === 'Edit Tempo Map...');
+
+    expect(disabledEditTempoMap?.enabled).toBe(false);
   });
 });

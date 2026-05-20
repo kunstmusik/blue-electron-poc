@@ -431,6 +431,7 @@ function rebuildApplicationMenu(): void {
     onToggleBlueLive: () => { void blueLiveToggle(); },
     onRecompileBlueLive: () => { void blueLiveRecompile(); },
     onBlueLiveAllNotesOff: () => { void blueLiveAllNotesOff(); },
+    onEditTempoMap: () => { mainWindow?.webContents.send('native-menu-command', { type: 'edit-tempo-map' }); },
     onNotYetImplemented: () => { mainWindow?.webContents.send('native-menu-command', { type: 'show-not-yet-implemented' }); },
   }));
 

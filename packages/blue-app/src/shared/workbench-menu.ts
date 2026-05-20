@@ -117,6 +117,7 @@ export type NativeMenuCommand =
   | { type: 'navigate-next-marker' }
   | { type: 'navigate-previous-marker' }
   | { type: 'rewind-to-start' }
+  | { type: 'edit-tempo-map' }
   | { type: 'show-not-yet-implemented' };
 
 export function getPanel(id: string): PanelDescriptor | undefined {

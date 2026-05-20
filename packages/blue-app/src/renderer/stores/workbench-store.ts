@@ -420,6 +420,9 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
         case 'show-not-yet-implemented':
           window.alert('not yet implemented');
           return;
+        case 'edit-tempo-map':
+          window.dispatchEvent(new CustomEvent('blue-edit-tempo-map'));
+          return;
       }
     },
   }),

@@ -57,6 +57,8 @@ export { SmpteFrameRate } from './time/smpte-frame-rate';
 export { TimePosition } from './time/time-position';
 export { TimeDuration } from './time/time-duration';
 export { TempoMap } from './time/tempo-map';
+export { TempoPoint } from './time/tempo-point';
+export { CurveType, parseCurveType } from './time/curve-type';
 export { TimeContext } from './time/time-context';
 export { TimeState } from './time/time-state';
 export { beatsToTimePosition, timePositionToBeats, convertTimePosition, secondsToTimePosition, timePositionToSeconds, framesToTimePosition, timePositionToFrames } from './time/time-utilities';

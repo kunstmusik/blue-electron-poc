@@ -1,3 +1,4 @@
+import { useState, useCallback } from 'react';
 import type { RefObject } from 'react';
 import type {
   ScoreTimeStateSnapshot,
@@ -5,10 +6,14 @@ import type {
   MeterSnapshot,
   TempoMapSnapshot,
   TempoPointSnapshot,
+  TempoMapPatch,
 } from '../../../../../shared/project-editor';
 import { TimeBase, type SnapValueName } from '@blue/data';
 import MeterRegionBar from './MeterRegionBar';
 import MarkersBar from './MarkersBar';
+import TempoRegionBar from './TempoRegionBar';
+import TempoLineView from './TempoLineView';
+import TempoPointDialog from './TempoPointDialog';
 
 interface Props {
   timeState: ScoreTimeStateSnapshot;
@@ -27,21 +32,48 @@ interface Props {
   rootTimelineOnly: boolean;
   tempo: number;
   rulerMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onTempoPatch: (patch: TempoMapPatch) => void;
 }
 
-export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate, renderStartTime, renderEndTime, snapEnabled, snapValue, timePointerBeats, scrollContainerRef, rootTimelineOnly, tempo, rulerMouseDown }: Props) {
+export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate, renderStartTime, renderEndTime, snapEnabled, snapValue, timePointerBeats, scrollContainerRef, rootTimelineOnly, tempo, rulerMouseDown, onTempoPatch }: Props) {
+  const [pointDialogIndex, setPointDialogIndex] = useState<number | null>(null);
   const contentWidth = totalBeats * pixelsPerBeat;
   const smpteFrameRate = timeState.smpteFrameRate || 24;
   const hasRenderEnd = renderEndTime > 0 && renderEndTime > renderStartTime;
 
+  const handleOpenPointDialog = useCallback((index: number) => {
+    setPointDialogIndex(index);
+  }, []);
+
+  const handleClosePointDialog = useCallback(() => {
+    setPointDialogIndex(null);
+  }, []);
+
   return (
     <div className="bg-blue-bg border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
       {timeState.tempoRowVisible && (
-        <div className={`h-5 border-b border-blue-border/20 flex items-center px-2 text-[9px] overflow-hidden ${tempoMap.enabled ? 'text-green-400' : 'text-blue-muted'}`} style={{ minWidth: contentWidth }}>
-          {tempoMap.points.length === 1
-            ? `${tempoMap.points[0].tempo} BPM`
-            : `${tempoMap.points[0].tempo} → ${tempoMap.points[tempoMap.points.length - 1].tempo} BPM (${tempoMap.points.length} pts)`}
-        </div>
+        <TempoRegionBar
+          tempoMap={tempoMap}
+          totalBeats={totalBeats}
+          pixelsPerBeat={pixelsPerBeat}
+          snapEnabled={snapEnabled}
+          snapValue={snapValue}
+          rootTimelineOnly={rootTimelineOnly}
+          onTempoPatch={onTempoPatch}
+          onOpenPointDialog={handleOpenPointDialog}
+        />
+      )}
+      {timeState.tempoRowVisible && tempoMap.visible && (
+        <TempoLineView
+          tempoMap={tempoMap}
+          totalBeats={totalBeats}
+          pixelsPerBeat={pixelsPerBeat}
+          snapEnabled={snapEnabled}
+          snapValue={snapValue}
+          rootTimelineOnly={rootTimelineOnly}
+          scrollContainerRef={scrollContainerRef}
+          onTempoPatch={onTempoPatch}
+        />
       )}
 
       <MeterRegionBar meters={meters} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.meterRowVisible} />
@@ -71,6 +103,15 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
           smpteFrameRate={smpteFrameRate}
           sampleRate={sampleRate}
           secondary
+        />
+      )}
+
+      {pointDialogIndex !== null && (
+        <TempoPointDialog
+          pointIndex={pointDialogIndex}
+          tempoMap={tempoMap}
+          onTempoPatch={onTempoPatch}
+          onClose={handleClosePointDialog}
         />
       )}
     </div>

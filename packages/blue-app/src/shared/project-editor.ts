@@ -21,6 +21,8 @@ import {
   Mixer,
   Scale,
   TempoMap,
+  TempoPoint,
+  CurveType,
   UDOStyle,
   convertToModern,
   convertToClassic,
@@ -468,12 +470,24 @@ export interface TempoPointSnapshot {
   beat: number;
   tempo: number;
   curveType: TempoCurveTypeSnapshot;
+  timeBase?: string;
+  positionValue?: number;
 }
 
 export interface TempoMapSnapshot {
   enabled: boolean;
+  visible: boolean;
   points: TempoPointSnapshot[];
 }
+
+export type TempoMapPatch =
+  | { type: 'setTempoEnabled'; enabled: boolean }
+  | { type: 'setTempoVisible'; visible: boolean }
+  | { type: 'addTempoPoint'; point: TempoPointSnapshot }
+  | { type: 'updateTempoPoint'; index: number; patch: Partial<TempoPointSnapshot> }
+  | { type: 'setTempoCurveType'; index: number; curveType: TempoCurveTypeSnapshot }
+  | { type: 'removeTempoPoint'; index: number }
+  | { type: 'replaceTempoMap'; map: TempoMapSnapshot };
 
 export interface MeterSnapshot {
   measure: number;
@@ -850,6 +864,7 @@ export interface ProjectDocumentPatch {
   projectProperties?: Partial<ProjectPropertiesSnapshot>;
   transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>> & {
     tempoMap?: Partial<TempoMapSnapshot>;
+    tempoMapPatch?: TempoMapPatch;
   };
   tablesText?: string;
   projectUdo?: ProjectUdoPatch;
@@ -1763,6 +1778,7 @@ export function createEmptyOrchestraSnapshot(loaded = false): OrchestraSnapshot 
 export function createEmptyTempoMapSnapshot(): TempoMapSnapshot {
   return {
     enabled: false,
+    visible: false,
     points: [
       {
         beat: 0,
@@ -1788,6 +1804,7 @@ export function createEmptyMeterMapSnapshot(): MeterMapSnapshot {
 export function createTempoMapSnapshot(tempoMap: TempoMap): TempoMapSnapshot {
   return {
     enabled: tempoMap.isEnabled(),
+    visible: tempoMap.isVisible(),
     points: tempoMap.getTempoPoints().map((point) => ({
       beat: point.beat,
       tempo: point.tempo,
@@ -5623,6 +5640,111 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
   }
 }
 
+function validateTempoMapSnapshot(map: TempoMapSnapshot): boolean {
+  if (!map.points || map.points.length === 0) return false;
+  if (map.points[0].beat !== 0) return false;
+  for (const p of map.points) {
+    if (!isFinite(p.beat) || p.beat < 0) return false;
+    if (!isFinite(p.tempo) || p.tempo <= 0) return false;
+    if (p.curveType !== 'constant' && p.curveType !== 'linear') return false;
+  }
+  for (let i = 1; i < map.points.length; i++) {
+    if (map.points[i].beat <= map.points[i - 1].beat) return false;
+  }
+  return true;
+}
+
+function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean {
+  const tempoMap = data.getScore().getTimeContext().getTempoMap();
+
+  switch (tempoPatch.type) {
+    case 'setTempoEnabled': {
+      if (tempoMap.isEnabled() !== tempoPatch.enabled) {
+        tempoMap.setEnabled(tempoPatch.enabled);
+        return true;
+      }
+      return false;
+    }
+    case 'setTempoVisible': {
+      if (tempoMap.isVisible() !== tempoPatch.visible) {
+        tempoMap.setVisible(tempoPatch.visible);
+        return true;
+      }
+      return false;
+    }
+    case 'addTempoPoint': {
+      const p = tempoPatch.point;
+      if (!isFinite(p.beat) || p.beat < 0 || !isFinite(p.tempo) || p.tempo <= 0) return false;
+      const existing = tempoMap.getTempoPoints();
+      for (const ep of existing) {
+        if (Math.abs(ep.beat - p.beat) < 0.001) return false;
+      }
+      const ct = p.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR;
+      tempoMap.addTempoPoint(new TempoPoint(p.beat, p.tempo, ct));
+      return true;
+    }
+    case 'updateTempoPoint': {
+      const idx = tempoPatch.index;
+      if (idx < 0 || idx >= tempoMap.size()) return false;
+      const pt = tempoPatch.patch;
+      const current = tempoMap.getTempoPoint(idx);
+      const newBeat = pt.beat ?? current.beat;
+      const newTempo = pt.tempo ?? current.tempo;
+      const newCurve = pt.curveType
+        ? (pt.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR)
+        : current.curveType;
+
+      if (idx === 0 && newBeat !== 0) return false;
+      if (!isFinite(newTempo) || newTempo <= 0) return false;
+
+      if (idx > 0) {
+        const prev = tempoMap.getTempoPoint(idx - 1);
+        if (newBeat <= prev.beat) return false;
+      }
+      if (idx < tempoMap.size() - 1) {
+        const next = tempoMap.getTempoPoint(idx + 1);
+        if (newBeat >= next.beat) return false;
+      }
+
+      tempoMap.setTempoPoint(idx, newBeat, newTempo, newCurve);
+      return true;
+    }
+    case 'setTempoCurveType': {
+      const idx = tempoPatch.index;
+      if (idx < 0 || idx >= tempoMap.size()) return false;
+      const newCurve = tempoPatch.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR;
+      if (tempoMap.getCurveType(idx) === newCurve) return false;
+      const pt = tempoMap.getTempoPoint(idx);
+      tempoMap.setTempoPoint(idx, pt.beat, pt.tempo, newCurve);
+      return true;
+    }
+    case 'removeTempoPoint': {
+      const idx = tempoPatch.index;
+      if (idx <= 0 || idx >= tempoMap.size()) return false;
+      tempoMap.removeTempoPoint(idx);
+      return true;
+    }
+    case 'replaceTempoMap': {
+      if (!validateTempoMapSnapshot(tempoPatch.map)) return false;
+      const source = new TempoMap();
+      source.setEnabled(tempoPatch.map.enabled);
+      source.setVisible(tempoPatch.map.visible);
+      source.reset();
+      const points = tempoPatch.map.points.map(
+        (p) => new TempoPoint(p.beat, p.tempo, p.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR),
+      );
+      source.setTempoPoint(0, points[0].beat, points[0].tempo, points[0].curveType);
+      for (let i = 1; i < points.length; i++) {
+        source.addTempoPoint(points[i]);
+      }
+      tempoMap.replaceAll(source);
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
 export function applyProjectDocumentPatch(
   data: BlueData,
   patch: ProjectDocumentPatch,
@@ -5765,6 +5887,15 @@ export function applyProjectDocumentPatch(
     if (patch.transport.tempoMap?.enabled !== undefined) {
       data.getScore().getTimeContext().getTempoMap().setEnabled(patch.transport.tempoMap.enabled);
       changed = true;
+    }
+
+    if (patch.transport.tempoMap?.visible !== undefined) {
+      data.getScore().getTimeContext().getTempoMap().setVisible(patch.transport.tempoMap.visible);
+      changed = true;
+    }
+
+    if (patch.transport.tempoMapPatch) {
+      changed = applyTempoMapPatch(data, patch.transport.tempoMapPatch) || changed;
     }
   }
 
