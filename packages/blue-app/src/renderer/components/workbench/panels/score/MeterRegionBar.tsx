@@ -1,53 +1,141 @@
-import type { MeterSnapshot } from '../../../../../shared/project-editor';
+import { useState, useCallback } from 'react';
+import type { MeterMapSnapshot, MeterSnapshot, MeterMapPatch } from '../../../../../shared/project-editor';
+import * as ContextMenu from '@radix-ui/react-context-menu';
+import {
+  deriveMeterRegions,
+  findRegionAtBeat,
+  beatToScreenX,
+  screenXToBeat,
+  beatToMeasure,
+  formatMeterTooltip,
+  findEntryAtMeasure,
+  METER_REGION_BAR_HEIGHT,
+} from './meter-map-utils';
 
-interface Props {
-  meters: MeterSnapshot[];
+interface MeterRegionBarProps {
+  meterMap: MeterMapSnapshot;
   totalBeats: number;
   pixelsPerBeat: number;
   rowVisible: boolean;
+  rootTimelineOnly: boolean;
+  onMeterPatch: (patch: MeterMapPatch) => void;
+  onOpenEntryDialog: (entryIndex: number) => void;
 }
 
-const METER_COLORS = [
-  'rgba(59, 130, 246, 0.15)',
-  'rgba(168, 85, 247, 0.15)',
-  'rgba(59, 130, 246, 0.12)',
-  'rgba(168, 85, 247, 0.12)',
-];
+export default function MeterRegionBar({
+  meterMap,
+  totalBeats,
+  pixelsPerBeat,
+  rowVisible,
+  rootTimelineOnly,
+  onMeterPatch,
+  onOpenEntryDialog,
+}: MeterRegionBarProps) {
+  const [hoveredRegion, setHoveredRegion] = useState<number | null>(null);
+  const entries = meterMap.entries;
 
-export default function MeterRegionBar({ meters, totalBeats, pixelsPerBeat, rowVisible }: Props) {
-  if (!rowVisible || meters.length === 0) return null;
+  if (!rowVisible || entries.length === 0) return null;
 
-  const regions: Array<{ startBeat: number; endBeat: number; label: string; color: string }> = [];
-  for (let i = 0; i < meters.length; i++) {
-    const meter = meters[i];
-    const nextMeter = meters[i + 1];
-    const startBeat = (meter.measure - 1) * meter.numBeats;
-    const endBeat = nextMeter ? (nextMeter.measure - 1) * nextMeter.numBeats : totalBeats;
-    regions.push({
-      startBeat,
-      endBeat,
-      label: `${meter.numBeats}/${meter.beatLength}`,
-      color: METER_COLORS[i % METER_COLORS.length],
-    });
-  }
+  const contentWidth = totalBeats * pixelsPerBeat;
+  const regions = deriveMeterRegions(meterMap, totalBeats);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!rootTimelineOnly) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const rawBeat = screenXToBeat(x, pixelsPerBeat);
+    const measure = beatToMeasure(rawBeat, entries);
+    const existingIdx = findEntryAtMeasure(entries, measure);
+
+    if (existingIdx >= 0) {
+      onOpenEntryDialog(existingIdx);
+      return;
+    }
+
+    onMeterPatch({ type: 'meter-map-set-entry', measure, numBeats: 4, beatLength: 4 });
+  }, [rootTimelineOnly, pixelsPerBeat, entries, onMeterPatch, onOpenEntryDialog]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const beat = screenXToBeat(x, pixelsPerBeat);
+    const idx = findRegionAtBeat(regions, beat);
+    setHoveredRegion(idx);
+  }, [regions, pixelsPerBeat]);
+
+  const handleMouseLeave = useCallback(() => {
+    setHoveredRegion(null);
+  }, []);
 
   return (
-    <div className="relative h-5 border-b border-blue-border/30 overflow-hidden" style={{ minWidth: totalBeats * pixelsPerBeat }}>
+    <div
+      className="relative select-none overflow-hidden cursor-pointer"
+      style={{ height: METER_REGION_BAR_HEIGHT, minWidth: contentWidth }}
+      onDoubleClick={handleDoubleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    >
       {regions.map((region, i) => {
-        const left = region.startBeat * pixelsPerBeat;
-        const width = (region.endBeat - region.startBeat) * pixelsPerBeat;
+        const startX = beatToScreenX(region.startBeat, pixelsPerBeat);
+        const endX = beatToScreenX(region.endBeat, pixelsPerBeat);
+        const width = endX - startX;
+        if (width < 0) return null;
+        const isHovered = hoveredRegion === i;
+        const showLabel = width >= 30;
+
+        let fillColor = 'rgb(60,60,80)';
+        if (isHovered) fillColor = 'rgb(80,80,110)';
+
         return (
-          <div
-            key={i}
-            className="absolute top-0 bottom-0 flex items-center border-r border-blue-border/20"
-            style={{ left, width, backgroundColor: region.color }}
-          >
-            <span className="px-1 text-[9px] text-blue-muted whitespace-nowrap overflow-hidden">
-              {region.label}
-            </span>
-          </div>
+          <ContextMenu.Root key={`meter-region-${i}`}>
+            <ContextMenu.Trigger asChild>
+              <div
+                className="absolute top-0 border-l"
+                style={{
+                  left: startX,
+                  width: Math.max(1, width),
+                  height: METER_REGION_BAR_HEIGHT,
+                  backgroundColor: fillColor,
+                  borderColor: 'rgb(100,100,120)',
+                }}
+                title={formatMeterTooltip(region.entry)}
+              >
+                {showLabel && (
+                  <span className="absolute left-1 top-0 leading-5 text-[9px] text-white whitespace-nowrap">
+                    {region.label}
+                  </span>
+                )}
+              </div>
+            </ContextMenu.Trigger>
+            {rootTimelineOnly && (
+              <ContextMenu.Portal>
+                <ContextMenu.Content
+                  className="min-w-40 bg-[#1e1e3a] border border-blue-border/40 rounded-md p-1 shadow-lg z-50"
+                >
+                  <ContextMenu.Item
+                    className="text-[11px] text-blue-text px-2 py-1 rounded-sm cursor-pointer outline-none data-[highlighted]:bg-white/10"
+                    onSelect={() => onOpenEntryDialog(i)}
+                  >
+                    Edit Time Signature...
+                  </ContextMenu.Item>
+                  {i > 0 && (
+                    <>
+                      <ContextMenu.Separator className="h-px bg-blue-border/20 my-1" />
+                      <ContextMenu.Item
+                        className="text-[11px] text-red-400 px-2 py-1 rounded-sm cursor-pointer outline-none data-[highlighted]:bg-white/10"
+                        onSelect={() => onMeterPatch({ type: 'meter-map-remove-entry', measure: region.entry.measure })}
+                      >
+                        Delete Time Signature Change
+                      </ContextMenu.Item>
+                    </>
+                  )}
+                </ContextMenu.Content>
+              </ContextMenu.Portal>
+            )}
+          </ContextMenu.Root>
         );
       })}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-600/50" />
     </div>
   );
 }

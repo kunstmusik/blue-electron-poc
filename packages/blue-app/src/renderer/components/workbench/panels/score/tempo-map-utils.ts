@@ -1,6 +1,7 @@
-import type { TempoMapSnapshot, TempoPointSnapshot, TempoCurveTypeSnapshot, TempoMapPatch } from '../../../../../shared/project-editor';
+import type { MeterMapSnapshot, TempoMapSnapshot, TempoPointSnapshot, TempoCurveTypeSnapshot, TempoMapPatch } from '../../../../../shared/project-editor';
 import type { SnapValueName } from '@blue/data';
 import { snapValueToBeats } from '@blue/data';
+import { snapBeatToGrid } from './snap-grid-utils';
 
 export const TEMPO_REGION_BAR_HEIGHT = 20;
 export const TEMPO_LINE_VIEW_HEIGHT = 80;
@@ -43,11 +44,20 @@ export function findRegionAtBeat(regions: TempoRegion[], beat: number): number {
   return 0;
 }
 
-export function snapBeat(beat: number, snapEnabled: boolean, snapValue: SnapValueName, pixelsPerBeat: number, tempo: number = 60, smpteFrameRate: number = 30, sampleRate: number = 44100): number {
+export function snapBeat(
+  beat: number,
+  snapEnabled: boolean,
+  snapValue: SnapValueName,
+  pixelsPerBeat: number,
+  tempo: number = 60,
+  smpteFrameRate: number = 30,
+  sampleRate: number = 44100,
+  meterMap?: MeterMapSnapshot,
+): number {
   if (!snapEnabled) return beat;
   const snapBeats = snapValueToBeats(snapValue, tempo, smpteFrameRate, sampleRate, pixelsPerBeat);
   if (snapBeats <= 0) return beat;
-  return Math.round(beat / snapBeats) * snapBeats;
+  return snapBeatToGrid(beat, 'nearest', snapValue, snapBeats, meterMap);
 }
 
 export function getTempoAtBeat(points: TempoPointSnapshot[], beat: number): number {

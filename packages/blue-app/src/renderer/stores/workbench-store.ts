@@ -423,6 +423,9 @@ export const useWorkbenchStore = create<WorkbenchState & WorkbenchActions>()(
         case 'edit-tempo-map':
           window.dispatchEvent(new CustomEvent('blue-edit-tempo-map'));
           return;
+        case 'edit-meter-map':
+          window.dispatchEvent(new CustomEvent('blue-edit-meter-map'));
+          return;
       }
     },
   }),

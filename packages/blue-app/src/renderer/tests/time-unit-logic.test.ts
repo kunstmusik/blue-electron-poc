@@ -50,6 +50,16 @@ const METER_CHANGE: TimeConversionContext = {
   sampleRate: 44100,
 };
 
+const FIVE_FOUR_AT_MEASURE_2: TimeConversionContext = {
+  meterEntries: [
+    { measure: 1, numBeats: 4, beatLength: 4 },
+    { measure: 2, numBeats: 5, beatLength: 4 },
+  ],
+  tempoEnabled: true,
+  initialTempo: 60,
+  sampleRate: 44100,
+};
+
 const EPSILON = 1e-6;
 
 describe('beatsToSeconds / secondsToBeats', () => {
@@ -215,6 +225,10 @@ describe('formatForBase', () => {
     expect(formatForBase(0.05, 'BBF', SIMPLE_4_4, false)).toBe('1.1.05');
   });
 
+  it('formats BBF position mode relative to the current meter region start', () => {
+    expect(formatForBase(16, 'BBF', FIVE_FOUR_AT_MEASURE_2, false)).toBe('4.3.00');
+  });
+
   it('formats BBF duration mode with a single-digit fraction using two digits', () => {
     expect(formatForBase(0.05, 'BBF', SIMPLE_4_4, true)).toBe('0.0.05');
   });
@@ -295,6 +309,10 @@ describe('parseForBase', () => {
 
   it('parses BBF position mode with a single-digit fraction as canonical hundredths', () => {
     expect(parseForBase('1.1.5', 'BBF', SIMPLE_4_4, false)).toBeCloseTo(0.5, EPSILON);
+  });
+
+  it('parses BBF position mode relative to the current meter region start', () => {
+    expect(parseForBase('4.3.00', 'BBF', FIVE_FOUR_AT_MEASURE_2, false)).toBeCloseTo(16, EPSILON);
   });
 
   it('parses BBF duration mode', () => {

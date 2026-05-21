@@ -2,9 +2,16 @@
 
 ## Prerequisites
 
-- Work from a dedicated `046-meter-map-parity` branch when implementation begins. This planning pass intentionally did not create that branch.
+- Work from the active `046-meter-map-parity` branch.
 - Review Java Blue sources listed in `/Users/stevenyi/work/blue-electron/specs/046-meter-map-parity/research.md`.
-- If Spec 045 has already implemented shared tempo row/dialog utilities, review them for reuse before creating meter-specific components.
+- Review completed Spec 045 tempo code for implementation patterns before creating meter-specific components:
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoRegionBar.tsx`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoPointDialog.tsx`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoMapEditorDialog.tsx`
+  - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/tempo-map-utils.ts`
 
 ## Focused Automated Validation
 
@@ -27,6 +34,7 @@ pnpm --filter @blue/app test
 pnpm --filter @blue/app build
 pnpm --filter @blue/data test -- --maxWorkers=1
 git diff --check
+./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks
 ```
 
 ## Manual Scenarios

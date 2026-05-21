@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { TIME_DISPLAY_OPTIONS } from './types';
 
+const SECONDARY_BUTTON_CLASS = 'px-3 py-1 text-[11px] text-blue-text bg-blue-surface/40 hover:bg-blue-surface/70 rounded border border-blue-border/40 transition-colors cursor-pointer';
+
 export interface PianoRollRulerConfigChanges {
   useGlobalRuler: boolean;
   primaryTimeDisplay: string;
@@ -120,7 +122,7 @@ export default function PianoRollRulerConfigDialog({
 
           <div className="flex justify-end gap-2 pt-2 border-t border-blue-border/30">
             <button
-              className="px-3 py-1 text-[11px] text-blue-muted hover:text-blue-text hover:bg-blue-hover rounded transition-colors cursor-pointer"
+              className={SECONDARY_BUTTON_CLASS}
               onClick={onClose}
             >
               Cancel

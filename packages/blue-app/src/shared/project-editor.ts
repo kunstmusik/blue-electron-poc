@@ -73,8 +73,11 @@ import {
   convertTimePosition,
   beatsToTimePosition,
   beatsToDuration,
+  MeterMap,
+  MeasureMeterPair,
+  Meter,
 } from '@blue/data';
-import type { Parameter as BlueDataParameter } from '@blue/data';
+import type { Parameter as BlueDataParameter, ScoreObject as BlueDataScoreObject } from '@blue/data';
 import { AutomationCurve as BlueDataAutomationCurve } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import {
@@ -126,6 +129,8 @@ export interface ScoreRowObjectSnapshot {
   name: string;
   startBeats: number;
   durationBeats: number;
+  startTimeBase: string;
+  durationTimeBase: string;
   backgroundColor: number;
   isContainer: boolean;
   editorTarget: ScoreObjectEditorTargetSnapshot;
@@ -410,6 +415,8 @@ export type ScorePatch =
         name: string;
         startBeats: number;
         durationBeats: number;
+        startTimeBase?: string;
+        durationTimeBase?: string;
         backgroundColor: number;
         serializedXml?: string;
         sourceTarget?: ScoreObjectEditorTargetSnapshot;
@@ -489,10 +496,23 @@ export type TempoMapPatch =
   | { type: 'removeTempoPoint'; index: number }
   | { type: 'replaceTempoMap'; map: TempoMapSnapshot };
 
+export interface MeterEntryInput {
+  measure: number;
+  numBeats: number;
+  beatLength: number;
+}
+
+export type MeterMapPatch =
+  | { type: 'meter-map-set-entry'; measure: number; numBeats: number; beatLength: number }
+  | { type: 'meter-map-update-entry'; previousMeasure: number; measure: number; numBeats: number; beatLength: number }
+  | { type: 'meter-map-remove-entry'; measure: number }
+  | { type: 'meter-map-replace'; entries: MeterEntryInput[] };
+
 export interface MeterSnapshot {
   measure: number;
   numBeats: number;
   beatLength: number;
+  startBeat: number;
 }
 
 export interface MeterMapSnapshot {
@@ -865,6 +885,7 @@ export interface ProjectDocumentPatch {
   transport?: Partial<Pick<ToolbarProjectTransportSnapshot, 'renderStartTime' | 'renderEndTime' | 'loopRendering'>> & {
     tempoMap?: Partial<TempoMapSnapshot>;
     tempoMapPatch?: TempoMapPatch;
+    meterMapPatch?: MeterMapPatch;
   };
   tablesText?: string;
   projectUdo?: ProjectUdoPatch;
@@ -1375,7 +1396,7 @@ function collectGraphicInterfaceObjectNames(graphicInterface: {
   };
   isEditEnabled(): boolean;
 }): string[] {
-  return collectBsbReplacementKeysFromWidgetTree(graphicInterface.getRootGroup() as unknown as import('@blue/data').BSBWidget);
+  return collectBsbReplacementKeysFromWidgetTree(graphicInterface.getRootGroup() as unknown as BSBWidget);
 }
 
 function cloneBsbSnapshotValue<T>(value: T): T {
@@ -1784,6 +1805,7 @@ export function createEmptyTempoMapSnapshot(): TempoMapSnapshot {
         beat: 0,
         tempo: 60,
         curveType: 'constant',
+        timeBase: TimeBase.BEATS,
       },
     ],
   };
@@ -1796,6 +1818,7 @@ export function createEmptyMeterMapSnapshot(): MeterMapSnapshot {
         measure: 1,
         numBeats: 4,
         beatLength: 4,
+        startBeat: 0,
       },
     ],
   };
@@ -1809,18 +1832,31 @@ export function createTempoMapSnapshot(tempoMap: TempoMap): TempoMapSnapshot {
       beat: point.beat,
       tempo: point.tempo,
       curveType: point.curveType === 'CONSTANT' ? 'constant' : 'linear',
+      timeBase: point.position.getTimeBase(),
     })),
   };
 }
 
 export function createMeterMapSnapshot(meterMap: MeterMapLike): MeterMapSnapshot {
-  return {
-    entries: meterMap.getEntries().map((entry) => ({
+  const entries = meterMap.getEntries();
+  const result: MeterSnapshot[] = [];
+  let accumulatedBeat = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    result.push({
       measure: entry.measure,
       numBeats: entry.meter.numBeats,
       beatLength: entry.meter.beatLength,
-    })),
-  };
+      startBeat: accumulatedBeat,
+    });
+    if (i < entries.length - 1) {
+      const nextEntry = entries[i + 1];
+      const measuresBetween = nextEntry.measure - entry.measure;
+      const beatsPerMeasure = entry.meter.numBeats * (4.0 / entry.meter.beatLength);
+      accumulatedBeat += measuresBetween * beatsPerMeasure;
+    }
+  }
+  return { entries: result };
 }
 
 export function createEmptyToolbarProjectTransportSnapshot(): ToolbarProjectTransportSnapshot {
@@ -1971,7 +2007,7 @@ function createScoreLayerGroupSnapshots(data: BlueData): ScoreLayerGroupSnapshot
   return result;
 }
 
-function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/data').TimeContext, rootGroupIndex: number): PolyObjectLayerGroupSnapshot {
+function createPolyObjectGroupSnapshot(lg: PolyObject, context: TimeContext, rootGroupIndex: number): PolyObjectLayerGroupSnapshot {
   const groupId = assignLayerGroupId(lg);
   const layers: ScoreLayerSnapshot[] = [];
 
@@ -1988,6 +2024,8 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
         name: sObj.getName(),
         startBeats: sObj.getStartTime().toBeats(context),
         durationBeats: sObj.getSubjectiveDuration().toBeats(context),
+        startTimeBase: String(sObj.getStartTime().getTimeBase()),
+        durationTimeBase: String(sObj.getSubjectiveDuration().getTimeBase()),
         backgroundColor: sObj.getBackgroundColor(),
         isContainer: sObj instanceof PolyObject,
         editorTarget: buildEditorTargetSnapshot(sObj, objectId, location),
@@ -2014,7 +2052,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: import('@blue/da
   };
 }
 
-function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@blue/data').TimeContext, rootGroupIndex: number): AudioLayerGroupSnapshot {
+function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: TimeContext, rootGroupIndex: number): AudioLayerGroupSnapshot {
   const groupId = assignLayerGroupId(lg);
   const layers: ScoreLayerSnapshot[] = [];
 
@@ -2031,6 +2069,8 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: import('@bl
         name: clip.getName(),
         startBeats: clip.getStartTime().toBeats(context),
         durationBeats: clip.getSubjectiveDuration().toBeats(context),
+        startTimeBase: String(clip.getStartTime().getTimeBase()),
+        durationTimeBase: String(clip.getSubjectiveDuration().getTimeBase()),
         backgroundColor: 0x669966,
         isContainer: false,
         editorTarget: {
@@ -2294,7 +2334,7 @@ function createTimeValueSnapshot(value: number, timeBase: string): TimeValueSnap
   };
 }
 
-function createTimeConversionContext(context: import('@blue/data').TimeContext): TimeConversionContext {
+function createTimeConversionContext(context: TimeContext): TimeConversionContext {
   const meterMap = context.getMeterMap();
   const meterEntries: TimeConversionMeterEntry[] = [];
   for (let i = 0; i < meterMap.size(); i++) {
@@ -2827,7 +2867,7 @@ function applyTimebaseUpdate(
     for (const layerGroup of score) {
       for (const layer of layerGroup) {
         if (!Array.isArray(layer)) continue;
-        for (const sObj of layer as unknown as import('@blue/data').ScoreObject[]) {
+        for (const sObj of layer as unknown as BlueDataScoreObject[]) {
           if (!('getStartTime' in sObj)) continue;
           const updateStart = scoreObjectMode === 'UPDATE_ALL'
             || sObj.getStartTime().getTimeBase() === oldTimeBase;
@@ -4372,7 +4412,7 @@ function applyBlueLivePatch(data: BlueData, patch: BlueLivePatch): boolean {
   }
 }
 
-function findPolyObjectByGroupId(score: import('@blue/data').Score, groupId: string): PolyObject | null {
+function findPolyObjectByGroupId(score: Score, groupId: string): PolyObject | null {
   for (let i = 0; i < score.length; i++) {
     const lg = score[i];
     if (lg instanceof PolyObject) {
@@ -4529,8 +4569,8 @@ function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: '
     if (!sObj) continue;
 
     sObj.setName(obj.name);
-    sObj.setStartTime(TimePosition.beats(obj.startBeats));
-    sObj.setSubjectiveDuration(TimeDuration.beats(obj.durationBeats));
+    sObj.setStartTime(beatsToTimePosition(obj.startBeats, (obj.startTimeBase ?? TimeBase.BEATS) as TimeBase, score.getTimeContext()));
+    sObj.setSubjectiveDuration(beatsToDuration(obj.durationBeats, (obj.durationTimeBase ?? TimeBase.BEATS) as TimeBase, score.getTimeContext()));
     sObj.setBackgroundColor(obj.backgroundColor);
 
     if (obj.layerIndex >= 0 && obj.layerIndex < targetGroup.length) {
@@ -4575,10 +4615,13 @@ function applyMoveScoreObjectsPatch(
     const [sObj] = entry.sourceResolved.layer.splice(entry.sourceResolved.objectIndex, 1);
     if (!sObj) continue;
 
+    const targetStartBeats = Math.max(0, entry.move.targetStartBeats);
     if (sObj instanceof AudioClip) {
-      sObj.setStartTime(TimePosition.beats(entry.move.targetStartBeats));
+      const base = sObj.getStartTime().getTimeBase();
+      sObj.setStartTime(beatsToTimePosition(targetStartBeats, base, score.getTimeContext()));
     } else if (sObj instanceof AbstractSoundObject) {
-      sObj.setStartTime(TimePosition.beats(entry.move.targetStartBeats));
+      const base = sObj.getStartTime().getTimeBase();
+      sObj.setStartTime(beatsToTimePosition(targetStartBeats, base, score.getTimeContext()));
     }
 
     entry.targetLayer.push(sObj);
@@ -5647,6 +5690,7 @@ function validateTempoMapSnapshot(map: TempoMapSnapshot): boolean {
     if (!isFinite(p.beat) || p.beat < 0) return false;
     if (!isFinite(p.tempo) || p.tempo <= 0) return false;
     if (p.curveType !== 'constant' && p.curveType !== 'linear') return false;
+    if (p.timeBase !== undefined && !isValidTimeBase(p.timeBase)) return false;
   }
   for (let i = 1; i < map.points.length; i++) {
     if (map.points[i].beat <= map.points[i - 1].beat) return false;
@@ -5654,8 +5698,13 @@ function validateTempoMapSnapshot(map: TempoMapSnapshot): boolean {
   return true;
 }
 
+function tempoPointTimeBase(point: Pick<TempoPointSnapshot, 'timeBase'>): TimeBase {
+  return isValidTimeBase(point.timeBase) ? point.timeBase : TimeBase.BEATS;
+}
+
 function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean {
-  const tempoMap = data.getScore().getTimeContext().getTempoMap();
+  const context = data.getScore().getTimeContext();
+  const tempoMap = context.getTempoMap();
 
   switch (tempoPatch.type) {
     case 'setTempoEnabled': {
@@ -5680,7 +5729,10 @@ function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean 
         if (Math.abs(ep.beat - p.beat) < 0.001) return false;
       }
       const ct = p.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR;
-      tempoMap.addTempoPoint(new TempoPoint(p.beat, p.tempo, ct));
+      tempoMap.addTempoPoint(
+        new TempoPoint(beatsToTimePosition(p.beat, tempoPointTimeBase(p), context), p.tempo, ct),
+        context,
+      );
       return true;
     }
     case 'updateTempoPoint': {
@@ -5693,8 +5745,9 @@ function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean 
       const newCurve = pt.curveType
         ? (pt.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR)
         : current.curveType;
+      const newTimeBase = isValidTimeBase(pt.timeBase) ? pt.timeBase : current.position.getTimeBase();
 
-      if (idx === 0 && newBeat !== 0) return false;
+      if (Math.abs(current.beat) < 0.001 && Math.abs(newBeat) >= 0.001) return false;
       if (!isFinite(newTempo) || newTempo <= 0) return false;
 
       if (idx > 0) {
@@ -5706,7 +5759,7 @@ function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean 
         if (newBeat >= next.beat) return false;
       }
 
-      tempoMap.setTempoPoint(idx, newBeat, newTempo, newCurve);
+      tempoMap.setTempoPoint(idx, beatsToTimePosition(newBeat, newTimeBase, context), newTempo, newCurve, context);
       return true;
     }
     case 'setTempoCurveType': {
@@ -5715,12 +5768,14 @@ function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean 
       const newCurve = tempoPatch.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR;
       if (tempoMap.getCurveType(idx) === newCurve) return false;
       const pt = tempoMap.getTempoPoint(idx);
-      tempoMap.setTempoPoint(idx, pt.beat, pt.tempo, newCurve);
+      tempoMap.setTempoPoint(idx, pt.position, pt.tempo, newCurve, context);
       return true;
     }
     case 'removeTempoPoint': {
       const idx = tempoPatch.index;
-      if (idx <= 0 || idx >= tempoMap.size()) return false;
+      if (idx < 0 || idx >= tempoMap.size()) return false;
+      if (tempoMap.size() <= 1) return false;
+      if (Math.abs(tempoMap.getBeat(idx)) < 0.001) return false;
       tempoMap.removeTempoPoint(idx);
       return true;
     }
@@ -5731,18 +5786,277 @@ function applyTempoMapPatch(data: BlueData, tempoPatch: TempoMapPatch): boolean 
       source.setVisible(tempoPatch.map.visible);
       source.reset();
       const points = tempoPatch.map.points.map(
-        (p) => new TempoPoint(p.beat, p.tempo, p.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR),
+        (p) => new TempoPoint(
+          beatsToTimePosition(p.beat, tempoPointTimeBase(p), context),
+          p.tempo,
+          p.curveType === 'constant' ? CurveType.CONSTANT : CurveType.LINEAR,
+        ),
       );
-      source.setTempoPoint(0, points[0].beat, points[0].tempo, points[0].curveType);
+      source.setTempoPoint(0, points[0].position, points[0].tempo, points[0].curveType, context);
       for (let i = 1; i < points.length; i++) {
-        source.addTempoPoint(points[i]);
+        source.addTempoPoint(points[i], context);
       }
       tempoMap.replaceAll(source);
+      tempoMap.recalculateBeatPositions(context);
       return true;
     }
     default:
       return false;
   }
+}
+
+function validateMeterEntryInput(entry: MeterEntryInput): boolean {
+  if (!Number.isInteger(entry.measure) || entry.measure < 1) return false;
+  if (!Number.isInteger(entry.numBeats) || entry.numBeats < 1) return false;
+  if (!Number.isInteger(entry.beatLength) || entry.beatLength < 1) return false;
+  return true;
+}
+
+function validateMeterMapEntries(entries: MeterEntryInput[]): boolean {
+  if (entries.length === 0) return false;
+  if (entries[0].measure !== 1) return false;
+  for (const entry of entries) {
+    if (!validateMeterEntryInput(entry)) return false;
+  }
+  const measures = entries.map((e) => e.measure);
+  const unique = new Set(measures);
+  if (unique.size !== measures.length) return false;
+  for (let i = 1; i < entries.length; i++) {
+    if (entries[i].measure <= entries[i - 1].measure) return false;
+  }
+  return true;
+}
+
+function isMeterDependentTimeBase(timeBase: TimeBase): boolean {
+  return timeBase === TimeBase.BBT
+    || timeBase === TimeBase.BBST
+    || timeBase === TimeBase.BBF;
+}
+
+function isCloseBeatValue(a: number, b: number): boolean {
+  return Math.abs(a - b) < 1e-6;
+}
+
+function beatsToDurationAtReferenceBeat(
+  beats: number,
+  targetBase: TimeBase,
+  context: TimeContext,
+  referenceBeat: number,
+): TimeDuration {
+  const fallback = beatsToDuration(beats, targetBase, context);
+  if (!isMeterDependentTimeBase(targetBase)) {
+    return fallback;
+  }
+
+  const meter = context.getMeterMap().getMeterAtBeat(Math.max(0, referenceBeat));
+  const beatsPerMeasure = meter.getBeatsPerMeasure();
+  const beatScale = meter.getBeatScale();
+  const ppq = 960;
+  let bars = Math.floor(beats / beatsPerMeasure);
+  let remaining = beats - bars * beatsPerMeasure;
+  let beat = Math.floor(remaining / beatScale);
+  let fractionalBeat = remaining - beat * beatScale;
+  let candidate: TimeDuration;
+
+  switch (targetBase) {
+    case TimeBase.BBT: {
+      let ticks = Math.round(fractionalBeat * ppq / beatScale);
+      if (ticks >= ppq) {
+        ticks = 0;
+        beat += 1;
+      }
+      if (beat >= meter.numBeats) {
+        bars += Math.floor(beat / meter.numBeats);
+        beat = beat % meter.numBeats;
+      }
+      candidate = TimeDuration.bbt(bars, beat, ticks);
+      break;
+    }
+    case TimeBase.BBST: {
+      let totalTicks = Math.round((fractionalBeat / beatScale) * ppq);
+      if (totalTicks >= ppq) {
+        totalTicks = 0;
+        beat += 1;
+      }
+      if (beat >= meter.numBeats) {
+        bars += Math.floor(beat / meter.numBeats);
+        beat = beat % meter.numBeats;
+      }
+      const ticksPerSixteenth = ppq / 4;
+      const sixteenth = Math.floor(totalTicks / ticksPerSixteenth);
+      const ticks = totalTicks % ticksPerSixteenth;
+      candidate = TimeDuration.bbst(bars, beat, sixteenth, ticks);
+      break;
+    }
+    case TimeBase.BBF: {
+      let fraction = Math.round(fractionalBeat * 100 / beatScale);
+      if (fraction >= 100) {
+        fraction = 0;
+        beat += 1;
+      }
+      if (beat >= meter.numBeats) {
+        bars += Math.floor(beat / meter.numBeats);
+        beat = beat % meter.numBeats;
+      }
+      candidate = TimeDuration.bbf(bars, beat, fraction);
+      break;
+    }
+    default:
+      return fallback;
+  }
+
+  return isCloseBeatValue(candidate.toBeats(context), beats) ? candidate : fallback;
+}
+
+function isScoreObjectLike(value: unknown): value is BlueDataScoreObject {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<BlueDataScoreObject>;
+  return typeof candidate.getStartTime === 'function'
+    && typeof candidate.setStartTime === 'function'
+    && typeof candidate.getSubjectiveDuration === 'function'
+    && typeof candidate.setSubjectiveDuration === 'function';
+}
+
+function reencodeScoreObjectForMeterMapChange(
+  sObj: BlueDataScoreObject,
+  oldContext: TimeContext,
+  newContext: TimeContext,
+): void {
+  const startTime = sObj.getStartTime();
+  const startBeats = startTime.toBeats(oldContext);
+  const startTimeBase = startTime.getTimeBase();
+  if (isMeterDependentTimeBase(startTimeBase)) {
+    sObj.setStartTime(beatsToTimePosition(startBeats, startTimeBase, newContext));
+  }
+
+  const duration = sObj.getSubjectiveDuration();
+  const durationBase = duration.getTimeBase();
+  if (isMeterDependentTimeBase(durationBase)) {
+    const durationBeats = duration.toBeats(oldContext);
+    sObj.setSubjectiveDuration(beatsToDurationAtReferenceBeat(durationBeats, durationBase, newContext, startBeats));
+  }
+
+  if (sObj instanceof AbstractSoundObject || sObj instanceof PolyObject) {
+    const repeatPoint = sObj.getRepeatPoint();
+    const repeatPointBase = repeatPoint?.getTimeBase();
+    if (repeatPoint && repeatPointBase && isMeterDependentTimeBase(repeatPointBase)) {
+      const repeatPointBeats = repeatPoint.toBeats(oldContext);
+      sObj.setRepeatPoint(beatsToDurationAtReferenceBeat(repeatPointBeats, repeatPointBase, newContext, startBeats));
+    }
+  }
+}
+
+function reencodeLayerGroupScoreObjectsForMeterMapChange(
+  layerGroup: unknown,
+  oldContext: TimeContext,
+  newContext: TimeContext,
+): void {
+  if (!Array.isArray(layerGroup)) return;
+
+  for (const layer of layerGroup) {
+    if (!Array.isArray(layer)) continue;
+
+    for (const candidate of layer) {
+      if (!isScoreObjectLike(candidate)) continue;
+
+      reencodeScoreObjectForMeterMapChange(candidate, oldContext, newContext);
+
+      if (candidate instanceof PolyObject) {
+        reencodeLayerGroupScoreObjectsForMeterMapChange(candidate, oldContext, newContext);
+      }
+    }
+  }
+}
+
+function reencodeScoreObjectsForMeterMapChange(data: BlueData, oldContext: TimeContext): void {
+  const score = data.getScore();
+  const newContext = score.getTimeContext();
+
+  for (const layerGroup of score) {
+    reencodeLayerGroupScoreObjectsForMeterMapChange(layerGroup, oldContext, newContext);
+  }
+}
+
+function applyMeterMapPatch(data: BlueData, meterPatch: MeterMapPatch): boolean {
+  const context = data.getScore().getTimeContext();
+  const oldContext = new TimeContext(context);
+  const meterMap = context.getMeterMap();
+  let changed = false;
+
+  switch (meterPatch.type) {
+    case 'meter-map-set-entry': {
+      if (!validateMeterEntryInput(meterPatch)) break;
+      const pair = new MeasureMeterPair(meterPatch.measure, new Meter(meterPatch.numBeats, meterPatch.beatLength));
+      meterMap.add(pair);
+      changed = true;
+      break;
+    }
+    case 'meter-map-update-entry': {
+      if (!validateMeterEntryInput(meterPatch)) break;
+      const prevMeasure = meterPatch.previousMeasure;
+      let entryIndex = -1;
+      for (let i = 0; i < meterMap.size(); i++) {
+        if (meterMap.get(i).measure === prevMeasure) {
+          entryIndex = i;
+          break;
+        }
+      }
+      if (entryIndex < 0) break;
+      if (entryIndex === 0 && meterPatch.measure !== 1) break;
+      if (entryIndex > 0) {
+        const prev = meterMap.get(entryIndex - 1);
+        if (meterPatch.measure <= prev.measure) break;
+      }
+      if (entryIndex < meterMap.size() - 1) {
+        const next = meterMap.get(entryIndex + 1);
+        if (meterPatch.measure >= next.measure) break;
+      }
+      const pair = new MeasureMeterPair(meterPatch.measure, new Meter(meterPatch.numBeats, meterPatch.beatLength));
+      meterMap.set(entryIndex, pair);
+      changed = true;
+      break;
+    }
+    case 'meter-map-remove-entry': {
+      if (meterPatch.measure <= 1) break;
+      let entryIndex = -1;
+      for (let i = 0; i < meterMap.size(); i++) {
+        if (meterMap.get(i).measure === meterPatch.measure) {
+          entryIndex = i;
+          break;
+        }
+      }
+      if (entryIndex <= 0 || entryIndex >= meterMap.size()) break;
+      if (meterMap.size() <= 1) break;
+      const source = new MeterMap();
+      for (let i = 0; i < meterMap.size(); i++) {
+        if (i !== entryIndex) {
+          const e = meterMap.get(i);
+          source.add(new MeasureMeterPair(e.measure, new Meter(e.meter.numBeats, e.meter.beatLength)));
+        }
+      }
+      meterMap.replaceAll(source);
+      changed = true;
+      break;
+    }
+    case 'meter-map-replace': {
+      if (!validateMeterMapEntries(meterPatch.entries)) break;
+      const source = new MeterMap();
+      for (const entry of meterPatch.entries) {
+        source.add(new MeasureMeterPair(entry.measure, new Meter(entry.numBeats, entry.beatLength)));
+      }
+      meterMap.replaceAll(source);
+      changed = true;
+      break;
+    }
+    default:
+      break;
+  }
+
+  if (!changed) return false;
+
+  context.getTempoMap().recalculateBeatPositions(context);
+  reencodeScoreObjectsForMeterMapChange(data, oldContext);
+  return true;
 }
 
 export function applyProjectDocumentPatch(
@@ -5896,6 +6210,10 @@ export function applyProjectDocumentPatch(
 
     if (patch.transport.tempoMapPatch) {
       changed = applyTempoMapPatch(data, patch.transport.tempoMapPatch) || changed;
+    }
+
+    if (patch.transport.meterMapPatch) {
+      changed = applyMeterMapPatch(data, patch.transport.meterMapPatch) || changed;
     }
   }
 
@@ -6672,6 +6990,8 @@ export function createNestedPolyObjectSnapshot(
         name: nestedObj.getName(),
         startBeats: nestedObj.getStartTime().toBeats(context),
         durationBeats: nestedObj.getSubjectiveDuration().toBeats(context),
+        startTimeBase: String(nestedObj.getStartTime().getTimeBase()),
+        durationTimeBase: String(nestedObj.getSubjectiveDuration().getTimeBase()),
         backgroundColor: nestedObj.getBackgroundColor(),
         isContainer: nestedObj instanceof PolyObject,
         editorTarget: buildEditorTargetSnapshot(nestedObj, objectId, itemLocation),

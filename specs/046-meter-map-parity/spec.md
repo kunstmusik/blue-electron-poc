@@ -1,8 +1,8 @@
 # Feature Specification: Meter Map Parity
 
-**Feature Branch**: `046-meter-map-parity` *(not created; planned only per user request)*  
-**Created**: 2026-05-20  
-**Status**: Draft  
+**Feature Branch**: `046-meter-map-parity`
+**Created**: 2026-05-20
+**Status**: Closed
 **Input**: User description: "Fully implement Time Signature (Meter) for parity with Java Blue: time signature ruler bar with all interactions and context menu, Edit Meter Map menu entry with modal dialog, Java Blue parity, and tests."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -131,4 +131,4 @@ As a maintainer, I need meter edits to flow through typed project patches and ex
 - The menu label should match Java Blue as "Edit Time Signature Map..." even though this spec is named Meter Map Parity.
 - The renderer may use React/Radix-native equivalents of Java Swing menus and dialogs, but user-visible behavior and state transitions should match Java Blue.
 - Undo/redo is not required unless an app-wide undo stack already exists for project-document patches; this spec requires atomic patching and safe cancel behavior.
-- Tempo editing from Spec 045 is intentionally separate; this spec may reuse shared row/menu/dialog patterns created by Spec 045 but should not require changing tempo behavior.
+- Tempo editing from Spec 045 is complete; this spec should reuse its proven transport patch, row context menu, dialog, modal, native menu dispatch, and renderer event patterns where they fit, without changing tempo behavior.

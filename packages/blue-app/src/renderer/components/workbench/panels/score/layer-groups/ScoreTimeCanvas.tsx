@@ -8,7 +8,8 @@ import { useKeyboardShortcutScope } from '../../../../../hooks/use-keyboard-shor
 import { isTextEditingTarget } from '../../../../../hooks/use-keyboard-shortcuts';
 import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
-import type { ScoreObjectEditorTargetSnapshot } from '../../../../../../shared/project-editor';
+import type { MeterMapSnapshot, ScoreObjectEditorTargetSnapshot } from '../../../../../../shared/project-editor';
+import { deriveSnapLineBeats, snapBeatToGrid } from '../snap-grid-utils';
 
 interface Props {
   group: PolyObjectLayerGroupSnapshot;
@@ -17,6 +18,7 @@ interface Props {
   snapValue: SnapValueName;
   tempo: number;
   smpteFrameRate: number;
+  meterMap: MeterMapSnapshot;
   onDoubleClickObject?: (objectId: string) => void;
 }
 
@@ -205,6 +207,7 @@ type GestureMode = 'none' | 'marquee' | 'move' | 'resizeLeft' | 'resizeRight';
 const RESIZE_EDGE_PX = 5;
 const DEFAULT_SOBJ_BG = 0xFF404040;
 const DEFAULT_SOBJ_DURATION = 4.0;
+const MIN_SCORE_OBJECT_DURATION = 0.25;
 
 export default function ScoreTimeCanvas({
   group,
@@ -213,6 +216,7 @@ export default function ScoreTimeCanvas({
   snapValue,
   tempo,
   smpteFrameRate,
+  meterMap,
   onDoubleClickObject,
 }: Props) {
   const selectedObjectIds = useScoreSelectionStore((s) => s.selectedObjectIds);
@@ -245,12 +249,16 @@ export default function ScoreTimeCanvas({
     startGroupYOffset: number;
     minLayerAdjust: number;
     maxLayerAdjust: number;
+    resizeReferenceStartBeats?: number;
+    resizeReferenceDurationBeats?: number;
     additive: boolean;
     globalLayerMap: Array<{ groupId: string; localIndex: number }>;
     originalPositions: Array<{
       objectId: string;
       startBeats: number;
       durationBeats: number;
+      startTimeBase?: string;
+      durationTimeBase?: string;
       globalLayerIndex: number;
       editorTarget?: ScoreObjectEditorTargetSnapshot;
     }>;
@@ -320,13 +328,13 @@ export default function ScoreTimeCanvas({
 
   const snapBeatValueMove = useCallback((beats: number): number => {
     if (!snapEnabled || snapBeats <= 0) return beats;
-    return Math.round(beats / snapBeats) * snapBeats;
-  }, [snapEnabled, snapBeats]);
+    return snapBeatToGrid(beats, 'nearest', snapValue, snapBeats, meterMap);
+  }, [meterMap, snapEnabled, snapBeats, snapValue]);
 
   const snapBeatValueStart = useCallback((beats: number): number => {
     if (!snapEnabled || snapBeats <= 0) return beats;
-    return Math.floor(beats / snapBeats) * snapBeats;
-  }, [snapEnabled, snapBeats]);
+    return snapBeatToGrid(beats, 'floor', snapValue, snapBeats, meterMap);
+  }, [meterMap, snapEnabled, snapBeats, snapValue]);
 
   const findEditorTarget = useCallback((objectId: string): ScoreObjectEditorTargetSnapshot | undefined => {
     const fromSelection = selectedObjectTargets[objectId];
@@ -419,6 +427,8 @@ export default function ScoreTimeCanvas({
       objectId: string;
       startBeats: number;
       durationBeats: number;
+      startTimeBase?: string;
+      durationTimeBase?: string;
       globalLayerIndex: number;
       editorTarget?: ScoreObjectEditorTargetSnapshot;
     }> = [];
@@ -429,10 +439,13 @@ export default function ScoreTimeCanvas({
       for (let li = 0; li < group.layers.length; li++) {
         for (const obj of group.layers[li].items) {
           if (selectedIds.has(obj.objectId)) {
+            const preview = previewByObjectId[obj.objectId];
             origPositions.push({
               objectId: obj.objectId,
-              startBeats: obj.startBeats,
-              durationBeats: obj.durationBeats,
+              startBeats: preview?.startBeats ?? obj.startBeats,
+              durationBeats: preview?.durationBeats ?? obj.durationBeats,
+              startTimeBase: obj.startTimeBase,
+              durationTimeBase: obj.durationTimeBase,
               globalLayerIndex: currentGroupGlobalStart + li,
               editorTarget: obj.editorTarget,
             });
@@ -445,10 +458,13 @@ export default function ScoreTimeCanvas({
         for (let li = 0; li < lg.layers.length; li++) {
           for (const obj of lg.layers[li].items) {
             if (selectedIds.has(obj.objectId)) {
+              const preview = previewByObjectId[obj.objectId];
               origPositions.push({
                 objectId: obj.objectId,
-                startBeats: obj.startBeats,
-                durationBeats: obj.durationBeats,
+                startBeats: preview?.startBeats ?? obj.startBeats,
+                durationBeats: preview?.durationBeats ?? obj.durationBeats,
+                startTimeBase: obj.startTimeBase,
+                durationTimeBase: obj.durationTimeBase,
                 globalLayerIndex: groupStart + li,
                 editorTarget: obj.editorTarget,
               });
@@ -487,6 +503,8 @@ export default function ScoreTimeCanvas({
         startGroupYOffset: currentGroupYOffset,
         minLayerAdjust: 0,
         maxLayerAdjust: 0,
+        resizeReferenceStartBeats: itemStartBeats,
+        resizeReferenceDurationBeats: itemDurationBeats,
         additive: false,
         globalLayerMap,
         originalPositions: origPositions,
@@ -559,7 +577,7 @@ export default function ScoreTimeCanvas({
       let delta = Math.max(-minOriginal, rawDelta);
       if (snapEnabled && snapBeats > 0) {
         const absPos = minOriginal + delta;
-        const snappedAbsPos = Math.round(absPos / snapBeats) * snapBeats;
+        const snappedAbsPos = snapBeatToGrid(absPos, 'nearest', snapValue, snapBeats, meterMap);
         delta = snappedAbsPos - minOriginal;
       }
 
@@ -625,14 +643,24 @@ export default function ScoreTimeCanvas({
       const { x } = toLocalXY(e.clientX, e.clientY);
       const currentBeats = x / pixelsPerBeat;
       const rawDelta = currentBeats - g.startBeats;
-      const snappedDelta = snapBeatValueMove(rawDelta);
 
       if (g.mode === 'resizeRight') {
-        const resizes = g.originalPositions.map((pos) => ({
-          objectId: pos.objectId,
-          targetStartBeats: pos.startBeats,
-          targetDurationBeats: Math.max(0.25, pos.durationBeats + snappedDelta),
-        }));
+        const referenceStart = g.resizeReferenceStartBeats ?? g.originalPositions[0]!.startBeats;
+        const referenceDuration = g.resizeReferenceDurationBeats ?? g.originalPositions[0]!.durationBeats;
+        const referenceEnd = referenceStart + referenceDuration;
+        const targetReferenceEnd = snapBeatValueMove(referenceEnd + rawDelta);
+        const snappedDelta = targetReferenceEnd - referenceEnd;
+        const resizes = g.originalPositions.map((pos) => {
+          const targetEnd = Math.max(
+            pos.startBeats + MIN_SCORE_OBJECT_DURATION,
+            pos.startBeats + pos.durationBeats + snappedDelta,
+          );
+          return {
+            objectId: pos.objectId,
+            targetStartBeats: pos.startBeats,
+            targetDurationBeats: targetEnd - pos.startBeats,
+          };
+        });
         if (!isNestedView) {
           resizeScoreObjects(resizes);
         }
@@ -658,12 +686,16 @@ export default function ScoreTimeCanvas({
           durationBeats: resize.targetDurationBeats,
         })));
       } else {
+        const referenceStart = g.resizeReferenceStartBeats ?? g.originalPositions[0]!.startBeats;
+        const targetReferenceStart = snapBeatValueMove(referenceStart + rawDelta);
+        const snappedDelta = targetReferenceStart - referenceStart;
         const resizes = g.originalPositions.map((pos) => {
-          const shift = Math.min(pos.startBeats, Math.max(-pos.startBeats, snappedDelta));
+          const maxStart = pos.startBeats + pos.durationBeats - MIN_SCORE_OBJECT_DURATION;
+          const targetStart = Math.max(0, Math.min(maxStart, pos.startBeats + snappedDelta));
           return {
             objectId: pos.objectId,
-            targetStartBeats: pos.startBeats + shift,
-            targetDurationBeats: Math.max(0.25, pos.durationBeats - shift),
+            targetStartBeats: targetStart,
+            targetDurationBeats: pos.startBeats + pos.durationBeats - targetStart,
           };
         });
         if (!isNestedView) {
@@ -692,7 +724,7 @@ export default function ScoreTimeCanvas({
         })));
       }
     }
-  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove, interactionLayerGroups, snapEnabled, snapBeats, previewByObjectId, isNestedView, setLiveSharedProperties]);
+  }, [toLocalXY, pixelsPerBeat, group.layers, selectedObjectIds, moveScoreObjects, resizeScoreObjects, snapBeatValueMove, interactionLayerGroups, snapEnabled, snapBeats, snapValue, meterMap, previewByObjectId, isNestedView, setLiveSharedProperties]);
 
   const handleMouseUp = useCallback(() => {
     if (!gestureRef.current) {
@@ -787,15 +819,16 @@ export default function ScoreTimeCanvas({
         for (const [objectId, values] of pendingPatches) {
           const target = targetByObjectId.get(objectId) ?? findEditorTarget(objectId);
           if (!target) continue;
+          const original = g.originalPositions.find((pos) => pos.objectId === objectId);
           const patch: {
             startTime?: { value: number; timeBase: string };
             subjectiveDuration?: { value: number; timeBase: string };
           } = {};
           if (values.startBeats !== undefined) {
-            patch.startTime = { value: values.startBeats, timeBase: 'BEATS' };
+            patch.startTime = { value: values.startBeats, timeBase: original?.startTimeBase ?? 'BEATS' };
           }
           if (values.durationBeats !== undefined) {
-            patch.subjectiveDuration = { value: values.durationBeats, timeBase: 'BEATS' };
+            patch.subjectiveDuration = { value: values.durationBeats, timeBase: original?.durationTimeBase ?? 'BEATS' };
           }
           if (Object.keys(patch).length === 0) continue;
           await applyProjectDocumentPatch({
@@ -1093,7 +1126,9 @@ export default function ScoreTimeCanvas({
             >
               <SnapLinesLayer
                 snapEnabled={snapEnabled}
+                snapValue={snapValue}
                 snapBeats={snapBeats}
+                meterMap={meterMap}
                 pixelsPerBeat={pixelsPerBeat}
                 height={layer.height || DEFAULT_ROW_HEIGHT}
               />
@@ -1321,7 +1356,7 @@ function EmptyAreaContextMenu({ menuItemClass, sepClass, clipboard, contextMenuP
   group: PolyObjectLayerGroupSnapshot;
   onPaste: () => void;
   snapBeatValue: (b: number) => number;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; startTimeBase?: string; durationTimeBase?: string; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
 }) {
   const ni = () => alert('Not yet implemented');
 
@@ -1411,9 +1446,11 @@ function EmptyAreaContextMenu({ menuItemClass, sepClass, clipboard, contextMenuP
   );
 }
 
-function SnapLinesLayer({ snapEnabled, snapBeats, pixelsPerBeat, height }: {
+function SnapLinesLayer({ snapEnabled, snapValue, snapBeats, meterMap, pixelsPerBeat, height }: {
   snapEnabled: boolean;
+  snapValue: SnapValueName;
   snapBeats: number;
+  meterMap: MeterMapSnapshot;
   pixelsPerBeat: number;
   height: number;
 }) {
@@ -1445,14 +1482,14 @@ function SnapLinesLayer({ snapEnabled, snapBeats, pixelsPerBeat, height }: {
     ctx.lineWidth = 1;
 
     const maxBeat = width / pixelsPerBeat;
-    for (let beat = 0; beat <= maxBeat; beat += snapBeats) {
+    for (const beat of deriveSnapLineBeats(snapValue, snapBeats, meterMap, maxBeat)) {
       const x = Math.round(beat * pixelsPerBeat) + 0.5;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-  }, [snapEnabled, snapBeats, pixelsPerBeat, height]);
+  }, [meterMap, snapBeats, snapEnabled, snapValue, pixelsPerBeat, height]);
 
   return (
     <canvas

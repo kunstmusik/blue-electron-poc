@@ -88,6 +88,7 @@ function sameTarget(
 export default function ScoreObjectPropertiesPanel(): React.ReactElement {
   const loaded = useProjectStore((s) => s.loaded);
   const score = useProjectStore((s) => s.score);
+  const meterMap = useProjectStore((s) => s.transport?.meterMap);
   const lastScorePatch = useProjectStore((s) => s.lastScorePatch);
   const applyProjectDocumentPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
   const flushPendingPatches = useProjectStore((s) => s.flushPendingPatches);
@@ -147,7 +148,7 @@ export default function ScoreObjectPropertiesPanel(): React.ReactElement {
       });
     });
     return () => { cancelled = true; };
-  }, [loaded, selectedObjectId, editorTarget, primaryTimeDisplay, flushPendingPatches]);
+  }, [loaded, selectedObjectId, editorTarget, primaryTimeDisplay, meterMap, flushPendingPatches]);
 
   useEffect(() => {
     if (!editorTarget || !lastScorePatch) return;

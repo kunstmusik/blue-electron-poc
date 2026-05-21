@@ -1,10 +1,45 @@
 # Project Status — blue-electron
 
 **Date**: 2026-05-20
-**Branch**: `045-tempo-map-parity`
+**Branch**: `046-meter-map-parity`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: Spec 045 Closed
+## Current Focus: Spec 046 Closed
+
+**Branch**: `046-meter-map-parity`
+
+### Summary
+Spec 046 is closed. The app now has Java Blue meter-map parity across the Score panel and Project menu: a Java-style meter row with direct add/edit/delete, accumulated mixed-meter ruler math, a native-menu-driven bulk editor, canonical meter patches, and regression coverage across renderer, main, store, and `@blue/data` boundaries.
+
+Closeout review confirmed the implementation and test coverage, added direct renderer-store optimistic meter merge coverage, and cleaned the meter-row parity tests so the focused suite runs without React `act(...)` warnings.
+
+### Handoff State
+- `.specify/feature.json` points to `specs/046-meter-map-parity`.
+- Current branch is `046-meter-map-parity`.
+- `spec.md` status is `Closed`.
+- `quickstart.md`, `tasks.md`, and `status.md` are updated for closeout.
+- Manual quickstart scenarios were signed off on 2026-05-20.
+
+### Delivered Scope
+- Extended shared meter snapshots with accumulated `startBeat` values and added typed `MeterMapPatch` operations for set-entry, update-entry, remove-entry, and replace.
+- Implemented canonical main-process meter patch validation/application against `BlueData.getScore().getTimeContext().getMeterMap()`.
+- Added optimistic renderer meter patch merging with `startBeat` recomputation and direct store regression coverage.
+- Replaced the simplified score meter row with `MeterRegionBar` and `MeterEntryDialog` for double-click add/edit, context menu delete, hover tooltip, and Java-style 20px rendering.
+- Routed BBT/BBST/BBF ruler and snap-grid conversions through accumulated meter-map boundaries instead of fixed beats-per-measure shortcuts.
+- Implemented `MeterMapEditorDialog` and connected Project -> Edit Time Signature Map... through native menu IPC into the renderer.
+- Kept meter state canonical across renderer, main, and XML save/load via existing `@blue/data` models and typed project patches.
+
+### Validation
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/app.test.ts src/main/application-menu.test.ts src/renderer/tests/meter-map-contract.test.ts src/renderer/tests/meter-row-parity.test.tsx src/renderer/tests/meter-map-modal.test.tsx src/renderer/tests/workbench-store.test.ts --browser.enabled=false` — pass (`6` files, `108` passed, `2` skipped)
+- `pnpm --filter @blue/data test -- --maxWorkers=1 packages/blue-data/src/time/meter-map.test.ts` — pass
+- `pnpm --filter @blue/app build` — pass
+- `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
+- `git diff --check` — pass
+
+### Next Recommended Step
+Spec 046 can be treated as closed. The next useful step is selecting the next score or parity slice.
+
+## Previous Focus: Spec 045 Closed
 
 **Branch**: `045-tempo-map-parity`
 
@@ -14,62 +49,11 @@ Spec 045 is closed. The app now has Java Blue tempo-map parity across the Score 
 Closeout review fixed the remaining gaps before signoff: the line editor now honors Ctrl axis-constrained dragging, the line-view point delete flow uses an explicit context menu, the collapsed bar treats near-point double-clicks as point edits, and the spec's previously claimed UI/menu tests were added as real renderer test files.
 
 ### Handoff State
-- `.specify/feature.json` points to `specs/045-tempo-map-parity`.
-- Current branch is `045-tempo-map-parity`.
+- `.specify/feature.json` pointed to `specs/045-tempo-map-parity` at closeout.
+- Current branch was `045-tempo-map-parity`.
 - `spec.md` status is `Closed`.
-- `quickstart.md` and new `status.md` are updated with the final automated validation results.
-- `tasks.md` now matches the implemented UI/menu test surface; the manual quickstart smoke task remains available and was not rerun during this closeout step.
-- No `046-meter-map-parity` branch was created.
-
-### Delivered Scope
-- `TempoMap.setVisible()` now fires listeners when visibility changes
-- `TempoMapSnapshot` extended with `visible` field; `TempoPointSnapshot` extended with optional `timeBase`/`positionValue`
-- `TempoMapPatch` discriminated union type with 7 variants: setTempoEnabled, setTempoVisible, addTempoPoint, updateTempoPoint, setTempoCurveType, removeTempoPoint, replaceTempoMap
-- Canonical main-process tempo patch application with validation (first-point fixed, neighbor bounds, positive tempo, no duplicates)
-- Renderer optimistic patch merge for all tempo operations
-- `TempoRegionBar` component: 20px region bar with hover tooltips, double-click add/edit, Radix context menu
-- `TempoPointDialog` component: modal beat/tempo editor with validation bounds
-- `TempoLineView` component: 80px SVG line graph with point insertion, drag, snap, Ctrl axis constraint, and explicit point/segment context menus
-- `TempoMapEditorDialog` component: table editor with Add/Delete/OK/Cancel matching Java Blue workflow
-- Project → Edit Tempo Map... native menu command wired through IPC to renderer
-- Score panel left-header: Use Tempo checkbox, arrow toggle for line graph expand/collapse
-- `@blue/data` exports `TempoPoint` and `CurveType`
-
-### Key Files Changed/Created
-- `packages/blue-data/src/time/tempo-map.ts` — setVisible listener fix
-- `packages/blue-data/src/time/tempo-map.test.ts` — expanded test coverage
-- `packages/blue-data/src/index.ts` — added TempoPoint, CurveType exports
-- `packages/blue-app/src/shared/project-editor.ts` — TempoMapPatch type, snapshot/patch infrastructure
-- `packages/blue-app/src/renderer/stores/project-store.ts` — optimistic tempo patch merge
-- `packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx` — tempo UI wiring
-- `packages/blue-app/src/renderer/components/workbench/panels/score/ColumnHeader.tsx` — TempoRegionBar/TempoLineView integration
-- `packages/blue-app/src/renderer/components/workbench/panels/score/TempoRegionBar.tsx` — new
-- `packages/blue-app/src/renderer/components/workbench/panels/score/TempoLineView.tsx` — new
-- `packages/blue-app/src/renderer/components/workbench/panels/score/TempoPointDialog.tsx` — new
-- `packages/blue-app/src/renderer/components/workbench/panels/score/TempoMapEditorDialog.tsx` — new
-- `packages/blue-app/src/renderer/components/workbench/panels/score/tempo-map-utils.ts` — new
-- `packages/blue-app/src/main/application-menu.ts` — Edit Tempo Map menu command
-- `packages/blue-app/src/main/main.ts` — IPC dispatch
-- `packages/blue-app/src/renderer/stores/workbench-store.ts` — edit-tempo-map command handler
-- `packages/blue-app/src/shared/workbench-menu.ts` — edit-tempo-map command type
-- `packages/blue-app/src/renderer/tests/tempo-map-contract.test.ts` — canonical patch/snapshot coverage
-- `packages/blue-app/src/renderer/tests/tempo-row-parity.test.tsx` — new region-bar UI coverage
-- `packages/blue-app/src/renderer/tests/tempo-line-view.test.tsx` — new line-view UI coverage
-- `packages/blue-app/src/renderer/tests/tempo-map-modal.test.tsx` — new modal UI coverage
-- `packages/blue-app/src/main/application-menu.test.ts` — updated for new menu option
-- `specs/045-tempo-map-parity/status.md` — new closeout handoff
-
-### Validation
-- `pnpm --filter @blue/data build` — pass
-- `pnpm --filter @blue/data test -- --maxWorkers=1` — 94 files, 907 tests pass
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/main/application-menu.test.ts src/renderer/tests/tempo-map-contract.test.ts src/renderer/tests/tempo-row-parity.test.tsx src/renderer/tests/tempo-line-view.test.tsx src/renderer/tests/tempo-map-modal.test.tsx --browser.enabled=false` — 5 files, 32 passed
-- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts --browser.enabled=false` — 98 files, 1022 passed, 2 skipped
-- `pnpm --filter @blue/app build` — pass
-- `git diff --check` — pass
-- `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
-
-### Next Recommended Step
-Spec 045 can be treated as closed. The next useful slice is Spec 046 meter-map parity; the manual quickstart smoke scenarios for Spec 045 remain available if a fresh interactive pass is desired.
+- `quickstart.md` and new `status.md` were updated with the final automated validation results.
+- `tasks.md` matched the implemented UI/menu test surface; the manual quickstart smoke task remained available and was not rerun during closeout.
 
 ## Previous Focus: Spec 044 Closed
 

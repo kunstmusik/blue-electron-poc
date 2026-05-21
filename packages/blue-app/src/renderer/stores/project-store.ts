@@ -125,7 +125,7 @@ interface ProjectActions {
   flushPendingPatches: () => Promise<void>;
   moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>) => void;
   removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; startTimeBase?: string; durationTimeBase?: string; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
   setLayerMute: (groupId: string, layerIndex: number, muted: boolean) => void;
   setLayerSolo: (groupId: string, layerIndex: number, solo: boolean) => void;
   renameLayer: (layerId: string, name: string) => void;
@@ -557,6 +557,69 @@ function applyTempoMapPatchToSnapshot(
     }
     case 'replaceTempoMap': {
       return { ...patch.map };
+    }
+    default:
+      return snap;
+  }
+}
+
+function recomputeMeterStartBeats(entries: import('../../../shared/project-editor').MeterSnapshot[]): import('../../../shared/project-editor').MeterSnapshot[] {
+  const result: import('../../../shared/project-editor').MeterSnapshot[] = [];
+  let accumulated = 0;
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    result.push({ ...e, startBeat: accumulated });
+    if (i < entries.length - 1) {
+      const beatsPerMeasure = e.numBeats * (4.0 / e.beatLength);
+      accumulated += (entries[i + 1].measure - e.measure) * beatsPerMeasure;
+    }
+  }
+  return result;
+}
+
+function applyMeterMapPatchToSnapshot(
+  snap: import('../../../shared/project-editor').MeterMapSnapshot,
+  patch: import('../../../shared/project-editor').MeterMapPatch,
+): import('../../../shared/project-editor').MeterMapSnapshot {
+  switch (patch.type) {
+    case 'meter-map-set-entry': {
+      const existing = snap.entries.findIndex((e) => e.measure === patch.measure);
+      if (existing >= 0) {
+        const newEntries = [...snap.entries];
+        newEntries[existing] = { ...newEntries[existing], numBeats: patch.numBeats, beatLength: patch.beatLength };
+        return { entries: recomputeMeterStartBeats(newEntries) };
+      }
+      const newEntries = [...snap.entries, { measure: patch.measure, numBeats: patch.numBeats, beatLength: patch.beatLength, startBeat: 0 }];
+      newEntries.sort((a, b) => a.measure - b.measure);
+      return { entries: recomputeMeterStartBeats(newEntries) };
+    }
+    case 'meter-map-update-entry': {
+      const idx = snap.entries.findIndex((e) => e.measure === patch.previousMeasure);
+      if (idx < 0) return snap;
+      if (idx === 0 && patch.measure !== 1) return snap;
+      if (idx > 0 && patch.measure <= snap.entries[idx - 1].measure) return snap;
+      if (idx < snap.entries.length - 1 && patch.measure >= snap.entries[idx + 1].measure) return snap;
+      const newEntries = [...snap.entries];
+      newEntries[idx] = { measure: patch.measure, numBeats: patch.numBeats, beatLength: patch.beatLength, startBeat: 0 };
+      newEntries.sort((a, b) => a.measure - b.measure);
+      return { entries: recomputeMeterStartBeats(newEntries) };
+    }
+    case 'meter-map-remove-entry': {
+      if (patch.measure <= 1) return snap;
+      const idx = snap.entries.findIndex((e) => e.measure === patch.measure);
+      if (idx <= 0 || snap.entries.length <= 1) return snap;
+      const newEntries = snap.entries.filter((_, i) => i !== idx);
+      return { entries: recomputeMeterStartBeats(newEntries) };
+    }
+    case 'meter-map-replace': {
+      const newEntries = patch.entries.map((e) => ({
+        measure: e.measure,
+        numBeats: e.numBeats,
+        beatLength: e.beatLength,
+        startBeat: 0,
+      }));
+      newEntries.sort((a, b) => a.measure - b.measure);
+      return { entries: recomputeMeterStartBeats(newEntries) };
     }
     default:
       return snap;
@@ -1450,8 +1513,14 @@ function applyScorePatchToSnapshot(
         const next = { ...item };
         if (name !== undefined) next.name = name;
         if (backgroundColor !== undefined) next.backgroundColor = backgroundColor;
-        if (startTime !== undefined) next.startBeats = startTime.value;
-        if (subjectiveDuration !== undefined) next.durationBeats = subjectiveDuration.value;
+        if (startTime !== undefined) {
+          next.startBeats = startTime.value;
+          next.startTimeBase = startTime.timeBase;
+        }
+        if (subjectiveDuration !== undefined) {
+          next.durationBeats = subjectiveDuration.value;
+          next.durationTimeBase = subjectiveDuration.timeBase;
+        }
         return next;
       }),
     })),
@@ -3091,6 +3160,13 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           );
         }
 
+        if (normalizedPatch.transport.meterMapPatch) {
+          nextTransport.meterMap = applyMeterMapPatchToSnapshot(
+            nextTransport.meterMap,
+            normalizedPatch.transport.meterMapPatch,
+          );
+        }
+
         if (nextTransport.renderEndTime <= nextTransport.renderStartTime) {
           nextTransport.renderEndTime = -1;
         }
@@ -3301,6 +3377,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
               name: o.name,
               startBeats: o.startBeats,
               durationBeats: o.durationBeats,
+              startTimeBase: o.startTimeBase ?? 'BEATS',
+              durationTimeBase: o.durationTimeBase ?? 'BEATS',
               backgroundColor: o.backgroundColor,
               isContainer: o.isContainer,
               serializedXml: o.serializedXml,
@@ -3339,6 +3417,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           name: o.name,
           startBeats: o.startBeats,
           durationBeats: o.durationBeats,
+          startTimeBase: o.startTimeBase,
+          durationTimeBase: o.durationTimeBase,
           backgroundColor: o.backgroundColor,
           serializedXml: o.serializedXml,
           sourceTarget: o.editorTarget,

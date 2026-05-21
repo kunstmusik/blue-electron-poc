@@ -168,6 +168,129 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().isDirty).toBe(true);
   });
 
+  it('optimistically merges meter-map patches into transport state and queued commits', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
+    const snapshot = createEmptyProjectEditorSnapshot();
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      projectProperties: {
+        ...snapshot.projectProperties,
+        title: 'Test Project',
+        author: 'Test Author',
+      },
+      transport: snapshot.transport,
+    });
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      transport: {
+        meterMapPatch: { type: 'meter-map-set-entry', measure: 5, numBeats: 3, beatLength: 4 },
+      },
+    });
+
+    expect(useProjectStore.getState().transport.meterMap.entries).toEqual([
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 5, numBeats: 3, beatLength: 4, startBeat: 16 },
+    ]);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      transport: {
+        meterMapPatch: { type: 'meter-map-set-entry', measure: 9, numBeats: 7, beatLength: 8 },
+      },
+    });
+
+    expect(useProjectStore.getState().transport.meterMap.entries).toEqual([
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 5, numBeats: 3, beatLength: 4, startBeat: 16 },
+      { measure: 9, numBeats: 7, beatLength: 8, startBeat: 28 },
+    ]);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      transport: {
+        meterMapPatch: { type: 'meter-map-update-entry', previousMeasure: 5, measure: 6, numBeats: 5, beatLength: 4 },
+      },
+    });
+
+    expect(useProjectStore.getState().transport.meterMap.entries).toEqual([
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 6, numBeats: 5, beatLength: 4, startBeat: 20 },
+      { measure: 9, numBeats: 7, beatLength: 8, startBeat: 35 },
+    ]);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      transport: {
+        meterMapPatch: { type: 'meter-map-remove-entry', measure: 6 },
+      },
+    });
+
+    expect(useProjectStore.getState().transport.meterMap.entries).toEqual([
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 9, numBeats: 7, beatLength: 8, startBeat: 32 },
+    ]);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      transport: {
+        meterMapPatch: {
+          type: 'meter-map-replace',
+          entries: [
+            { measure: 1, numBeats: 4, beatLength: 4 },
+            { measure: 3, numBeats: 7, beatLength: 8 },
+          ],
+        },
+      },
+    });
+
+    expect(useProjectStore.getState().transport.meterMap.entries).toEqual([
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 3, numBeats: 7, beatLength: 8, startBeat: 8 },
+    ]);
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        transport: {
+          meterMapPatch: { type: 'meter-map-set-entry', measure: 5, numBeats: 3, beatLength: 4 },
+        },
+      },
+      {
+        transport: {
+          meterMapPatch: { type: 'meter-map-set-entry', measure: 9, numBeats: 7, beatLength: 8 },
+        },
+      },
+      {
+        transport: {
+          meterMapPatch: { type: 'meter-map-update-entry', previousMeasure: 5, measure: 6, numBeats: 5, beatLength: 4 },
+        },
+      },
+      {
+        transport: {
+          meterMapPatch: { type: 'meter-map-remove-entry', measure: 6 },
+        },
+      },
+      {
+        transport: {
+          meterMapPatch: {
+            type: 'meter-map-replace',
+            entries: [
+              { measure: 1, numBeats: 4, beatLength: 4 },
+              { measure: 3, numBeats: 7, beatLength: 8 },
+            ],
+          },
+        },
+      },
+    ]);
+    expect(useProjectStore.getState().isDirty).toBe(true);
+  });
+
   it('preserves generated subchannel ids across optimistic mixer patches and committed patches', async () => {
     mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
     const snapshot = createEmptyProjectEditorSnapshot();

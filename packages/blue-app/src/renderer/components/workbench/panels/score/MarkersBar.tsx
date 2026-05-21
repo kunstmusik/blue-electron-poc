@@ -1,9 +1,10 @@
 import { useRef, useCallback, useState, useEffect, type RefObject } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
-import type { MarkerSnapshot } from '../../../../../shared/project-editor';
+import type { MarkerSnapshot, MeterMapSnapshot } from '../../../../../shared/project-editor';
 import { useProjectStore } from '../../../../stores/project-store';
 import type { SnapValueName } from '@blue/data';
 import { snapValueToBeats } from '@blue/data';
+import { snapBeatToGrid } from './snap-grid-utils';
 
 const AUTO_SCROLL_EDGE_THRESHOLD = 24;
 const AUTO_SCROLL_MAX_STEP = 32;
@@ -15,6 +16,7 @@ interface Props {
   rowVisible: boolean;
   snapEnabled: boolean;
   snapValue: SnapValueName;
+  meterMap: MeterMapSnapshot;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   rootTimelineOnly: boolean;
   tempo: number;
@@ -32,7 +34,7 @@ type DragState =
   | { type: 'render-start' }
   | null;
 
-export default function MarkersBar({ markers, totalBeats, pixelsPerBeat, rowVisible, snapEnabled, snapValue, scrollContainerRef, rootTimelineOnly, tempo, smpteFrameRate, sampleRate }: Props) {
+export default function MarkersBar({ markers, totalBeats, pixelsPerBeat, rowVisible, snapEnabled, snapValue, meterMap, scrollContainerRef, rootTimelineOnly, tempo, smpteFrameRate, sampleRate }: Props) {
   const applyPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
   const rowRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<DragState>(null);
@@ -48,8 +50,8 @@ export default function MarkersBar({ markers, totalBeats, pixelsPerBeat, rowVisi
       pixelsPerBeat,
     );
     if (sv <= 0) return beats;
-    return Math.round(beats / sv) * sv;
-  }, [snapEnabled, snapValue, tempo, smpteFrameRate, sampleRate, pixelsPerBeat]);
+    return snapBeatToGrid(beats, 'nearest', snapValue, sv, meterMap);
+  }, [snapEnabled, snapValue, meterMap, tempo, smpteFrameRate, sampleRate, pixelsPerBeat]);
 
   const xToBeats = useCallback((clientX: number) => {
     const element = rowRef.current;

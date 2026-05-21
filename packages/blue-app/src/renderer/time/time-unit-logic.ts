@@ -1,4 +1,4 @@
-import type { TimeConversionContext } from '../../shared/project-editor';
+import type { TimeConversionContext, TimeConversionMeterEntry } from '../../shared/project-editor';
 
 export type { TimeConversionContext };
 
@@ -33,7 +33,12 @@ function beatScale(entry: { numBeats: number; beatLength: number }): number {
   return 4.0 / entry.beatLength;
 }
 
-function meterEntryForBeats(beats: number, ctx: TimeConversionContext): { numBeats: number; beatLength: number } | null {
+interface MeterEntryInfo {
+  entry: TimeConversionMeterEntry;
+  startBeat: number;
+}
+
+function meterEntryInfoForBeats(beats: number, ctx: TimeConversionContext): MeterEntryInfo | null {
   if (ctx.meterEntries.length === 0 || beats < 0) return null;
 
   const starts = measureStartBeats(ctx);
@@ -45,7 +50,28 @@ function meterEntryForBeats(beats: number, ctx: TimeConversionContext): { numBea
     }
   }
 
-  return ctx.meterEntries[idx];
+  return {
+    entry: ctx.meterEntries[idx],
+    startBeat: starts[idx],
+  };
+}
+
+function meterEntryInfoForBar(bar: number, ctx: TimeConversionContext): MeterEntryInfo | null {
+  if (ctx.meterEntries.length === 0 || bar < 1) return null;
+
+  const starts = measureStartBeats(ctx);
+  let idx = 0;
+  for (let i = ctx.meterEntries.length - 1; i >= 0; i--) {
+    if (bar >= ctx.meterEntries[i].measure) {
+      idx = i;
+      break;
+    }
+  }
+
+  return {
+    entry: ctx.meterEntries[idx],
+    startBeat: starts[idx],
+  };
 }
 
 export function measureStartBeats(ctx: TimeConversionContext): number[] {
@@ -95,6 +121,58 @@ export function beatsToBBTInternal(beats: number, ctx: TimeConversionContext): {
     beat,
     ticks,
   };
+}
+
+function beatsToBBFInternal(beats: number, ctx: TimeConversionContext): { bar: number; beat: number; fraction: number } {
+  const info = meterEntryInfoForBeats(beats, ctx);
+  if (!info) return { bar: 1, beat: 1, fraction: 0 };
+
+  const entry = info.entry;
+  const bpm = beatsPerMeasure(entry);
+  const bs = beatScale(entry);
+  const beatsFromEntry = beats - info.startBeat;
+  const measuresFromEntry = Math.floor(beatsFromEntry / bpm);
+  const remaining = beatsFromEntry - measuresFromEntry * bpm;
+  const fullBeats = Math.floor(remaining / bs);
+  const fractional = remaining - fullBeats * bs;
+  let fraction = Math.round((fractional * 100) / bs);
+  let beat = fullBeats + 1;
+  let bar = entry.measure + measuresFromEntry;
+
+  if (fraction >= 100) {
+    fraction = 0;
+    beat += 1;
+    if (beat > entry.numBeats) {
+      beat = 1;
+      bar += 1;
+    }
+  }
+
+  return { bar, beat, fraction };
+}
+
+function durationBeatsToBBF(beats: number, ctx: TimeConversionContext): { bar: number; beat: number; fraction: number } {
+  const entry = ctx.meterEntries[0];
+  if (!entry || beats < 0) return { bar: 0, beat: 0, fraction: 0 };
+
+  const bpm = beatsPerMeasure(entry);
+  const bs = beatScale(entry);
+  const bar = Math.floor(beats / bpm);
+  const remaining = beats - bar * bpm;
+  const beat = Math.floor(remaining / bs);
+  const fractional = remaining - beat * bs;
+  let fraction = Math.round((fractional * 100) / bs);
+
+  if (fraction >= 100) {
+    fraction = 0;
+    const nextBeat = beat + 1;
+    if (nextBeat >= entry.numBeats) {
+      return { bar: bar + 1, beat: 0, fraction };
+    }
+    return { bar, beat: nextBeat, fraction };
+  }
+
+  return { bar, beat, fraction };
 }
 
 export function bbtToBeats(bar: number, beat: number, ticks: number, ctx: TimeConversionContext): number {
@@ -187,35 +265,17 @@ export function formatForBase(beats: number, base: string, ctx: TimeConversionCo
     }
 
     case 'BBF': {
-      const meterEntry = meterEntryForBeats(beats, ctx);
-      if (!meterEntry) {
+      if (ctx.meterEntries.length === 0) {
         return durationMode ? '0.0.00' : '1.1.00';
       }
 
-      const beatsPerMeasure = meterEntry.numBeats * (4.0 / meterEntry.beatLength);
-      const beatScale = 4.0 / meterEntry.beatLength;
-      const bars = Math.floor(beats / beatsPerMeasure);
-      const remainingBeats = beats - bars * beatsPerMeasure;
-      const fullBeats = Math.floor(remainingBeats / beatScale);
-      const fractionalBeat = remainingBeats - fullBeats * beatScale;
-      let fraction = Math.round((fractionalBeat * 100) / beatScale);
-      let bar = meterEntry.measure + bars;
-      let beat = fullBeats + 1;
-
-      if (fraction >= 100) {
-        fraction = 0;
-        beat += 1;
-        if (beat > meterEntry.numBeats) {
-          beat = 1;
-          bar += 1;
-        }
-      }
-
       if (durationMode) {
-        return formatBBF(bar - meterEntry.measure, beat - 1, fraction);
+        const bbf = durationBeatsToBBF(beats, ctx);
+        return formatBBF(bbf.bar, bbf.beat, bbf.fraction);
       }
 
-      return formatBBF(bar, beat, fraction);
+      const bbf = beatsToBBFInternal(beats, ctx);
+      return formatBBF(bbf.bar, bbf.beat, bbf.fraction);
     }
 
     case 'TIME': {
@@ -288,10 +348,20 @@ export function parseForBase(text: string, base: string, ctx: TimeConversionCont
         if (isNaN(bar) || isNaN(beat)) return null;
         const fraction = parseBbfFraction(fractionText);
         if (!Number.isFinite(fraction)) return null;
-        const baseBeats = durationMode
-          ? bbtToBeats(bar + 1, beat + 1, 0, ctx)
-          : bbtToBeats(bar, beat, 0, ctx);
-        return baseBeats + (fraction / 100);
+        if (durationMode) {
+          const entry = ctx.meterEntries[0];
+          if (!entry || bar < 0 || beat < 0) return null;
+          const bs = beatScale(entry);
+          return (bar * beatsPerMeasure(entry)) + (beat * bs) + (fraction / 100) * bs;
+        }
+
+        const info = meterEntryInfoForBar(bar, ctx);
+        if (!info || beat < 1) return null;
+        const bs = beatScale(info.entry);
+        return info.startBeat
+          + (bar - info.entry.measure) * beatsPerMeasure(info.entry)
+          + (beat - 1) * bs
+          + (fraction / 100) * bs;
       }
 
       case 'TIME': {

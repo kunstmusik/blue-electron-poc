@@ -25,6 +25,7 @@ function createHandlers() {
     onRecompileBlueLive: vi.fn(),
     onBlueLiveAllNotesOff: vi.fn(),
     onEditTempoMap: vi.fn(),
+    onEditMeterMap: vi.fn(),
     onNotYetImplemented: vi.fn(),
     onAddMarker: vi.fn(),
     onNavigateNextMarker: vi.fn(),
@@ -164,5 +165,39 @@ describe('application menu template', () => {
     const disabledEditTempoMap = disabledProjectMenu.find((item) => item.label === 'Edit Tempo Map...');
 
     expect(disabledEditTempoMap?.enabled).toBe(false);
+  });
+
+  it('enables Edit Time Signature Map only when a project is loaded and wires the handler', () => {
+    const handlers = createHandlers();
+
+    const enabledTemplate = buildApplicationMenuTemplate({
+      hasLoadedProject: true,
+      isDarwin: false,
+      recentProjects: [],
+      canRevertProject: false,
+      followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
+      ...handlers,
+    });
+    const enabledProjectMenu = getSubmenu(enabledTemplate[2]);
+    const enabledEditMeterMap = enabledProjectMenu.find((item: any) => item.label === 'Edit Time Signature Map...');
+
+    expect(enabledEditMeterMap?.enabled).toBe(true);
+    enabledEditMeterMap?.click?.();
+    expect(handlers.onEditMeterMap).toHaveBeenCalledTimes(1);
+
+    const disabledTemplate = buildApplicationMenuTemplate({
+      hasLoadedProject: false,
+      isDarwin: false,
+      recentProjects: [],
+      canRevertProject: false,
+      followPlaybackEnabled: true,
+      followPlaybackOnStartEnabled: true,
+      ...createHandlers(),
+    });
+    const disabledProjectMenu = getSubmenu(disabledTemplate[2]);
+    const disabledEditMeterMap = disabledProjectMenu.find((item: any) => item.label === 'Edit Time Signature Map...');
+
+    expect(disabledEditMeterMap?.enabled).toBe(false);
   });
 });

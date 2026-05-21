@@ -17,7 +17,7 @@ function createSelectionTransport(
       points: [{ beat: 0, tempo: 60, curveType: 'constant' }],
     },
     meterMap: {
-      entries: [{ measure: 1, numBeats: 4, beatLength: 4 }],
+      entries: [{ measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 }],
     },
     smpteFrameRate: 24,
     sampleRate: 44100,

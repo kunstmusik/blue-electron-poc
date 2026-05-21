@@ -7,6 +7,8 @@ export interface ScoreObjectClipboardEntry {
   name: string;
   startBeats: number;
   durationBeats: number;
+  startTimeBase?: string;
+  durationTimeBase?: string;
   backgroundColor: number;
   isContainer: boolean;
   layerIndex: number;

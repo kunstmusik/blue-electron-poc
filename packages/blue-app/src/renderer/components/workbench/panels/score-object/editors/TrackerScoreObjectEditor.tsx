@@ -548,7 +548,7 @@ function ColumnConfigModal({
         </div>
         <div className="flex justify-end gap-2 border-t border-blue-border px-4 py-3 bg-blue-bg">
           <button
-            className="px-4 py-1.5 text-xs rounded border border-blue-border text-blue-muted hover:bg-blue-border/30"
+            className="px-4 py-1.5 text-xs rounded border border-blue-border bg-blue-surface/40 text-blue-text hover:bg-blue-surface/70 transition-colors"
             onClick={onClose}
           >
             Cancel
@@ -754,7 +754,7 @@ function TrackPropertiesModal({
         </div>
         <div className="flex justify-end gap-2 border-t border-blue-border px-4 py-3 bg-blue-bg">
           <button
-            className="px-4 py-1.5 text-xs rounded border border-blue-border text-blue-muted hover:bg-blue-border/30"
+            className="px-4 py-1.5 text-xs rounded border border-blue-border bg-blue-surface/40 text-blue-text hover:bg-blue-surface/70 transition-colors"
             onClick={onClose}
           >
             Cancel

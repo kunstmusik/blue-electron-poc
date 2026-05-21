@@ -67,16 +67,25 @@ Source reviewed:
 - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
 - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
 - `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/application-menu.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
 - `/Users/stevenyi/work/blue-electron/packages/blue-data/src/time/meter-map.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/workbench-menu.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/workbench-store.ts`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoRegionBar.tsx`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoMapEditorDialog.tsx`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/TempoPointDialog.tsx`
+- `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score/tempo-map-utils.ts`
 
 Findings:
 
 - `MeterRegionBar.tsx` already exists but uses simplified region math. It computes beats from the entry's own meter rather than accumulated prior meter durations.
 - `ColumnHeader.tsx` mounts the meter row but does not provide Java parity editing workflows.
-- `ScorePanel.tsx` has row visibility controls, but meter-map editing is not wired to canonical patch operations.
+- `ScorePanel.tsx` has row visibility controls and now provides a useful Spec 045 template for tempo modal state, `blue-edit-tempo-map` event handling, and patch dispatch.
 - `application-menu.ts` contains a placeholder `Edit Time Signature Map...` entry.
-- `project-editor.ts` has meter snapshot data but does not yet expose complete typed meter-map patch operations.
+- `main.ts`, `shared/workbench-menu.ts`, and `renderer/stores/workbench-store.ts` now have concrete `edit-tempo-map` patterns to mirror for `edit-meter-map`.
+- `project-editor.ts` has meter snapshot data but does not yet expose complete typed meter-map patch operations. It now has concrete `TempoMapPatch`, `applyTempoMapPatch`, and renderer optimistic merge patterns to adapt.
 - `@blue/data` already contains the core meter-map model and conversion utilities that should remain canonical.
+- `TempoRegionBar`, `TempoPointDialog`, `TempoMapEditorDialog`, and `tempo-map-utils` are now available as completed Spec 045 references for meter row/menu/dialog implementation style.
 
 ## Decisions
 
@@ -121,14 +130,14 @@ Findings:
 
 - Render the menu action only inside the Score panel: rejected because the user explicitly requested the Project menu entry and Java parity.
 
-### Decision 5: Treat 046 As Planned-Only Until A Branch Is Created Later
+### Decision 5: Reuse Completed Spec 045 Infrastructure Patterns
 
-**Decision**: Create the full spec package under `specs/046-meter-map-parity/` without switching branches or creating `046-meter-map-parity`.
+**Decision**: Implement meter parity on the new `046-meter-map-parity` branch and mirror Spec 045's completed transport patch, optimistic merge, native menu command, renderer event, row context menu, and modal dialog patterns where appropriate.
 
-**Rationale**: The user requested only creating the branch for Spec 045.
+**Rationale**: Spec 045 solved the same interaction classes for tempo. Reusing those seams keeps meter implementation consistent and reduces risk, while meter-map conversion and validation remain domain-specific.
 
 ## Risks And Follow-Ups
 
-- Spec 045 may introduce reusable tempo row/menu/dialog primitives. Spec 046 implementation should reuse them where sensible but must not depend on unfinished tempo behavior for meter correctness.
+- Spec 045 introduced reusable implementation patterns, but not generic shared components. Spec 046 should copy/adapt patterns deliberately rather than entangling meter behavior with tempo state.
 - If the final implementation chooses Java-inline-compatible denominator parsing for the small edit dialog and stricter modal validation for the table, tests must make that split explicit.
 - Correct BBT/BBST/BBF ruler conversion may require touching existing time display utilities outside the meter row component.

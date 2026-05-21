@@ -185,7 +185,7 @@ export class TimeDuration {
         const meter = context.getMeterMap().get(0).meter;
         return (this._bar * meter.getBeatsPerMeasure()) +
                (this._beat * meter.getBeatScale()) +
-               (this._ticks / DEFAULT_PPQ);
+               (this._ticks / DEFAULT_PPQ) * meter.getBeatScale();
       }
 
       case TimeBase.BBST: {
@@ -200,7 +200,7 @@ export class TimeDuration {
         const meter = context.getMeterMap().get(0).meter;
         return (this._bar * meter.getBeatsPerMeasure()) +
                (this._beat * meter.getBeatScale()) +
-               (this._fraction / 100.0);
+               (this._fraction / 100.0) * meter.getBeatScale();
       }
 
       case TimeBase.TIME: {

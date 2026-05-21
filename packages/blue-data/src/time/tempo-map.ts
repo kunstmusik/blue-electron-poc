@@ -145,6 +145,8 @@ export class TempoMap {
       const np = new TempoPoint(p.position, p.tempo, p.curveType);
       np.enabled = p.enabled;
       np.visible = p.visible;
+      np.beat = p.beat;
+      np.accumulatedTime = p.accumulatedTime;
       return np;
     });
     this.recalculateAccumulatedTimes();

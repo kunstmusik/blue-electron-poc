@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TempoMapSnapshot, TempoMapPatch } from '../../../../../shared/project-editor';
 
+const BEAT_EPSILON = 0.001;
+const SECONDARY_BUTTON_CLASS = 'text-[11px] text-blue-text bg-blue-surface/40 hover:bg-blue-surface/70 px-3 py-1 rounded border border-blue-border/40 transition-colors';
+
 interface TempoPointDialogProps {
   pointIndex: number;
   tempoMap: TempoMapSnapshot;
@@ -16,10 +19,10 @@ export default function TempoPointDialog({
 }: TempoPointDialogProps) {
   const points = tempoMap.points;
   const point = points[pointIndex];
-  const isFirst = pointIndex === 0;
+  const isTimeZero = Math.abs(point.beat) < BEAT_EPSILON;
 
-  const prevBeat = isFirst ? 0 : points[pointIndex - 1].beat + 0.001;
-  const nextBeat = pointIndex < points.length - 1 ? points[pointIndex + 1].beat - 0.001 : Infinity;
+  const prevBeat = pointIndex === 0 ? 0 : points[pointIndex - 1].beat + BEAT_EPSILON;
+  const nextBeat = pointIndex < points.length - 1 ? points[pointIndex + 1].beat - BEAT_EPSILON : Infinity;
 
   const [beat, setBeat] = useState(point.beat.toString());
   const [tempo, setTempo] = useState(Math.round(point.tempo).toString());
@@ -30,7 +33,7 @@ export default function TempoPointDialog({
   }, [point.beat, point.tempo]);
 
   const handleOk = useCallback(() => {
-    const newBeat = isFirst ? 0 : Math.max(prevBeat, Math.min(nextBeat, parseFloat(beat) || 0));
+    const newBeat = isTimeZero ? 0 : Math.max(prevBeat, Math.min(nextBeat, parseFloat(beat) || 0));
     const newTempo = Math.max(1, Math.min(999, parseFloat(tempo) || 60));
 
     onTempoPatch({
@@ -42,7 +45,7 @@ export default function TempoPointDialog({
       },
     });
     onClose();
-  }, [pointIndex, isFirst, prevBeat, nextBeat, beat, tempo, onTempoPatch, onClose]);
+  }, [pointIndex, isTimeZero, prevBeat, nextBeat, beat, tempo, onTempoPatch, onClose]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -65,7 +68,7 @@ export default function TempoPointDialog({
         onKeyDown={handleKeyDown}
       >
         <h3 className="text-blue-text text-sm font-medium mb-3">
-          {isFirst ? 'Edit Initial Tempo' : `Edit Tempo Point ${pointIndex + 1}`}
+          {isTimeZero ? 'Edit Initial Tempo' : `Edit Tempo Point ${pointIndex + 1}`}
         </h3>
 
         <div className="space-y-2">
@@ -76,9 +79,9 @@ export default function TempoPointDialog({
               className="flex-1 bg-[#12122a] border border-blue-border/30 rounded px-2 py-1 text-[11px] text-blue-text outline-none focus:border-blue-border/60"
               value={beat}
               onChange={(e) => setBeat(e.target.value)}
-              disabled={isFirst}
+              disabled={isTimeZero}
               min={prevBeat}
-              max={isFirst ? 0 : (nextBeat === Infinity ? undefined : nextBeat)}
+              max={isTimeZero ? 0 : (nextBeat === Infinity ? undefined : nextBeat)}
               step={0.001}
             />
           </div>
@@ -99,7 +102,7 @@ export default function TempoPointDialog({
 
         <div className="flex justify-end gap-2 mt-4">
           <button
-            className="text-[11px] text-blue-muted hover:text-blue-text px-3 py-1 rounded border border-blue-border/30"
+            className={SECONDARY_BUTTON_CLASS}
             onClick={onClose}
           >
             Cancel

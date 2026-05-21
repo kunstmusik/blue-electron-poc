@@ -1,6 +1,7 @@
 import { GROUP_SPACER } from "./types";
 import type { ScoreLayerGroupSnapshot, ScoreObjectLocationRef } from "./types";
 import type { SnapValueName } from "@blue/data";
+import type { MeterMapSnapshot } from "../../../../../shared/project-editor";
 import ScoreTimeCanvas from "./layer-groups/ScoreTimeCanvas";
 import AudioLayerGroupCanvas from "./layer-groups/AudioLayerGroupCanvas";
 import PatternsLayerGroupCanvas from "./layer-groups/PatternsLayerGroupCanvas";
@@ -15,6 +16,7 @@ interface Props {
   snapValue: SnapValueName;
   tempo: number;
   smpteFrameRate: number;
+  meterMap: MeterMapSnapshot;
 }
 
 export default function LayerPanel({
@@ -26,6 +28,7 @@ export default function LayerPanel({
   snapValue,
   tempo,
   smpteFrameRate,
+  meterMap,
 }: Props) {
   const visibleGroups = layerGroups;
 
@@ -64,7 +67,8 @@ export default function LayerPanel({
                   snapValue={snapValue}
                   tempo={tempo}
                   smpteFrameRate={smpteFrameRate}
-                onDoubleClickObject={(objectId) => {
+                  meterMap={meterMap}
+                  onDoubleClickObject={(objectId) => {
                     let containerName = group.name;
                     let itemLocation: ScoreObjectLocationRef | undefined;
                     for (const layer of group.layers) {

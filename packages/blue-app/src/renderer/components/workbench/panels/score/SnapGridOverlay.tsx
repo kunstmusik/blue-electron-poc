@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
+import type { MeterMapSnapshot } from '../../../../../shared/project-editor';
+import { deriveSnapLineBeats } from './snap-grid-utils';
 
 interface Props {
   snapEnabled: boolean;
   snapValue: SnapValueName;
+  meterMap?: MeterMapSnapshot;
   tempo: number;
   smpteFrameRate: number;
   pixelsPerBeat: number;
@@ -15,6 +18,7 @@ interface Props {
 export default function SnapGridOverlay({
   snapEnabled,
   snapValue,
+  meterMap,
   tempo,
   smpteFrameRate,
   pixelsPerBeat,
@@ -49,14 +53,14 @@ export default function SnapGridOverlay({
     ctx.lineWidth = 1;
 
     const maxBeat = totalBeats;
-    for (let beat = 0; beat <= maxBeat; beat += snapBeats) {
+    for (const beat of deriveSnapLineBeats(snapValue, snapBeats, meterMap, maxBeat)) {
       const x = Math.round(beat * pixelsPerBeat) + 0.5;
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
       ctx.stroke();
     }
-  }, [snapEnabled, snapValue, tempo, smpteFrameRate, pixelsPerBeat, totalBeats, height]);
+  }, [snapEnabled, snapValue, meterMap, tempo, smpteFrameRate, pixelsPerBeat, totalBeats, height]);
 
   return (
     <canvas

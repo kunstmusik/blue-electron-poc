@@ -10,7 +10,7 @@ const TEMPO_60: TempoMapSnapshot = {
 };
 
 const METERS_4_4: MeterSnapshot[] = [
-  { measure: 1, numBeats: 4, beatLength: 4 },
+  { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
 ];
 
 function majorLabels(marks: ReturnType<typeof __testOnly.computeMarks>): string[] {
@@ -91,8 +91,8 @@ describe('Score ruler parity with Java TimeBar', () => {
 
   it('handles meter changes when computing measure starts', () => {
     const meters: MeterSnapshot[] = [
-      { measure: 1, numBeats: 4, beatLength: 4 },
-      { measure: 3, numBeats: 3, beatLength: 4 },
+      { measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 },
+      { measure: 3, numBeats: 3, beatLength: 4, startBeat: 8 },
     ];
 
     const marks = __testOnly.computeMarks(TimeBase.BBT, 16, 80, TEMPO_60, meters, 24, 44100);

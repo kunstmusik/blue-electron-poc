@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { TempoMapSnapshot, TempoMapPatch } from '../../../../../shared/project-editor';
+import type { MeterMapSnapshot, TempoMapSnapshot, TempoMapPatch } from '../../../../../shared/project-editor';
 import { type SnapValueName, snapValueToBeats } from '@blue/data';
 import * as ContextMenu from '@radix-ui/react-context-menu';
+import { deriveSnapLineBeats } from './snap-grid-utils';
 import {
   beatToScreenX,
   screenXToBeat,
@@ -13,8 +14,11 @@ import {
   TEMPO_MAX_BPM,
 } from './tempo-map-utils';
 
+const BEAT_EPSILON = 0.001;
+
 interface TempoLineViewProps {
   tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
   totalBeats: number;
   pixelsPerBeat: number;
   snapEnabled: boolean;
@@ -42,6 +46,7 @@ type ContextMenuTarget =
 
 export default function TempoLineView({
   tempoMap,
+  meterMap,
   totalBeats,
   pixelsPerBeat,
   snapEnabled,
@@ -103,12 +108,12 @@ export default function TempoLineView({
     }
 
     if (pointIdx < 0) {
-      const snappedBeat = snapBeat(Math.max(0, beat), snapEnabled && !e.shiftKey, snapValue, pixelsPerBeat, points[0]?.tempo ?? 60);
+      const snappedBeat = snapBeat(Math.max(0, beat), snapEnabled && !e.shiftKey, snapValue, pixelsPerBeat, points[0]?.tempo ?? 60, 30, 44100, meterMap);
       const tempo = screenYToTempo(y, TEMPO_LINE_VIEW_HEIGHT);
       onTempoPatch({ type: 'addTempoPoint', point: { beat: snappedBeat, tempo, curveType: 'constant' } });
       setSelectedPoint(null);
     }
-  }, [enabled, rootTimelineOnly, pixelsPerBeat, findPointAt, snapEnabled, snapValue, points, totalBeats, onTempoPatch]);
+  }, [enabled, rootTimelineOnly, pixelsPerBeat, findPointAt, snapEnabled, snapValue, meterMap, points, totalBeats, onTempoPatch]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!dragState) {
@@ -154,7 +159,7 @@ export default function TempoLineView({
     }
 
     if (!e.shiftKey && snapEnabled) {
-      newBeat = snapBeat(newBeat, true, snapValue, pixelsPerBeat, points[0]?.tempo ?? 60);
+      newBeat = snapBeat(newBeat, true, snapValue, pixelsPerBeat, points[0]?.tempo ?? 60, 30, 44100, meterMap);
     }
 
     newBeat = Math.max(dragState.leftBound, Math.min(dragState.rightBound, newBeat));
@@ -165,7 +170,7 @@ export default function TempoLineView({
       index: dragState.pointIndex,
       patch: { beat: newBeat, tempo: newTempo },
     });
-  }, [dragState, pixelsPerBeat, snapEnabled, snapValue, findPointAt, selectedPoint, onTempoPatch]);
+  }, [dragState, pixelsPerBeat, snapEnabled, snapValue, meterMap, findPointAt, selectedPoint, onTempoPatch]);
 
   const handleMouseUp = useCallback(() => {
     setDragState(null);
@@ -228,8 +233,8 @@ export default function TempoLineView({
   if (snapEnabled) {
     const snapBeats = snapValueToBeats(snapValue, points[0]?.tempo ?? 60, 30, 44100, pixelsPerBeat);
     if (snapBeats > 0) {
-      for (let b = 0; b <= totalBeats; b += snapBeats) {
-        snapLines.push(beatToScreenX(b, pixelsPerBeat));
+      for (const beat of deriveSnapLineBeats(snapValue, snapBeats, meterMap, totalBeats)) {
+        snapLines.push(beatToScreenX(beat, pixelsPerBeat));
       }
     }
   }
@@ -275,7 +280,7 @@ export default function TempoLineView({
             className="min-w-[120px] bg-[#1e1e3a] border border-blue-border/40 rounded-md p-1 shadow-lg z-50"
             onCloseAutoFocus={() => setContextMenuTarget(null)}
           >
-            {contextMenuTarget?.type === 'point' ? (
+            {contextMenuTarget?.type === 'point' && Math.abs(points[contextMenuTarget.index]?.beat ?? 0) >= BEAT_EPSILON ? (
               <ContextMenu.Item
                 className="text-[11px] text-red-400 px-2 py-1 rounded-sm cursor-pointer outline-none data-[highlighted]:bg-white/10"
                 onSelect={() => {

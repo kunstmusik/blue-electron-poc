@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BlueData, CurveType, Element, TempoMap, TempoPoint } from '@blue/data';
+import { BlueData, CurveType, Element, TempoMap, TempoPoint, TimeBase } from '@blue/data';
 import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
@@ -24,8 +24,8 @@ describe('Tempo map snapshot contract', () => {
     expect(transport.tempoMap.enabled).toBe(true);
     expect(transport.tempoMap.visible).toBe(true);
     expect(transport.tempoMap.points).toHaveLength(2);
-    expect(transport.tempoMap.points[0]).toEqual({ beat: 0, tempo: 60, curveType: 'constant' });
-    expect(transport.tempoMap.points[1]).toEqual({ beat: 4, tempo: 120, curveType: 'linear' });
+    expect(transport.tempoMap.points[0]).toEqual({ beat: 0, tempo: 60, curveType: 'constant', timeBase: TimeBase.BEATS });
+    expect(transport.tempoMap.points[1]).toEqual({ beat: 4, tempo: 120, curveType: 'linear', timeBase: TimeBase.BEATS });
   });
 
   it('snapshots a disabled invisible map correctly', () => {
@@ -116,7 +116,7 @@ describe('Tempo map patch validation and application', () => {
     expect(tempoMap.getCurveType(1)).toBe(CurveType.LINEAR);
   });
 
-  it('updateTempoPoint rejects moving first point away from beat 0', () => {
+  it('updateTempoPoint rejects moving the time-zero point away from beat 0', () => {
     const data = createTempoProject();
 
     const changed = applyProjectDocumentPatch(data, {
@@ -171,7 +171,7 @@ describe('Tempo map patch validation and application', () => {
     expect(tempoMap.size()).toBe(1);
   });
 
-  it('removeTempoPoint rejects removing the first point', () => {
+  it('removeTempoPoint rejects removing the time-zero point', () => {
     const data = createTempoProject();
 
     const changed = applyProjectDocumentPatch(data, {
@@ -212,6 +212,39 @@ describe('Tempo map patch validation and application', () => {
     expect(tempoMap.getTempo(1)).toBe(120);
     expect(tempoMap.getTempo(2)).toBe(90);
     expect(tempoMap.getCurveType(1)).toBe(CurveType.LINEAR);
+  });
+
+  it('replaceTempoMap preserves tempo point time bases', () => {
+    const data = createTempoProject();
+    const tempoMap = data.getScore().getTimeContext().getTempoMap();
+
+    applyProjectDocumentPatch(data, {
+      transport: {
+        tempoMapPatch: {
+          type: 'replaceTempoMap',
+          map: {
+            enabled: true,
+            visible: true,
+            points: [
+              { beat: 0, tempo: 72, curveType: 'constant', timeBase: 'BEATS' },
+              { beat: 4, tempo: 120, curveType: 'linear', timeBase: 'BBF' },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(tempoMap.size()).toBe(2);
+    expect(tempoMap.getBeat(1)).toBeCloseTo(4, 6);
+    expect(tempoMap.getPoint(1).position.getTimeBase()).toBe(TimeBase.BBF);
+
+    const transport = createToolbarProjectTransportSnapshot(data);
+    expect(transport.tempoMap.points[1]).toMatchObject({
+      beat: 4,
+      tempo: 120,
+      curveType: 'linear',
+      timeBase: TimeBase.BBF,
+    });
   });
 
   it('replaceTempoMap rejects invalid maps', () => {

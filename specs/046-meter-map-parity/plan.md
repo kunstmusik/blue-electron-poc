@@ -1,6 +1,6 @@
 # Implementation Plan: Meter Map Parity
 
-**Branch**: `046-meter-map-parity` *(not created; planned only)*  
+**Branch**: `046-meter-map-parity`
 **Spec**: `/Users/stevenyi/work/blue-electron/specs/046-meter-map-parity/spec.md`  
 **Date**: 2026-05-20
 
@@ -8,7 +8,7 @@
 
 Implement Java Blue parity for time-signature editing in the Score panel. The feature adds an accurate meter ruler bar with Java-style add/edit/delete interactions, fixes mixed-meter region math, replaces the Project menu placeholder with an Edit Time Signature Map modal, and routes all meter mutations through typed canonical project patches backed by `@blue/data`.
 
-This plan intentionally separates meter from Spec 045 tempo work. If Spec 045 lands first, meter implementation may reuse shared dialog, menu, and row layout patterns, but meter correctness must stand on its own.
+This plan intentionally separates meter from Spec 045 tempo work. Spec 045 is now complete, so implementation should reuse its proven row, dialog, modal, native menu, `WorkbenchMenuCommand`, `workbench-store`, and `ProjectDocumentPatch` patterns where they fit, while keeping meter correctness independent.
 
 ## Technical Context
 
@@ -63,9 +63,13 @@ packages/blue-app/src/main/
 ├── application-menu.test.ts
 └── main.ts
 
+packages/blue-app/src/shared/
+├── project-editor.ts
+└── workbench-menu.ts
+
 packages/blue-app/src/renderer/
-├── hooks/use-ipc-listeners.ts
 ├── stores/project-store.ts
+├── stores/workbench-store.ts
 ├── tests/meter-map-contract.test.ts
 ├── tests/meter-row-parity.test.tsx
 ├── tests/meter-map-modal.test.tsx
@@ -85,6 +89,7 @@ packages/blue-app/src/renderer/
 
 - Add or refine shared meter snapshot data so renderer code receives ordered entries plus derived start beats.
 - Add meter-map patch variants for add, update, remove, and replace-map.
+- Mirror Spec 045's `TempoMapPatch` / `applyTempoMapPatch` / optimistic-merge structure with meter-specific validation.
 - Validate first-entry, duplicate-measure, positive integer, denominator, and neighbor-boundary rules.
 - Update project-store optimistic merge behavior.
 
@@ -103,7 +108,7 @@ packages/blue-app/src/renderer/
 ### Phase 4: Project Menu Modal
 
 - Replace Project menu placeholder with a real enabled command.
-- Add renderer listener and Score panel dialog state.
+- Add `WorkbenchMenuCommand` typing, `main.ts` dispatch, `workbench-store` handling, and Score panel dialog state.
 - Implement `MeterMapEditorDialog` with copy semantics, Add at last measure + 8, delete restrictions, OK, and Cancel.
 
 ### Phase 5: Validation And Handoff
@@ -127,4 +132,4 @@ Spec 046 is ready to implement when:
 
 - All design artifacts in this directory are present.
 - `tasks.md` is dependency ordered and independently executable.
-- The current active branch remains Spec 045 until the implementer intentionally creates a 046 branch.
+- The active branch is `046-meter-map-parity` and `.specify/feature.json` points at this spec.

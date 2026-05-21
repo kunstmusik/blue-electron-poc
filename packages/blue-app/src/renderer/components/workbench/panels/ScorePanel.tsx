@@ -9,7 +9,7 @@ import type {
   ScoreObjectLocationRef,
   PolyObjectLayerGroupSnapshot,
 } from "./score/types";
-import type { TempoMapSnapshot, TempoMapPatch } from "../../../shared/project-editor";
+import type { TempoMapSnapshot, TempoMapPatch, MeterMapPatch } from "../../../shared/project-editor";
 import type { SnapValueName } from "@blue/data";
 import type { RulerConfigChanges } from "./score/RulerConfigDialog";
 import SplitPane from "./orchestra/SplitPane";
@@ -17,6 +17,7 @@ import ScoreToolbar from "./score/ScoreToolbar";
 import RulerConfigDialog from "./score/RulerConfigDialog";
 import ScoreManagerDialog from "./score/ScoreManagerDialog";
 import TempoMapEditorDialog from "./score/TempoMapEditorDialog";
+import MeterMapEditorDialog from "./score/MeterMapEditorDialog";
 import ColumnHeader from "./score/ColumnHeader";
 import LayerPanel from "./score/LayerPanel";
 import { useScorePathState } from "./score/useScorePathState";
@@ -45,6 +46,7 @@ export default function ScorePanel() {
   const [rulerDialogOpen, setRulerDialogOpen] = useState(false);
   const [manageDialogOpen, setManageDialogOpen] = useState(false);
   const [tempoMapEditorOpen, setTempoMapEditorOpen] = useState(false);
+  const [meterMapEditorOpen, setMeterMapEditorOpen] = useState(false);
 
   const [timeState, setTimeState] = useState(score.timeState);
 
@@ -75,6 +77,12 @@ export default function ScorePanel() {
     const handler = () => setTempoMapEditorOpen(true);
     window.addEventListener('blue-edit-tempo-map', handler);
     return () => window.removeEventListener('blue-edit-tempo-map', handler);
+  }, []);
+
+  useEffect(() => {
+    const handler = () => setMeterMapEditorOpen(true);
+    window.addEventListener('blue-edit-meter-map', handler);
+    return () => window.removeEventListener('blue-edit-meter-map', handler);
   }, []);
 
   const leftHeaderRef = useRef<HTMLDivElement>(null);
@@ -129,6 +137,7 @@ export default function ScorePanel() {
     totalBeats,
     snapEnabled,
     snapValue,
+    meterMap: transport.meterMap,
     rootTimelineOnly: isRootTimeline,
     scrollContainerRef,
     tempo: initialTempo,
@@ -277,6 +286,10 @@ export default function ScorePanel() {
     useProjectStore.getState().applyProjectDocumentPatch({ transport: { tempoMapPatch: patch } });
   }, []);
 
+  const handleMeterPatch = useCallback((patch: MeterMapPatch) => {
+    useProjectStore.getState().applyProjectDocumentPatch({ transport: { meterMapPatch: patch } });
+  }, []);
+
   if (!loaded) {
     return (
       <div className="h-full flex items-center justify-center text-blue-muted text-sm">
@@ -335,6 +348,7 @@ export default function ScorePanel() {
                 timeState={timeState}
                 markers={score.markers}
                 meters={transport.meterMap.entries}
+                meterMap={transport.meterMap}
                 tempoMap={transport.tempoMap}
                 totalBeats={totalBeats}
                 pixelsPerBeat={pixelsPerBeat}
@@ -349,6 +363,7 @@ export default function ScorePanel() {
                 tempo={initialTempo}
                 rulerMouseDown={rulerMouseDown}
                 onTempoPatch={handleTempoPatch}
+                onMeterPatch={handleMeterPatch}
               />
             </div>
             <div className="relative flex-1 min-h-0">
@@ -364,6 +379,7 @@ export default function ScorePanel() {
                   totalBeats={totalBeats}
                   snapEnabled={snapEnabled}
                   snapValue={snapValue}
+                  meterMap={transport.meterMap}
                   tempo={
                     transport.tempoMap.points.length > 0
                       ? transport.tempoMap.points[0].tempo
@@ -402,8 +418,26 @@ export default function ScorePanel() {
       {tempoMapEditorOpen && (
         <TempoMapEditorDialog
           tempoMap={transport.tempoMap}
+          timeContext={{
+            meterEntries: transport.meterMap.entries.map((entry) => ({
+              measure: entry.measure,
+              numBeats: entry.numBeats,
+              beatLength: entry.beatLength,
+            })),
+            tempoEnabled: transport.tempoMap.enabled,
+            initialTempo: transport.tempoMap.points[0]?.tempo ?? 60,
+            sampleRate: transport.sampleRate,
+          }}
           onCommit={handleTempoPatch}
           onClose={() => setTempoMapEditorOpen(false)}
+        />
+      )}
+
+      {meterMapEditorOpen && (
+        <MeterMapEditorDialog
+          meterMap={transport.meterMap}
+          onCommit={handleMeterPatch}
+          onClose={() => setMeterMapEditorOpen(false)}
         />
       )}
     </div>

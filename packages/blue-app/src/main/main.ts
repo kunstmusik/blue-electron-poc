@@ -432,6 +432,7 @@ function rebuildApplicationMenu(): void {
     onRecompileBlueLive: () => { void blueLiveRecompile(); },
     onBlueLiveAllNotesOff: () => { void blueLiveAllNotesOff(); },
     onEditTempoMap: () => { mainWindow?.webContents.send('native-menu-command', { type: 'edit-tempo-map' }); },
+    onEditMeterMap: () => { mainWindow?.webContents.send('native-menu-command', { type: 'edit-meter-map' }); },
     onNotYetImplemented: () => { mainWindow?.webContents.send('native-menu-command', { type: 'show-not-yet-implemented' }); },
   }));
 

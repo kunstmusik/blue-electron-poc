@@ -24,7 +24,7 @@
 
 ## Handoff Notes
 
-- [x] Spec 046 branch is intentionally not created in this planning pass.
-- [x] Spec 046 can reuse Spec 045 UI patterns after the tempo implementation lands.
+- [x] Spec 046 branch is now `046-meter-map-parity`.
+- [x] Spec 046 can reuse completed Spec 045 UI, patch, native menu, and renderer event patterns.
 - [x] Mixed-meter accumulated beat math is called out as a required fix.
 - [x] Java inline-vs-modal validation difference is documented as an implementation decision point.

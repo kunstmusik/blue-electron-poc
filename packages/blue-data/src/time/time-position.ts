@@ -194,18 +194,24 @@ export class TimePosition {
 
       case TimeBase.BBT: {
         const meterMap = context.getMeterMap();
-        return meterMap.barBeatToBeats(this._bar, this._beat) + this._ticks / DEFAULT_PPQ;
+        const meter = meterMap.getMeterForMeasure(this._bar);
+        return meterMap.barBeatToBeats(this._bar, this._beat)
+          + (this._ticks / DEFAULT_PPQ) * meter.getBeatScale();
       }
 
       case TimeBase.BBST: {
         const meterMap = context.getMeterMap();
+        const meter = meterMap.getMeterForMeasure(this._bar);
         const totalTicks = ((this._sixteenth - 1) * (DEFAULT_PPQ / 4)) + this._ticks;
-        return meterMap.barBeatToBeats(this._bar, this._beat) + totalTicks / DEFAULT_PPQ;
+        return meterMap.barBeatToBeats(this._bar, this._beat)
+          + (totalTicks / DEFAULT_PPQ) * meter.getBeatScale();
       }
 
       case TimeBase.BBF: {
         const meterMap = context.getMeterMap();
-        return meterMap.barBeatToBeats(this._bar, this._beat) + this._fraction / 100.0;
+        const meter = meterMap.getMeterForMeasure(this._bar);
+        return meterMap.barBeatToBeats(this._bar, this._beat)
+          + (this._fraction / 100.0) * meter.getBeatScale();
       }
 
       case TimeBase.TIME: {

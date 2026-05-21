@@ -4,9 +4,11 @@ import type {
   ScoreTimeStateSnapshot,
   MarkerSnapshot,
   MeterSnapshot,
+  MeterMapSnapshot,
   TempoMapSnapshot,
   TempoPointSnapshot,
   TempoMapPatch,
+  MeterMapPatch,
 } from '../../../../../shared/project-editor';
 import { TimeBase, type SnapValueName } from '@blue/data';
 import MeterRegionBar from './MeterRegionBar';
@@ -14,11 +16,13 @@ import MarkersBar from './MarkersBar';
 import TempoRegionBar from './TempoRegionBar';
 import TempoLineView from './TempoLineView';
 import TempoPointDialog from './TempoPointDialog';
+import MeterEntryDialog from './MeterEntryDialog';
 
 interface Props {
   timeState: ScoreTimeStateSnapshot;
   markers: MarkerSnapshot[];
   meters: MeterSnapshot[];
+  meterMap: MeterMapSnapshot;
   tempoMap: TempoMapSnapshot;
   totalBeats: number;
   pixelsPerBeat: number;
@@ -33,10 +37,12 @@ interface Props {
   tempo: number;
   rulerMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   onTempoPatch: (patch: TempoMapPatch) => void;
+  onMeterPatch: (patch: MeterMapPatch) => void;
 }
 
-export default function ColumnHeader({ timeState, markers, meters, tempoMap, totalBeats, pixelsPerBeat, sampleRate, renderStartTime, renderEndTime, snapEnabled, snapValue, timePointerBeats, scrollContainerRef, rootTimelineOnly, tempo, rulerMouseDown, onTempoPatch }: Props) {
+export default function ColumnHeader({ timeState, markers, meters, meterMap, tempoMap, totalBeats, pixelsPerBeat, sampleRate, renderStartTime, renderEndTime, snapEnabled, snapValue, timePointerBeats, scrollContainerRef, rootTimelineOnly, tempo, rulerMouseDown, onTempoPatch, onMeterPatch }: Props) {
   const [pointDialogIndex, setPointDialogIndex] = useState<number | null>(null);
+  const [meterDialogIndex, setMeterDialogIndex] = useState<number | null>(null);
   const contentWidth = totalBeats * pixelsPerBeat;
   const smpteFrameRate = timeState.smpteFrameRate || 24;
   const hasRenderEnd = renderEndTime > 0 && renderEndTime > renderStartTime;
@@ -49,11 +55,20 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
     setPointDialogIndex(null);
   }, []);
 
+  const handleOpenMeterDialog = useCallback((entryIndex: number) => {
+    setMeterDialogIndex(entryIndex);
+  }, []);
+
+  const handleCloseMeterDialog = useCallback(() => {
+    setMeterDialogIndex(null);
+  }, []);
+
   return (
     <div className="bg-blue-bg border-b border-blue-border/40 overflow-hidden" style={{ minWidth: contentWidth }}>
       {timeState.tempoRowVisible && (
         <TempoRegionBar
           tempoMap={tempoMap}
+          meterMap={meterMap}
           totalBeats={totalBeats}
           pixelsPerBeat={pixelsPerBeat}
           snapEnabled={snapEnabled}
@@ -66,6 +81,7 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
       {timeState.tempoRowVisible && tempoMap.visible && (
         <TempoLineView
           tempoMap={tempoMap}
+          meterMap={meterMap}
           totalBeats={totalBeats}
           pixelsPerBeat={pixelsPerBeat}
           snapEnabled={snapEnabled}
@@ -76,8 +92,8 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
         />
       )}
 
-      <MeterRegionBar meters={meters} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.meterRowVisible} />
-      <MarkersBar markers={markers} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} snapEnabled={snapEnabled} snapValue={snapValue} scrollContainerRef={scrollContainerRef} rootTimelineOnly={rootTimelineOnly} tempo={tempo} smpteFrameRate={smpteFrameRate} sampleRate={sampleRate} />
+      <MeterRegionBar meterMap={meterMap} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.meterRowVisible} rootTimelineOnly={rootTimelineOnly} onMeterPatch={onMeterPatch} onOpenEntryDialog={handleOpenMeterDialog} />
+      <MarkersBar markers={markers} totalBeats={totalBeats} pixelsPerBeat={pixelsPerBeat} rowVisible={timeState.markersRowVisible} snapEnabled={snapEnabled} snapValue={snapValue} meterMap={meterMap} scrollContainerRef={scrollContainerRef} rootTimelineOnly={rootTimelineOnly} tempo={tempo} smpteFrameRate={smpteFrameRate} sampleRate={sampleRate} />
 
       <TimeBar
         timeDisplay={timeState.primaryTimeDisplay}
@@ -112,6 +128,15 @@ export default function ColumnHeader({ timeState, markers, meters, tempoMap, tot
           tempoMap={tempoMap}
           onTempoPatch={onTempoPatch}
           onClose={handleClosePointDialog}
+        />
+      )}
+
+      {meterDialogIndex !== null && (
+        <MeterEntryDialog
+          entryIndex={meterDialogIndex}
+          meterMap={meterMap}
+          onMeterPatch={onMeterPatch}
+          onClose={handleCloseMeterDialog}
         />
       )}
     </div>
@@ -651,7 +676,7 @@ function computeMeasureMarks(totalBeats: number, pixelsPerBeat: number, meters: 
 function normalizeMeterEntries(meters: MeterSnapshot[]): MeterTimelineEntry[] {
   const entries = meters.length > 0
     ? meters
-    : [{ measure: 1, numBeats: 4, beatLength: 4 }];
+    : [{ measure: 1, numBeats: 4, beatLength: 4, startBeat: 0 }];
 
   const sortedEntries = [...entries].sort((a, b) => a.measure - b.measure);
   const timeline: MeterTimelineEntry[] = [];

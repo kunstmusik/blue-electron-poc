@@ -2,6 +2,8 @@ import { useRef, useCallback, useState, useEffect, type RefObject } from 'react'
 import { useProjectStore } from '../../../../stores/project-store';
 import type { SnapValueName } from '@blue/data';
 import { snapValueToBeats } from '@blue/data';
+import type { MeterMapSnapshot } from '../../../../../shared/project-editor';
+import { snapBeatToGrid } from './snap-grid-utils';
 
 const DRAG_THRESHOLD = 5;
 const AUTO_SCROLL_EDGE_THRESHOLD = 24;
@@ -12,6 +14,7 @@ interface UseScoreRulerSelectionOptions {
   totalBeats: number;
   snapEnabled: boolean;
   snapValue: SnapValueName;
+  meterMap: MeterMapSnapshot;
   rootTimelineOnly: boolean;
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   tempo: number;
@@ -23,6 +26,7 @@ export function useScoreRulerSelection({
   pixelsPerBeat,
   snapEnabled,
   snapValue,
+  meterMap,
   rootTimelineOnly,
   scrollContainerRef,
   tempo,
@@ -53,8 +57,8 @@ export function useScoreRulerSelection({
       pixelsPerBeat,
     );
     if (sv <= 0) return beats;
-    return Math.round(beats / sv) * sv;
-  }, [snapEnabled, snapValue, tempo, smpteFrameRate, sampleRate, pixelsPerBeat]);
+    return snapBeatToGrid(beats, 'nearest', snapValue, sv, meterMap);
+  }, [snapEnabled, snapValue, meterMap, tempo, smpteFrameRate, sampleRate, pixelsPerBeat]);
 
   const autoScroll = useCallback((clientX: number) => {
     const container = scrollContainerRef.current;

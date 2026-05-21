@@ -210,7 +210,7 @@ export default function FontChooserDialog({
           </span>
           <div className="flex gap-2">
             <button
-              className="rounded border border-blue-border px-3 py-1 text-xs text-gray-300 hover:bg-white/5"
+              className="rounded border border-blue-border bg-blue-surface/40 px-3 py-1 text-xs text-blue-text hover:bg-blue-surface/70 transition-colors"
               onClick={onCancel}
             >
               Cancel

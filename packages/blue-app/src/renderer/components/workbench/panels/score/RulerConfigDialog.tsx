@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { TimeBase } from '@blue/data';
 import type { ScoreTimeStateSnapshot } from '../../../../../shared/project-editor';
 
+const SECONDARY_BUTTON_CLASS = 'px-3 py-1 text-[11px] text-blue-text bg-blue-surface/40 hover:bg-blue-surface/70 rounded border border-blue-border/40 transition-colors cursor-pointer';
+
 export type TimebaseUpdateMode = 'UPDATE_ALL' | 'UPDATE_MATCHING';
 
 export interface RulerConfigChanges {
@@ -223,7 +225,7 @@ export default function RulerConfigDialog({ timeState, onApply, onClose }: Props
           {/* Buttons */}
           <div className="flex justify-end gap-2 pt-2 border-t border-blue-border/30">
             <button
-              className="px-3 py-1 text-[11px] text-blue-muted hover:text-blue-text hover:bg-blue-hover rounded transition-colors cursor-pointer"
+              className={SECONDARY_BUTTON_CLASS}
               onClick={onClose}
             >
               Cancel

@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { TempoMapSnapshot, TempoMapPatch, TempoCurveTypeSnapshot } from '../../../../../shared/project-editor';
+import type { MeterMapSnapshot, TempoMapSnapshot, TempoMapPatch, TempoCurveTypeSnapshot } from '../../../../../shared/project-editor';
 import type { SnapValueName } from '@blue/data';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import {
@@ -13,8 +13,11 @@ import {
   TEMPO_REGION_BAR_HEIGHT,
 } from './tempo-map-utils';
 
+const BEAT_EPSILON = 0.001;
+
 interface TempoRegionBarProps {
   tempoMap: TempoMapSnapshot;
+  meterMap: MeterMapSnapshot;
   totalBeats: number;
   pixelsPerBeat: number;
   snapEnabled: boolean;
@@ -26,6 +29,7 @@ interface TempoRegionBarProps {
 
 export default function TempoRegionBar({
   tempoMap,
+  meterMap,
   totalBeats,
   pixelsPerBeat,
   snapEnabled,
@@ -45,7 +49,7 @@ export default function TempoRegionBar({
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
     const rawBeat = screenXToBeat(x, pixelsPerBeat);
-    const beat = snapBeat(Math.max(0, rawBeat), snapEnabled, snapValue, pixelsPerBeat, tempoMap.points[0]?.tempo ?? 60);
+    const beat = snapBeat(Math.max(0, rawBeat), snapEnabled, snapValue, pixelsPerBeat, tempoMap.points[0]?.tempo ?? 60, 30, 44100, meterMap);
 
     const existingIdx = findExistingPointNearBeat(
       tempoMap.points,
@@ -59,7 +63,7 @@ export default function TempoRegionBar({
 
     const tempo = getTempoAtBeat(tempoMap.points, beat);
     onTempoPatch({ type: 'addTempoPoint', point: { beat, tempo, curveType: 'constant' } });
-  }, [enabled, rootTimelineOnly, pixelsPerBeat, snapEnabled, snapValue, tempoMap.points, onTempoPatch, onOpenPointDialog]);
+  }, [enabled, rootTimelineOnly, pixelsPerBeat, snapEnabled, snapValue, meterMap, tempoMap.points, onTempoPatch, onOpenPointDialog]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -90,6 +94,7 @@ export default function TempoRegionBar({
         const isHovered = hoveredRegion === i;
         const isLast = i === regions.length - 1;
         const showRamp = !isLast && region.curveType === 'linear';
+        const canDeleteRegion = Math.abs(region.startBeat) >= BEAT_EPSILON;
 
         let fillColor = enabled ? 'rgb(60,60,80)' : 'rgb(30,30,40)';
         if (isHovered && enabled) fillColor = 'rgb(80,80,110)';
@@ -163,7 +168,7 @@ export default function TempoRegionBar({
                   >
                     Linear
                   </ContextMenu.Item>
-                  {i > 0 && (
+                  {canDeleteRegion && (
                     <>
                       <ContextMenu.Separator className="h-px bg-blue-border/20 my-1" />
                       <ContextMenu.Item
