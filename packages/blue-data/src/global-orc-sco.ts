@@ -38,8 +38,8 @@ export class GlobalOrcSco {
 
   saveAsXML(): Element {
     const elem = new Element('globalOrcSco');
-    if (this._globalOrc) elem.addElement('globalOrc').setText(this._globalOrc);
-    if (this._globalSco) elem.addElement('globalSco').setText(this._globalSco);
+    elem.addElement('globalOrc').setText(this._globalOrc);
+    elem.addElement('globalSco').setText(this._globalSco);
     return elem;
   }
 

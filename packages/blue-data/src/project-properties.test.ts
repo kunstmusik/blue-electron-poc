@@ -10,9 +10,9 @@ describe('ProjectProperties', () => {
       expect(props.ksmps).toBe('64');
     });
 
-    it('defaults zeroDbFS to 32768 (Java default is 1)', () => {
+    it('defaults zeroDbFS to 1 (matching Java default)', () => {
       const props = new ProjectProperties();
-      expect(props.zeroDbFS).toBe('32768');
+      expect(props.zeroDbFS).toBe('1');
     });
 
     it('defaults sampleRate to 44100', () => {

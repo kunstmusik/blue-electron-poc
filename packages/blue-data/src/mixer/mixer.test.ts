@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { Mixer } from './mixer';
 import { Element } from '../serialization/xml-reader';
+import { ChannelList } from './channel-list';
+import { Channel } from './channel';
 
 describe('Mixer', () => {
   describe('default state', () => {
@@ -12,6 +14,14 @@ describe('Mixer', () => {
     it('has master channel named Master', () => {
       const mixer = new Mixer();
       expect(mixer.getMaster().getName()).toBe('Master');
+    });
+
+    it('initializes Orchestra/SubChannels list names with non-editable defaults', () => {
+      const mixer = new Mixer();
+      expect(mixer.getChannels().getListName()).toBe('Orchestra');
+      expect(mixer.getChannels().isListNameEditSupported()).toBe(false);
+      expect(mixer.getSubChannels().getListName()).toBe('SubChannels');
+      expect(mixer.getSubChannels().isListNameEditSupported()).toBe(false);
     });
   });
 
@@ -70,7 +80,7 @@ describe('Mixer', () => {
       expect(saved).toContain('<enabled>false</enabled>');
     });
 
-    it('loads source channels from Java channelListGroups without losing them to empty flat lists', () => {
+    it('loads source channels from Java channelListGroups into channelListGroups, not flat channels', () => {
       const javaXml = [
         '<mixer>',
         '  <enabled>true</enabled>',
@@ -103,9 +113,62 @@ describe('Mixer', () => {
 
       const loaded = Mixer.loadFromXML(Element.parse(javaXml));
 
-      expect(loaded.getChannels()).toHaveLength(1);
-      expect(loaded.getChannels()[0]?.getAssociation()).toBe('layer-1');
-      expect(loaded.getChannels()[0]?.getOutChannel()).toBe('Master');
+      // Flat channels list does not include group channels
+      expect(loaded.getChannels()).toHaveLength(0);
+      // channelListGroups preserves the group structure
+      expect(loaded.getChannelListGroups()).toHaveLength(1);
+      expect(loaded.getChannelListGroups()[0]).toHaveLength(1);
+      expect(loaded.getChannelListGroups()[0]![0]?.getAssociation()).toBe('layer-1');
+      // getAllSourceChannels() returns group channels + flat channels
+      expect(loaded.getAllSourceChannels()).toHaveLength(1);
+      expect(loaded.getAllSourceChannels()[0]?.getAssociation()).toBe('layer-1');
+      expect(loaded.getAllSourceChannels()[0]?.getOutChannel()).toBe('Master');
+    });
+
+    it('round-trips channelListGroups through save/load', () => {
+      const javaXml = [
+        '<mixer>',
+        '  <channelListGroups>',
+        '    <channelList association="group-1" listName="Audio Layer Group">',
+        '      <channel association="layer-1"><name>Channel</name><outChannel>Master</outChannel><level>0.0</level><muted>false</muted><solo>false</solo><effectsChain bin="pre"/><effectsChain bin="post"/></channel>',
+        '    </channelList>',
+        '  </channelListGroups>',
+        '  <channelList list="channels"/>',
+        '  <channelList list="subChannels"/>',
+        '</mixer>',
+      ].join('\n');
+
+      const loaded = Mixer.loadFromXML(Element.parse(javaXml));
+      const saved = loaded.saveAsXML().toXml();
+      expect(saved).toContain('<channelListGroups>');
+
+      const reloaded = Mixer.loadFromXML(Element.parse(saved));
+      expect(reloaded.getChannelListGroups()).toHaveLength(1);
+      expect(reloaded.getAllSourceChannels()).toHaveLength(1);
+      expect(reloaded.getAllSourceChannels()[0]?.getAssociation()).toBe('layer-1');
+    });
+
+    it('round-trips channel list metadata fields for grouped channel lists', () => {
+      const javaXml = [
+        '<mixer>',
+        '  <channelListGroups>',
+        '    <channelList association="group-1" listName="Audio Layer Group">',
+        '      <channel association="layer-1"><name>Layer A</name><outChannel>Master</outChannel><level>0.0</level><muted>false</muted><solo>false</solo><effectsChain bin="pre"/><effectsChain bin="post"/></channel>',
+        '    </channelList>',
+        '  </channelListGroups>',
+        '  <channelList list="channels"/>',
+        '  <channelList list="subChannels"/>',
+        '</mixer>',
+      ].join('\n');
+      const loaded = Mixer.loadFromXML(Element.parse(javaXml));
+      const group = loaded.getChannelListGroups()[0];
+      expect(group?.getAssociation()).toBe('group-1');
+      expect(group?.getListName()).toBe('Audio Layer Group');
+      expect(group?.isListNameEditSupported()).toBe(true);
+
+      const saved = loaded.saveAsXML().toXml();
+      expect(saved).toContain('association="group-1"');
+      expect(saved).toContain('listName="Audio Layer Group"');
     });
   });
 
@@ -123,6 +186,26 @@ describe('Mixer', () => {
       const copy = original.deepCopy() as Mixer;
       copy.setEnabled(false);
       expect(original.isEnabled()).toBe(true);
+    });
+
+    it('includes grouped channels in init statements', () => {
+      const mixer = new Mixer();
+      const groupList = new ChannelList();
+      groupList.setAssociation('group-1');
+      groupList.setListName('Audio Layer Group');
+      const groupedChannel = new Channel();
+      groupedChannel.setAssociation('layer-1');
+      groupedChannel.setName('Layer 1');
+      groupList.push(groupedChannel);
+      mixer.getChannelListGroups().push(groupList);
+
+      const assignments = new Map<Channel, number>();
+      assignments.set(groupedChannel, 0);
+      assignments.set(mixer.getMaster(), 1);
+      const init = mixer.getInitStatements(assignments, 2);
+
+      expect(init).toContain('ga_bluemix_0_0\tinit\t0');
+      expect(init).toContain('ga_bluemix_0_1\tinit\t0');
     });
   });
 });

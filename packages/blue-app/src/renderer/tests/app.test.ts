@@ -254,11 +254,13 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().mixer.channels).toEqual(refreshed.mixer.channels);
   });
 
-  it('keeps audio-layer mixer channels visible when updating channel gain', async () => {
-    const snapshot = createEmptyProjectEditorSnapshot();
-    snapshot.filePath = '/path/to/test.blue';
-    snapshot.loaded = true;
-    snapshot.score.layerGroups = [
+  it('optimistically applies renameLayerGroup and refreshes canonical state', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1, sessionId: 0 });
+
+    const initial = createEmptyProjectEditorSnapshot();
+    initial.filePath = '/path/to/test.blue';
+    initial.loaded = true;
+    initial.score.layerGroups = [
       {
         groupId: 'audio-group',
         groupType: 'audio',
@@ -277,22 +279,85 @@ describe('Project Store', () => {
         ],
       },
     ];
-    snapshot.mixer.channels = [
+
+    const refreshed = structuredClone(initial);
+    refreshed.score.layerGroups[0]!.name = 'Renamed Group';
+    mockBlueAPI.getProjectDocument.mockResolvedValue(refreshed);
+
+    useProjectStore.getState().setProjectInfo(initial);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: {
+        type: 'renameLayerGroup',
+        groupId: 'audio-group',
+        name: 'Renamed Group',
+      },
+    });
+
+    expect(useProjectStore.getState().score.layerGroups[0]?.name).toBe('Renamed Group');
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
       {
-        id: 'audio-ch-0',
-        name: 'Layer 1',
-        channelKind: 'instrument',
-        association: 'audio-layer-0-unique',
-        outChannel: 'Master',
-        muted: false,
-        solo: false,
-        level: 0,
-        volume: 1,
-        pan: 0.5,
-        preChain: [],
-        postChain: [],
+        score: {
+          type: 'renameLayerGroup',
+          groupId: 'audio-group',
+          name: 'Renamed Group',
+        },
+      },
+    ]);
+    expect(mockBlueAPI.getProjectDocument).toHaveBeenCalled();
+  });
+
+  it('keeps audio-layer mixer channels visible when updating channel gain', async () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    snapshot.filePath = '/path/to/test.blue';
+    snapshot.loaded = true;
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0-unique',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
       },
     ];
+    snapshot.mixer.channelListGroups = [
+      {
+        association: 'audio-group-unique',
+        listName: 'Audio Layer Group',
+        listNameEditSupported: true,
+        channels: [
+          {
+            id: 'audio-ch-0',
+            name: 'Layer 1',
+            channelKind: 'instrument',
+            association: 'audio-layer-0-unique',
+            outChannel: 'Master',
+            muted: false,
+            solo: false,
+            level: 0,
+            volume: 1,
+            pan: 0.5,
+            preChain: [],
+            postChain: [],
+          },
+        ],
+      },
+    ];
+    snapshot.mixer.channels = [];
 
     useProjectStore.getState().setProjectInfo(snapshot);
 
@@ -304,7 +369,7 @@ describe('Project Store', () => {
       },
     });
 
-    expect(useProjectStore.getState().mixer.channels).toEqual([
+    expect(useProjectStore.getState().mixer.channelListGroups[0]?.channels).toEqual([
       expect.objectContaining({
         id: 'audio-ch-0',
         association: 'audio-layer-0-unique',
@@ -328,7 +393,7 @@ describe('Project Store', () => {
         isOpenableContainer: false,
         layers: [
           {
-            layerId: 'audio-layer-0',
+            layerId: 'audio-layer-0-unique',
             name: 'Layer 1',
             height: 44,
             muted: false,
@@ -338,29 +403,37 @@ describe('Project Store', () => {
         ],
       },
     ];
-    snapshot.mixer.channels = [
+    snapshot.mixer.channelListGroups = [
       {
-        id: 'audio-ch-0',
-        name: 'Layer 1',
-        channelKind: 'instrument',
-        association: 'audio-layer-0-unique',
-        outChannel: 'Master',
-        muted: false,
-        solo: false,
-        level: 0,
-        volume: 1,
-        pan: 0.5,
-        preChain: [],
-        postChain: [],
+        association: 'audio-group-unique',
+        listName: 'Audio Layer Group',
+        listNameEditSupported: true,
+        channels: [
+          {
+            id: 'audio-ch-0',
+            name: 'Layer 1',
+            channelKind: 'instrument',
+            association: 'audio-layer-0-unique',
+            outChannel: 'Master',
+            muted: false,
+            solo: false,
+            level: 0,
+            volume: 1,
+            pan: 0.5,
+            preChain: [],
+            postChain: [],
+          },
+        ],
       },
     ];
+    snapshot.mixer.channels = [];
 
     useProjectStore.getState().setProjectInfo(snapshot);
 
-    useProjectStore.getState().renameLayer('audio-layer-0', 'Renamed Layer');
+    useProjectStore.getState().renameLayer('audio-layer-0-unique', 'Renamed Layer');
 
     expect(useProjectStore.getState().score.layerGroups[0]?.layers[0]?.name).toBe('Renamed Layer');
-    expect(useProjectStore.getState().mixer.channels[0]?.name).toBe('Renamed Layer');
+    expect(useProjectStore.getState().mixer.channelListGroups[0]?.channels[0]?.name).toBe('Renamed Layer');
 
     __testFlushPendingPatches();
     await __testAwaitPendingPatches();
@@ -390,7 +463,7 @@ describe('Project Store', () => {
         isOpenableContainer: false,
         layers: [
           {
-            layerId: 'audio-layer-0',
+            layerId: 'audio-layer-0-unique',
             name: 'Layer 1',
             height: 44,
             muted: false,
@@ -400,22 +473,30 @@ describe('Project Store', () => {
         ],
       },
     ];
-    snapshot.mixer.channels = [
+    snapshot.mixer.channelListGroups = [
       {
-        id: 'audio-ch-0',
-        name: 'Layer 1',
-        channelKind: 'instrument',
-        association: 'audio-layer-0-unique',
-        outChannel: 'Master',
-        muted: false,
-        solo: false,
-        level: 0,
-        volume: 1,
-        pan: 0.5,
-        preChain: [],
-        postChain: [],
+        association: 'audio-group-unique',
+        listName: 'Audio Layer Group',
+        listNameEditSupported: true,
+        channels: [
+          {
+            id: 'audio-ch-0',
+            name: 'Layer 1',
+            channelKind: 'instrument',
+            association: 'audio-layer-0-unique',
+            outChannel: 'Master',
+            muted: false,
+            solo: false,
+            level: 0,
+            volume: 1,
+            pan: 0.5,
+            preChain: [],
+            postChain: [],
+          },
+        ],
       },
     ];
+    snapshot.mixer.channels = [];
 
     useProjectStore.getState().setProjectInfo(snapshot);
 
@@ -427,7 +508,9 @@ describe('Project Store', () => {
       },
     });
 
-    expect(useProjectStore.getState().mixer.channels[0]?.name).toBe('Renamed From Mixer');
+    expect(useProjectStore.getState().mixer.channelListGroups[0]?.channels[0]?.name).toBe(
+      'Renamed From Mixer',
+    );
     expect(useProjectStore.getState().score.layerGroups[0]?.layers[0]?.name).toBe('Renamed From Mixer');
   });
 

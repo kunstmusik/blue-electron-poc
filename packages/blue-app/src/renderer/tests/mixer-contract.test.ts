@@ -88,7 +88,7 @@ describe('Mixer contract', () => {
     );
   });
 
-  it('adds audio-layer source channels ahead of instrument channels in the canonical mixer snapshot', () => {
+  it('stores audio-layer source channels in mixer channelListGroups and keeps orchestra channels flat', () => {
     const data = new BlueData();
     data.getScore().length = 0;
 
@@ -107,20 +107,31 @@ describe('Mixer contract', () => {
 
     const snapshot = createProjectEditorSnapshot(data, '/tmp/test.blue');
 
-    expect(snapshot.mixer?.channels.map((channel) => ({
+    expect(snapshot.mixer?.channelListGroups).toHaveLength(1);
+    expect(snapshot.mixer?.channelListGroups[0]?.association).toBe(audioGroup.getUniqueId());
+    expect(snapshot.mixer?.channelListGroups[0]?.listName).toBe(audioGroup.getName());
+    expect(snapshot.mixer?.channelListGroups[0]?.channels.map((channel) => ({
       name: channel.name,
       association: channel.association,
     }))).toEqual([
       { name: 'Audio A', association: layerA.getUniqueId() },
       { name: 'Audio B', association: layerB.getUniqueId() },
+    ]);
+
+    expect(snapshot.mixer?.channels.map((channel) => ({
+      name: channel.name,
+      association: channel.association,
+    }))).toEqual([
       { name: 'Lead', association: '1' },
     ]);
 
-    expect(data.getMixer().getChannels().map((channel) => channel.getAssociation())).toEqual([
-      layerA.getUniqueId(),
-      layerB.getUniqueId(),
-      '1',
-    ]);
+    expect(
+      Array.from(
+        data.getMixer().getChannelListGroups()[0] ?? [],
+        (channel) => channel.getAssociation(),
+      ),
+    ).toEqual([layerA.getUniqueId(), layerB.getUniqueId()]);
+    expect(Array.from(data.getMixer().getChannels(), (channel) => channel.getAssociation())).toEqual(['1']);
   });
 
   it('renames the bound audio layer when an audio mixer channel name changes canonically', () => {
@@ -134,7 +145,7 @@ describe('Mixer contract', () => {
     data.getScore().push(audioGroup);
 
     createProjectEditorSnapshot(data, '/tmp/test.blue');
-    const channel = data.getMixer().getChannels()[0];
+    const channel = data.getMixer().getChannelListGroups()[0]?.[0];
     const channelId = getMixerChannelSnapshotId(channel!);
 
     expect(
@@ -149,6 +160,63 @@ describe('Mixer contract', () => {
 
     expect(channel?.getName()).toBe('Renamed From Mixer');
     expect(layer.getName()).toBe('Renamed From Mixer');
+  });
+
+  it('syncs mixer channel list group label when audio layer group name changes', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audioGroup = new AudioLayerGroup();
+    audioGroup.setName('Original Group Name');
+    const layer = new AudioLayer();
+    layer.setName('Layer 1');
+    audioGroup.push(layer);
+    data.getScore().push(audioGroup);
+
+    const initialSnapshot = createProjectEditorSnapshot(data, '/tmp/test.blue');
+    const groupId = initialSnapshot.score?.layerGroups[0]?.groupId;
+    expect(groupId).toBeDefined();
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'renameLayerGroup',
+          groupId: groupId!,
+          name: 'Renamed Group Name',
+        },
+      }),
+    ).toBe(true);
+
+    expect(data.getMixer().getChannelListGroups()[0]?.getListName()).toBe('Renamed Group Name');
+    const snapshot = createProjectEditorSnapshot(data, '/tmp/test.blue');
+    expect(snapshot.mixer?.channelListGroups[0]?.listName).toBe('Renamed Group Name');
+  });
+
+  it('renaming mixer channel list group label syncs back to the audio layer group', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audioGroup = new AudioLayerGroup();
+    audioGroup.setName('Original Group Name');
+    const layer = new AudioLayer();
+    layer.setName('Layer 1');
+    audioGroup.push(layer);
+    data.getScore().push(audioGroup);
+
+    createProjectEditorSnapshot(data, '/tmp/test.blue');
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        mixer: {
+          type: 'renameChannelListGroup',
+          association: audioGroup.getUniqueId(),
+          name: 'Renamed From Mixer',
+        },
+      }),
+    ).toBe(true);
+
+    expect(audioGroup.getName()).toBe('Renamed From Mixer');
+    expect(data.getMixer().getChannelListGroups()[0]?.getListName()).toBe('Renamed From Mixer');
   });
 
   it('generates unique subchannel names when adding subchannels', () => {

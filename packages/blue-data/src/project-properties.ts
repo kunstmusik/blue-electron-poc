@@ -16,13 +16,13 @@ export class ProjectProperties {
   private _channels = '2';
 
   useZeroDbFS = false;
-  zeroDbFS = '32768';
+  zeroDbFS = '1';
 
   diskSampleRate = '44100';
   diskKsmps = '64';
   diskChannels = '2';
   diskUseZeroDbFS = false;
-  diskZeroDbFS = '32768';
+  diskZeroDbFS = '1';
 
   useAudioOut = true;
   useAudioIn = false;

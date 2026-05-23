@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 import type {
@@ -29,6 +29,12 @@ export default function MixerPanel(): React.ReactElement {
   );
 
   const [librarySnapshot, setLibrarySnapshot] = useState<EffectsLibrarySnapshot | null>(null);
+  const [groupRenameDialog, setGroupRenameDialog] = useState<{
+    association: string;
+    name: string;
+  } | null>(null);
+  const groupRenameInputRef = useRef<HTMLInputElement>(null);
+  const isGroupRenameDialogOpen = groupRenameDialog !== null;
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +74,40 @@ export default function MixerPanel(): React.ReactElement {
     },
     [handleMixerPatch],
   );
+
+  const openGroupRenameDialog = useCallback((association: string, currentName: string) => {
+    setGroupRenameDialog({ association, name: currentName });
+  }, []);
+
+  const closeGroupRenameDialog = useCallback(() => {
+    setGroupRenameDialog(null);
+  }, []);
+
+  const commitGroupRenameDialog = useCallback(() => {
+    if (!groupRenameDialog) {
+      return;
+    }
+
+    const nextName = groupRenameDialog.name.trim();
+    if (nextName.length > 0) {
+      handleMixerPatch({
+        type: 'renameChannelListGroup',
+        association: groupRenameDialog.association,
+        name: nextName,
+      });
+    }
+
+    closeGroupRenameDialog();
+  }, [groupRenameDialog, handleMixerPatch, closeGroupRenameDialog]);
+
+  useEffect(() => {
+    if (!isGroupRenameDialogOpen) {
+      return;
+    }
+
+    groupRenameInputRef.current?.focus();
+    groupRenameInputRef.current?.select();
+  }, [isGroupRenameDialogOpen]);
 
   if (!loaded) {
     return (
@@ -120,39 +160,81 @@ export default function MixerPanel(): React.ReactElement {
 
         <div className="mixer-main">
           <div className="mixer-channels-scroll">
+            {mixer.channelListGroups.map((group, index) => (
+              group.channels.length > 0 ? (
+                <div
+                  key={group.association ?? `channel-group-${index}`}
+                  className="mixer-channel-group"
+                >
+                  <div
+                    className="mixer-channel-group__header"
+                    onDoubleClick={() => {
+                      if (!group.association) {
+                        return;
+                      }
+                      openGroupRenameDialog(group.association, group.listName || 'Audio Layer Group');
+                    }}
+                    title={group.association ? 'Double-click to rename group' : undefined}
+                  >
+                    {group.listName || 'Audio Layer Group'}
+                  </div>
+                  <div className="mixer-channel-group__strips">
+                    {group.channels.map((channel) => (
+                      <ChannelStrip
+                        key={channel.id}
+                        mixer={mixer}
+                        channel={channel}
+                        isMaster={false}
+                        isSubChannel={false}
+                        librarySnapshot={librarySnapshot}
+                        onPatch={handleMixerPatch}
+                        onOpenLibrary={handleOpenLibrary}
+                        onOpenEffectInterface={handleOpenEffectInterface}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null
+            ))}
             {mixer.channels.length > 0 && (
               <div className="mixer-channel-group">
-                {mixer.channels.map((channel) => (
-                  <ChannelStrip
-                    key={channel.id}
-                    mixer={mixer}
-                    channel={channel}
-                    isMaster={false}
-                    isSubChannel={false}
-                    librarySnapshot={librarySnapshot}
-                    onPatch={handleMixerPatch}
-                    onOpenLibrary={handleOpenLibrary}
-                    onOpenEffectInterface={handleOpenEffectInterface}
-                  />
-                ))}
+                <div className="mixer-channel-group__header">Orchestra</div>
+                <div className="mixer-channel-group__strips">
+                  {mixer.channels.map((channel) => (
+                    <ChannelStrip
+                      key={channel.id}
+                      mixer={mixer}
+                      channel={channel}
+                      isMaster={false}
+                      isSubChannel={false}
+                      librarySnapshot={librarySnapshot}
+                      onPatch={handleMixerPatch}
+                      onOpenLibrary={handleOpenLibrary}
+                      onOpenEffectInterface={handleOpenEffectInterface}
+                    />
+                  ))}
+                </div>
               </div>
             )}
             {mixer.subChannels.length > 0 && (
               <div className="mixer-channel-group">
-                {mixer.subChannels.map((channel) => (
-                  <ChannelStrip
-                    key={channel.id}
-                    mixer={mixer}
-                    channel={channel}
-                    isMaster={false}
-                    isSubChannel
-                    librarySnapshot={librarySnapshot}
-                    onPatch={handleMixerPatch}
-                    onOpenLibrary={handleOpenLibrary}
-                    onOpenEffectInterface={handleOpenEffectInterface}
-                    onRemoveSubChannel={handleRemoveSubChannel}
-                  />
-                ))}
+                <div className="mixer-channel-group__header">Subchannels</div>
+                <div className="mixer-channel-group__strips">
+                  {mixer.subChannels.map((channel) => (
+                    <ChannelStrip
+                      key={channel.id}
+                      mixer={mixer}
+                      channel={channel}
+                      isMaster={false}
+                      isSubChannel
+                      librarySnapshot={librarySnapshot}
+                      onPatch={handleMixerPatch}
+                      onOpenLibrary={handleOpenLibrary}
+                      onOpenEffectInterface={handleOpenEffectInterface}
+                      onRemoveSubChannel={handleRemoveSubChannel}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -171,6 +253,60 @@ export default function MixerPanel(): React.ReactElement {
           </div>
         </div>
       </div>
+
+      {groupRenameDialog && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={closeGroupRenameDialog}
+        >
+          <div
+            className="w-90 rounded-lg border border-blue-border/50 bg-blue-bg shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-blue-border/30 px-4 py-3 text-sm font-medium text-blue-text">
+              Edit Audio Layer Group Name
+            </div>
+            <div className="px-4 py-3">
+              <input
+                ref={groupRenameInputRef}
+                className="w-full rounded-sm border border-blue-accent/40 bg-blue-surface/60 px-2 py-1 text-sm text-blue-text outline-none"
+                value={groupRenameDialog.name}
+                onChange={(event) => {
+                  setGroupRenameDialog((prev) => (
+                    prev
+                      ? { ...prev, name: event.target.value }
+                      : prev
+                  ));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    commitGroupRenameDialog();
+                  }
+                  if (event.key === 'Escape') {
+                    closeGroupRenameDialog();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-blue-border/30 px-4 py-3">
+              <button
+                type="button"
+                className="rounded border border-blue-border/50 bg-blue-surface/40 px-3 py-1 text-xs text-blue-muted hover:text-blue-text"
+                onClick={closeGroupRenameDialog}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded border border-blue-accent/60 bg-blue-accent/30 px-3 py-1 text-xs text-blue-text"
+                onClick={commitGroupRenameDialog}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

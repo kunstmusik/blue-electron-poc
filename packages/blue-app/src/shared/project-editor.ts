@@ -1,6 +1,7 @@
 import {
   BlueData,
   Channel,
+  ChannelList,
   BlueSynthBuilder,
   BlueX7,
   BSBGroup,
@@ -836,9 +837,17 @@ export interface MixerChannelSnapshot {
   postChain: MixerChainEntrySnapshot[];
 }
 
+export interface MixerChannelListSnapshot {
+  association?: string;
+  listName: string;
+  listNameEditSupported: boolean;
+  channels: MixerChannelSnapshot[];
+}
+
 export interface MixerSnapshot {
   enabled: boolean;
   extraRenderTime: number;
+  channelListGroups: MixerChannelListSnapshot[];
   channels: MixerChannelSnapshot[];
   subChannels: MixerChannelSnapshot[];
   master: MixerChannelSnapshot;
@@ -894,6 +903,7 @@ export interface MixerChainClipboardPayload {
 export type MixerPatch =
   | { type: 'setMixerEnabled'; value: boolean }
   | { type: 'updateExtraRenderTime'; value: number }
+  | { type: 'renameChannelListGroup'; association: string; name: string }
   | { type: 'updateChannel'; channelId: string; patch: Partial<MixerChannelEditableFields> }
   | { type: 'addSubChannel'; name?: string; insertIndex?: number; channelId?: string }
   | { type: 'removeSubChannel'; channelId: string }
@@ -1888,9 +1898,21 @@ export function createEmptyMixerSnapshot(): MixerSnapshot {
   return {
     enabled: true,
     extraRenderTime: 0,
+    channelListGroups: [],
     channels: [],
     subChannels: [],
     master: createMixerChannelSnapshot(master, 'master'),
+  };
+}
+
+function createMixerChannelListSnapshot(channelList: ChannelList): MixerChannelListSnapshot {
+  return {
+    association: channelList.getAssociation() ?? undefined,
+    listName: channelList.getListName(),
+    listNameEditSupported: channelList.isListNameEditSupported(),
+    channels: Array.from(channelList, (channel) =>
+      createMixerChannelSnapshot(channel, 'instrument'),
+    ),
   };
 }
 
@@ -1898,10 +1920,13 @@ export function createMixerSnapshot(mixer: Mixer): MixerSnapshot {
   return {
     enabled: mixer.isEnabled(),
     extraRenderTime: mixer.getExtraRenderTime(),
-    channels: mixer.getChannels().map((channel) =>
+    channelListGroups: mixer.getChannelListGroups().map((channelList) =>
+      createMixerChannelListSnapshot(channelList),
+    ),
+    channels: Array.from(mixer.getChannels(), (channel) =>
       createMixerChannelSnapshot(channel, 'instrument'),
     ),
-    subChannels: mixer.getSubChannels().map((channel) =>
+    subChannels: Array.from(mixer.getSubChannels(), (channel) =>
       createMixerChannelSnapshot(channel, 'subChannel'),
     ),
     master: createMixerChannelSnapshot(mixer.getMaster(), 'master'),
@@ -3311,6 +3336,7 @@ function scorePatchTouchesMixerAudioChannels(patch: ScorePatch): boolean {
     case 'addLayer':
     case 'removeLayer':
     case 'renameLayer':
+    case 'renameLayerGroup':
     case 'moveLayerGroup':
     case 'removeLayerGroup':
       return true;
@@ -6547,7 +6573,7 @@ export function applyProjectDocumentPatch(
             nextArrangementId: newId,
           }) || changed;
         if (newId && newId !== oldId) {
-          const channel = data.getMixer().getChannels().find(
+          const channel = data.getMixer().getAllSourceChannels().find(
             (ch) => ch.getAssociation().trim() === oldId,
           );
           if (channel) {
@@ -6726,7 +6752,7 @@ function findMixerChannelById(mixer: Mixer, channelId: string): Channel | null {
     return mixer.getMaster();
   }
 
-  const sourceChannel = mixer.getChannels().find(
+  const sourceChannel = mixer.getAllSourceChannels().find(
     (channel) => channel.getAssociation() === channelId || getMixerChannelSnapshotId(channel) === channelId,
   );
   if (sourceChannel) {
@@ -6744,7 +6770,7 @@ function findMixerChannelById(mixer: Mixer, channelId: string): Channel | null {
 }
 
 function reconcileSubChannelName(mixer: Mixer, oldName: string, newName: string): void {
-  const allChannels = [mixer.getMaster(), ...mixer.getChannels(), ...mixer.getSubChannels()];
+  const allChannels = [mixer.getMaster(), ...mixer.getAllSourceChannels(), ...mixer.getSubChannels()];
 
   for (const channel of allChannels) {
     if (channel.getOutChannel() === oldName) {
@@ -6760,7 +6786,7 @@ function reconcileSubChannelName(mixer: Mixer, oldName: string, newName: string)
 }
 
 function reconcileSubChannelRemoved(mixer: Mixer, removedName: string): void {
-  const allChannels = [mixer.getMaster(), ...mixer.getChannels(), ...mixer.getSubChannels()];
+  const allChannels = [mixer.getMaster(), ...mixer.getAllSourceChannels(), ...mixer.getSubChannels()];
 
   for (const channel of allChannels) {
     if (channel.getOutChannel() === removedName) {
@@ -7088,6 +7114,31 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
         return true;
       }
       return false;
+    case 'renameChannelListGroup': {
+      const targetAssociation = patch.association.trim();
+      const nextName = patch.name.trim();
+      if (targetAssociation.length === 0 || nextName.length === 0) {
+        return false;
+      }
+
+      let changed = false;
+
+      const group = mixer
+        .getChannelListGroups()
+        .find((candidate) => (candidate.getAssociation()?.trim() ?? '') === targetAssociation);
+      if (group && group.getListName() !== nextName) {
+        group.setListName(nextName);
+        changed = true;
+      }
+
+      const audioLayerGroup = findAudioLayerGroupByAssociation(data, targetAssociation);
+      if (audioLayerGroup && audioLayerGroup.getName() !== nextName) {
+        audioLayerGroup.setName(nextName);
+        changed = true;
+      }
+
+      return changed;
+    }
     case 'updateChannel': {
       const channel = findMixerChannelById(mixer, patch.channelId);
       if (!channel) {
@@ -7222,8 +7273,17 @@ export function reconcileMixerSnapshotWithArrangement(
     channelKind: 'subChannel' as MixerChannelKind,
   }));
 
+  const nextChannelListGroups = mixer.channelListGroups.map((group) => ({
+    ...group,
+    channels: group.channels.map((channel) => ({
+      ...channel,
+      channelKind: 'instrument' as MixerChannelKind,
+    })),
+  }));
+
   return {
     ...mixer,
+    channelListGroups: nextChannelListGroups,
     channels: nextChannels,
     subChannels: nextSubChannels,
     master: {
@@ -7238,10 +7298,16 @@ interface AudioLayerMixerChannelDescriptor {
   name: string;
 }
 
-function collectAudioLayerMixerChannelDescriptors(
+interface AudioLayerMixerChannelListDescriptor {
+  association: string;
+  listName: string;
+  channels: AudioLayerMixerChannelDescriptor[];
+}
+
+function collectAudioLayerMixerChannelListDescriptors(
   data: BlueData,
-): AudioLayerMixerChannelDescriptor[] {
-  const descriptors: AudioLayerMixerChannelDescriptor[] = [];
+): AudioLayerMixerChannelListDescriptor[] {
+  const descriptors: AudioLayerMixerChannelListDescriptor[] = [];
 
   for (let index = 0; index < data.getScore().length; index += 1) {
     const group = data.getScore()[index];
@@ -7249,64 +7315,90 @@ function collectAudioLayerMixerChannelDescriptors(
       continue;
     }
 
+    const channelDescriptors: AudioLayerMixerChannelDescriptor[] = [];
     for (let layerIndex = 0; layerIndex < group.length; layerIndex += 1) {
       const layer = group[layerIndex];
-      descriptors.push({
+      channelDescriptors.push({
         association: layer.getUniqueId(),
         name: layer.getName(),
       });
     }
+
+    descriptors.push({
+      association: group.getUniqueId(),
+      listName: group.getName(),
+      channels: channelDescriptors,
+    });
   }
 
   return descriptors;
 }
 
-function appendAudioLayerChannelsToMixerSnapshot(
-  reconciled: MixerSnapshot,
+function reconcileAudioLayerChannelListGroups(
   current: MixerSnapshot,
-  descriptors: AudioLayerMixerChannelDescriptor[],
-): MixerSnapshot {
-  if (descriptors.length === 0) {
-    return reconciled;
-  }
-
+  descriptors: AudioLayerMixerChannelListDescriptor[],
+): MixerChannelListSnapshot[] {
   const existingByAssociation = new Map(
-    current.channels
-      .filter((channel) => channel.association)
-      .map((channel) => [channel.association!, channel] as const),
+    current.channelListGroups
+      .filter((group) => group.association)
+      .map((group) => [group.association!, group] as const),
   );
+  const fallbackGroups = current.channelListGroups.filter((group) => !group.association);
+  let fallbackGroupIndex = 0;
 
-  const nextAudioChannels = descriptors.map((descriptor) => {
-    const existing = existingByAssociation.get(descriptor.association);
-    if (existing) {
+  return descriptors.map((descriptor) => {
+    const existingGroup =
+      existingByAssociation.get(descriptor.association) ??
+      fallbackGroups[fallbackGroupIndex++];
+    const existingChannelsByAssociation = new Map(
+      existingGroup?.channels
+        .filter((channel) => channel.association)
+        .map((channel) => [channel.association!, channel] as const) ?? [],
+    );
+    const fallbackChannels = existingGroup?.channels.filter((channel) => !channel.association) ?? [];
+    let fallbackChannelIndex = 0;
+
+    const channels = descriptor.channels.map((channelDescriptor) => {
+      const existingChannel =
+        existingChannelsByAssociation.get(channelDescriptor.association) ??
+        fallbackChannels[fallbackChannelIndex++];
+      if (existingChannel) {
+        return {
+          ...existingChannel,
+          channelKind: 'instrument' as MixerChannelKind,
+          name: channelDescriptor.name,
+          association: channelDescriptor.association,
+        };
+      }
+
       return {
-        ...existing,
-        name: descriptor.name,
-        association: descriptor.association,
+        id: channelDescriptor.association,
+        name: channelDescriptor.name,
         channelKind: 'instrument' as MixerChannelKind,
+        association: channelDescriptor.association,
+        outChannel: Mixer.MASTER_CHANNEL,
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
       };
-    }
+    });
 
     return {
-      id: descriptor.association,
-      name: descriptor.name,
-      channelKind: 'instrument' as MixerChannelKind,
       association: descriptor.association,
-      outChannel: Mixer.MASTER_CHANNEL,
-      muted: false,
-      solo: false,
-      level: 0,
-      volume: 1,
-      pan: 0.5,
-      preChain: [],
-      postChain: [],
+      listName: descriptor.listName,
+      listNameEditSupported: true,
+      channels,
     };
   });
+}
 
-  return {
-    ...reconciled,
-    channels: [...nextAudioChannels, ...reconciled.channels],
-  };
+function getMixerSourceChannelSnapshots(mixer: MixerSnapshot): MixerChannelSnapshot[] {
+  const groupedChannels = mixer.channelListGroups.flatMap((group) => group.channels);
+  return [...groupedChannels, ...mixer.channels];
 }
 
 function findAudioLayerByAssociation(
@@ -7335,17 +7427,43 @@ function findAudioLayerByAssociation(
   return null;
 }
 
+function findAudioLayerGroupByAssociation(
+  data: BlueData,
+  association: string | null | undefined,
+): AudioLayerGroup | null {
+  const targetAssociation = association?.trim() ?? '';
+  if (!targetAssociation) {
+    return null;
+  }
+
+  for (let index = 0; index < data.getScore().length; index += 1) {
+    const group = data.getScore()[index];
+    if (!(group instanceof AudioLayerGroup)) {
+      continue;
+    }
+
+    if (group.getUniqueId() === targetAssociation) {
+      return group;
+    }
+  }
+
+  return null;
+}
+
 export function reconcileMixerWithArrangement(data: BlueData): boolean {
   const mixer = data.getMixer();
   const orchestra = createOrchestraSnapshot(data);
   const currentSnapshot = createMixerSnapshot(mixer);
-  const reconciled = appendAudioLayerChannelsToMixerSnapshot(
-    reconcileMixerSnapshotWithArrangement(currentSnapshot, orchestra),
-    currentSnapshot,
-    collectAudioLayerMixerChannelDescriptors(data),
-  );
+  const reconciled = reconcileMixerSnapshotWithArrangement(currentSnapshot, orchestra);
+  const reconciledWithGroups: MixerSnapshot = {
+    ...reconciled,
+    channelListGroups: reconcileAudioLayerChannelListGroups(
+      currentSnapshot,
+      collectAudioLayerMixerChannelListDescriptors(data),
+    ),
+  };
 
-  const sourceChannels = mixer.getChannels();
+  const sourceChannels = mixer.getAllSourceChannels();
   const sourceByAssociation = new Map(
     sourceChannels
       .filter((channel) => channel.getAssociation().trim().length > 0)
@@ -7355,19 +7473,22 @@ export function reconcileMixerWithArrangement(data: BlueData): boolean {
     (channel) => channel.getAssociation().trim().length === 0,
   );
   let sourceFallbackIndex = 0;
+  const reconciledSourceSnapshots = getMixerSourceChannelSnapshots(reconciledWithGroups);
   let changed =
-    mixer.isEnabled() !== reconciled.enabled ||
-    mixer.getExtraRenderTime() !== reconciled.extraRenderTime ||
-    sourceChannels.length !== reconciled.channels.length ||
-    mixer.getSubChannels().length !== reconciled.subChannels.length ||
-    mixer.getMaster().getName() !== reconciled.master.name ||
-    mixer.getMaster().getOutChannel() !== reconciled.master.outChannel ||
-    mixer.getMaster().isMuted() !== reconciled.master.muted ||
-    mixer.getMaster().isSolo() !== reconciled.master.solo ||
-    mixer.getMaster().getLevel() !== reconciled.master.level ||
-    mixer.getMaster().getVolume() !== reconciled.master.volume ||
-    mixer.getMaster().getPan() !== reconciled.master.pan;
-  const nextSourceChannels = reconciled.channels.map((snapshot) => {
+    mixer.isEnabled() !== reconciledWithGroups.enabled ||
+    mixer.getExtraRenderTime() !== reconciledWithGroups.extraRenderTime ||
+    sourceChannels.length !== reconciledSourceSnapshots.length ||
+    mixer.getChannelListGroups().length !== reconciledWithGroups.channelListGroups.length ||
+    mixer.getChannels().length !== reconciledWithGroups.channels.length ||
+    mixer.getSubChannels().length !== reconciledWithGroups.subChannels.length ||
+    mixer.getMaster().getName() !== reconciledWithGroups.master.name ||
+    mixer.getMaster().getOutChannel() !== reconciledWithGroups.master.outChannel ||
+    mixer.getMaster().isMuted() !== reconciledWithGroups.master.muted ||
+    mixer.getMaster().isSolo() !== reconciledWithGroups.master.solo ||
+    mixer.getMaster().getLevel() !== reconciledWithGroups.master.level ||
+    mixer.getMaster().getVolume() !== reconciledWithGroups.master.volume ||
+    mixer.getMaster().getPan() !== reconciledWithGroups.master.pan;
+  const nextSourceChannels = reconciledSourceSnapshots.map((snapshot) => {
     const current =
       (snapshot.association
         ? sourceByAssociation.get(snapshot.association)
@@ -7387,9 +7508,7 @@ export function reconcileMixerWithArrangement(data: BlueData): boolean {
     ) {
       changed = true;
     }
-    if (snapshot.association) {
-      next.setAssociation(snapshot.association);
-    }
+    next.setAssociation(snapshot.association ?? '');
     next.setName(snapshot.name);
     next.setOutChannel(snapshot.outChannel);
     next.setMuted(snapshot.muted);
@@ -7400,7 +7519,36 @@ export function reconcileMixerWithArrangement(data: BlueData): boolean {
     return next;
   });
 
-  const nextSubChannels = reconciled.subChannels.map((snapshot, index) => {
+  const nextChannelListGroups = reconciledWithGroups.channelListGroups.map((groupSnapshot, index) => {
+    const currentGroup = mixer.getChannelListGroups()[index];
+    const nextGroup = new ChannelList();
+    const targetAssociation = groupSnapshot.association?.trim() ?? '';
+    nextGroup.setAssociation(targetAssociation.length > 0 ? targetAssociation : null);
+    nextGroup.setListName(groupSnapshot.listName);
+    nextGroup.setListNameEditSupported(groupSnapshot.listNameEditSupported);
+    if (
+      !currentGroup ||
+      (currentGroup.getAssociation()?.trim() ?? '') !== targetAssociation ||
+      currentGroup.getListName() !== groupSnapshot.listName ||
+      currentGroup.isListNameEditSupported() !== groupSnapshot.listNameEditSupported ||
+      currentGroup.length !== groupSnapshot.channels.length
+    ) {
+      changed = true;
+    }
+    const groupStart = reconciledWithGroups.channelListGroups
+      .slice(0, index)
+      .reduce((count, group) => count + group.channels.length, 0);
+    const groupEnd = groupStart + groupSnapshot.channels.length;
+    const groupChannels = nextSourceChannels.slice(groupStart, groupEnd);
+    nextGroup.push(...groupChannels);
+    return nextGroup;
+  });
+
+  const nextFlatChannels = nextSourceChannels.slice(
+    reconciledWithGroups.channelListGroups.reduce((count, group) => count + group.channels.length, 0),
+  );
+
+  const nextSubChannels = reconciledWithGroups.subChannels.map((snapshot, index) => {
     const current = mixer.getSubChannels()[index] ?? new Channel();
     if (
       !mixer.getSubChannels()[index] ||
@@ -7425,17 +7573,19 @@ export function reconcileMixerWithArrangement(data: BlueData): boolean {
   });
 
   if (changed) {
-    mixer.setEnabled(reconciled.enabled);
-    mixer.setExtraRenderTime(reconciled.extraRenderTime);
-    mixer.getChannels().splice(0, mixer.getChannels().length, ...nextSourceChannels);
+    mixer.setEnabled(reconciledWithGroups.enabled);
+    mixer.setExtraRenderTime(reconciledWithGroups.extraRenderTime);
+    mixer.clearChannelListGroups();
+    mixer.getChannelListGroups().push(...nextChannelListGroups);
+    mixer.getChannels().splice(0, mixer.getChannels().length, ...nextFlatChannels);
     mixer.getSubChannels().splice(0, mixer.getSubChannels().length, ...nextSubChannels);
-    mixer.getMaster().setName(reconciled.master.name);
-    mixer.getMaster().setOutChannel(reconciled.master.outChannel);
-    mixer.getMaster().setMuted(reconciled.master.muted);
-    mixer.getMaster().setSolo(reconciled.master.solo);
-    mixer.getMaster().setLevel(reconciled.master.level);
-    mixer.getMaster().setVolume(reconciled.master.volume);
-    mixer.getMaster().setPan(reconciled.master.pan);
+    mixer.getMaster().setName(reconciledWithGroups.master.name);
+    mixer.getMaster().setOutChannel(reconciledWithGroups.master.outChannel);
+    mixer.getMaster().setMuted(reconciledWithGroups.master.muted);
+    mixer.getMaster().setSolo(reconciledWithGroups.master.solo);
+    mixer.getMaster().setLevel(reconciledWithGroups.master.level);
+    mixer.getMaster().setVolume(reconciledWithGroups.master.volume);
+    mixer.getMaster().setPan(reconciledWithGroups.master.pan);
   }
 
   return changed;

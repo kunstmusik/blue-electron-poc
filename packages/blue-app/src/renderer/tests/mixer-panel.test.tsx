@@ -73,6 +73,36 @@ function seedLoadedProject(): void {
   mockProjectState.mixer = snapshot.mixer!;
 }
 
+function seedLoadedProjectWithAudioGroup(): void {
+  const snapshot = createEmptyMixerSnapshot();
+  snapshot.channelListGroups = [
+    {
+      association: 'audio-group-unique',
+      listName: 'Audio Layer Group',
+      listNameEditSupported: true,
+      channels: [
+        {
+          id: 'audio-channel-1',
+          name: 'Layer 1',
+          channelKind: 'instrument',
+          association: 'audio-layer-1',
+          outChannel: 'Master',
+          muted: false,
+          solo: false,
+          level: 0,
+          volume: 1,
+          pan: 0.5,
+          preChain: [],
+          postChain: [],
+        },
+      ],
+    },
+  ];
+
+  mockProjectState.loaded = true;
+  mockProjectState.mixer = snapshot;
+}
+
 function renderPanel(): { container: HTMLDivElement; root: Root } {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -83,6 +113,15 @@ function renderPanel(): { container: HTMLDivElement; root: Root } {
   });
 
   return { container, root };
+}
+
+function setTextInputValue(input: HTMLInputElement, value: string): void {
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )?.set;
+  valueSetter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 beforeEach(() => {
@@ -122,6 +161,48 @@ describe('MixerPanel', () => {
     expect(container.textContent).toContain('Lead Channel');
     expect(container.textContent).toContain('Master');
     expect(container.textContent).toContain('Add Subchannel');
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('opens rename dialog on double-clicking audio group header and commits rename patch', async () => {
+    seedLoadedProjectWithAudioGroup();
+    const { container, root } = renderPanel();
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const header = Array.from(container.querySelectorAll('.mixer-channel-group__header')).find(
+      (node) => node.textContent?.includes('Audio Layer Group'),
+    ) as HTMLDivElement;
+    expect(header).toBeTruthy();
+
+    act(() => {
+      header.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+
+    const input = container.querySelector('input:not([type])') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    act(() => {
+      setTextInputValue(input, 'Renamed From Mixer Header');
+    });
+
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    expect(mockProjectState.applyProjectDocumentPatch).toHaveBeenCalledWith({
+      mixer: {
+        type: 'renameChannelListGroup',
+        association: 'audio-group-unique',
+        name: 'Renamed From Mixer Header',
+      },
+    });
 
     act(() => {
       root.unmount();

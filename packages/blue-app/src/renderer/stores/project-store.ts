@@ -168,6 +168,7 @@ function scorePatchRequiresCanonicalProjectRefresh(patch: ScorePatch): boolean {
     case 'addLayer':
     case 'removeLayer':
     case 'renameLayer':
+    case 'renameLayerGroup':
     case 'moveLayerGroup':
     case 'removeLayerGroup':
       return true;
@@ -182,7 +183,10 @@ function patchesRequireCanonicalProjectRefresh(
   patches: ProjectDocumentPatch[],
 ): boolean {
   return patches.some(
-    (patch) => patch.score !== undefined && scorePatchRequiresCanonicalProjectRefresh(patch.score),
+    (patch) => (
+      (patch.score !== undefined && scorePatchRequiresCanonicalProjectRefresh(patch.score))
+      || patch.mixer?.type === 'renameChannelListGroup'
+    ),
   );
 }
 
@@ -979,6 +983,11 @@ function generateUniqueSubChannelName(existingNames: ReadonlySet<string>): strin
   }
 }
 
+function getMixerSourceChannels(mixer: MixerSnapshot): MixerChannelSnapshot[] {
+  const groupedChannels = mixer.channelListGroups.flatMap((group) => group.channels);
+  return [...groupedChannels, ...mixer.channels];
+}
+
 function findMixerChannelSnapshotById(
   mixer: MixerSnapshot,
   channelId: string,
@@ -987,7 +996,7 @@ function findMixerChannelSnapshotById(
     return mixer.master;
   }
 
-  const source = mixer.channels.find((channel) => channel.id === channelId);
+  const source = getMixerSourceChannels(mixer).find((channel) => channel.id === channelId);
   if (source) {
     return source;
   }
@@ -996,7 +1005,7 @@ function findMixerChannelSnapshotById(
 }
 
 function reconcileSubChannelNameInSnapshot(mixer: MixerSnapshot, oldName: string, newName: string): void {
-  const allChannels = [...mixer.channels, ...mixer.subChannels, mixer.master];
+  const allChannels = [...getMixerSourceChannels(mixer), ...mixer.subChannels, mixer.master];
 
   for (const channel of allChannels) {
     if (channel.outChannel === oldName) {
@@ -1012,7 +1021,7 @@ function reconcileSubChannelNameInSnapshot(mixer: MixerSnapshot, oldName: string
 }
 
 function reconcileSubChannelRemovedInSnapshot(mixer: MixerSnapshot, removedName: string): void {
-  const allChannels = [...mixer.channels, ...mixer.subChannels, mixer.master];
+  const allChannels = [...getMixerSourceChannels(mixer), ...mixer.subChannels, mixer.master];
 
   for (const channel of allChannels) {
     if (channel.outChannel === removedName) {
@@ -1053,19 +1062,33 @@ function createEffectEntrySnapshotFromXml(
 function applyChannelChainMutation(
   mixer: MixerSnapshot,
   channel: MixerChannelSnapshot,
-  mutatedChain: 'pre' | 'post',
   preChain: MixerChainEntrySnapshot[],
   postChain: MixerChainEntrySnapshot[],
 ): void {
   const updated = {
     ...channel,
-    preChain: mutatedChain === 'pre' ? preChain : channel.preChain,
-    postChain: mutatedChain === 'post' ? postChain : channel.postChain,
+    preChain,
+    postChain,
   };
 
   if (channel.id === mixer.master.id) {
     (mixer as { master: MixerChannelSnapshot }).master = updated;
   } else {
+    const groupIndex = mixer.channelListGroups.findIndex((group) =>
+      group.channels.some((candidate) => candidate.id === channel.id),
+    );
+    if (groupIndex >= 0) {
+      const group = mixer.channelListGroups[groupIndex]!;
+      const nextGroup = {
+        ...group,
+        channels: group.channels.map((candidate) =>
+          candidate.id === channel.id ? updated : candidate,
+        ),
+      };
+      mixer.channelListGroups[groupIndex] = nextGroup;
+      return;
+    }
+
     const idx = mixer.channels.findIndex((c) => c.id === channel.id);
     if (idx >= 0) {
       mixer.channels[idx] = updated;
@@ -1092,9 +1115,23 @@ function applyMixerPatchToSnapshot(
     case 'updateExtraRenderTime':
       next.extraRenderTime = patch.value;
       break;
+    case 'renameChannelListGroup': {
+      const targetAssociation = patch.association.trim();
+      const nextName = patch.name.trim();
+      if (targetAssociation.length === 0 || nextName.length === 0) {
+        break;
+      }
+
+      next.channelListGroups = next.channelListGroups.map((group) =>
+        (group.association?.trim() ?? '') === targetAssociation
+          ? { ...group, listName: nextName }
+          : group,
+      );
+      break;
+    }
     case 'updateChannel': {
       const channel =
-        next.channels.find((candidate) => candidate.id === patch.channelId) ??
+        getMixerSourceChannels(next).find((candidate) => candidate.id === patch.channelId) ??
         next.subChannels.find((candidate) => candidate.id === patch.channelId) ??
         (next.master.id === patch.channelId ? next.master : null);
       if (!channel) {
@@ -1106,6 +1143,12 @@ function applyMixerPatchToSnapshot(
         reconcileSubChannelNameInSnapshot(next, channel.name, patch.patch.name);
       }
 
+      next.channelListGroups = next.channelListGroups.map((group) => ({
+        ...group,
+        channels: group.channels.map((candidate) =>
+          candidate.id === channel.id ? { ...candidate, ...patch.patch } : candidate,
+        ),
+      }));
       next.channels = next.channels.map((candidate) =>
         candidate.id === channel.id ? { ...candidate, ...patch.patch } : candidate,
       );
@@ -1306,23 +1349,13 @@ function applyMixerPatchToSnapshot(
           postChain: updateChain(next.master.postChain, 'post'),
         };
       } else {
-        next.channels = next.channels.map((candidate) =>
-          candidate.id === channel.id
-            ? {
-                ...candidate,
-                preChain: updateChain(candidate.preChain, 'pre'),
-                postChain: updateChain(candidate.postChain, 'post'),
-              }
-            : candidate,
-        );
-        next.subChannels = next.subChannels.map((candidate) =>
-          candidate.id === channel.id
-            ? {
-                ...candidate,
-                preChain: updateChain(candidate.preChain, 'pre'),
-                postChain: updateChain(candidate.postChain, 'post'),
-              }
-            : candidate,
+        const nextPreChain = updateChain(channel.preChain, 'pre');
+        const nextPostChain = updateChain(channel.postChain, 'post');
+        applyChannelChainMutation(
+          next,
+          channel,
+          nextPreChain,
+          nextPostChain,
         );
       }
       break;
@@ -1341,8 +1374,8 @@ function applyMixerPatchToSnapshot(
       const insertIndex = patch.index ?? toEntries.length;
       toEntries.splice(Math.min(insertIndex, toEntries.length), 0, removed);
 
-      applyChannelChainMutation(next, fromChannel, patch.fromChain, [...fromChannel.preChain], [...fromChannel.postChain]);
-      applyChannelChainMutation(next, toChannel, patch.toChain, [...toChannel.preChain], [...toChannel.postChain]);
+      applyChannelChainMutation(next, fromChannel, [...fromChannel.preChain], [...fromChannel.postChain]);
+      applyChannelChainMutation(next, toChannel, [...toChannel.preChain], [...toChannel.postChain]);
       break;
     }
   }
@@ -1378,78 +1411,59 @@ function collectAudioLayerSnapshotLocations(
   return result;
 }
 
-function isAudioMixerChannelSnapshot(
-  channel: MixerChannelSnapshot,
-  assignmentIds: ReadonlySet<string>,
-): boolean {
-  return Boolean(channel.association) && !assignmentIds.has(channel.association!);
-}
-
 function applyAudioLayerRenameToMixerSnapshot(
   mixer: MixerSnapshot,
-  orchestra: OrchestraSnapshot,
   score: ScoreDocumentSnapshot,
   patch: Extract<ScorePatch, { type: 'renameLayer' }>,
 ): MixerSnapshot {
   const audioLayers = collectAudioLayerSnapshotLocations(score);
-  const targetLayerIndex = audioLayers.findIndex(
+  const targetLayer = audioLayers.find(
     (layer) => layer.groupId === patch.groupId && layer.layerIndex === patch.layerIndex,
   );
-  if (targetLayerIndex < 0) {
+  if (!targetLayer) {
     return mixer;
   }
 
-  const assignmentIds = new Set(orchestra.arrangement.rows.map((row) => row.assignmentId));
-  let audioChannelIndex = -1;
   let changed = false;
+  const nextChannelListGroups = mixer.channelListGroups.map((group) => {
+    const nextGroupChannels = group.channels.map((channel) => {
+      if (channel.association !== targetLayer.layerId || channel.name === patch.name) {
+        return channel;
+      }
+      changed = true;
+      return { ...channel, name: patch.name };
+    });
+    return nextGroupChannels === group.channels ? group : { ...group, channels: nextGroupChannels };
+  });
   const nextChannels = mixer.channels.map((channel) => {
-    if (!isAudioMixerChannelSnapshot(channel, assignmentIds)) {
+    if (channel.association !== targetLayer.layerId || channel.name === patch.name) {
       return channel;
     }
-
-    audioChannelIndex += 1;
-    if (audioChannelIndex !== targetLayerIndex || channel.name === patch.name) {
-      return channel;
-    }
-
     changed = true;
     return { ...channel, name: patch.name };
   });
 
-  return changed ? { ...mixer, channels: nextChannels } : mixer;
+  return changed ? { ...mixer, channelListGroups: nextChannelListGroups, channels: nextChannels } : mixer;
 }
 
 function applyMixerChannelRenameToAudioLayerSnapshot(
   score: ScoreDocumentSnapshot,
   mixer: MixerSnapshot,
-  orchestra: OrchestraSnapshot,
   patch: Extract<MixerPatch, { type: 'updateChannel' }>,
 ): ScoreDocumentSnapshot {
   if (patch.patch.name === undefined) {
     return score;
   }
 
-  const assignmentIds = new Set(orchestra.arrangement.rows.map((row) => row.assignmentId));
-  let targetAudioChannelIndex = -1;
-  let foundTarget = false;
-
-  for (const channel of mixer.channels) {
-    if (!isAudioMixerChannelSnapshot(channel, assignmentIds)) {
-      continue;
-    }
-
-    targetAudioChannelIndex += 1;
-    if (channel.id === patch.channelId) {
-      foundTarget = true;
-      break;
-    }
-  }
-
-  if (!foundTarget) {
+  const audioLayerLocations = collectAudioLayerSnapshotLocations(score);
+  const audioLayerIds = new Set(audioLayerLocations.map((layer) => layer.layerId));
+  const targetChannel = getMixerSourceChannels(mixer).find((channel) => channel.id === patch.channelId);
+  const targetAssociation = targetChannel?.association;
+  if (!targetAssociation || !audioLayerIds.has(targetAssociation)) {
     return score;
   }
 
-  const targetLayer = collectAudioLayerSnapshotLocations(score)[targetAudioChannelIndex];
+  const targetLayer = audioLayerLocations.find((layer) => layer.layerId === targetAssociation);
   if (!targetLayer) {
     return score;
   }
@@ -1734,6 +1748,12 @@ function applyScorePatchToSnapshot(
         index === patch.layerIndex ? { ...layer, name: patch.name } : layer);
       return { ...lg, layers };
     });
+    return { ...score, layerGroups: nextLayerGroups };
+  }
+
+  if (patch.type === 'renameLayerGroup') {
+    const nextLayerGroups = score.layerGroups.map((lg) =>
+      lg.groupId === patch.groupId ? { ...lg, name: patch.name } : lg);
     return { ...score, layerGroups: nextLayerGroups };
   }
 
@@ -3487,7 +3507,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           next.score = applyMixerChannelRenameToAudioLayerSnapshot(
             state.score,
             next.mixer,
-            next.orchestra,
             normalizedPatch.mixer,
           );
         }
@@ -3566,7 +3585,6 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
         if (normalizedPatch.score.type === 'renameLayer') {
           next.mixer = applyAudioLayerRenameToMixerSnapshot(
             next.mixer,
-            next.orchestra,
             next.score,
             normalizedPatch.score,
           );

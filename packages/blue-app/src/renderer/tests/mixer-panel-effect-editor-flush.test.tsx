@@ -52,11 +52,12 @@ const { mockProjectState, mockUIState } = vi.hoisted(() => ({
     mixer: {
       enabled: true,
       extraRenderTime: 0,
+      channelListGroups: [],
       channels: [
         {
           id: 'channel-1',
           name: 'Lead Channel',
-          channelKind: 'channel',
+          channelKind: 'instrument',
           association: '1',
           outChannel: 'Master',
           muted: false,

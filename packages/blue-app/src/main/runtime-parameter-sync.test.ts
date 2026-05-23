@@ -24,7 +24,7 @@ describe('syncCompiledRuntimeParameterNames', () => {
     const liveInstrumentChannel = data.getMixer().getChannels().find(
       (channel) => channel.getAssociation() === '1',
     );
-    const liveAudioChannel = data.getMixer().getChannels().find(
+    const liveAudioChannel = data.getMixer().getAllSourceChannels().find(
       (channel) => channel.getAssociation() === layer.getUniqueId(),
     );
 

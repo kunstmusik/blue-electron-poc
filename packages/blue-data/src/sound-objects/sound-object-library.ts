@@ -111,6 +111,7 @@ export class SoundObjectLibrary implements BlueDataObject {
 
   static loadFromXML(data: Element, objRefMap?: ObjRefLoadMap): SoundObjectLibrary {
     const lib = new SoundObjectLibrary();
+    let legacyIndex = 0;
     const children = data.getElements();
     while (children.hasMoreElements()) {
       const node = children.next();
@@ -128,6 +129,13 @@ export class SoundObjectLibrary implements BlueDataObject {
             if (!isNaN(numPart) && numPart >= lib._nextId) {
               lib._nextId = numPart + 1;
             }
+          } else {
+            // Legacy files (pre-objRefId): register by insertion index so
+            // Instance sound objects that store numeric IDs can still resolve.
+            if (objRefMap) {
+              objRefMap.register(String(legacyIndex), sObj);
+            }
+            legacyIndex++;
           }
         }
       }

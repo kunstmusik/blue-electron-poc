@@ -81,6 +81,15 @@ function clickMenuItem(item: HTMLElement): void {
   item.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
 }
 
+function setTextInputValue(input: HTMLInputElement, value: string): void {
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    'value',
+  )?.set;
+  valueSetter?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 beforeEach(() => {
   mockProjectState.applyProjectDocumentPatch.mockReset();
   mockProjectState.addLayer.mockReset();
@@ -119,6 +128,43 @@ describe('ScoreManagerDialog', () => {
         type: 'addLayerGroup',
         groupType: 'audio',
         insertAtIndex: 1,
+      },
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it('commits layer-group rename on Enter', () => {
+    const { container, root } = renderDialog();
+
+    const firstGroupRow = Array.from(container.querySelectorAll('.cursor-pointer')).find((node) =>
+      node.textContent?.trim() === 'Existing Group',
+    ) as HTMLDivElement;
+    expect(firstGroupRow.textContent).toContain('Existing Group');
+
+    act(() => {
+      firstGroupRow.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      firstGroupRow.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    });
+
+    const input = container.querySelector('input:not([type])') as HTMLInputElement;
+    expect(input).toBeTruthy();
+
+    act(() => {
+      setTextInputValue(input, 'Renamed Group');
+    });
+
+    act(() => {
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+
+    expect(mockProjectState.applyProjectDocumentPatch).toHaveBeenCalledWith({
+      score: {
+        type: 'renameLayerGroup',
+        groupId: 'lg-1',
+        name: 'Renamed Group',
       },
     });
 

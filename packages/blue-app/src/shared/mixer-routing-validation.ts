@@ -26,7 +26,7 @@ function resolveChannelNameToId(mixer: MixerSnapshot, name: string): string {
   if (name === mixer.master.name) return mixer.master.id;
   const sub = mixer.subChannels.find((ch) => ch.name === name);
   if (sub) return sub.id;
-  const inst = mixer.channels.find((ch) => ch.name === name);
+  const inst = getSourceChannels(mixer).find((ch) => ch.name === name);
   if (inst) return inst.id;
   return name;
 }
@@ -204,10 +204,15 @@ function isPossibleOut(
 
 function getAllChannels(mixer: MixerSnapshot): MixerChannelSnapshot[] {
   return [
-    ...mixer.channels,
+    ...getSourceChannels(mixer),
     ...mixer.subChannels,
     mixer.master,
   ];
+}
+
+function getSourceChannels(mixer: MixerSnapshot): MixerChannelSnapshot[] {
+  const groupedChannels = mixer.channelListGroups.flatMap((group) => group.channels);
+  return [...groupedChannels, ...mixer.channels];
 }
 
 function findChannelById(

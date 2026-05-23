@@ -130,6 +130,7 @@ function createMixerSnapshot(channel: MixerChannelSnapshot): MixerSnapshot {
   return {
     enabled: true,
     extraRenderTime: 0,
+    channelListGroups: [],
     channels: [],
     subChannels: [channel],
     master: {

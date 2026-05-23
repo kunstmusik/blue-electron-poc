@@ -899,7 +899,27 @@
 
 .mixer-channel-group {
   display: flex;
+  flex-direction: column;
   border-right: 2px solid #1e3a5f;
+}
+
+.mixer-channel-group__header {
+  min-height: 22px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c6d4e6;
+  background: #10192a;
+  border-bottom: 1px solid #1e3a5f;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mixer-channel-group__strips {
+  display: flex;
+  min-height: 0;
+  flex: 1;
 }
 
 .mixer-master-strip {

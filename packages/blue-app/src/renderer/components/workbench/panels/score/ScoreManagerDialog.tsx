@@ -63,12 +63,19 @@ export default function ScoreManagerDialog({ score, onClose }: Props) {
   }, [selectedGroupIndex, groups, applyPatch]);
 
   const commitGroupRename = useCallback(() => {
+    const editingIndex = editingGroupRow;
     setEditingGroupRow(-1);
-    const trimmed = editGroupName.trim();
-    if (trimmed && selectedGroup && trimmed !== (selectedGroup.name || '')) {
-      applyPatch({ score: { type: 'renameLayerGroup', groupId: selectedGroup.groupId, name: trimmed } });
+
+    if (editingIndex < 0 || editingIndex >= groups.length) {
+      return;
     }
-  }, [editGroupName, selectedGroup, applyPatch]);
+
+    const group = groups[editingIndex];
+    const trimmed = editGroupName.trim();
+    if (trimmed && group && trimmed !== (group.name || '')) {
+      applyPatch({ score: { type: 'renameLayerGroup', groupId: group.groupId, name: trimmed } });
+    }
+  }, [editingGroupRow, groups, editGroupName, applyPatch]);
 
   const handleGroupDoubleClick = useCallback((index: number) => {
     const g = groups[index];

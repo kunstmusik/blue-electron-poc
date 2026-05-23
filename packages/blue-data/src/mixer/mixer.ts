@@ -12,6 +12,7 @@ export class Mixer implements BlueDataObject {
   static readonly MASTER_CHANNEL = "Master";
 
   private _enabled = true;
+  private _channelListGroups: ChannelList[] = [];
   private _channels = new ChannelList();
   private _subChannels = new ChannelList();
   private _master = new Channel();
@@ -20,6 +21,10 @@ export class Mixer implements BlueDataObject {
 
   constructor() {
     this._master.setName(Mixer.MASTER_CHANNEL);
+    this._channels.setListName("Orchestra");
+    this._channels.setListNameEditSupported(false);
+    this._subChannels.setListName("SubChannels");
+    this._subChannels.setListNameEditSupported(false);
   }
 
   isEnabled(): boolean {
@@ -36,6 +41,12 @@ export class Mixer implements BlueDataObject {
     this._extraRenderTime = t;
   }
 
+  getChannelListGroups(): ChannelList[] {
+    return this._channelListGroups;
+  }
+  clearChannelListGroups(): void {
+    this._channelListGroups = [];
+  }
   getChannels(): ChannelList {
     return this._channels;
   }
@@ -71,7 +82,12 @@ export class Mixer implements BlueDataObject {
   }
 
   getAllSourceChannels(): Channel[] {
-    return Array.from(this._channels);
+    const result: Channel[] = [];
+    for (const group of this._channelListGroups) {
+      result.push(...group);
+    }
+    result.push(...this._channels);
+    return result;
   }
 
   /**
@@ -93,7 +109,7 @@ export class Mixer implements BlueDataObject {
     const lines: string[] = [];
 
     // Source channels: ga_bluemix_{id}_{ch}
-    for (const channel of this._channels) {
+    for (const channel of this.getAllSourceChannels()) {
       const id = channelIdAssignments.get(channel);
       if (id === undefined) continue;
       for (let ch = 0; ch < nchnls; ch++) {
@@ -112,8 +128,6 @@ export class Mixer implements BlueDataObject {
     }
 
     // Master channel: ga_bluesub_Master_{ch}
-    // Master is the last channel in the assignments
-    const masterId = channelIdAssignments.size;
     for (let ch = 0; ch < nchnls; ch++) {
       lines.push(`ga_bluesub_Master_${ch}\tinit\t0`);
     }
@@ -131,6 +145,13 @@ export class Mixer implements BlueDataObject {
   saveAsXML(): Element {
     const elem = new Element("mixer");
     elem.addElement(writeBoolean("enabled", this._enabled));
+
+    if (this._channelListGroups.length > 0) {
+      const groupsElem = elem.addElement('channelListGroups');
+      for (const cl of this._channelListGroups) {
+        groupsElem.addElement(cl.saveAsXML());
+      }
+    }
 
     const channelsElem = this._channels.saveAsXML();
     channelsElem.setAttribute("list", "channels");
@@ -163,7 +184,7 @@ export class Mixer implements BlueDataObject {
     if (channelListGroups) {
       const groupedLists = channelListGroups.getElements("channelList");
       while (groupedLists.hasMoreElements()) {
-        appendChannels(mixer._channels, ChannelList.loadFromXML(groupedLists.next()));
+        mixer._channelListGroups.push(ChannelList.loadFromXML(groupedLists.next()));
       }
     }
 
@@ -181,12 +202,24 @@ export class Mixer implements BlueDataObject {
 
     if (mixer._channels.length === 0) {
       const chNode = data.getElement("channels");
-      if (chNode) mixer._channels = ChannelList.loadFromXML(chNode);
+      if (chNode) {
+        mixer._channels = ChannelList.loadFromXML(chNode);
+      }
     }
     if (mixer._subChannels.length === 0) {
       const subChNode = data.getElement("subChannels");
-      if (subChNode) mixer._subChannels = ChannelList.loadFromXML(subChNode);
+      if (subChNode) {
+        mixer._subChannels = ChannelList.loadFromXML(subChNode);
+      }
     }
+
+    mixer._channels.setListNameEditSupported(true);
+    mixer._channels.setListName("Orchestra");
+    mixer._channels.setListNameEditSupported(false);
+
+    mixer._subChannels.setListNameEditSupported(true);
+    mixer._subChannels.setListName("SubChannels");
+    mixer._subChannels.setListNameEditSupported(false);
 
     const channelNodes = data.getElements("channel");
     while (channelNodes.hasMoreElements()) {
@@ -207,6 +240,7 @@ export class Mixer implements BlueDataObject {
   deepCopy(): BlueDataObject {
     const copy = new Mixer();
     copy._enabled = this._enabled;
+    copy._channelListGroups = this._channelListGroups.map(cl => cl.deepCopy() as ChannelList);
     copy._channels = this._channels.deepCopy() as ChannelList;
     copy._subChannels = this._subChannels.deepCopy() as ChannelList;
     copy._master = this._master.deepCopy() as Channel;

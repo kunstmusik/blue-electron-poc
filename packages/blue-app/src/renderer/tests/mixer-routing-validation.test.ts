@@ -38,6 +38,7 @@ function makeMixerSnapshot(overrides?: Partial<MixerSnapshot>): MixerSnapshot {
   return {
     enabled: true,
     extraRenderTime: 0.0,
+    channelListGroups: [],
     channels: [],
     subChannels: [],
     master: makeChannel({
@@ -171,6 +172,41 @@ describe('validateMixerRouting', () => {
       expect.objectContaining({
         severity: 'warning',
         code: 'feedback-risk',
+      }),
+    );
+  });
+
+  it('includes grouped source channels when resolving send targets', () => {
+    const mixer = makeMixerSnapshot({
+      channelListGroups: [
+        {
+          association: 'audio-group-1',
+          listName: 'Audio Layer Group',
+          listNameEditSupported: true,
+          channels: [
+            makeChannel({
+              id: 'audio-1',
+              name: 'Audio Layer 1',
+              channelKind: 'instrument',
+              association: 'layer-1',
+            }),
+          ],
+        },
+      ],
+      subChannels: [
+        makeChannel({
+          id: 'sub1',
+          name: 'Sub1',
+          channelKind: 'subChannel',
+          outChannel: 'Master',
+        }),
+      ],
+    });
+    const issue = validateSendTarget(mixer, 'sub1', 'Audio Layer 1');
+    expect(issue).toEqual(
+      expect.objectContaining({
+        severity: 'error',
+        code: 'invalid-paste-target',
       }),
     );
   });
