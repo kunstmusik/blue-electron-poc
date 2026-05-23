@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { useOutputStore } from '../stores/output-store';
+import { useOutputStore, MAX_LINES } from '../stores/output-store';
 
 describe('output-store', () => {
   beforeEach(() => {
@@ -196,6 +196,35 @@ describe('output-store', () => {
 
       expect(useOutputStore.getState().tabs['Csound'].lines).toHaveLength(0);
       expect(useOutputStore.getState().tabs['Csound (Disk)'].lines).toHaveLength(1);
+    });
+  });
+
+  describe('MAX_LINES trimming', () => {
+    it('trims oldest lines when exceeding MAX_LINES', () => {
+      const store = useOutputStore.getState();
+      // Build a text block with MAX_LINES + 50 lines
+      const totalLines = MAX_LINES + 50;
+      const textBlock = Array.from({ length: totalLines }, (_, i) => `line-${i}`).join('\n') + '\n';
+      store.appendToTab('Csound', textBlock);
+
+      const tab = useOutputStore.getState().tabs['Csound'];
+      expect(tab.lines).toHaveLength(MAX_LINES);
+      // Oldest 50 lines should be gone; first kept line is line-50
+      expect(tab.lines[0].text).toBe('line-50');
+      // Last line is the final one
+      expect(tab.lines[tab.lines.length - 1].text).toBe(`line-${totalLines - 1}`);
+    });
+
+    it('lineCounter continues incrementing past MAX_LINES', () => {
+      const store = useOutputStore.getState();
+      const totalLines = MAX_LINES + 100;
+      const textBlock = Array.from({ length: totalLines }, (_, i) => `L${i}`).join('\n') + '\n';
+      store.appendToTab('Csound', textBlock);
+
+      const tab = useOutputStore.getState().tabs['Csound'];
+      expect(tab.lineCounter).toBe(totalLines);
+      // The last line's ID should equal the total count
+      expect(tab.lines[tab.lines.length - 1].id).toBe(totalLines);
     });
   });
 });

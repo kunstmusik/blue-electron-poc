@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import type { OutputLine, OutputTab, OutputType } from '../../shared/io-provider';
 
+/** Maximum number of lines kept per tab. Oldest lines are discarded when exceeded. */
+export const MAX_LINES = 10_000;
+
 export interface OutputWindowState {
   tabs: Record<string, OutputTab>;
   tabOrder: string[];
@@ -102,9 +105,13 @@ export const useOutputStore = create<OutputWindowState>((set) => ({
           },
         };
       }
+      let allLines = [...tab.lines, ...newLines];
+      if (allLines.length > MAX_LINES) {
+        allLines = allLines.slice(allLines.length - MAX_LINES);
+      }
       const updated: OutputTab = {
         ...tab,
-        lines: [...tab.lines, ...newLines],
+        lines: allLines,
         lineCounter: counter,
         pendingText,
         pendingType: pendingText.length > 0 ? type : null,

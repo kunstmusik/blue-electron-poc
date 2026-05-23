@@ -1,5 +1,6 @@
-import { useRef, useCallback, useEffect, useMemo } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef, useCallback, useEffect, useMemo, useState } from 'react';
+import * as ContextMenu from '@radix-ui/react-context-menu';
+import { Clipboard, MousePointerClick, Trash2 } from 'lucide-react';
 import { useOutputStore } from '../../../../stores/output-store';
 
 export default function OutputPanel() {
@@ -12,6 +13,9 @@ export default function OutputPanel() {
   const activeTab = activeTabId ? tabs[activeTabId] : null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+  const hasSelectionRef = useRef(false);
+  const [hasSelection, setHasSelection] = useState(false);
+
   const lines = useMemo(() => {
     if (!activeTab) {
       return [];
@@ -31,15 +35,31 @@ export default function OutputPanel() {
     ];
   }, [activeTab]);
 
-  const rowVirtualizer = useVirtualizer({
-    count: lines.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => 20,
-    overscan: 200,
-  });
-
+  // Track document selection state for auto-scroll pausing and Copy enable/disable
   useEffect(() => {
-    if (autoScrollRef.current && scrollRef.current) {
+    function handleSelectionChange() {
+      const sel = document.getSelection();
+      if (!sel || sel.isCollapsed || !scrollRef.current) {
+        hasSelectionRef.current = false;
+        setHasSelection(false);
+        return;
+      }
+      // Check if the selection is within our scroll container
+      const range = sel.getRangeAt(0);
+      const isWithin = scrollRef.current.contains(range.commonAncestorContainer);
+      hasSelectionRef.current = isWithin && !sel.isCollapsed;
+      setHasSelection(hasSelectionRef.current);
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, []);
+
+  // Auto-scroll to bottom when new lines arrive, unless user scrolled away or has selection
+  useEffect(() => {
+    if (autoScrollRef.current && !hasSelectionRef.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [lines.length, activeTab?.pendingText]);
@@ -58,18 +78,62 @@ export default function OutputPanel() {
     [tabOrder, tabs],
   );
 
+  // Context menu actions
+  const handleCopy = useCallback(() => {
+    const sel = document.getSelection();
+    if (!sel || sel.isCollapsed) return;
+    const text = sel.toString();
+    if (typeof window !== 'undefined' && window.blueAPI?.writeClipboardText) {
+      void window.blueAPI.writeClipboardText(text);
+    } else if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(text);
+    }
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(scrollRef.current);
+    const sel = document.getSelection();
+    if (sel) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }, []);
+
+  const handleClear = useCallback(() => {
+    if (activeTabId) {
+      resetTab(activeTabId);
+    }
+  }, [activeTabId, resetTab]);
+
+  // Keyboard shortcuts on the scroll container
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
+
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        handleClear();
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleSelectAll();
+      }
+    },
+    [handleClear, handleSelectAll],
+  );
+
   return (
-    <div className="flex flex-col h-full bg-[#1a1a2e] text-[13px] font-mono">
-      <div className="flex items-center border-b border-[#333] bg-[#16162a] shrink-0">
-        <div className="flex overflow-x-auto">
+    <div className="output-panel">
+      <div className="output-panel__tabs">
+        <div className="output-panel__tabs-scroll">
           {tabEntries.map((tab) => (
             <button
               key={tab.id}
               onClick={() => selectTab(tab.id)}
-              className={`px-3 py-1.5 text-xs whitespace-nowrap border-r border-[#333] transition-colors ${
-                tab.id === activeTabId
-                  ? 'bg-[#1a1a2e] text-[#e0e0e0] border-b-2 border-b-[#4a9eff]'
-                  : 'bg-[#12122a] text-[#888] hover:text-[#bbb]'
+              className={`output-panel__tab${
+                tab.id === activeTabId ? ' output-panel__tab--active' : ''
               }`}
             >
               {tab.name}
@@ -78,53 +142,77 @@ export default function OutputPanel() {
         </div>
         {activeTabId && (
           <button
-            onClick={() => resetTab(activeTabId)}
-            className="ml-auto px-2 py-1 text-[10px] text-[#888] hover:text-[#ccc] shrink-0"
+            onClick={handleClear}
+            className="output-panel__toolbar-btn"
             title="Clear output"
           >
             Clear
           </button>
         )}
       </div>
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-auto"
-      >
-        {lines.length === 0 ? (
-          <div className="p-2 text-[#555] italic">No output.</div>
-        ) : (
+      <ContextMenu.Root>
+        <ContextMenu.Trigger asChild>
           <div
-            style={{
-              height: `${rowVirtualizer.getTotalSize()}px`,
-              width: '100%',
-              position: 'relative',
-            }}
+            ref={scrollRef}
+            onScroll={handleScroll}
+            onKeyDown={handleKeyDown}
+            className="output-panel__scroll"
+            tabIndex={0}
           >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              const line = lines[virtualRow.index];
-              return (
-                <div
-                  key={line.id}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                  className="px-2 whitespace-pre hover:bg-[#ffffff08]"
-                >
-                  <span style={{ color: line.type === 'stderr' ? errorColor : outputColor }}>
+            {lines.length === 0 ? (
+              <div className="output-panel__empty">No output.</div>
+            ) : (
+              lines.map((line) => (
+                <div key={line.id} className="output-panel__line">
+                  <span
+                    style={{
+                      color:
+                        line.type === 'stderr' ? errorColor : outputColor,
+                    }}
+                  >
                     {line.text}
                   </span>
                 </div>
-              );
-            })}
+              ))
+            )}
           </div>
-        )}
-      </div>
+        </ContextMenu.Trigger>
+
+        <ContextMenu.Portal container={document.body}>
+          <ContextMenu.Content
+            className="workbench-context-menu"
+            sideOffset={6}
+            align="start"
+          >
+            <ContextMenu.Item
+              className="workbench-context-menu__item"
+              disabled={!hasSelection}
+              onSelect={handleCopy}
+            >
+              <Clipboard size={14} strokeWidth={1.9} />
+              Copy
+            </ContextMenu.Item>
+
+            <ContextMenu.Item
+              className="workbench-context-menu__item"
+              onSelect={handleSelectAll}
+            >
+              <MousePointerClick size={14} strokeWidth={1.9} />
+              Select All
+            </ContextMenu.Item>
+
+            <ContextMenu.Separator className="workbench-context-menu__separator" />
+
+            <ContextMenu.Item
+              className="workbench-context-menu__item"
+              onSelect={handleClear}
+            >
+              <Trash2 size={14} strokeWidth={1.9} />
+              Clear
+            </ContextMenu.Item>
+          </ContextMenu.Content>
+        </ContextMenu.Portal>
+      </ContextMenu.Root>
     </div>
   );
 }

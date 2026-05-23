@@ -830,6 +830,87 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+/* ── Output Panel ───────────────────────────────────────── */
+
+.output-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a2e;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.output-panel__tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #333;
+  background: #16162a;
+  flex-shrink: 0;
+}
+
+.output-panel__tabs-scroll {
+  display: flex;
+  overflow-x: auto;
+}
+
+.output-panel__tab {
+  padding: 4px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  border-right: 1px solid #333;
+  border-bottom: 2px solid transparent;
+  transition: color 140ms ease, background 140ms ease;
+  background: #12122a;
+  color: #888;
+}
+
+.output-panel__tab:hover {
+  color: #bbb;
+}
+
+.output-panel__tab--active {
+  background: #1a1a2e;
+  color: #e0e0e0;
+  border-bottom-color: #4a9eff;
+}
+
+.output-panel__toolbar-btn {
+  margin-left: auto;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: #888;
+  flex-shrink: 0;
+  transition: color 140ms ease;
+}
+
+.output-panel__toolbar-btn:hover {
+  color: #ccc;
+}
+
+.output-panel__scroll {
+  flex: 1;
+  overflow: auto;
+  user-select: text;
+  cursor: text;
+  outline: none;
+}
+
+.output-panel__line {
+  padding: 0 8px;
+  white-space: pre;
+}
+
+.output-panel__line:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.output-panel__empty {
+  padding: 8px;
+  color: #555;
+  font-style: italic;
+}
+
 /* ── Mixer Panel ────────────────────────────────────────── */
 
 .mixer-panel {
