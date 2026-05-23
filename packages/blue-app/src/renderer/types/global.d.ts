@@ -85,6 +85,7 @@ declare global {
       commitProjectDocumentPatches: (
         patches: ProjectDocumentPatch[],
       ) => Promise<ProjectDocumentCommitReceipt>;
+      readAudioFileBytes: (filePath: string) => Promise<ArrayBuffer | null>;
       getScoreObjectEditorDocument: (
         request: ScoreObjectEditorRequest,
       ) => Promise<ScoreObjectEditorDocumentSnapshot | null>;

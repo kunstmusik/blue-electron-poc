@@ -44,6 +44,7 @@ import { cleanupTempCsdSnapshots } from './render-command';
 import { saveGeneratedCsdToDisk } from './csd-export';
 import { executeExternalTest } from './external-executor';
 import { createMainExternalExecutor } from './external-command-executor';
+import { syncCompiledRuntimeParameterNames } from './runtime-parameter-sync';
 import { getWindowTitle } from '../shared/window-title';
 import {
   applyEffectEditablePatchToEffect,
@@ -861,6 +862,27 @@ function resolveBsbDefaultPath(currentValue?: string): string | undefined {
   return path.resolve(path.dirname(currentFilePath), currentValue);
 }
 
+function resolveAudioFilePathForRead(filePath: string): string | null {
+  const trimmed = filePath.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('file://')) {
+    try {
+      return decodeURIComponent(new URL(trimmed).pathname);
+    } catch {
+      return decodeURIComponent(trimmed.slice('file://'.length));
+    }
+  }
+
+  if (path.isAbsolute(trimmed) || !currentFilePath) {
+    return trimmed;
+  }
+
+  return path.resolve(path.dirname(currentFilePath), trimmed);
+}
+
 async function openBsbFileSelector(currentValue?: string): Promise<string | null> {
   if (!mainWindow) return null;
 
@@ -1009,6 +1031,18 @@ async function startPlayback(): Promise<boolean> {
     const render = currentData.toRealtimePlaybackCSD(javaScriptSession ?? undefined);
     const csd = render.csdText;
     const parameters = render.parameters;
+    const runtimeParameterSync = syncCompiledRuntimeParameterNames(
+      currentData.getArrangement(),
+      currentData.getMixer(),
+      parameters,
+    );
+    if (runtimeParameterSync.liveCount !== runtimeParameterSync.compiledCount) {
+      console.warn(
+        '[main] Runtime parameter sync count mismatch:',
+        runtimeParameterSync.liveCount,
+        runtimeParameterSync.compiledCount,
+      );
+    }
 
     const automationTiming = {
       renderStartTime: currentData.getRenderStartTime(),
@@ -1653,6 +1687,20 @@ ipcMain.handle('commit-project-document-patches', (_event, patches: ProjectDocum
   currentProjectRevision += 1;
   const receipt: ProjectDocumentCommitReceipt = { revision: currentProjectRevision, sessionId: currentProjectSessionId };
   return receipt;
+});
+
+ipcMain.handle('read-audio-file-bytes', async (_event, filePath: string): Promise<ArrayBuffer | null> => {
+  try {
+    const resolvedFilePath = resolveAudioFilePathForRead(filePath);
+    if (!resolvedFilePath) {
+      return null;
+    }
+
+    const buffer = await fs.promises.readFile(resolvedFilePath);
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  } catch {
+    return null;
+  }
 });
 
 ipcMain.handle('get-score-object-editor-document', (_event, request: ScoreObjectEditorRequest): ScoreObjectEditorDocumentSnapshot | null => {

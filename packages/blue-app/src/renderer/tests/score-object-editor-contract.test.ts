@@ -3,6 +3,7 @@ import {
   BlueData,
   GenericScore,
   AudioClip,
+  PianoRoll,
   TimeBehavior,
   TimeDuration,
   TimePosition,
@@ -52,6 +53,36 @@ function createDataWithGenericScore(): {
   };
 
   return { data, gs, target };
+}
+
+function createDataWithPianoRoll(): {
+  data: BlueData;
+  pianoRoll: PianoRoll;
+  target: ScoreObjectEditorTargetSnapshot;
+} {
+  const data = new BlueData();
+  data.getScore().length = 0;
+  const poly = new PolyObject();
+  const layer = new SoundLayer();
+  const pianoRoll = new PianoRoll();
+  pianoRoll.setName('Test PianoRoll');
+  layer.push(pianoRoll);
+  poly.push(layer);
+  data.getScore().push(poly);
+
+  const target: ScoreObjectEditorTargetSnapshot = {
+    selectionId: 'sobj-0-0',
+    selectedObjectType: 'PianoRoll',
+    editorObjectType: 'PianoRoll',
+    ownerKind: 'timeline',
+    displayContext: 'timeline',
+    location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 },
+    supportsTimeBehavior: true,
+    supportsRepeatPoint: true,
+    supportsNoteProcessorChain: true,
+  };
+
+  return { data, pianoRoll, target };
 }
 
 function createDataWithAudioClip(): {
@@ -269,6 +300,81 @@ describe('Score patches — updateSoundObjectBehavior', () => {
     expect(gs.getTimeBehavior()).toBe('REPEAT');
     const context = data.getScore().getTimeContext();
     expect(gs.getRepeatPoint()!.toBeats(context)).toBeCloseTo(3.5);
+  });
+
+  it('preserves repeatPoint when switching away from and back to repeat behaviors', () => {
+    const { data, gs, target } = createDataWithGenericScore();
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSoundObjectBehavior',
+          target,
+          patch: {
+            timeBehavior: 'REPEAT',
+            repeatPoint: { value: 3.5, timeBase: 'BEATS' },
+          },
+        },
+      }),
+    ).toBe(true);
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSoundObjectBehavior',
+          target,
+          patch: {
+            timeBehavior: 'NONE',
+          },
+        },
+      }),
+    ).toBe(true);
+
+    let context = data.getScore().getTimeContext();
+    expect(gs.getTimeBehavior()).toBe('NONE');
+    expect(gs.getRepeatPoint()!.toBeats(context)).toBeCloseTo(3.5);
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSoundObjectBehavior',
+          target,
+          patch: {
+            timeBehavior: 'REPEAT_CLASSIC',
+          },
+        },
+      }),
+    ).toBe(true);
+
+    context = data.getScore().getTimeContext();
+    expect(gs.getTimeBehavior()).toBe('REPEAT_CLASSIC');
+    expect(gs.getRepeatPoint()!.toBeats(context)).toBeCloseTo(3.5);
+  });
+
+  it('persists PianoRoll timeBehavior changes into a refreshed editor document', () => {
+    const { data, pianoRoll, target } = createDataWithPianoRoll();
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        score: {
+          type: 'updateSoundObjectBehavior',
+          target,
+          patch: {
+            timeBehavior: TimeBehavior.REPEAT_CLASSIC,
+            repeatPoint: { value: 2.25, timeBase: 'BEATS' },
+          },
+        },
+      }),
+    ).toBe(true);
+
+    const context = data.getScore().getTimeContext();
+    expect(pianoRoll.getTimeBehavior()).toBe(TimeBehavior.REPEAT_CLASSIC);
+    expect(pianoRoll.getRepeatPoint()!.toBeats(context)).toBeCloseTo(2.25);
+
+    const refreshedDoc = createScoreObjectEditorDocument(data, { target });
+    expect(refreshedDoc).not.toBeNull();
+    expect(refreshedDoc!.shared.timeBehavior).toBe(TimeBehavior.REPEAT_CLASSIC);
+    expect(refreshedDoc!.shared.repeatPoint?.value).toBeCloseTo(2.25);
   });
 });
 

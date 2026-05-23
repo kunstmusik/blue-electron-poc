@@ -1,11 +1,23 @@
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../../../stores/project-store';
-import type { ScoreDocumentSnapshot, ScoreLayerGroupSnapshot, ScoreLayerSnapshot } from '../../../../../shared/project-editor';
+import type {
+  ScoreDocumentSnapshot,
+  ScoreLayerGroupSnapshot,
+  ScoreLayerGroupType,
+  ScoreLayerSnapshot,
+} from '../../../../../shared/project-editor';
 
 interface Props {
   score: ScoreDocumentSnapshot;
   onClose: () => void;
 }
+
+const ADD_LAYER_GROUP_OPTIONS: Array<{ groupType: ScoreLayerGroupType; label: string }> = [
+  { groupType: 'polyObject', label: 'Add SoundObject Layer Group' },
+  { groupType: 'audio', label: 'Add Audio Layer Group' },
+  { groupType: 'patterns', label: 'Add Patterns Layer Group' },
+];
 
 export default function ScoreManagerDialog({ score, onClose }: Props) {
   const applyPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
@@ -23,9 +35,12 @@ export default function ScoreManagerDialog({ score, onClose }: Props) {
   const selectedGroup = groups[selectedGroupIndex];
   const layers = selectedGroup?.layers ?? [];
 
-  const handleAddLayerGroup = useCallback(() => {
-    applyPatch({ score: { type: 'addLayerGroup', insertAtIndex: selectedGroupIndex >= 0 ? selectedGroupIndex + 1 : undefined } });
-  }, [selectedGroupIndex, applyPatch]);
+  const handleAddLayerGroup = useCallback((groupType: ScoreLayerGroupType) => {
+    const insertAtIndex = selectedGroup ? selectedGroupIndex + 1 : groups.length;
+    applyPatch({ score: { type: 'addLayerGroup', groupType, insertAtIndex } });
+    setSelectedGroupIndex(insertAtIndex);
+    setSelectedLayerIndex(-1);
+  }, [selectedGroup, selectedGroupIndex, groups.length, applyPatch]);
 
   const handleRemoveLayerGroup = useCallback(() => {
     if (!selectedGroup) return;
@@ -121,7 +136,7 @@ export default function ScoreManagerDialog({ score, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="bg-[#1a1a2e] border border-blue-border/50 rounded-lg shadow-2xl flex flex-col"
+        className="bg-blue-bg border border-blue-border/50 rounded-lg shadow-2xl flex flex-col"
         style={{ width: 760, height: 400 }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -135,7 +150,28 @@ export default function ScoreManagerDialog({ score, onClose }: Props) {
             <div className="flex items-center gap-1 px-2 py-1 border-b border-blue-border/20">
               <button className={btnClass} onClick={handlePushGroupUp} disabled={selectedGroupIndex <= 0} title="Push Up">&#9650;</button>
               <button className={btnClass} onClick={handlePushGroupDown} disabled={selectedGroupIndex >= groups.length - 1} title="Push Down">&#9660;</button>
-              <button className={btnClass} onClick={handleAddLayerGroup} title="Add Layer Group">+</button>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button className={btnClass} title="Add Layer Group" aria-label="Add Layer Group">+</button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    className="min-w-45 bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50"
+                    sideOffset={4}
+                    align="start"
+                  >
+                    {ADD_LAYER_GROUP_OPTIONS.map((option) => (
+                      <DropdownMenu.Item
+                        key={option.groupType}
+                        className="px-3 py-1 text-[11px] text-blue-text outline-none cursor-pointer rounded-sm data-highlighted:bg-[rgba(86,119,182,0.46)]"
+                        onSelect={() => handleAddLayerGroup(option.groupType)}
+                      >
+                        {option.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
               <button className={btnClass} onClick={handleRemoveLayerGroup} disabled={!selectedGroup} title="Remove Layer Group">-</button>
             </div>
             <div className="flex-1 min-h-0 overflow-y-auto">

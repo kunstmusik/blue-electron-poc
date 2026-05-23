@@ -94,7 +94,13 @@ export default function LayerPanel({
               <div key={group.groupId}>
                 <AudioLayerGroupCanvas
                   group={group}
+                  allLayerGroups={visibleGroups}
                   pixelsPerBeat={pixelsPerBeat}
+                  snapEnabled={snapEnabled}
+                  snapValue={snapValue}
+                  tempo={tempo}
+                  smpteFrameRate={smpteFrameRate}
+                  meterMap={meterMap}
                 />
                 {spacer}
               </div>

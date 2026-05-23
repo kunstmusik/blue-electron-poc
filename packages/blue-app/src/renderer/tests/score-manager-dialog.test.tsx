@@ -1,0 +1,129 @@
+// @vitest-environment jsdom
+
+import React from 'react';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import ScoreManagerDialog from '../components/workbench/panels/score/ScoreManagerDialog';
+import {
+  createEmptyScoreDocumentSnapshot,
+  type ScoreDocumentSnapshot,
+} from '../../shared/project-editor';
+
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const { mockProjectState } = vi.hoisted(() => ({
+  mockProjectState: {
+    applyProjectDocumentPatch: vi.fn(),
+    addLayer: vi.fn(),
+    removeLayer: vi.fn(),
+  },
+}));
+
+vi.mock('../stores/project-store', () => ({
+  useProjectStore: (selector: (state: typeof mockProjectState) => unknown) =>
+    selector(mockProjectState),
+}));
+
+function createScoreSnapshot(): ScoreDocumentSnapshot {
+  return {
+    ...createEmptyScoreDocumentSnapshot(),
+    layerGroups: [
+      {
+        groupId: 'lg-1',
+        groupType: 'polyObject',
+        name: 'Existing Group',
+        layerCount: 1,
+        isOpenableContainer: true,
+        layers: [
+          {
+            layerId: 'lg-1-layer-0',
+            name: '',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function renderDialog(score: ScoreDocumentSnapshot = createScoreSnapshot()): {
+  container: HTMLDivElement;
+  root: Root;
+  onClose: ReturnType<typeof vi.fn<() => void>>;
+} {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root = createRoot(container);
+  const onClose = vi.fn<() => void>();
+
+  act(() => {
+    root.render(<ScoreManagerDialog score={score} onClose={onClose} />);
+  });
+
+  return { container, root, onClose };
+}
+
+function openAddLayerGroupMenu(trigger: HTMLButtonElement): void {
+  const PointerEventCtor = window.PointerEvent ?? MouseEvent;
+  trigger.dispatchEvent(new PointerEventCtor('pointerdown', { bubbles: true, button: 0 }));
+  trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+}
+
+function clickMenuItem(item: HTMLElement): void {
+  const PointerEventCtor = window.PointerEvent ?? MouseEvent;
+  item.dispatchEvent(new PointerEventCtor('pointermove', { bubbles: true }));
+  item.dispatchEvent(new PointerEventCtor('pointerdown', { bubbles: true, button: 0 }));
+  item.dispatchEvent(new PointerEventCtor('pointerup', { bubbles: true, button: 0 }));
+  item.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+}
+
+beforeEach(() => {
+  mockProjectState.applyProjectDocumentPatch.mockReset();
+  mockProjectState.addLayer.mockReset();
+  mockProjectState.removeLayer.mockReset();
+});
+
+afterEach(() => {
+  document.body.innerHTML = '';
+});
+
+describe('ScoreManagerDialog', () => {
+  it('shows built-in layer-group options and dispatches the selected type', () => {
+    const { container, root } = renderDialog();
+    const trigger = container.querySelector('button[aria-label="Add Layer Group"]') as HTMLButtonElement;
+
+    act(() => {
+      openAddLayerGroupMenu(trigger);
+    });
+
+    const menuItems = Array.from(document.body.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    expect(menuItems.map((item) => item.textContent?.trim())).toEqual([
+      'Add SoundObject Layer Group',
+      'Add Audio Layer Group',
+      'Add Patterns Layer Group',
+    ]);
+
+    const audioItem = menuItems.find((item) => item.textContent?.includes('Audio'));
+    expect(audioItem).toBeTruthy();
+
+    act(() => {
+      clickMenuItem(audioItem!);
+    });
+
+    expect(mockProjectState.applyProjectDocumentPatch).toHaveBeenCalledWith({
+      score: {
+        type: 'addLayerGroup',
+        groupType: 'audio',
+        insertAtIndex: 1,
+      },
+    });
+
+    act(() => {
+      root.unmount();
+    });
+  });
+});

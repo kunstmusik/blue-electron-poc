@@ -49,7 +49,10 @@ import {
   type OrchestraSnapshot,
   type ProjectUdoPatch,
   type ScoreDocumentSnapshot,
+  type ScoreLayerGroupSnapshot,
+  type ScoreLayerGroupType,
   type ScoreLayerSnapshot,
+  type ScoreRowObjectSnapshot,
   type ScoreObjectEditorTargetSnapshot,
   type ScoreObjectLocationRef,
   type ScorePatch,
@@ -95,6 +98,13 @@ interface ProjectState {
   midiInput: MidiInputProcessorSnapshot | null;
   score: ScoreDocumentSnapshot;
   scrollToBeatTarget: number | null;
+  audioClipEditorPreviewByObjectId: Record<string, AudioClipEditorPreview>;
+}
+
+interface AudioClipEditorPreview {
+  fileStartTime?: number;
+  fadeIn?: number;
+  fadeOut?: number;
 }
 
 interface ProjectActions {
@@ -125,11 +135,11 @@ interface ProjectActions {
   flushPendingPatches: () => Promise<void>;
   moveScoreObjects: (moves: Array<{ objectId: string; targetStartBeats: number; targetLayerIndex?: number; targetGroupId?: string }>) => void;
   removeScoreObjects: (objectIds: ReadonlySet<string>) => void;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; startTimeBase?: string; durationTimeBase?: string; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
+  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; startTimeBase?: string; durationTimeBase?: string; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string; barRenderer?: ScoreRowObjectSnapshot['barRenderer'] }>) => void;
   setLayerMute: (groupId: string, layerIndex: number, muted: boolean) => void;
   setLayerSolo: (groupId: string, layerIndex: number, solo: boolean) => void;
   renameLayer: (layerId: string, name: string) => void;
-  setLayerHeight: (layerId: string, heightIndex: number) => void;
+  setLayerHeight: (groupId: string, layerIndex: number, heightIndex: number) => void;
   addLayer: (groupId: string, layerIndex: number) => void;
   removeLayer: (groupId: string, layerIndex: number) => void;
   setScoreObjectColor: (objectIds: ReadonlySet<string>, color: number) => void;
@@ -138,6 +148,8 @@ interface ProjectActions {
   navigateToNextMarker: () => void;
   navigateToPreviousMarker: () => void;
   rewindToStart: () => void;
+  setAudioClipEditorPreview: (objectId: string, preview: AudioClipEditorPreview) => void;
+  clearAudioClipEditorPreview: (objectId: string) => void;
 }
 
 let latestProjectPatchRequestId = 0;
@@ -150,6 +162,29 @@ const PATCH_FLUSH_DELAY_MS = 100;
 let nextLocalScoreObjectId = 1;
 
 let pendingFlushPromise: Promise<void> | null = null;
+
+function scorePatchRequiresCanonicalProjectRefresh(patch: ScorePatch): boolean {
+  switch (patch.type) {
+    case 'addLayer':
+    case 'removeLayer':
+    case 'renameLayer':
+    case 'moveLayerGroup':
+    case 'removeLayerGroup':
+      return true;
+    case 'addLayerGroup':
+      return patch.groupType === 'audio';
+    default:
+      return false;
+  }
+}
+
+function patchesRequireCanonicalProjectRefresh(
+  patches: ProjectDocumentPatch[],
+): boolean {
+  return patches.some(
+    (patch) => patch.score !== undefined && scorePatchRequiresCanonicalProjectRefresh(patch.score),
+  );
+}
 
 function normalizeMixerPatchIdentifiers(patch: MixerPatch): MixerPatch {
   switch (patch.type) {
@@ -178,6 +213,162 @@ function createLocalScoreObjectId(objectType: string): string {
   return `local-${prefix}-${nextLocalScoreObjectId++}`;
 }
 
+function createDefaultScoreLayerSnapshot(groupId: string, layerIndex: number): ScoreLayerSnapshot {
+  return {
+    layerId: `${groupId}-layer-${layerIndex}`,
+    name: '',
+    height: 44,
+    muted: false,
+    solo: false,
+    items: [],
+  };
+}
+
+function createAddedLayerGroupSnapshot(groupType: ScoreLayerGroupType | undefined): ScoreLayerGroupSnapshot {
+  const timestamp = Date.now();
+  const groupId = `lg-${timestamp}`;
+  const layers = [createDefaultScoreLayerSnapshot(groupId, 0)];
+
+  switch (groupType) {
+    case 'audio':
+      return {
+        groupId,
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: layers.length,
+        isOpenableContainer: false,
+        layers,
+      };
+    case 'patterns':
+      return {
+        groupId,
+        groupType: 'patterns',
+        name: 'Patterns Layer Group',
+        layerCount: layers.length,
+        isOpenableContainer: false,
+        layers,
+      };
+    case 'polyObject':
+    default:
+      return {
+        groupId,
+        groupType: 'polyObject',
+        name: 'SoundObject Layer Group',
+        layerCount: layers.length,
+        isOpenableContainer: true,
+        layers,
+      };
+  }
+}
+
+function splitBarLabelLines(value: string): string[] {
+  const lines = value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return lines.length > 0 ? lines : [''];
+}
+
+function applySharedPropertiesToBarRenderer(
+  barRenderer: ScoreRowObjectSnapshot['barRenderer'],
+  patch: {
+    name?: string;
+    subjectiveDuration?: { value: number; timeBase: string };
+  },
+): ScoreRowObjectSnapshot['barRenderer'] {
+  let nextBarRenderer = barRenderer;
+
+  if (patch.name !== undefined) {
+    nextBarRenderer = {
+      ...nextBarRenderer,
+      labelLines: splitBarLabelLines(patch.name),
+    };
+  }
+
+  if (patch.subjectiveDuration !== undefined && nextBarRenderer.kind === 'frozenSoundObject') {
+    nextBarRenderer = {
+      ...nextBarRenderer,
+      currentDurationBeats: patch.subjectiveDuration.value,
+    };
+  }
+
+  return nextBarRenderer;
+}
+
+function applySoundObjectBehaviorToBarRenderer(
+  barRenderer: ScoreRowObjectSnapshot['barRenderer'],
+  patch: {
+    timeBehavior?: string;
+    repeatPoint?: { value: number; timeBase: string } | null;
+  },
+): ScoreRowObjectSnapshot['barRenderer'] {
+  switch (barRenderer.kind) {
+    case 'generic':
+    case 'letter':
+    case 'pianoRoll':
+      return {
+        ...barRenderer,
+        ...(patch.timeBehavior !== undefined ? { timeBehavior: patch.timeBehavior } : {}),
+        ...(patch.repeatPoint !== undefined
+          ? { repeatPointBeats: patch.repeatPoint?.value ?? null }
+          : {}),
+      };
+    default:
+      return barRenderer;
+  }
+}
+
+function createOptimisticBarRendererSnapshot(object: {
+  name: string;
+  objectType: string;
+  serializedXml?: string;
+  barRenderer?: ScoreRowObjectSnapshot['barRenderer'];
+}): ScoreRowObjectSnapshot['barRenderer'] {
+  if (object.barRenderer) {
+    return object.barRenderer;
+  }
+
+  if (object.objectType === 'AudioClip') {
+    return {
+      kind: 'audioClip',
+      labelLines: splitBarLabelLines(object.name),
+      audioFilePath: '',
+      waveformKey: null,
+      fileStartTimeBeats: 0,
+      audioDurationBeats: 0,
+      looping: true,
+      fadeInBeats: 0,
+      fadeInType: 'LINEAR',
+      fadeOutBeats: 0,
+      fadeOutType: 'LINEAR',
+    };
+  }
+
+  return {
+    kind: 'fallback',
+    labelLines: splitBarLabelLines(object.name),
+    reason: 'unknown-type',
+  };
+}
+
+function findAddScoreObjectsTargetGroupIndex(
+  score: ScoreDocumentSnapshot,
+  objects: Array<{ groupId: string; objectType: string }>,
+): number {
+  if (objects.length === 0) {
+    return -1;
+  }
+
+  const groupId = objects[0].groupId;
+  const allAudio = objects.every((object) => object.objectType === 'AudioClip');
+  const allSoundObjects = objects.every((object) => object.objectType !== 'AudioClip');
+
+  return score.layerGroups.findIndex((group) => (
+    group.groupId === groupId
+      && ((group.groupType === 'audio' && allAudio) || (group.groupType === 'polyObject' && allSoundObjects))
+  ));
+}
+
 const doFlushAsync = async (): Promise<void> => {
   const patches = pendingPatches.slice();
   pendingPatches = [];
@@ -190,6 +381,17 @@ const doFlushAsync = async (): Promise<void> => {
     if (receipt?.revision !== undefined) {
       if (receipt.sessionId === latestProjectSessionId) {
         latestProjectPatchRequestId = receipt.revision;
+      }
+    }
+
+    if (patchesRequireCanonicalProjectRefresh(patches)) {
+      try {
+        const snapshot = await window.blueAPI.getProjectDocument();
+        if (snapshot) {
+          applyProjectInfoToState(snapshot, true);
+        }
+      } catch (refreshErr: unknown) {
+        console.error('[project-store] Failed to refresh canonical project state after commit:', refreshErr);
       }
     }
   } catch (err: unknown) {
@@ -406,7 +608,7 @@ function applyProjectInfoToState(
       globalSco: info.globalSco ?? state.globalSco,
       orchestra: nextOrchestra,
       mixer: info.mixer
-        ? reconcileMixerSnapshotWithArrangement(info.mixer, nextOrchestra)
+        ? info.mixer
         : info.orchestra
           ? reconcileMixerSnapshotWithArrangement(state.mixer, nextOrchestra)
           : state.mixer,
@@ -457,6 +659,7 @@ function buildInitialState(): ProjectState {
     midiInput: snapshot.midiInput ?? null,
     score: snapshot.score ?? createEmptyScoreDocumentSnapshot(),
     scrollToBeatTarget: null,
+    audioClipEditorPreviewByObjectId: {},
   };
 }
 
@@ -1144,7 +1347,132 @@ function applyMixerPatchToSnapshot(
     }
   }
 
-  return reconcileMixerSnapshotWithArrangement(next, orchestra);
+  return next;
+}
+
+interface AudioLayerSnapshotLocation {
+  groupId: string;
+  layerIndex: number;
+  layerId: string;
+}
+
+function collectAudioLayerSnapshotLocations(
+  score: ScoreDocumentSnapshot,
+): AudioLayerSnapshotLocation[] {
+  const result: AudioLayerSnapshotLocation[] = [];
+
+  for (const group of score.layerGroups) {
+    if (group.groupType !== 'audio') {
+      continue;
+    }
+
+    group.layers.forEach((layer, layerIndex) => {
+      result.push({
+        groupId: group.groupId,
+        layerIndex,
+        layerId: layer.layerId,
+      });
+    });
+  }
+
+  return result;
+}
+
+function isAudioMixerChannelSnapshot(
+  channel: MixerChannelSnapshot,
+  assignmentIds: ReadonlySet<string>,
+): boolean {
+  return Boolean(channel.association) && !assignmentIds.has(channel.association!);
+}
+
+function applyAudioLayerRenameToMixerSnapshot(
+  mixer: MixerSnapshot,
+  orchestra: OrchestraSnapshot,
+  score: ScoreDocumentSnapshot,
+  patch: Extract<ScorePatch, { type: 'renameLayer' }>,
+): MixerSnapshot {
+  const audioLayers = collectAudioLayerSnapshotLocations(score);
+  const targetLayerIndex = audioLayers.findIndex(
+    (layer) => layer.groupId === patch.groupId && layer.layerIndex === patch.layerIndex,
+  );
+  if (targetLayerIndex < 0) {
+    return mixer;
+  }
+
+  const assignmentIds = new Set(orchestra.arrangement.rows.map((row) => row.assignmentId));
+  let audioChannelIndex = -1;
+  let changed = false;
+  const nextChannels = mixer.channels.map((channel) => {
+    if (!isAudioMixerChannelSnapshot(channel, assignmentIds)) {
+      return channel;
+    }
+
+    audioChannelIndex += 1;
+    if (audioChannelIndex !== targetLayerIndex || channel.name === patch.name) {
+      return channel;
+    }
+
+    changed = true;
+    return { ...channel, name: patch.name };
+  });
+
+  return changed ? { ...mixer, channels: nextChannels } : mixer;
+}
+
+function applyMixerChannelRenameToAudioLayerSnapshot(
+  score: ScoreDocumentSnapshot,
+  mixer: MixerSnapshot,
+  orchestra: OrchestraSnapshot,
+  patch: Extract<MixerPatch, { type: 'updateChannel' }>,
+): ScoreDocumentSnapshot {
+  if (patch.patch.name === undefined) {
+    return score;
+  }
+
+  const assignmentIds = new Set(orchestra.arrangement.rows.map((row) => row.assignmentId));
+  let targetAudioChannelIndex = -1;
+  let foundTarget = false;
+
+  for (const channel of mixer.channels) {
+    if (!isAudioMixerChannelSnapshot(channel, assignmentIds)) {
+      continue;
+    }
+
+    targetAudioChannelIndex += 1;
+    if (channel.id === patch.channelId) {
+      foundTarget = true;
+      break;
+    }
+  }
+
+  if (!foundTarget) {
+    return score;
+  }
+
+  const targetLayer = collectAudioLayerSnapshotLocations(score)[targetAudioChannelIndex];
+  if (!targetLayer) {
+    return score;
+  }
+
+  let changed = false;
+  const nextLayerGroups = score.layerGroups.map((group) => {
+    if (group.groupId !== targetLayer.groupId) {
+      return group;
+    }
+
+    const nextLayers = group.layers.map((layer, layerIndex) => {
+      if (layerIndex !== targetLayer.layerIndex || layer.name === patch.patch.name) {
+        return layer;
+      }
+
+      changed = true;
+      return { ...layer, name: patch.patch.name! };
+    });
+
+    return changed ? { ...group, layers: nextLayers } : group;
+  });
+
+  return changed ? { ...score, layerGroups: nextLayerGroups } : score;
 }
 
 function computeEndOfScore(score: ScoreDocumentSnapshot): number {
@@ -1376,6 +1704,7 @@ function applyScorePatchToSnapshot(
   }
 
   if (patch.type === 'updateLayerState') {
+    const layerUnit = 22;
     const nextLayerGroups = score.layerGroups.map((lg) => {
       if (lg.groupId !== patch.groupId) return lg;
       if (patch.layerIndex < 0 || patch.layerIndex >= lg.layers.length) return lg;
@@ -1387,6 +1716,7 @@ function applyScorePatchToSnapshot(
           ...layer,
           ...(patch.patch.muted !== undefined ? { muted: patch.patch.muted } : {}),
           ...(patch.patch.solo !== undefined ? { solo: patch.patch.solo } : {}),
+          ...(patch.patch.heightIndex !== undefined ? { height: (Math.max(0, patch.patch.heightIndex) + 1) * layerUnit } : {}),
         };
       });
 
@@ -1424,15 +1754,28 @@ function applyScorePatchToSnapshot(
         ...layer,
         items: layer.items.map((item) => {
           if (!isScoreItemMatchingTarget(item, target)) return item;
-          if (item.editorTarget?.editorObjectType !== 'TrackerObject') return item;
+          if (item.editorTarget?.editorObjectType === 'TrackerObject') {
+            const nextEditor = { ...item.editorTarget } as any;
+            if (typePatch.steps !== undefined) nextEditor.steps = typePatch.steps;
+            if (typePatch.stepsPerBeat !== undefined) nextEditor.stepsPerBeat = typePatch.stepsPerBeat;
+            if (typePatch.octave !== undefined) nextEditor.octave = typePatch.octave;
+            if (typePatch.showNoteNames !== undefined) nextEditor.showNoteNames = typePatch.showNoteNames;
 
-          const nextEditor = { ...item.editorTarget } as any;
-          if (typePatch.steps !== undefined) nextEditor.steps = typePatch.steps;
-          if (typePatch.stepsPerBeat !== undefined) nextEditor.stepsPerBeat = typePatch.stepsPerBeat;
-          if (typePatch.octave !== undefined) nextEditor.octave = typePatch.octave;
-          if (typePatch.showNoteNames !== undefined) nextEditor.showNoteNames = typePatch.showNoteNames;
+            return { ...item, editorTarget: nextEditor };
+          }
 
-          return { ...item, editorTarget: nextEditor };
+          if (item.barRenderer.kind === 'audioClip') {
+            return {
+              ...item,
+              barRenderer: {
+                ...item.barRenderer,
+                ...(typePatch.fadeInType !== undefined ? { fadeInType: typePatch.fadeInType as typeof item.barRenderer.fadeInType } : {}),
+                ...(typePatch.fadeOutType !== undefined ? { fadeOutType: typePatch.fadeOutType as typeof item.barRenderer.fadeOutType } : {}),
+              },
+            };
+          }
+
+          return item;
         }),
       })),
     }));
@@ -1489,15 +1832,28 @@ function applyScorePatchToSnapshot(
 
   if (patch.type === 'addLayerGroup') {
     const insertAt = patch.insertAtIndex ?? score.layerGroups.length;
-    const newGroup: ScoreLayerGroupSnapshot = {
-      groupId: `lg-${Date.now()}`,
-      name: 'SoundObject Layer Group',
-      layers: [{ layerId: `layer-${Date.now()}`, name: '', height: 44, muted: false, solo: false, items: [] }],
-      layerCount: 1,
-    };
     const layerGroups = [...score.layerGroups];
-    layerGroups.splice(insertAt, 0, newGroup);
+    layerGroups.splice(insertAt, 0, createAddedLayerGroupSnapshot(patch.groupType));
     return { ...score, layerGroups };
+  }
+
+  if (patch.type === 'updateSoundObjectBehavior') {
+    const nextLayerGroups = score.layerGroups.map((lg) => ({
+      ...lg,
+      layers: lg.layers.map((layer) => ({
+        ...layer,
+        items: layer.items.map((item) => {
+          if (!isScoreItemMatchingTarget(item, patch.target)) return item;
+
+          return {
+            ...item,
+            barRenderer: applySoundObjectBehaviorToBarRenderer(item.barRenderer, patch.patch),
+          };
+        }),
+      })),
+    }));
+
+    return { ...score, layerGroups: nextLayerGroups };
   }
 
   if (patch.type !== 'updateSharedProperties') return score;
@@ -1521,6 +1877,7 @@ function applyScorePatchToSnapshot(
           next.durationBeats = subjectiveDuration.value;
           next.durationTimeBase = subjectiveDuration.timeBase;
         }
+        next.barRenderer = applySharedPropertiesToBarRenderer(next.barRenderer, patch.patch);
         return next;
       }),
     })),
@@ -3125,6 +3482,15 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
           next.orchestra,
           normalizedPatch.mixer,
         );
+
+        if (normalizedPatch.mixer.type === 'updateChannel' && normalizedPatch.mixer.patch.name !== undefined) {
+          next.score = applyMixerChannelRenameToAudioLayerSnapshot(
+            state.score,
+            next.mixer,
+            next.orchestra,
+            normalizedPatch.mixer,
+          );
+        }
       }
 
       if (normalizedPatch.projectProperties) {
@@ -3196,9 +3562,18 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       if (normalizedPatch.score !== undefined) {
         next.score = applyScorePatchToSnapshot(state.score, normalizedPatch.score);
         next.lastScorePatch = normalizedPatch.score;
+
+        if (normalizedPatch.score.type === 'renameLayer') {
+          next.mixer = applyAudioLayerRenameToMixerSnapshot(
+            next.mixer,
+            next.orchestra,
+            next.score,
+            normalizedPatch.score,
+          );
+        }
       }
 
-      if (normalizedPatch.orchestra !== undefined || normalizedPatch.mixer !== undefined) {
+      if (normalizedPatch.orchestra !== undefined) {
         next.mixer = reconcileMixerSnapshotWithArrangement(
           next.mixer,
           next.orchestra,
@@ -3254,6 +3629,43 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
 
   setScrollToBeatTarget: (beats) => {
     set({ scrollToBeatTarget: beats });
+  },
+
+  setAudioClipEditorPreview: (objectId, preview) => {
+    set((state) => {
+      const currentPreview = state.audioClipEditorPreviewByObjectId[objectId];
+      const nextPreview = { ...currentPreview, ...preview };
+
+      if (
+        currentPreview !== undefined
+        && currentPreview.fileStartTime === nextPreview.fileStartTime
+        && currentPreview.fadeIn === nextPreview.fadeIn
+        && currentPreview.fadeOut === nextPreview.fadeOut
+      ) {
+        return state;
+      }
+
+      return {
+        audioClipEditorPreviewByObjectId: {
+          ...state.audioClipEditorPreviewByObjectId,
+          [objectId]: nextPreview,
+        },
+      };
+    });
+  },
+
+  clearAudioClipEditorPreview: (objectId) => {
+    set((state) => {
+      if (!(objectId in state.audioClipEditorPreviewByObjectId)) {
+        return state;
+      }
+
+      const nextPreviewByObjectId = { ...state.audioClipEditorPreviewByObjectId };
+      delete nextPreviewByObjectId[objectId];
+      return {
+        audioClipEditorPreviewByObjectId: nextPreviewByObjectId,
+      };
+    });
   },
 
   navigateToNextMarker: () => {
@@ -3355,11 +3767,27 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
   },
 
   addScoreObjects: (objects) => {
+    if (objects.length === 0) {
+      return;
+    }
+
+    const patchObjects: Array<{
+      selectionId: string;
+      layerIndex: number;
+      objectType: string;
+      name: string;
+      startBeats: number;
+      durationBeats: number;
+      startTimeBase?: string;
+      durationTimeBase?: string;
+      backgroundColor: number;
+      serializedXml?: string;
+      sourceTarget?: import('../../../shared/project-editor').ScoreObjectEditorTargetSnapshot;
+    }> = [];
+
     set((state) => {
       const score = state.score;
-      const groupIndex = score.layerGroups.findIndex((lg) =>
-        lg.groupType === 'polyObject' && objects.length > 0 && lg.groupId === objects[0].groupId,
-      );
+      const groupIndex = findAddScoreObjectsTargetGroupIndex(score, objects);
       if (groupIndex < 0) return state;
       const lg = score.layerGroups[groupIndex];
       const newLayers = lg.layers.map((layer, idx) => {
@@ -3371,6 +3799,35 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
             const objectId = createLocalScoreObjectId(o.objectType);
             const objectIndex = layer.items.length + j;
             const isSObj = o.objectType !== 'AudioClip';
+            const editorTarget = {
+              selectionId: objectId,
+              selectedObjectType: o.objectType,
+              editorObjectType: o.objectType,
+              ownerKind: 'timeline' as const,
+              displayContext: 'timeline' as const,
+              location: {
+                rootGroupIndex: groupIndex,
+                containerPath: [],
+                layerIndex: idx,
+                objectIndex,
+              },
+              supportsTimeBehavior: isSObj,
+              supportsRepeatPoint: isSObj,
+              supportsNoteProcessorChain: isSObj,
+            };
+            patchObjects.push({
+              selectionId: objectId,
+              layerIndex: o.layerIndex,
+              objectType: o.objectType,
+              name: o.name,
+              startBeats: o.startBeats,
+              durationBeats: o.durationBeats,
+              startTimeBase: o.startTimeBase,
+              durationTimeBase: o.durationTimeBase,
+              backgroundColor: o.backgroundColor,
+              serializedXml: o.serializedXml,
+              sourceTarget: o.editorTarget,
+            });
             return {
               objectId,
               objectType: o.objectType,
@@ -3382,22 +3839,8 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
               backgroundColor: o.backgroundColor,
               isContainer: o.isContainer,
               serializedXml: o.serializedXml,
-              editorTarget: {
-                selectionId: objectId,
-                selectedObjectType: o.objectType,
-                editorObjectType: o.objectType,
-                ownerKind: 'timeline' as const,
-                displayContext: 'timeline' as const,
-                location: {
-                  rootGroupIndex: groupIndex,
-                  containerPath: [],
-                  layerIndex: idx,
-                  objectIndex,
-                },
-                supportsTimeBehavior: isSObj,
-                supportsRepeatPoint: isSObj,
-                supportsNoteProcessorChain: isSObj,
-              },
+              barRenderer: createOptimisticBarRendererSnapshot(o),
+              editorTarget,
             };
           })],
         };
@@ -3411,18 +3854,7 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
       score: {
         type: 'addScoreObjects',
         groupId: objects[0].groupId,
-        objects: objects.map((o) => ({
-          layerIndex: o.layerIndex,
-          objectType: o.objectType,
-          name: o.name,
-          startBeats: o.startBeats,
-          durationBeats: o.durationBeats,
-          startTimeBase: o.startTimeBase,
-          durationTimeBase: o.durationTimeBase,
-          backgroundColor: o.backgroundColor,
-          serializedXml: o.serializedXml,
-          sourceTarget: o.editorTarget,
-        })),
+        objects: patchObjects,
       },
     }).then(() => __testFlushPendingPatches());
   },
@@ -3450,28 +3882,44 @@ export const useProjectStore = create<ProjectState & ProjectActions>()((set, get
   },
 
   renameLayer: (layerId, name) => {
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => ({
-        ...lg,
-        layers: lg.layers.map((l) =>
-          l.layerId === layerId ? { ...l, name } : l
-        ),
-      }));
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      return;
+    }
+
+    let targetGroupId: string | null = null;
+    let targetLayerIndex = -1;
+    for (const group of get().score.layerGroups) {
+      const layerIndex = group.layers.findIndex((layer) => layer.layerId === layerId);
+      if (layerIndex >= 0) {
+        targetGroupId = group.groupId;
+        targetLayerIndex = layerIndex;
+        break;
+      }
+    }
+
+    if (!targetGroupId || targetLayerIndex < 0) {
+      return;
+    }
+
+    void get().applyProjectDocumentPatch({
+      score: {
+        type: 'renameLayer',
+        groupId: targetGroupId,
+        layerIndex: targetLayerIndex,
+        name: trimmedName,
+      },
     });
   },
 
-  setLayerHeight: (layerId, heightIndex) => {
-    const LAYER_UNIT = 22;
-    const height = (heightIndex + 1) * LAYER_UNIT;
-    set((state) => {
-      const newGroups = state.score.layerGroups.map((lg) => ({
-        ...lg,
-        layers: lg.layers.map((l) =>
-          l.layerId === layerId ? { ...l, height } : l
-        ),
-      }));
-      return { score: { ...state.score, layerGroups: newGroups }, isDirty: true };
+  setLayerHeight: (groupId, layerIndex, heightIndex) => {
+    void get().applyProjectDocumentPatch({
+      score: {
+        type: 'updateLayerState',
+        groupId,
+        layerIndex,
+        patch: { heightIndex },
+      },
     });
   },
 

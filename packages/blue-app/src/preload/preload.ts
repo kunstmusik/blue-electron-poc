@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('update-effect-editor-document', request) as Promise<EffectEditorSnapshot | null>,
   commitProjectDocumentPatches: (patches: ProjectDocumentPatch[]) =>
     ipcRenderer.invoke('commit-project-document-patches', patches) as Promise<ProjectDocumentCommitReceipt>,
+  readAudioFileBytes: (filePath: string) =>
+    ipcRenderer.invoke('read-audio-file-bytes', filePath) as Promise<ArrayBuffer | null>,
   getScoreObjectEditorDocument: (request: ScoreObjectEditorRequest) =>
     ipcRenderer.invoke('get-score-object-editor-document', request) as Promise<ScoreObjectEditorDocumentSnapshot | null>,
   testExternalSoundObject: (request: ScoreObjectEditorRequest) =>

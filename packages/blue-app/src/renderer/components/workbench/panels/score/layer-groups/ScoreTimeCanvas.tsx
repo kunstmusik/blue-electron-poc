@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { PolyObjectLayerGroupSnapshot, ScoreLayerGroupSnapshot, ScoreLayerSnapshot, ScoreRowObjectSnapshot } from '../types';
 import { DEFAULT_ROW_HEIGHT, GROUP_SPACER } from '../types';
+import { RenderBar } from '../bar-renderers/renderer-registry';
 import { useScoreSelectionStore, type ScoreObjectClipboardEntry } from '../../../../../stores/score-selection-store';
 import { useProjectStore } from '../../../../../stores/project-store';
 import { useKeyboardShortcutScope } from '../../../../../hooks/use-keyboard-shortcut-scope';
@@ -10,6 +11,13 @@ import { snapValueToBeats } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import type { MeterMapSnapshot, ScoreObjectEditorTargetSnapshot } from '../../../../../../shared/project-editor';
 import { deriveSnapLineBeats, snapBeatToGrid } from '../snap-grid-utils';
+import { toast } from 'sonner';
+import {
+  collectClipboardEntriesForSelection,
+  groupPasteObjectsByTargetGroup,
+  translateClipboardEntriesForPaste,
+  type ScorePasteObject,
+} from './score-clipboard-utils';
 
 interface Props {
   group: PolyObjectLayerGroupSnapshot;
@@ -325,6 +333,7 @@ export default function ScoreTimeCanvas({
   const snapBeats = snapEnabled
     ? snapValueToBeats(snapValue, tempo, smpteFrameRate, 44100, pixelsPerBeat)
     : 0;
+  const pixelsPerSecond = tempo > 0 ? pixelsPerBeat * (tempo / 60) : pixelsPerBeat;
 
   const snapBeatValueMove = useCallback((beats: number): number => {
     if (!snapEnabled || snapBeats <= 0) return beats;
@@ -364,15 +373,21 @@ export default function ScoreTimeCanvas({
 
     const isMeta = e.metaKey || e.ctrlKey;
     if (isMeta && !item && clipboard.length > 0) {
-      const minLayerIdx = Math.min(...clipboard.map((c) => c.layerIndex));
-      const minStart = Math.min(...clipboard.map((c) => c.startBeats));
-      const offsetBeats = snapBeatValueStart(xBeats) - minStart;
-      const objects = clipboard.map((entry) => ({
-        ...entry,
-        startBeats: entry.startBeats + offsetBeats,
-        layerIndex: hit.index + (entry.layerIndex - minLayerIdx),
-      }));
-      addScoreObjects(objects);
+      const paste = translateClipboardEntriesForPaste({
+        clipboard,
+        layerGroups: interactionLayerGroups,
+        targetGroupId: group.groupId,
+        targetLayerIndex: hit.index,
+        targetXBeats: xBeats,
+        snapBeatValue: snapBeatValueStart,
+      });
+      if (!paste.ok) {
+        toast.error(paste.message);
+        return;
+      }
+      for (const objects of groupPasteObjectsByTargetGroup(paste.entries.map((entry) => entry.object))) {
+        addScoreObjects(objects);
+      }
       return;
     }
 
@@ -435,9 +450,10 @@ export default function ScoreTimeCanvas({
     const selectedIds = new Set(selectedObjectIds);
     selectedIds.add(item.objectId);
 
-    if (onLeftEdge || onRightEdge) {
-      for (let li = 0; li < group.layers.length; li++) {
-        for (const obj of group.layers[li].items) {
+    for (const lg of interactionLayerGroups) {
+      const groupStart = groupStartIndexById.get(lg.groupId) ?? 0;
+      for (let li = 0; li < lg.layers.length; li++) {
+        for (const obj of lg.layers[li].items) {
           if (selectedIds.has(obj.objectId)) {
             const preview = previewByObjectId[obj.objectId];
             origPositions.push({
@@ -446,29 +462,9 @@ export default function ScoreTimeCanvas({
               durationBeats: preview?.durationBeats ?? obj.durationBeats,
               startTimeBase: obj.startTimeBase,
               durationTimeBase: obj.durationTimeBase,
-              globalLayerIndex: currentGroupGlobalStart + li,
+              globalLayerIndex: groupStart + li,
               editorTarget: obj.editorTarget,
             });
-          }
-        }
-      }
-    } else {
-      for (const lg of interactionLayerGroups) {
-        const groupStart = groupStartIndexById.get(lg.groupId) ?? 0;
-        for (let li = 0; li < lg.layers.length; li++) {
-          for (const obj of lg.layers[li].items) {
-            if (selectedIds.has(obj.objectId)) {
-              const preview = previewByObjectId[obj.objectId];
-              origPositions.push({
-                objectId: obj.objectId,
-                startBeats: preview?.startBeats ?? obj.startBeats,
-                durationBeats: preview?.durationBeats ?? obj.durationBeats,
-                startTimeBase: obj.startTimeBase,
-                durationTimeBase: obj.durationTimeBase,
-                globalLayerIndex: groupStart + li,
-                editorTarget: obj.editorTarget,
-              });
-            }
           }
         }
       }
@@ -689,9 +685,14 @@ export default function ScoreTimeCanvas({
         const referenceStart = g.resizeReferenceStartBeats ?? g.originalPositions[0]!.startBeats;
         const targetReferenceStart = snapBeatValueMove(referenceStart + rawDelta);
         const snappedDelta = targetReferenceStart - referenceStart;
+        const minDelta = Math.max(...g.originalPositions.map((pos) => -pos.startBeats));
+        const maxDelta = Math.max(
+          0,
+          Math.min(...g.originalPositions.map((pos) => pos.durationBeats - MIN_SCORE_OBJECT_DURATION)),
+        );
+        const resizeDelta = Math.max(minDelta, Math.min(maxDelta, snappedDelta));
         const resizes = g.originalPositions.map((pos) => {
-          const maxStart = pos.startBeats + pos.durationBeats - MIN_SCORE_OBJECT_DURATION;
-          const targetStart = Math.max(0, Math.min(maxStart, pos.startBeats + snappedDelta));
+          const targetStart = pos.startBeats + resizeDelta;
           return {
             objectId: pos.objectId,
             targetStartBeats: targetStart,
@@ -858,24 +859,21 @@ export default function ScoreTimeCanvas({
   }, [toLocalXY, pixelsPerBeat, group.layers, onDoubleClickObject]);
 
   const getSelectedEntries = useCallback((): ScoreObjectClipboardEntry[] => {
-    const entries: ScoreObjectClipboardEntry[] = [];
-    for (const layer of group.layers) {
-      const idx = group.layers.indexOf(layer);
-      for (const item of layer.items) {
-        if (selectedObjectIds.has(item.objectId)) {
-          const preview = previewByObjectId[item.objectId];
-          entries.push({
-            ...item,
-            startBeats: preview?.startBeats ?? item.startBeats,
-            durationBeats: preview?.durationBeats ?? item.durationBeats,
-            layerIndex: idx,
-            groupId: group.groupId,
-          });
-        }
-      }
+    const entries = collectClipboardEntriesForSelection(interactionLayerGroups, selectedObjectIds);
+    if (Object.keys(previewByObjectId).length === 0) {
+      return entries;
     }
-    return entries;
-  }, [group, selectedObjectIds, previewByObjectId]);
+    return entries.map((entry) => {
+      const preview = previewByObjectId[entry.objectId];
+      return preview
+        ? {
+          ...entry,
+          startBeats: preview.startBeats,
+          durationBeats: preview.durationBeats,
+        }
+        : entry;
+    });
+  }, [interactionLayerGroups, selectedObjectIds, previewByObjectId]);
 
   const handleCopy = useCallback(() => {
     const entries = getSelectedEntries();
@@ -941,16 +939,22 @@ export default function ScoreTimeCanvas({
 
   const handleContextMenuPaste = useCallback(() => {
     if (clipboard.length === 0 || !contextMenuPos) return;
-    const minLayerIdx = Math.min(...clipboard.map((c) => c.layerIndex));
-    const minStart = Math.min(...clipboard.map((c) => c.startBeats));
-    const offsetBeats = snapBeatValueStart(contextMenuPos.xBeats) - minStart;
-    const objects = clipboard.map((entry) => ({
-      ...entry,
-      startBeats: entry.startBeats + offsetBeats,
-      layerIndex: contextMenuPos.layerIndex + (entry.layerIndex - minLayerIdx),
-    }));
-    addScoreObjects(objects);
-  }, [clipboard, contextMenuPos, snapBeatValueStart, addScoreObjects]);
+    const paste = translateClipboardEntriesForPaste({
+      clipboard,
+      layerGroups: interactionLayerGroups,
+      targetGroupId: group.groupId,
+      targetLayerIndex: contextMenuPos.layerIndex,
+      targetXBeats: contextMenuPos.xBeats,
+      snapBeatValue: snapBeatValueStart,
+    });
+    if (!paste.ok) {
+      toast.error(paste.message);
+      return;
+    }
+    for (const objects of groupPasteObjectsByTargetGroup(paste.entries.map((entry) => entry.object))) {
+      addScoreObjects(objects);
+    }
+  }, [clipboard, contextMenuPos, snapBeatValueStart, addScoreObjects, interactionLayerGroups, group.groupId]);
 
   const handleAlignLeft = useCallback(() => {
     const entries = getSelectedEntries();
@@ -1136,81 +1140,18 @@ export default function ScoreTimeCanvas({
                 const preview = previewByObjectId[item.objectId];
                 const startBeats = preview?.startBeats ?? item.startBeats;
                 const durationBeats = preview?.durationBeats ?? item.durationBeats;
-                const left = startBeats * pixelsPerBeat;
-                const width = Math.max(durationBeats * pixelsPerBeat, 4);
                 const isSelected = selectedObjectIds.has(item.objectId);
-                const rgb = argbToRGB(item.backgroundColor);
-
-                let barBg: string;
-                let borderLight: string;
-                let borderDark: string;
-                let fg: string;
-                let headerBg: string | null = null;
-
-                if (isSelected) {
-                  const brighter = brighten(rgb, 1.4);
-                  barBg = rgbToCSS(brighter);
-                  borderLight = '#ffffff';
-                  borderDark = '#ffffff';
-                  fg = '#ffffff';
-                  headerBg = rgbToCSS(darken(rgb, 0.4));
-                } else {
-                  barBg = `linear-gradient(180deg, ${rgbToCSS(brighten(rgb, 1.2))} 0%, ${colorToCSS(item.backgroundColor)} 6px)`;
-                  borderLight = rgbToCSS(brighten(rgb, 1.5));
-                  borderDark = rgbToCSS(darken(rgb, 0.5));
-                  fg = textColorForBackground(item.backgroundColor);
-                }
-
-                const barHeight = (layer.height || DEFAULT_ROW_HEIGHT);
-                const showText = barHeight >= 20;
 
                 return (
-                  <div
+                  <RenderBar
                     key={item.objectId}
-                    className="absolute overflow-hidden"
-                    style={{
-                      left,
-                      width,
-                      top: 1,
-                      height: barHeight - 2,
-                      background: barBg,
-                      borderTop: `1px solid ${borderLight}`,
-                      borderLeft: `1px solid ${borderLight}`,
-                      borderBottom: `1px solid ${borderDark}`,
-                      borderRight: `1px solid ${borderDark}`,
-                      zIndex: isSelected ? 2 : 1,
-                      pointerEvents: 'none',
-                    }}
-                  >
-                    {headerBg && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: 1,
-                          left: 0,
-                          right: 0,
-                          height: 16,
-                          backgroundColor: headerBg,
-                        }}
-                      />
-                    )}
-                    {showText && (
-                      <span
-                        className="absolute truncate font-bold"
-                        style={{
-                          left: 5,
-                          top: 1,
-                          right: 2,
-                          height: 16,
-                          lineHeight: '16px',
-                          fontSize: 11,
-                          color: fg,
-                        }}
-                      >
-                        {item.name}
-                      </span>
-                    )}
-                  </div>
+                    item={{ ...item, startBeats, durationBeats }}
+                    selected={isSelected}
+                    pixelsPerBeat={pixelsPerBeat}
+                    pixelsPerSecond={pixelsPerSecond}
+                    rowHeight={layer.height || DEFAULT_ROW_HEIGHT}
+                    durationBeats={durationBeats}
+                  />
                 );
               })}
             </div>
@@ -1356,7 +1297,7 @@ function EmptyAreaContextMenu({ menuItemClass, sepClass, clipboard, contextMenuP
   group: PolyObjectLayerGroupSnapshot;
   onPaste: () => void;
   snapBeatValue: (b: number) => number;
-  addScoreObjects: (objects: Array<{ layerIndex: number; groupId: string; name: string; startBeats: number; durationBeats: number; startTimeBase?: string; durationTimeBase?: string; backgroundColor: number; objectType: string; isContainer: boolean; editorTarget?: ScoreObjectEditorTargetSnapshot; serializedXml?: string }>) => void;
+  addScoreObjects: (objects: ScorePasteObject[]) => void;
 }) {
   const ni = () => alert('Not yet implemented');
 

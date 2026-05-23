@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BlueData, Channel, Effect, GenericInstrument, Send } from '@blue/data';
+import { AudioLayer, AudioLayerGroup, BlueData, Channel, Effect, GenericInstrument, Send } from '@blue/data';
 import {
   applyProjectDocumentPatch,
   createProjectEditorSnapshot,
@@ -86,6 +86,69 @@ describe('Mixer contract', () => {
         comments: 'Updated note',
       }),
     );
+  });
+
+  it('adds audio-layer source channels ahead of instrument channels in the canonical mixer snapshot', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const instrument = new GenericInstrument();
+    instrument.setName('Lead');
+    data.getArrangement().addInstrument(instrument, '1');
+
+    const audioGroup = new AudioLayerGroup();
+    const layerA = new AudioLayer();
+    layerA.setName('Audio A');
+    const layerB = new AudioLayer();
+    layerB.setName('Audio B');
+    audioGroup.push(layerA);
+    audioGroup.push(layerB);
+    data.getScore().push(audioGroup);
+
+    const snapshot = createProjectEditorSnapshot(data, '/tmp/test.blue');
+
+    expect(snapshot.mixer?.channels.map((channel) => ({
+      name: channel.name,
+      association: channel.association,
+    }))).toEqual([
+      { name: 'Audio A', association: layerA.getUniqueId() },
+      { name: 'Audio B', association: layerB.getUniqueId() },
+      { name: 'Lead', association: '1' },
+    ]);
+
+    expect(data.getMixer().getChannels().map((channel) => channel.getAssociation())).toEqual([
+      layerA.getUniqueId(),
+      layerB.getUniqueId(),
+      '1',
+    ]);
+  });
+
+  it('renames the bound audio layer when an audio mixer channel name changes canonically', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audioGroup = new AudioLayerGroup();
+    const layer = new AudioLayer();
+    layer.setName('Layer 1');
+    audioGroup.push(layer);
+    data.getScore().push(audioGroup);
+
+    createProjectEditorSnapshot(data, '/tmp/test.blue');
+    const channel = data.getMixer().getChannels()[0];
+    const channelId = getMixerChannelSnapshotId(channel!);
+
+    expect(
+      applyProjectDocumentPatch(data, {
+        mixer: {
+          type: 'updateChannel',
+          channelId,
+          patch: { name: 'Renamed From Mixer' },
+        },
+      }),
+    ).toBe(true);
+
+    expect(channel?.getName()).toBe('Renamed From Mixer');
+    expect(layer.getName()).toBe('Renamed From Mixer');
   });
 
   it('generates unique subchannel names when adding subchannels', () => {

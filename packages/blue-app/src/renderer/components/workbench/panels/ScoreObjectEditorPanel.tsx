@@ -1232,6 +1232,10 @@ export default function ScoreObjectEditorPanel(): React.ReactElement {
     return selectedRow?.editorTarget ?? null;
   }, [selectedObjectTarget, selectedRow]);
 
+  const audioClipEditorPreview = useProjectStore((s) => (
+    selectedObjectId ? s.audioClipEditorPreviewByObjectId[selectedObjectId] ?? null : null
+  ));
+
   useEffect(() => {
     if (!loaded || !selectedObjectId) {
       setDocument(null);
@@ -1273,6 +1277,24 @@ export default function ScoreObjectEditorPanel(): React.ReactElement {
     })();
     return () => { cancelled = true; };
   }, [document?.editor.kind, loaded, selectedObjectId, editorTarget, lastScorePatch, flushPendingPatches]);
+
+  useEffect(() => {
+    if (!audioClipEditorPreview) {
+      return;
+    }
+
+    setDocument((current) => {
+      if (!current || current.editor.kind !== 'audioClip') {
+        return current;
+      }
+
+      return applyPatchToDocument(current, {
+        type: 'updateTypeSpecificEditor',
+        target: current.target,
+        patch: audioClipEditorPreview,
+      });
+    });
+  }, [audioClipEditorPreview]);
 
   const handlePatch = useCallback((patch: ScorePatch): void => {
     applyProjectDocumentPatch({ score: patch });

@@ -135,7 +135,7 @@ export class PianoRoll extends AbstractSoundObject {
   setSecondaryRulerEnabled(v: boolean): void { this._secondaryRulerEnabled = v; }
 
   override getTimeBehavior(): TimeBehavior {
-    return TimeBehavior.REPEAT;
+    return this._timeBehavior;
   }
 
   override generateForCSD(

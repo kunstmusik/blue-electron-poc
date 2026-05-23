@@ -1,10 +1,47 @@
 # Project Status — blue-electron
 
-**Date**: 2026-05-20
-**Branch**: `046-meter-map-parity`
+**Date**: 2026-05-22
+**Branch**: `047-score-object-bar-renderers`
 **Note**: Historical spec sections below preserve their closeout-time branch and feature-context notes; only the topmost spec package reflects the current active handoff state.
 
-## Current Focus: Spec 046 Closed
+## Current Focus: Spec 047 Closed
+
+**Branch**: `047-score-object-bar-renderers`
+
+### Summary
+Spec 047 is closed. The app now has Java Blue score-object bar-renderer parity across the Score timeline: generic bars, comment bars, letter-badge bars, PianoRoll note thumbnails, AudioFile and FrozenSoundObject waveform bars, and audio-layer AudioClip waveform and fade bars backed by typed snapshot metadata and renderer-owned waveform helpers.
+
+Closeout review fixed the last audio-specific parity gaps instead of leaving them as follow-up. The final pass corrected AudioClip translucent fill semantics, restored multi-line labels for AudioFile and FrozenSoundObject bars, and kept the broader score interaction surface green.
+
+### Handoff State
+- `.specify/feature.json` points to `specs/047-score-object-bar-renderers`.
+- Current branch is `047-score-object-bar-renderers`.
+- `spec.md` status is `Closed`.
+- `quickstart.md` and `status.md` are updated for closeout.
+- `tasks.md` is fully checked off.
+- Manual quickstart work was exercised during implementation; the user re-verified the audio renderer after the final parity fixes on 2026-05-22.
+
+### Delivered Scope
+- Extend score-row snapshots with a typed `barRenderer` payload rather than parsing serialized XML inside React components.
+- Add a Score panel bar-renderer registry and Java-style color, label, repeat-marker, PianoRoll-thumbnail, waveform, and fade helpers.
+- Implement Java `GenericView`, `CommentView`, `LetterRendererView`, `PianoRollView`, `AudioFileView`, `FrozenSoundObjectView`, and `AudioClipPanel` rendering parity.
+- Add explicit fallback coverage for Java-only or not-yet-ported mappings such as `ClojureObjectView`, plus documented fallback handling for `ObjectBuilder` when full data support is absent.
+- Preserve existing score selection, drag, resize, context-menu, copy/paste, and nested score navigation behavior.
+- Bundle adjacent fixes uncovered on the same branch: score clipboard hardening and cross-group tests, runtime parameter sync for live audio-layer channels, grouped mixer-channel XML loading, and `PianoRoll` time-behavior correctness.
+
+### Validation
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/score-object-bar-renderer-contract.test.ts src/renderer/tests/score-object-bar-renderers.test.ts src/renderer/tests/audio-clip-bar-renderer.test.tsx --browser.enabled=false` — pass (`3` files, `94` tests)
+- `pnpm --filter @blue/app exec vitest run --config vitest.config.ts src/renderer/tests/audio-layer-group-canvas.test.tsx src/renderer/tests/score-time-canvas-cross-group.test.tsx src/renderer/tests/score-object-properties-panel.test.tsx src/renderer/tests/score-object-editor-panel.test.tsx src/renderer/tests/score-panel-session-reset.test.tsx --browser.enabled=false` — pass (`5` files, `64` tests)
+- `pnpm --filter @blue/app test` — pass (`110` files, `1233` passed, `2` skipped)
+- `pnpm --filter @blue/app build` — pass
+- `pnpm --filter @blue/data test -- --maxWorkers=1` — pass (`94` files, `916` tests)
+- `./.specify/scripts/bash/check-prerequisites.sh --json --include-tasks --require-tasks` — pass
+- `git diff --check` — pass
+
+### Next Recommended Step
+Spec 047 can be treated as closed. The next useful step is selecting the next score, editor, or parity slice.
+
+## Previous Focus: Spec 046 Closed
 
 **Branch**: `046-meter-map-parity`
 

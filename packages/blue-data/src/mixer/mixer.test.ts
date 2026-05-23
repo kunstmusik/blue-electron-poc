@@ -69,6 +69,44 @@ describe('Mixer', () => {
       const saved = loaded.saveAsXML().toXml();
       expect(saved).toContain('<enabled>false</enabled>');
     });
+
+    it('loads source channels from Java channelListGroups without losing them to empty flat lists', () => {
+      const javaXml = [
+        '<mixer>',
+        '  <enabled>true</enabled>',
+        '  <channelListGroups>',
+        '    <channelList association="group-1" listName="Audio Layer Group">',
+        '      <channel association="layer-1">',
+        '        <name>Channel</name>',
+        '        <outChannel>Master</outChannel>',
+        '        <level>0.0</level>',
+        '        <muted>false</muted>',
+        '        <solo>false</solo>',
+        '        <effectsChain bin="pre"/>',
+        '        <effectsChain bin="post"/>',
+        '      </channel>',
+        '    </channelList>',
+        '  </channelListGroups>',
+        '  <channelList listName="Orchestra" list="channels"/>',
+        '  <channelList listName="SubChannels" list="subChannels"/>',
+        '  <channel>',
+        '    <name>Master</name>',
+        '    <outChannel>Master</outChannel>',
+        '    <level>0.0</level>',
+        '    <muted>false</muted>',
+        '    <solo>false</solo>',
+        '    <effectsChain bin="pre"/>',
+        '    <effectsChain bin="post"/>',
+        '  </channel>',
+        '</mixer>',
+      ].join('\n');
+
+      const loaded = Mixer.loadFromXML(Element.parse(javaXml));
+
+      expect(loaded.getChannels()).toHaveLength(1);
+      expect(loaded.getChannels()[0]?.getAssociation()).toBe('layer-1');
+      expect(loaded.getChannels()[0]?.getOutChannel()).toBe('Master');
+    });
   });
 
   describe('deepCopy', () => {

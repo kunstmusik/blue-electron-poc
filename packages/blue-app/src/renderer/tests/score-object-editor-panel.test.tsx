@@ -1,3 +1,5 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
   BlueData,
@@ -24,6 +26,7 @@ import {
   TrackerObject,
   NotationObject,
   JMask,
+  FadeType,
   TimeBase,
   TimeBehavior,
   TimeDuration,
@@ -35,6 +38,7 @@ import {
   type ScoreObjectEditorTargetSnapshot,
   type ScoreObjectLibraryEntryRef,
 } from '../../shared/project-editor';
+import AudioClipScoreObjectEditor from '../components/workbench/panels/score-object/editors/AudioClipScoreObjectEditor';
 
 function makeLibRef(libId: string, objectType: string, index: number = 0): ScoreObjectLibraryEntryRef {
   return { libraryId: libId, libraryIndex: index, objectType };
@@ -148,7 +152,9 @@ describe('AudioClip editor document creation and mutation (T026)', () => {
     clip.setAudioFile('sound.wav');
     clip.setFileStartTime(0.5);
     clip.setFadeIn(0.1);
+    clip.setFadeInType(FadeType.CONSTANT_POWER);
     clip.setFadeOut(0.2);
+    clip.setFadeOutType(FadeType.SLOW);
     clip.setLooping(null, true);
     layer.push(clip);
     alg.push(layer);
@@ -172,9 +178,23 @@ describe('AudioClip editor document creation and mutation (T026)', () => {
       expect(doc!.editor.audioFile).toBe('sound.wav');
       expect(doc!.editor.fileStartTime).toBeCloseTo(0.5);
       expect(doc!.editor.fadeIn).toBeCloseTo(0.1);
+      expect(doc!.editor.fadeInType).toBe('CONSTANT_POWER');
       expect(doc!.editor.fadeOut).toBeCloseTo(0.2);
+      expect(doc!.editor.fadeOutType).toBe('SLOW');
       expect(doc!.editor.looping).toBe(true);
     }
+  });
+
+  it('renders the audio clip editor in a scrollable container', () => {
+    const { data, target } = makeAudioClipData();
+    const doc = createScoreObjectEditorDocument(data, { target });
+
+    const html = renderToStaticMarkup(
+      <AudioClipScoreObjectEditor document={doc!} onPatch={() => undefined} />,
+    );
+
+    expect(html).toContain('h-full overflow-y-auto py-2');
+    expect(html).toContain('value="0:00:00.500"');
   });
 
   it('applies updateTypeSpecificEditor patch for audioFile', () => {
@@ -219,6 +239,21 @@ describe('AudioClip editor document creation and mutation (T026)', () => {
     });
 
     expect(clip.isLooping()).toBe(false);
+  });
+
+  it('applies updateTypeSpecificEditor patch for fade types', () => {
+    const { data, clip, target } = makeAudioClipData();
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'updateTypeSpecificEditor',
+        target,
+        patch: { fadeInType: 'FAST', fadeOutType: 'LINEAR' },
+      },
+    });
+
+    expect(String(clip.getFadeInType())).toBe('Fast');
+    expect(String(clip.getFadeOutType())).toBe('Linear');
   });
 });
 

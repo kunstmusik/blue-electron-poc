@@ -112,6 +112,7 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
   const tb = shared.timeBehavior;
   const isRepeat = isRepeatBehavior(tb);
   const hasRepeatPoint = shared.repeatPoint !== null && shared.repeatPoint !== undefined;
+  const repeatPointEnabled = isRepeat && hasRepeatPoint;
 
   const handleNameCommit = useCallback((name: string) => {
     onPatch({
@@ -146,20 +147,11 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
   }, [target, onPatch]);
 
   const handleTimeBehaviorChange = useCallback((timeBehavior: string) => {
-    const repeatEnabled = isRepeatBehavior(timeBehavior);
-    if (!repeatEnabled) {
-      onPatch({
-        type: 'updateSoundObjectBehavior',
-        target,
-        patch: { timeBehavior, repeatPoint: null },
-      });
-    } else {
-      onPatch({
-        type: 'updateSoundObjectBehavior',
-        target,
-        patch: { timeBehavior },
-      });
-    }
+    onPatch({
+      type: 'updateSoundObjectBehavior',
+      target,
+      patch: { timeBehavior },
+    });
   }, [target, onPatch]);
 
   const handleUseRepeatPointChange = useCallback((checked: boolean) => {
@@ -167,7 +159,12 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
       onPatch({
         type: 'updateSoundObjectBehavior',
         target,
-        patch: { repeatPoint: { value: shared.subjectiveDuration.value, timeBase: 'beats' } },
+        patch: {
+          repeatPoint: {
+            value: shared.subjectiveDuration.value,
+            timeBase: shared.subjectiveDuration.timeBase,
+          },
+        },
       });
     } else {
       onPatch({
@@ -176,7 +173,7 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
         patch: { repeatPoint: null },
       });
     }
-  }, [target, onPatch, shared.subjectiveDuration.value]);
+  }, [target, onPatch, shared.subjectiveDuration.timeBase, shared.subjectiveDuration.value]);
 
   const handleRepeatPointCommit = useCallback((value: number, timeBase: string) => {
     onPatch({
@@ -237,7 +234,7 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
               <FieldRow label="Use Repeat Point:">
                 <input
                   type="checkbox"
-                  checked={hasRepeatPoint}
+                  checked={repeatPointEnabled}
                   disabled={!isRepeat}
                   onChange={(e) => handleUseRepeatPointChange(e.target.checked)}
                   className="accent-blue-accent"
@@ -250,7 +247,7 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
                   timeBase={shared.repeatPoint?.timeBase ?? 'beats'}
                   timeContext={timeCtx}
                   durationMode={true}
-                  disabled={!isRepeat || !hasRepeatPoint}
+                  disabled={!repeatPointEnabled}
                   onCommit={handleRepeatPointCommit}
                 />
               </FieldRow>

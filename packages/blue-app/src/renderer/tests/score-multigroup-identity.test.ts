@@ -1,11 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AudioLayerGroup,
+  AudioClip,
   BlueData,
+  FadeType,
   GenericScore,
   PatternsLayerGroup,
   PolyObject,
   SoundLayer,
+  TimeDuration,
   TimePosition,
 } from '@blue/data';
 import {
@@ -24,6 +27,18 @@ function createLayer(name: string, startBeats: number): SoundLayer {
   score.setStartTime(TimePosition.beats(startBeats));
   layer.push(score);
   return layer;
+}
+
+function createAudioClipForTest(name: string, filePath: string, durationSeconds: number): AudioClip {
+  const clip = new AudioClip();
+  clip.setName(name);
+  clip.setAudioFile(filePath);
+  clip.setNumChannels(2);
+  clip.setAudioDuration(durationSeconds);
+  clip.setStartTime(TimePosition.beats(0));
+  clip.setSubjectiveDuration(TimeDuration.fromSeconds(durationSeconds));
+  clip.setBackgroundColor(0x669966);
+  return clip;
 }
 
 function createMultiGroupSnapshot() {
@@ -220,6 +235,71 @@ describe('score multigroup object identity', () => {
     expect(updatedSnapshot.score.layerGroups[0]!.layers[0]!.solo).toBe(true);
   });
 
+  it('preserves saved layer heights in root and nested snapshots', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const root = new PolyObject(true);
+    const rootLayer = new SoundLayer();
+    rootLayer.setHeightIndex(2);
+
+    const nested = new PolyObject(false);
+    const nestedLayer = new SoundLayer();
+    nestedLayer.setHeightIndex(4);
+    nested.push(nestedLayer);
+
+    rootLayer.push(nested);
+    root.push(rootLayer);
+
+    const audio = new AudioLayerGroup();
+    const audioLayer = audio.newLayerAt(0);
+    audioLayer.setHeightIndex(3);
+
+    data.getScore().push(root);
+    data.getScore().push(audio);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    expect(snapshot.score.layerGroups[0]!.layers[0]!.height).toBe(66);
+    expect(snapshot.score.layerGroups[1]!.layers[0]!.height).toBe(88);
+
+    const nestedSnapshot = createNestedPolyObjectSnapshot(data, {
+      rootGroupIndex: 0,
+      containerPath: [],
+      layerIndex: 0,
+      objectIndex: 0,
+    });
+
+    expect(nestedSnapshot?.layers[0]!.height).toBe(110);
+  });
+
+  it('persists audio layer height through canonical score patches', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audio = new AudioLayerGroup();
+    audio.newLayerAt(0);
+    data.getScore().push(audio);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const groupId = snapshot.score.layerGroups[0]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'updateLayerState',
+        groupId,
+        layerIndex: 0,
+        patch: {
+          heightIndex: 4,
+        },
+      },
+    });
+
+    expect((data.getScore()[0] as AudioLayerGroup)[0]!.getHeightIndex()).toBe(4);
+
+    const updatedSnapshot = createProjectEditorSnapshot(data, null);
+    expect(updatedSnapshot.score.layerGroups[0]!.layers[0]!.height).toBe(110);
+  });
+
   it('moves the targeted root layer group when non-PolyObject groups are present', () => {
     const data = new BlueData();
     data.getScore().length = 0;
@@ -252,5 +332,248 @@ describe('score multigroup object identity', () => {
       'Audio',
       'Patterns',
     ]);
+  });
+
+  it('adds audio and patterns layer groups through canonical score patches', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'addLayerGroup',
+        groupType: 'audio',
+      },
+    });
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'addLayerGroup',
+        groupType: 'patterns',
+      },
+    });
+
+    expect(data.getScore()[0]).toBeInstanceOf(AudioLayerGroup);
+    expect((data.getScore()[0] as AudioLayerGroup).length).toBe(1);
+    expect(data.getScore()[1]).toBeInstanceOf(PatternsLayerGroup);
+    expect((data.getScore()[1] as PatternsLayerGroup).length).toBe(1);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    expect(snapshot.score.layerGroups.map((group) => group.groupType)).toEqual([
+      'audio',
+      'patterns',
+    ]);
+    expect(snapshot.score.layerGroups.map((group) => group.name)).toEqual([
+      'Audio Layer Group',
+      'Patterns Layer Group',
+    ]);
+  });
+
+  it('adds audio clips through canonical and optimistic score patches', async () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audio = new AudioLayerGroup();
+    audio.newLayerAt(0);
+    data.getScore().push(audio);
+
+    const initialSnapshot = createProjectEditorSnapshot(data, null);
+    const groupId = initialSnapshot.score.layerGroups[0]!.groupId;
+    const serializedClip = createAudioClipForTest('Dropped Clip', '/tmp/dropped.wav', 2.5);
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'addScoreObjects',
+        groupId,
+        objects: [
+          {
+            layerIndex: 0,
+            objectType: 'AudioClip',
+            name: 'Dropped Clip',
+            startBeats: 4,
+            durationBeats: 5,
+            durationTimeBase: 'TIME',
+            backgroundColor: 0x669966,
+            serializedXml: serializedClip.saveAsXML().toXml(),
+          },
+        ],
+      },
+    });
+
+    const updatedSnapshot = createProjectEditorSnapshot(data, null);
+    const canonicalItem = updatedSnapshot.score.layerGroups[0]!.layers[0]!.items[0]!;
+
+    expect((data.getScore()[0] as AudioLayerGroup)[0]![0]).toBeInstanceOf(AudioClip);
+    expect(canonicalItem.objectType).toBe('AudioClip');
+    expect(canonicalItem.startBeats).toBe(4);
+    expect(canonicalItem.durationTimeBase).toBe('TIME');
+    expect(canonicalItem.serializedXml).toContain('/tmp/dropped.wav');
+    expect(canonicalItem.barRenderer.kind).toBe('audioClip');
+
+    useProjectStore.getState().setProjectInfo(initialSnapshot);
+    const applyPatchSpy = vi.fn().mockResolvedValue(undefined);
+    useProjectStore.setState({ applyProjectDocumentPatch: applyPatchSpy } as Partial<ReturnType<typeof useProjectStore.getState>>);
+
+    useProjectStore.getState().addScoreObjects([
+      {
+        layerIndex: 0,
+        groupId,
+        name: 'Optimistic Clip',
+        startBeats: 2,
+        durationBeats: 4,
+        durationTimeBase: 'TIME',
+        backgroundColor: 0x669966,
+        objectType: 'AudioClip',
+        isContainer: false,
+        serializedXml: createAudioClipForTest('Optimistic Clip', '/tmp/optimistic.wav', 2).saveAsXML().toXml(),
+        barRenderer: {
+          kind: 'audioClip',
+          labelLines: ['Optimistic Clip'],
+          audioFilePath: '/tmp/optimistic.wav',
+          waveformKey: 'aclp:/tmp/optimistic.wav',
+          fileStartTimeBeats: 0,
+          audioDurationBeats: 2,
+          looping: true,
+          fadeInBeats: 0,
+          fadeInType: 'LINEAR',
+          fadeOutBeats: 0,
+          fadeOutType: 'LINEAR',
+        },
+      },
+    ]);
+
+    await Promise.resolve();
+
+    const optimisticItem = useProjectStore.getState().score.layerGroups[0]!.layers[0]!.items[0]!;
+    expect(optimisticItem.objectType).toBe('AudioClip');
+    expect(optimisticItem.barRenderer.kind).toBe('audioClip');
+    expect(optimisticItem.editorTarget?.supportsTimeBehavior).toBe(false);
+    expect(optimisticItem.editorTarget?.supportsRepeatPoint).toBe(false);
+    expect(applyPatchSpy).toHaveBeenCalledWith({
+      score: {
+        type: 'addScoreObjects',
+        groupId,
+        objects: [
+          expect.objectContaining({
+            selectionId: optimisticItem.objectId,
+            layerIndex: 0,
+            objectType: 'AudioClip',
+            serializedXml: expect.stringContaining('/tmp/optimistic.wav'),
+          }),
+        ],
+      },
+    });
+  });
+
+  it('preserves explicit selection ids when canonically adding audio clips', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audio = new AudioLayerGroup();
+    audio.newLayerAt(0);
+    data.getScore().push(audio);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const groupId = snapshot.score.layerGroups[0]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'addScoreObjects',
+        groupId,
+        objects: [
+          {
+            selectionId: 'local-aclp-42',
+            layerIndex: 0,
+            objectType: 'AudioClip',
+            name: 'Canonical Clip',
+            startBeats: 1,
+            durationBeats: 2,
+            durationTimeBase: 'TIME',
+            backgroundColor: 0x669966,
+            serializedXml: createAudioClipForTest('Canonical Clip', '/tmp/canonical.wav', 1).saveAsXML().toXml(),
+          },
+        ],
+      },
+    });
+
+    const after = createProjectEditorSnapshot(data, null);
+    expect(after.score.layerGroups[0]!.layers[0]!.items[0]!.objectId).toBe('local-aclp-42');
+    expect(after.score.layerGroups[0]!.layers[0]!.items[0]!.editorTarget?.selectionId).toBe('local-aclp-42');
+  });
+
+  it('moves audio clips canonically within audio groups and snapshots beat-based waveform timings', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+    const tempoMap = data.getScore().getTimeContext().getTempoMap();
+    tempoMap.setEnabled(true);
+    tempoMap.setTempo(120);
+
+    const audio = new AudioLayerGroup();
+    audio.newLayerAt(0);
+    audio.newLayerAt(1);
+
+    const clip = createAudioClipForTest('Moved Clip', '/tmp/moved.wav', 2);
+    clip.setFileStartTime(0.5);
+    clip.setFadeIn(0.25);
+    clip.setFadeOut(0.75);
+    audio[0]!.push(clip);
+    data.getScore().push(audio);
+
+    const before = createProjectEditorSnapshot(data, null);
+    const clipTarget = before.score.layerGroups[0]!.layers[0]!.items[0]!.editorTarget;
+    const groupId = before.score.layerGroups[0]!.groupId;
+
+    applyProjectDocumentPatch(data, {
+      score: {
+        type: 'moveScoreObjects',
+        moves: [
+          {
+            target: clipTarget!,
+            targetGroupId: groupId,
+            targetLayerIndex: 1,
+            targetStartBeats: 6,
+          },
+        ],
+      },
+    });
+
+    const after = createProjectEditorSnapshot(data, null);
+    expect(after.score.layerGroups[0]!.layers[0]!.items).toHaveLength(0);
+    const moved = after.score.layerGroups[0]!.layers[1]!.items[0]!;
+    expect(moved.objectType).toBe('AudioClip');
+    expect(moved.startBeats).toBe(6);
+    expect(moved.barRenderer.kind).toBe('audioClip');
+    if (moved.barRenderer.kind === 'audioClip') {
+      expect(moved.barRenderer.audioDurationBeats).toBeCloseTo(4);
+      expect(moved.barRenderer.fileStartTimeBeats).toBeCloseTo(1);
+      expect(moved.barRenderer.fadeInBeats).toBeCloseTo(0.5);
+      expect(moved.barRenderer.fadeOutBeats).toBeCloseTo(1.5);
+    }
+  });
+
+  it('snapshots actual audio clip color and normalized fade types', () => {
+    const data = new BlueData();
+    data.getScore().length = 0;
+
+    const audio = new AudioLayerGroup();
+    audio.newLayerAt(0);
+
+    const clip = createAudioClipForTest('Colored Clip', '/tmp/colored.wav', 2);
+    clip.setBackgroundColor(0x404040);
+    clip.setFadeIn(0.25);
+    clip.setFadeInType(FadeType.CONSTANT_POWER);
+    clip.setFadeOut(0.5);
+    clip.setFadeOutType(FadeType.SLOW);
+    audio[0]!.push(clip);
+    data.getScore().push(audio);
+
+    const snapshot = createProjectEditorSnapshot(data, null);
+    const item = snapshot.score.layerGroups[0]!.layers[0]!.items[0]!;
+
+    expect(item.backgroundColor).toBe(0x404040);
+    expect(item.barRenderer.kind).toBe('audioClip');
+    if (item.barRenderer.kind === 'audioClip') {
+      expect(item.barRenderer.fadeInType).toBe('CONSTANT_POWER');
+      expect(item.barRenderer.fadeOutType).toBe('SLOW');
+    }
   });
 });

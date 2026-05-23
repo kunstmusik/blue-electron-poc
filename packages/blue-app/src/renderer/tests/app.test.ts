@@ -168,6 +168,269 @@ describe('Project Store', () => {
     expect(useProjectStore.getState().isDirty).toBe(true);
   });
 
+  it('refreshes the canonical project snapshot after structural audio-layer score commits', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1, sessionId: 0 });
+
+    const initial = createEmptyProjectEditorSnapshot();
+    initial.filePath = '/path/to/test.blue';
+    initial.loaded = true;
+    initial.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
+      },
+    ];
+
+    const refreshed = structuredClone(initial);
+    refreshed.mixer.channels = [
+      {
+        id: 'audio-ch-0',
+        name: 'Layer 1',
+        channelKind: 'instrument',
+        association: 'audio-layer-0-unique',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      },
+      {
+        id: 'audio-ch-1',
+        name: '',
+        channelKind: 'instrument',
+        association: 'audio-layer-1-unique',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      },
+    ];
+
+    mockBlueAPI.getProjectDocument.mockResolvedValue(refreshed);
+
+    useProjectStore.getState().setProjectInfo(initial);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: {
+        type: 'addLayer',
+        groupId: 'audio-group',
+        layerIndex: 1,
+      },
+    });
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        score: {
+          type: 'addLayer',
+          groupId: 'audio-group',
+          layerIndex: 1,
+        },
+      },
+    ]);
+    expect(mockBlueAPI.getProjectDocument).toHaveBeenCalledOnce();
+    expect(useProjectStore.getState().mixer.channels).toEqual(refreshed.mixer.channels);
+  });
+
+  it('keeps audio-layer mixer channels visible when updating channel gain', async () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    snapshot.filePath = '/path/to/test.blue';
+    snapshot.loaded = true;
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
+      },
+    ];
+    snapshot.mixer.channels = [
+      {
+        id: 'audio-ch-0',
+        name: 'Layer 1',
+        channelKind: 'instrument',
+        association: 'audio-layer-0-unique',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      },
+    ];
+
+    useProjectStore.getState().setProjectInfo(snapshot);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      mixer: {
+        type: 'updateChannel',
+        channelId: 'audio-ch-0',
+        patch: { level: 0.75 },
+      },
+    });
+
+    expect(useProjectStore.getState().mixer.channels).toEqual([
+      expect.objectContaining({
+        id: 'audio-ch-0',
+        association: 'audio-layer-0-unique',
+        level: 0.75,
+      }),
+    ]);
+  });
+
+  it('renaming an audio layer updates the bound mixer channel and queues the canonical rename patch', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1, sessionId: 0 });
+
+    const snapshot = createEmptyProjectEditorSnapshot();
+    snapshot.filePath = '/path/to/test.blue';
+    snapshot.loaded = true;
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
+      },
+    ];
+    snapshot.mixer.channels = [
+      {
+        id: 'audio-ch-0',
+        name: 'Layer 1',
+        channelKind: 'instrument',
+        association: 'audio-layer-0-unique',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      },
+    ];
+
+    useProjectStore.getState().setProjectInfo(snapshot);
+
+    useProjectStore.getState().renameLayer('audio-layer-0', 'Renamed Layer');
+
+    expect(useProjectStore.getState().score.layerGroups[0]?.layers[0]?.name).toBe('Renamed Layer');
+    expect(useProjectStore.getState().mixer.channels[0]?.name).toBe('Renamed Layer');
+
+    __testFlushPendingPatches();
+    await __testAwaitPendingPatches();
+
+    expect(mockBlueAPI.commitProjectDocumentPatches).toHaveBeenCalledWith([
+      {
+        score: {
+          type: 'renameLayer',
+          groupId: 'audio-group',
+          layerIndex: 0,
+          name: 'Renamed Layer',
+        },
+      },
+    ]);
+  });
+
+  it('optimistically renames the bound audio layer when an audio mixer channel is renamed', async () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    snapshot.filePath = '/path/to/test.blue';
+    snapshot.loaded = true;
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [],
+          },
+        ],
+      },
+    ];
+    snapshot.mixer.channels = [
+      {
+        id: 'audio-ch-0',
+        name: 'Layer 1',
+        channelKind: 'instrument',
+        association: 'audio-layer-0-unique',
+        outChannel: 'Master',
+        muted: false,
+        solo: false,
+        level: 0,
+        volume: 1,
+        pan: 0.5,
+        preChain: [],
+        postChain: [],
+      },
+    ];
+
+    useProjectStore.getState().setProjectInfo(snapshot);
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      mixer: {
+        type: 'updateChannel',
+        channelId: 'audio-ch-0',
+        patch: { name: 'Renamed From Mixer' },
+      },
+    });
+
+    expect(useProjectStore.getState().mixer.channels[0]?.name).toBe('Renamed From Mixer');
+    expect(useProjectStore.getState().score.layerGroups[0]?.layers[0]?.name).toBe('Renamed From Mixer');
+  });
+
   it('optimistically merges meter-map patches into transport state and queued commits', async () => {
     mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
     const snapshot = createEmptyProjectEditorSnapshot();
@@ -352,6 +615,102 @@ describe('Project Store', () => {
         },
       },
     ]);
+  });
+
+  it('optimistically updates audio clip fade types for type-specific editor patches', async () => {
+    mockBlueAPI.commitProjectDocumentPatches.mockResolvedValue({ revision: 1 });
+    const snapshot = createEmptyProjectEditorSnapshot();
+
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'audio-group',
+        groupType: 'audio',
+        name: 'Audio Layer Group',
+        layerCount: 1,
+        isOpenableContainer: false,
+        layers: [
+          {
+            layerId: 'audio-layer-0',
+            name: 'Layer 1',
+            height: 44,
+            muted: false,
+            solo: false,
+            items: [
+              {
+                objectId: 'audio-clip-1',
+                objectType: 'AudioClip',
+                name: 'Clip',
+                startBeats: 0,
+                durationBeats: 4,
+                startTimeBase: 'BEATS',
+                durationTimeBase: 'TIME',
+                backgroundColor: 0x669966,
+                isContainer: false,
+                editorTarget: {
+                  selectionId: 'audio-clip-1',
+                  selectedObjectType: 'AudioClip',
+                  editorObjectType: 'AudioClip',
+                  ownerKind: 'timeline',
+                  displayContext: 'timeline',
+                  location: { rootGroupIndex: 0, containerPath: [], layerIndex: 0, objectIndex: 0 },
+                  supportsTimeBehavior: false,
+                  supportsRepeatPoint: false,
+                  supportsNoteProcessorChain: false,
+                },
+                barRenderer: {
+                  kind: 'audioClip',
+                  labelLines: ['Clip'],
+                  audioFilePath: '/tmp/clip.wav',
+                  waveformKey: null,
+                  fileStartTimeBeats: 0,
+                  audioDurationBeats: 4,
+                  looping: true,
+                  fadeInBeats: 1,
+                  fadeInType: 'LINEAR',
+                  fadeOutBeats: 0.5,
+                  fadeOutType: 'LINEAR',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    useProjectStore.getState().setProjectInfo({
+      title: 'Test Project',
+      author: 'Test Author',
+      sampleRate: '44100',
+      version: '2.10.0',
+      filePath: '/path/to/test.blue',
+      loaded: true,
+      globalOrc: snapshot.globalOrc,
+      globalSco: snapshot.globalSco,
+      orchestra: { ...snapshot.orchestra, loaded: true },
+      projectProperties: snapshot.projectProperties,
+      transport: snapshot.transport,
+      score: snapshot.score,
+    });
+
+    const item = useProjectStore.getState().score.layerGroups[0]!.layers[0]!.items[0]!;
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: {
+        type: 'updateTypeSpecificEditor',
+        target: item.editorTarget!,
+        patch: {
+          fadeInType: 'SLOW',
+          fadeOutType: 'CONSTANT_POWER',
+        },
+      },
+    });
+
+    const updatedItem = useProjectStore.getState().score.layerGroups[0]!.layers[0]!.items[0]!;
+    expect(updatedItem.barRenderer.kind).toBe('audioClip');
+    if (updatedItem.barRenderer.kind === 'audioClip') {
+      expect(updatedItem.barRenderer.fadeInType).toBe('SLOW');
+      expect(updatedItem.barRenderer.fadeOutType).toBe('CONSTANT_POWER');
+    }
   });
 
   it('T349: layer mute and solo actions batch canonical score layer state patches', async () => {

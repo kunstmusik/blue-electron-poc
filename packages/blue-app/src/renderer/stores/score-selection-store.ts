@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ScoreObjectEditorTargetSnapshot } from '../../shared/project-editor';
+import type { ScoreObjectEditorTargetSnapshot, ScoreRowObjectSnapshot } from '../../shared/project-editor';
 
 export interface ScoreObjectClipboardEntry {
   objectId: string;
@@ -15,6 +15,7 @@ export interface ScoreObjectClipboardEntry {
   groupId: string;
   editorTarget?: ScoreObjectEditorTargetSnapshot;
   serializedXml?: string;
+  barRenderer?: ScoreRowObjectSnapshot['barRenderer'];
 }
 
 export interface ScoreSelectionEntry {

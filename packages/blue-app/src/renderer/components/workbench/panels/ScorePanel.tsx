@@ -9,7 +9,7 @@ import type {
   ScoreObjectLocationRef,
   PolyObjectLayerGroupSnapshot,
 } from "./score/types";
-import type { TempoMapSnapshot, TempoMapPatch, MeterMapPatch } from "../../../shared/project-editor";
+import type { TempoMapSnapshot, TempoMapPatch, MeterMapPatch } from "../../../../shared/project-editor";
 import type { SnapValueName } from "@blue/data";
 import type { RulerConfigChanges } from "./score/RulerConfigDialog";
 import SplitPane from "./orchestra/SplitPane";
@@ -393,6 +393,7 @@ export default function ScorePanel() {
                 renderEndTime={transport.renderEndTime}
                 timePointerBeats={timePointerBeats}
                 pixelsPerBeat={pixelsPerBeat}
+                totalBeats={totalBeats}
                 scrollLeft={scrollOverlayLeft}
               />
             </div>
@@ -539,6 +540,7 @@ function LeftPanel({
                 <SoundLayerHeader
                   key={layer.layerId}
                   layer={layer}
+                  groupType={group.groupType}
                   groupId={group.groupId}
                   layerIndex={li}
                 />
@@ -681,10 +683,12 @@ function SpacerPanel({
 
 function SoundLayerHeader({
   layer,
+  groupType,
   groupId,
   layerIndex,
 }: {
   layer: ScoreLayerSnapshot;
+  groupType: ScoreLayerGroupSnapshot['groupType'];
   groupId: string;
   layerIndex: number;
 }) {
@@ -700,6 +704,8 @@ function SoundLayerHeader({
   const inputRef = useRef<HTMLInputElement>(null);
   const height = layer.height || 44;
   const heightIndex = Math.round(height / 22) - 1;
+  const showNoteProcessorButton = groupType !== 'audio';
+  const showLayerHeightMenu = groupType === 'audio' || groupType === 'polyObject';
 
   const commitEdit = useCallback(() => {
     setEditing(false);
@@ -776,16 +782,18 @@ function SoundLayerHeader({
             >
               S
             </button>
-            <button
-              className={btnClass(false, "")}
-              title="Note Processors"
-              onClick={(e) => {
-                e.stopPropagation();
-                alert("Not yet implemented");
-              }}
-            >
-              N
-            </button>
+            {showNoteProcessorButton && (
+              <button
+                className={btnClass(false, "")}
+                title="Note Processors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  alert("Not yet implemented");
+                }}
+              >
+                N
+              </button>
+            )}
             <button
               className={btnClass(false, "")}
               title="Automation"
@@ -832,28 +840,32 @@ function SoundLayerHeader({
           >
             Push Down
           </ContextMenu.Item>
-          <ContextMenu.Separator className="h-px bg-blue-border/30 my-1" />
-          <ContextMenu.Sub>
-            <ContextMenu.SubTrigger
-              className={`flex items-center justify-between ${ctxItemClass}`}
-            >
-              Layer Height
-              <span className="text-[10px] opacity-60 ml-2">▸</span>
-            </ContextMenu.SubTrigger>
-            <ContextMenu.Portal>
-              <ContextMenu.SubContent className="min-w-[120px] bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => (
-                  <ContextMenu.Item
-                    key={idx}
-                    className={`${ctxItemClass} ${heightIndex === idx - 1 ? "bg-blue-accent/20 font-medium" : ""}`}
-                    onSelect={() => setLayerHeight(layer.layerId, idx - 1)}
-                  >
-                    {idx}
-                  </ContextMenu.Item>
-                ))}
-              </ContextMenu.SubContent>
-            </ContextMenu.Portal>
-          </ContextMenu.Sub>
+          {showLayerHeightMenu && (
+            <>
+              <ContextMenu.Separator className="h-px bg-blue-border/30 my-1" />
+              <ContextMenu.Sub>
+                <ContextMenu.SubTrigger
+                  className={`flex items-center justify-between ${ctxItemClass}`}
+                >
+                  Layer Height
+                  <span className="text-[10px] opacity-60 ml-2">▸</span>
+                </ContextMenu.SubTrigger>
+                <ContextMenu.Portal>
+                  <ContextMenu.SubContent className="min-w-[120px] bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => (
+                      <ContextMenu.Item
+                        key={idx}
+                        className={`${ctxItemClass} ${heightIndex === idx - 1 ? "bg-blue-accent/20 font-medium" : ""}`}
+                        onSelect={() => setLayerHeight(groupId, layerIndex, idx - 1)}
+                      >
+                        {idx}
+                      </ContextMenu.Item>
+                    ))}
+                  </ContextMenu.SubContent>
+                </ContextMenu.Portal>
+              </ContextMenu.Sub>
+            </>
+          )}
         </ContextMenu.Content>
       </ContextMenu.Portal>
     </ContextMenu.Root>

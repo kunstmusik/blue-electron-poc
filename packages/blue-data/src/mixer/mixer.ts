@@ -148,9 +148,23 @@ export class Mixer implements BlueDataObject {
   static loadFromXML(data: Element): Mixer {
     const mixer = new Mixer();
 
+    const appendChannels = (target: ChannelList, source: ChannelList) => {
+      for (const channel of source) {
+        target.push(channel);
+      }
+    };
+
     const enabledElem = data.getElement("enabled");
     if (enabledElem) {
       mixer._enabled = enabledElem.getTextString() !== "false";
+    }
+
+    const channelListGroups = data.getElement("channelListGroups");
+    if (channelListGroups) {
+      const groupedLists = channelListGroups.getElements("channelList");
+      while (groupedLists.hasMoreElements()) {
+        appendChannels(mixer._channels, ChannelList.loadFromXML(groupedLists.next()));
+      }
     }
 
     const channelLists = data.getElements("channelList");
@@ -159,9 +173,9 @@ export class Mixer implements BlueDataObject {
       const listAttr = clNode.getAttribute("list") ?? "";
       const loaded = ChannelList.loadFromXML(clNode);
       if (listAttr === "subChannels" || listAttr === "SubChannels") {
-        mixer._subChannels = loaded;
+        appendChannels(mixer._subChannels, loaded);
       } else {
-        mixer._channels = loaded;
+        appendChannels(mixer._channels, loaded);
       }
     }
 

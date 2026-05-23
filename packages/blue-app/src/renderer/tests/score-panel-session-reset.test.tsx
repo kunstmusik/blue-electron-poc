@@ -54,6 +54,62 @@ function seedLoadedProject(): void {
   });
 }
 
+function seedProjectWithAudioAndPolyHeaders(): void {
+  const snapshot = createEmptyProjectEditorSnapshot();
+  snapshot.score.layerGroups = [
+    {
+      groupId: 'audio-group',
+      groupType: 'audio',
+      name: 'Audio Layer Group',
+      layerCount: 1,
+      isOpenableContainer: false,
+      layers: [
+        {
+          layerId: 'audio-layer-0',
+          name: 'Audio 1',
+          height: 88,
+          muted: false,
+          solo: false,
+          items: [],
+        },
+      ],
+    },
+    {
+      groupId: 'poly-group',
+      groupType: 'polyObject',
+      name: 'SoundObject Layer Group',
+      layerCount: 1,
+      isOpenableContainer: true,
+      layers: [
+        {
+          layerId: 'poly-layer-0',
+          name: 'Sound 1',
+          height: 44,
+          muted: false,
+          solo: false,
+          items: [],
+        },
+      ],
+    },
+  ];
+
+  useProjectStore.getState().setProjectInfo({
+    title: 'Test Project',
+    author: 'Test Author',
+    sampleRate: '44100',
+    version: '2.10.0',
+    filePath: '/path/to/test.blue',
+    sessionId: 1,
+    loaded: true,
+    globalOrc: snapshot.globalOrc,
+    globalSco: snapshot.globalSco,
+    orchestra: { ...snapshot.orchestra, loaded: true },
+    projectProperties: snapshot.projectProperties,
+    transport: snapshot.transport,
+    score: snapshot.score,
+  });
+}
+
 function renderPanel(): { container: HTMLDivElement; root: Root } {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -183,6 +239,23 @@ describe('ScorePanel session resets', () => {
     });
 
     expect(getNestedPolyObjectSnapshot).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('does not render a note processor button for audio layer headers', () => {
+    seedProjectWithAudioAndPolyHeaders();
+
+    const { container, root } = renderPanel();
+
+    const noteProcessorButtons = container.querySelectorAll('button[title="Note Processors"]');
+    const automationButtons = container.querySelectorAll('button[title="Automation"]');
+
+    expect(noteProcessorButtons).toHaveLength(1);
+    expect(automationButtons).toHaveLength(2);
 
     act(() => {
       root.unmount();

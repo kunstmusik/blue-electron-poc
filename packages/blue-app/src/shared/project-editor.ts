@@ -32,6 +32,7 @@ import {
   Send,
   Score,
   PolyObject,
+  AudioLayer,
   AudioLayerGroup,
   PatternsLayerGroup,
   TimeBase,
@@ -76,6 +77,7 @@ import {
   MeterMap,
   MeasureMeterPair,
   Meter,
+  FadeType,
 } from '@blue/data';
 import type { Parameter as BlueDataParameter, ScoreObject as BlueDataScoreObject } from '@blue/data';
 import { AutomationCurve as BlueDataAutomationCurve } from '@blue/data';
@@ -123,6 +125,123 @@ export interface MarkerSnapshot {
   sourceIndex: number;
 }
 
+export type AudioFadeType = 'LINEAR' | 'CONSTANT_POWER' | 'SYMMETRIC' | 'FAST' | 'SLOW';
+
+function normalizeAudioFadeType(value: string | null | undefined): AudioFadeType {
+  switch ((value ?? '').trim().toUpperCase().replace(/\s+/g, '_')) {
+    case 'CONSTANT_POWER':
+      return 'CONSTANT_POWER';
+    case 'SYMMETRIC':
+      return 'SYMMETRIC';
+    case 'FAST':
+      return 'FAST';
+    case 'SLOW':
+      return 'SLOW';
+    case 'LINEAR':
+    default:
+      return 'LINEAR';
+  }
+}
+
+function toBlueDataFadeType(value: string | null | undefined): FadeType {
+  switch (normalizeAudioFadeType(value)) {
+    case 'CONSTANT_POWER':
+      return FadeType.CONSTANT_POWER;
+    case 'SYMMETRIC':
+      return FadeType.SYMMETRIC;
+    case 'FAST':
+      return FadeType.FAST;
+    case 'SLOW':
+      return FadeType.SLOW;
+    case 'LINEAR':
+    default:
+      return FadeType.LINEAR;
+  }
+}
+
+export type ScoreObjectBarRendererSnapshot =
+  | GenericBarRendererSnapshot
+  | CommentBarRendererSnapshot
+  | LetterBarRendererSnapshot
+  | PianoRollBarRendererSnapshot
+  | AudioFileBarRendererSnapshot
+  | FrozenSoundObjectBarRendererSnapshot
+  | AudioClipBarRendererSnapshot
+  | FallbackBarRendererSnapshot;
+
+export interface GenericBarRendererSnapshot {
+  kind: 'generic';
+  labelLines: string[];
+  timeBehavior: string;
+  repeatPointBeats: number | null;
+}
+
+export interface CommentBarRendererSnapshot {
+  kind: 'comment';
+  labelLines: string[];
+}
+
+export interface LetterBarRendererSnapshot {
+  kind: 'letter';
+  letter: string;
+  labelLines: string[];
+  timeBehavior: string;
+  repeatPointBeats: number | null;
+  mappingStatus: 'supported' | 'fallback';
+}
+
+export interface PianoRollBarRendererSnapshot {
+  kind: 'pianoRoll';
+  labelLines: string[];
+  timeBehavior: string;
+  repeatPointBeats: number | null;
+  scaleDegreeCount: number;
+  notesDurationBeats: number;
+  notes: Array<{
+    octave: number;
+    scaleDegree: number;
+    startBeats: number;
+    durationBeats: number;
+  }>;
+}
+
+export interface AudioFileBarRendererSnapshot {
+  kind: 'audioFile';
+  labelLines: string[];
+  audioFilePath: string;
+  waveformKey: string | null;
+}
+
+export interface FrozenSoundObjectBarRendererSnapshot {
+  kind: 'frozenSoundObject';
+  labelLines: string[];
+  frozenWaveFileName: string;
+  waveformKey: string | null;
+  originalDurationBeats: number | null;
+  currentDurationBeats: number;
+}
+
+export interface AudioClipBarRendererSnapshot {
+  kind: 'audioClip';
+  labelLines: string[];
+  audioFilePath: string;
+  waveformKey: string | null;
+  fileStartTimeBeats: number;
+  audioDurationBeats: number;
+  looping: boolean;
+  fadeInBeats: number;
+  fadeInType: AudioFadeType;
+  fadeOutBeats: number;
+  fadeOutType: AudioFadeType;
+}
+
+export interface FallbackBarRendererSnapshot {
+  kind: 'fallback';
+  labelLines: string[];
+  reason: 'unknown-type' | 'java-only-type' | 'missing-data';
+  javaRenderer?: string;
+}
+
 export interface ScoreRowObjectSnapshot {
   objectId: string;
   objectType: string;
@@ -135,6 +254,7 @@ export interface ScoreRowObjectSnapshot {
   isContainer: boolean;
   editorTarget: ScoreObjectEditorTargetSnapshot;
   serializedXml?: string;
+  barRenderer: ScoreObjectBarRendererSnapshot;
 }
 
 export interface ScoreLayerSnapshot {
@@ -145,6 +265,8 @@ export interface ScoreLayerSnapshot {
   solo?: boolean;
   items: ScoreRowObjectSnapshot[];
 }
+
+export type ScoreLayerGroupType = 'polyObject' | 'audio' | 'patterns';
 
 export interface PolyObjectLayerGroupSnapshot {
   groupId: string;
@@ -410,6 +532,7 @@ export type ScorePatch =
       type: 'addScoreObjects';
       groupId: string;
       objects: Array<{
+        selectionId?: string;
         layerIndex: number;
         objectType: string;
         name: string;
@@ -458,6 +581,7 @@ export type ScorePatch =
       patch: {
         muted?: boolean;
         solo?: boolean;
+        heightIndex?: number;
       };
     }
   | { type: 'renameLayer'; groupId: string; layerIndex: number; name: string }
@@ -466,7 +590,7 @@ export type ScorePatch =
   | { type: 'removeMarker'; sourceIndex: number }
   | { type: 'moveLayerGroup'; groupId: string; targetIndex: number }
   | { type: 'renameLayerGroup'; groupId: string; name: string }
-  | { type: 'addLayerGroup'; insertAtIndex?: number }
+  | { type: 'addLayerGroup'; groupType?: ScoreLayerGroupType; insertAtIndex?: number }
   | { type: 'removeLayerGroup'; groupId: string };
 
 // ─── End Score Snapshot Types ───
@@ -1929,6 +2053,191 @@ export function createProjectPropertiesSnapshot(
   };
 }
 
+// ─── Bar Renderer Snapshot Helpers ───
+
+const JAVA_NEWLINE_RE = /\\n/g;
+
+function splitLabelLines(name: string): string[] {
+  return name.split(JAVA_NEWLINE_RE);
+}
+
+function getRepeatPointBeats(sObj: AbstractSoundObject, context: TimeContext): number | null {
+  const rp = sObj.getRepeatPoint();
+  if (!rp) return null;
+  const beats = rp.toBeats(context);
+  if (!Number.isFinite(beats) || beats <= 0) return null;
+  return beats;
+}
+
+function getTimeBehaviorStr(sObj: AbstractSoundObject): string {
+  return sObj.getTimeBehavior() ?? 'NONE';
+}
+
+function createBarRendererForSoundObject(
+  sObj: SoundObject,
+  context: TimeContext,
+): ScoreObjectBarRendererSnapshot {
+  const labelLines = splitLabelLines(sObj.getName());
+
+  if (sObj instanceof Comment) {
+    return { kind: 'comment', labelLines };
+  }
+
+  if (sObj instanceof GenericScore || sObj instanceof PatternObject || sObj instanceof NotationObject) {
+    const so = sObj as AbstractSoundObject;
+    return {
+      kind: 'generic',
+      labelLines,
+      timeBehavior: getTimeBehaviorStr(so),
+      repeatPointBeats: getRepeatPointBeats(so, context),
+    };
+  }
+
+  if (sObj instanceof PianoRoll) {
+    const pr = sObj as PianoRoll;
+    const so = sObj as AbstractSoundObject;
+    const scale = pr.getScale();
+    const scaleDegreeCount = scale.ratios.length;
+    const notes = pr.getNotes();
+    let notesDurationBeats = 0;
+    const noteSnapshots: PianoRollBarRendererSnapshot['notes'] = [];
+    for (const n of notes) {
+      const start = n.getStart();
+      const dur = n.getDuration();
+      const end = start + dur;
+      if (end > notesDurationBeats) notesDurationBeats = end;
+      noteSnapshots.push({
+        octave: n.getOctave(),
+        scaleDegree: n.getScaleDegree(),
+        startBeats: start,
+        durationBeats: dur,
+      });
+    }
+    return {
+      kind: 'pianoRoll',
+      labelLines,
+      timeBehavior: getTimeBehaviorStr(so),
+      repeatPointBeats: getRepeatPointBeats(so, context),
+      scaleDegreeCount,
+      notesDurationBeats,
+      notes: noteSnapshots,
+    };
+  }
+
+  if (sObj instanceof AudioFile) {
+    const af = sObj as AudioFile;
+    return {
+      kind: 'audioFile',
+      labelLines,
+      audioFilePath: af.getSoundFileName() ?? '',
+      waveformKey: af.getSoundFileName() ? `af:${af.getSoundFileName()}` : null,
+    };
+  }
+
+  if (sObj instanceof FrozenSoundObject) {
+    const fso = sObj as FrozenSoundObject;
+    const so = sObj as AbstractSoundObject;
+    const frozenFile = fso.getFrozenWaveFileName() ?? '';
+    const currentDur = so.getSubjectiveDuration().toBeats(context);
+    const inner = fso.getFrozenSoundObject();
+    const originalDur = inner
+      ? inner.getSubjectiveDuration().toBeats(context)
+      : null;
+    return {
+      kind: 'frozenSoundObject',
+      labelLines,
+      frozenWaveFileName: frozenFile,
+      waveformKey: frozenFile ? `fso:${frozenFile}` : null,
+      originalDurationBeats: originalDur != null && Number.isFinite(originalDur) && originalDur > 0
+        ? originalDur : null,
+      currentDurationBeats: currentDur,
+    };
+  }
+
+  const letterMap: Record<string, string> = {
+    LineObject: 'L',
+    ZakLineObject: 'L',
+    External: 'E',
+    Instance: 'I',
+    PythonObject: 'P',
+    JavaScriptObject: 'J',
+    JMask: 'J',
+    Sound: 'S',
+    TrackerObject: 'T',
+  };
+
+  const typeName = sObj.constructor.name;
+  if (letterMap[typeName]) {
+    const so = sObj as AbstractSoundObject;
+    return {
+      kind: 'letter',
+      letter: letterMap[typeName],
+      labelLines,
+      timeBehavior: getTimeBehaviorStr(so),
+      repeatPointBeats: getRepeatPointBeats(so, context),
+      mappingStatus: 'supported',
+    };
+  }
+
+  if (typeName === 'ObjectBuilder') {
+    const so = sObj as AbstractSoundObject;
+    return {
+      kind: 'letter',
+      letter: 'O',
+      labelLines,
+      timeBehavior: getTimeBehaviorStr(so),
+      repeatPointBeats: getRepeatPointBeats(so, context),
+      mappingStatus: 'fallback',
+    };
+  }
+
+  if (typeName === 'ClojureObject') {
+    return {
+      kind: 'letter',
+      letter: 'C',
+      labelLines,
+      timeBehavior: 'NONE',
+      repeatPointBeats: null,
+      mappingStatus: 'fallback',
+    };
+  }
+
+  return {
+    kind: 'fallback',
+    labelLines,
+    reason: 'unknown-type',
+    javaRenderer: typeName,
+  };
+}
+
+function createBarRendererForAudioClip(
+  clip: AudioClip,
+  context: TimeContext,
+): AudioClipBarRendererSnapshot {
+  const labelLines = splitLabelLines(clip.getName());
+  const audioFile = clip.getAudioFile ? clip.getAudioFile() : '';
+  const tempoMap = context.getTempoMap();
+  const secondsToBeats = (seconds: number): number => {
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return 0;
+    }
+    return tempoMap.secondsToBeats(seconds);
+  };
+  return {
+    kind: 'audioClip',
+    labelLines,
+    audioFilePath: audioFile,
+    waveformKey: audioFile ? `aclp:${audioFile}` : null,
+    fileStartTimeBeats: secondsToBeats(clip.getFileStartTime ? clip.getFileStartTime() : 0),
+    audioDurationBeats: secondsToBeats(clip.getAudioDuration ? clip.getAudioDuration() : 0),
+    looping: clip.isLooping ? clip.isLooping() : false,
+    fadeInBeats: secondsToBeats(clip.getFadeIn ? clip.getFadeIn() : 0),
+    fadeInType: normalizeAudioFadeType(clip.getFadeInType ? String(clip.getFadeInType()) : 'LINEAR'),
+    fadeOutBeats: secondsToBeats(clip.getFadeOut ? clip.getFadeOut() : 0),
+    fadeOutType: normalizeAudioFadeType(clip.getFadeOutType ? String(clip.getFadeOutType()) : 'LINEAR'),
+  };
+}
+
 // ─── Score Snapshot Helpers ───
 
 const LAYER_GROUP_ID_MAP = new WeakMap<object, string>();
@@ -1951,6 +2260,10 @@ function assignScoreObjectId(obj: object, prefix: 'sobj' | 'aclp' = 'sobj'): str
   const id = `${prefix}-${nextScoreObjectId++}`;
   SCORE_OBJECT_ID_MAP.set(obj, id);
   return id;
+}
+
+function assignExplicitScoreObjectId(obj: object, id: string): void {
+  SCORE_OBJECT_ID_MAP.set(obj, id);
 }
 
 function createScoreTimeStateSnapshot(data: BlueData): ScoreTimeStateSnapshot {
@@ -2030,12 +2343,15 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: TimeContext, roo
         isContainer: sObj instanceof PolyObject,
         editorTarget: buildEditorTargetSnapshot(sObj, objectId, location),
         serializedXml: sObj.saveAsXML().toXml(),
+        barRenderer: sObj instanceof AbstractSoundObject
+          ? createBarRendererForSoundObject(sObj, context)
+          : { kind: 'fallback' as const, labelLines: splitLabelLines(sObj.getName()), reason: 'unknown-type' as const },
       });
     }
     layers.push({
       layerId: `${groupId}-layer-${i}`,
       name: layer.getName(),
-      height: 44,
+      height: layer.getLayerHeight(),
       muted: layer.isMuted(),
       solo: layer.isSolo(),
       items,
@@ -2071,7 +2387,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: TimeContext
         durationBeats: clip.getSubjectiveDuration().toBeats(context),
         startTimeBase: String(clip.getStartTime().getTimeBase()),
         durationTimeBase: String(clip.getSubjectiveDuration().getTimeBase()),
-        backgroundColor: 0x669966,
+        backgroundColor: clip.getBackgroundColor(),
         isContainer: false,
         editorTarget: {
           selectionId: objectId,
@@ -2085,12 +2401,13 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: TimeContext
           supportsNoteProcessorChain: false,
         },
         serializedXml: clip.saveAsXML().toXml(),
+        barRenderer: createBarRendererForAudioClip(clip, context),
       });
     }
     layers.push({
       layerId: `${groupId}-layer-${i}`,
       name: layer.getName(),
-      height: 44,
+      height: layer.getLayerHeight(),
       muted: layer.isMuted(),
       solo: layer.isSolo(),
       items,
@@ -2116,7 +2433,7 @@ function createPatternsLayerGroupSnapshot(lg: PatternsLayerGroup): PatternsLayer
     layers.push({
       layerId: `${groupId}-layer-${i}`,
       name: layer.getName(),
-      height: 44,
+      height: layer.getLayerHeight(),
       muted: layer.isMuted(),
       solo: layer.isSolo(),
       items: [],
@@ -2477,9 +2794,9 @@ export function createScoreObjectEditorDocument(
         audioDuration: clip.getAudioDuration ? clip.getAudioDuration() : 0,
         fileStartTime: clip.getFileStartTime ? clip.getFileStartTime() : 0,
         fadeIn: clip.getFadeIn ? clip.getFadeIn() : 0,
-        fadeInType: clip.getFadeInType ? String(clip.getFadeInType()) : 'LINEAR',
+        fadeInType: normalizeAudioFadeType(clip.getFadeInType ? String(clip.getFadeInType()) : 'LINEAR'),
         fadeOut: clip.getFadeOut ? clip.getFadeOut() : 0,
-        fadeOutType: clip.getFadeOutType ? String(clip.getFadeOutType()) : 'LINEAR',
+        fadeOutType: normalizeAudioFadeType(clip.getFadeOutType ? String(clip.getFadeOutType()) : 'LINEAR'),
         looping: clip.isLooping ? clip.isLooping() : false,
       };
       break;
@@ -2987,6 +3304,21 @@ function isNonEmptyScorePatch(patch: ScorePatch): boolean {
     return patch.targets.length > 0;
   }
   return true;
+}
+
+function scorePatchTouchesMixerAudioChannels(patch: ScorePatch): boolean {
+  switch (patch.type) {
+    case 'addLayer':
+    case 'removeLayer':
+    case 'renameLayer':
+    case 'moveLayerGroup':
+    case 'removeLayerGroup':
+      return true;
+    case 'addLayerGroup':
+      return patch.groupType === 'audio';
+    default:
+      return false;
+  }
 }
 
 // ─── End Score Snapshot Helpers ───
@@ -4443,6 +4775,27 @@ function isManagedLayerGroup(value: unknown): value is ManagedLayerGroup {
   return value instanceof PolyObject || value instanceof AudioLayerGroup || value instanceof PatternsLayerGroup;
 }
 
+function createManagedLayerGroup(groupType: ScoreLayerGroupType | undefined): ManagedLayerGroup {
+  switch (groupType) {
+    case 'audio': {
+      const group = new AudioLayerGroup();
+      group.newLayerAt(0);
+      return group;
+    }
+    case 'patterns': {
+      const group = new PatternsLayerGroup();
+      group.newLayerAt(0);
+      return group;
+    }
+    case 'polyObject':
+    default: {
+      const group = new PolyObject(true);
+      group.newLayerAt(0);
+      return group;
+    }
+  }
+}
+
 function findLayerGroupByGroupId(score: Score, groupId: string): ManagedLayerGroup | null {
   for (let i = 0; i < score.length; i++) {
     const lg = score[i];
@@ -4496,6 +4849,11 @@ type LayerStateManagedLayer = {
   setSolo(solo: boolean): void;
 };
 
+type LayerHeightManagedLayer = {
+  getHeightIndex(): number;
+  setHeightIndex(heightIndex: number): void;
+};
+
 function isLayerStateManagedLayer(value: unknown): value is LayerStateManagedLayer {
   return typeof value === 'object'
     && value !== null
@@ -4507,6 +4865,15 @@ function isLayerStateManagedLayer(value: unknown): value is LayerStateManagedLay
     && typeof value.isSolo === 'function'
     && 'setSolo' in value
     && typeof value.setSolo === 'function';
+}
+
+function isLayerHeightManagedLayer(value: unknown): value is LayerHeightManagedLayer {
+  return typeof value === 'object'
+    && value !== null
+    && 'getHeightIndex' in value
+    && typeof value.getHeightIndex === 'function'
+    && 'setHeightIndex' in value
+    && typeof value.setHeightIndex === 'function';
 }
 
 function applyUpdateLayerStatePatch(
@@ -4533,52 +4900,97 @@ function applyUpdateLayerStatePatch(
     changed = true;
   }
 
+  if (patch.patch.heightIndex !== undefined && isLayerHeightManagedLayer(layer)) {
+    const nextHeightIndex = Math.max(0, patch.patch.heightIndex);
+    if (layer.getHeightIndex() !== nextHeightIndex) {
+      layer.setHeightIndex(nextHeightIndex);
+      changed = true;
+    }
+  }
+
   return changed;
 }
 
 function applyAddScoreObjectsPatch(data: BlueData, patch: ScorePatch & { type: 'addScoreObjects' }): boolean {
   const score = data.getScore();
 
-  const targetGroup = findPolyObjectByGroupId(score, patch.groupId);
-  if (!targetGroup) return false;
+  const targetGroup = findLayerGroupByGroupId(score, patch.groupId);
+  if (!targetGroup || targetGroup instanceof PatternsLayerGroup) return false;
+
+  const context = score.getTimeContext();
+  let changed = false;
 
   for (const obj of patch.objects) {
     let sObj: SoundObject | null = null;
+    let clip: AudioClip | null = null;
 
     if (obj.serializedXml) {
       try {
         const serialized = Element.parse(obj.serializedXml);
-        if (serialized.getName() !== 'audioClip') {
+        if (serialized.getName() === 'audioClip') {
+          clip = AudioClip.loadFromXML(serialized);
+        } else {
           sObj = loadSoundObjectFromXML(serialized)?.deepCopy() ?? null;
         }
       } catch {
         sObj = null;
+        clip = null;
       }
     }
 
-    if (!sObj && obj.sourceTarget?.location) {
+    if (!sObj && !clip && obj.sourceTarget?.location) {
       const source = resolveTimelineTarget(score, obj.sourceTarget.location);
-      if (source && !(source.sObj instanceof AudioClip)) {
-        sObj = source.sObj.deepCopy();
+      if (source) {
+        if (source.sObj instanceof AudioClip) {
+          clip = AudioClip.copyFrom(source.sObj);
+        } else {
+          sObj = source.sObj.deepCopy();
+        }
       }
     }
 
-    if (!sObj) {
+    if (!sObj && !clip && (targetGroup instanceof AudioLayerGroup || obj.objectType === 'AudioClip')) {
+      clip = new AudioClip();
+    }
+
+    if (!sObj && !clip) {
       sObj = createSoundObject(obj.objectType);
     }
-    if (!sObj) continue;
 
-    sObj.setName(obj.name);
-    sObj.setStartTime(beatsToTimePosition(obj.startBeats, (obj.startTimeBase ?? TimeBase.BEATS) as TimeBase, score.getTimeContext()));
-    sObj.setSubjectiveDuration(beatsToDuration(obj.durationBeats, (obj.durationTimeBase ?? TimeBase.BEATS) as TimeBase, score.getTimeContext()));
-    sObj.setBackgroundColor(obj.backgroundColor);
+    const targetObject = clip ?? sObj;
+    if (!targetObject) continue;
 
-    if (obj.layerIndex >= 0 && obj.layerIndex < targetGroup.length) {
+    if (obj.selectionId?.trim()) {
+      assignExplicitScoreObjectId(targetObject, obj.selectionId.trim());
+    }
+
+    targetObject.setName(obj.name);
+    targetObject.setStartTime(
+      beatsToTimePosition(obj.startBeats, (obj.startTimeBase ?? TimeBase.BEATS) as TimeBase, context),
+    );
+    targetObject.setSubjectiveDuration(
+      beatsToDuration(obj.durationBeats, (obj.durationTimeBase ?? TimeBase.BEATS) as TimeBase, context),
+    );
+    targetObject.setBackgroundColor(obj.backgroundColor);
+
+    if (obj.layerIndex < 0 || obj.layerIndex >= targetGroup.length) {
+      continue;
+    }
+
+    if (targetGroup instanceof AudioLayerGroup) {
+      if (!clip) continue;
+      targetGroup[obj.layerIndex].push(clip);
+      changed = true;
+      continue;
+    }
+
+    if (sObj) {
       targetGroup[obj.layerIndex].push(sObj);
+      changed = true;
     }
   }
 
-  return true;
+  return changed;
 }
 
 function applyMoveScoreObjectsPatch(
@@ -4599,8 +5011,14 @@ function applyMoveScoreObjectsPatch(
     const sourceResolved = resolveTimelineTarget(score, sourceLocation);
     if (!sourceResolved) continue;
 
-    const targetGroup = findPolyObjectByGroupId(score, move.targetGroupId);
-    if (!targetGroup) continue;
+    const targetGroup = findLayerGroupByGroupId(score, move.targetGroupId);
+    if (!targetGroup || targetGroup instanceof PatternsLayerGroup) continue;
+
+    if (sourceResolved.sObj instanceof AudioClip) {
+      if (!(targetGroup instanceof AudioLayerGroup)) continue;
+    } else if (!(targetGroup instanceof PolyObject)) {
+      continue;
+    }
 
     const targetLayer = targetGroup[move.targetLayerIndex] as Array<SoundObject | AudioClip> | undefined;
     if (!targetLayer) continue;
@@ -4730,9 +5148,8 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
 
   if (patch.type === 'addLayerGroup') {
     const score = data.getScore();
-    const pObj = new PolyObject(true);
     const insertAt = patch.insertAtIndex ?? score.length;
-    score.splice(insertAt, 0, pObj);
+    score.splice(insertAt, 0, createManagedLayerGroup(patch.groupType));
     return true;
   }
 
@@ -5231,7 +5648,9 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
         if (p.audioFile !== undefined) clip.setAudioFile(p.audioFile as string);
         if (p.fileStartTime !== undefined) clip.setFileStartTime(p.fileStartTime as number);
         if (p.fadeIn !== undefined) clip.setFadeIn(p.fadeIn as number);
+        if (p.fadeInType !== undefined) clip.setFadeInType(toBlueDataFadeType(p.fadeInType as string));
         if (p.fadeOut !== undefined) clip.setFadeOut(p.fadeOut as number);
+        if (p.fadeOutType !== undefined) clip.setFadeOutType(toBlueDataFadeType(p.fadeOutType as string));
         if (p.looping !== undefined) clip.setLooping(null, p.looping as boolean);
         return true;
       }
@@ -6178,10 +6597,6 @@ export function applyProjectDocumentPatch(
     changed = applyMixerPatchToData(data, patch.mixer) || changed;
   }
 
-  if (patch.orchestra || patch.mixer) {
-    changed = reconcileMixerWithArrangement(data) || changed;
-  }
-
   if (patch.transport) {
     if (patch.transport.renderStartTime !== undefined && data.getRenderStartTime() !== patch.transport.renderStartTime) {
       data.setRenderStartTime(patch.transport.renderStartTime);
@@ -6227,6 +6642,10 @@ export function applyProjectDocumentPatch(
 
   if (patch.score) {
     changed = applyScoreObjectPatch(data, patch.score) || changed;
+  }
+
+  if (patch.orchestra || patch.mixer || (patch.score && scorePatchTouchesMixerAudioChannels(patch.score))) {
+    changed = reconcileMixerWithArrangement(data) || changed;
   }
 
   return changed;
@@ -6675,16 +7094,27 @@ function applyMixerPatchToData(data: BlueData, patch: MixerPatch): boolean {
         return false;
       }
 
-      if (patch.patch.name !== undefined && channel.getName() !== patch.patch.name) {
+      let changed = false;
+
+      if (patch.patch.name !== undefined) {
         const oldName = channel.getName();
         const isSubChannel = mixer.getSubChannels().includes(channel);
-        channel.setName(patch.patch.name);
-        if (isSubChannel) {
-          reconcileSubChannelName(mixer, oldName, patch.patch.name);
+        if (channel.getName() !== patch.patch.name) {
+          channel.setName(patch.patch.name);
+          changed = true;
+          if (isSubChannel) {
+            reconcileSubChannelName(mixer, oldName, patch.patch.name);
+          }
+        }
+
+        const audioLayer = findAudioLayerByAssociation(data, channel.getAssociation());
+        if (audioLayer && audioLayer.getName() !== patch.patch.name) {
+          audioLayer.setName(patch.patch.name);
+          changed = true;
         }
       }
 
-      return applyMixerChannelEditablePatch(channel, patch.patch, true);
+      return applyMixerChannelEditablePatch(channel, patch.patch, true) || changed;
     }
     case 'addSubChannel': {
       const nextChannel = new Channel();
@@ -6803,10 +7233,117 @@ export function reconcileMixerSnapshotWithArrangement(
   };
 }
 
+interface AudioLayerMixerChannelDescriptor {
+  association: string;
+  name: string;
+}
+
+function collectAudioLayerMixerChannelDescriptors(
+  data: BlueData,
+): AudioLayerMixerChannelDescriptor[] {
+  const descriptors: AudioLayerMixerChannelDescriptor[] = [];
+
+  for (let index = 0; index < data.getScore().length; index += 1) {
+    const group = data.getScore()[index];
+    if (!(group instanceof AudioLayerGroup)) {
+      continue;
+    }
+
+    for (let layerIndex = 0; layerIndex < group.length; layerIndex += 1) {
+      const layer = group[layerIndex];
+      descriptors.push({
+        association: layer.getUniqueId(),
+        name: layer.getName(),
+      });
+    }
+  }
+
+  return descriptors;
+}
+
+function appendAudioLayerChannelsToMixerSnapshot(
+  reconciled: MixerSnapshot,
+  current: MixerSnapshot,
+  descriptors: AudioLayerMixerChannelDescriptor[],
+): MixerSnapshot {
+  if (descriptors.length === 0) {
+    return reconciled;
+  }
+
+  const existingByAssociation = new Map(
+    current.channels
+      .filter((channel) => channel.association)
+      .map((channel) => [channel.association!, channel] as const),
+  );
+
+  const nextAudioChannels = descriptors.map((descriptor) => {
+    const existing = existingByAssociation.get(descriptor.association);
+    if (existing) {
+      return {
+        ...existing,
+        name: descriptor.name,
+        association: descriptor.association,
+        channelKind: 'instrument' as MixerChannelKind,
+      };
+    }
+
+    return {
+      id: descriptor.association,
+      name: descriptor.name,
+      channelKind: 'instrument' as MixerChannelKind,
+      association: descriptor.association,
+      outChannel: Mixer.MASTER_CHANNEL,
+      muted: false,
+      solo: false,
+      level: 0,
+      volume: 1,
+      pan: 0.5,
+      preChain: [],
+      postChain: [],
+    };
+  });
+
+  return {
+    ...reconciled,
+    channels: [...nextAudioChannels, ...reconciled.channels],
+  };
+}
+
+function findAudioLayerByAssociation(
+  data: BlueData,
+  association: string | null | undefined,
+): AudioLayer | null {
+  const targetAssociation = association?.trim() ?? '';
+  if (!targetAssociation) {
+    return null;
+  }
+
+  for (let index = 0; index < data.getScore().length; index += 1) {
+    const group = data.getScore()[index];
+    if (!(group instanceof AudioLayerGroup)) {
+      continue;
+    }
+
+    for (let layerIndex = 0; layerIndex < group.length; layerIndex += 1) {
+      const layer = group[layerIndex];
+      if (layer.getUniqueId() === targetAssociation) {
+        return layer;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function reconcileMixerWithArrangement(data: BlueData): boolean {
   const mixer = data.getMixer();
   const orchestra = createOrchestraSnapshot(data);
-  const reconciled = reconcileMixerSnapshotWithArrangement(createMixerSnapshot(mixer), orchestra);
+  const currentSnapshot = createMixerSnapshot(mixer);
+  const reconciled = appendAudioLayerChannelsToMixerSnapshot(
+    reconcileMixerSnapshotWithArrangement(currentSnapshot, orchestra),
+    currentSnapshot,
+    collectAudioLayerMixerChannelDescriptors(data),
+  );
 
   const sourceChannels = mixer.getChannels();
   const sourceByAssociation = new Map(
@@ -6995,12 +7532,15 @@ export function createNestedPolyObjectSnapshot(
         backgroundColor: nestedObj.getBackgroundColor(),
         isContainer: nestedObj instanceof PolyObject,
         editorTarget: buildEditorTargetSnapshot(nestedObj, objectId, itemLocation),
+        barRenderer: nestedObj instanceof AbstractSoundObject
+          ? createBarRendererForSoundObject(nestedObj, context)
+          : { kind: 'fallback' as const, labelLines: splitLabelLines(nestedObj.getName()), reason: 'unknown-type' as const },
       });
     }
     layers.push({
       layerId: `${groupId}-layer-${i}`,
       name: subLayer.getName(),
-      height: 44,
+      height: subLayer.getLayerHeight(),
       muted: subLayer.isMuted(),
       solo: subLayer.isSolo(),
       items,
