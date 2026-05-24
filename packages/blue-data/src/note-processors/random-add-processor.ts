@@ -2,6 +2,7 @@ import { NoteProcessor } from './note-processor';
 import { NoteProcessorException } from './note-processor-exception';
 import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
+import { JavaRandom } from '../sound-objects/jmask-support';
 
 const JAVA_TYPE = 'blue.noteProcessor.RandomAddProcessor';
 
@@ -42,7 +43,7 @@ export class RandomAddProcessor extends NoteProcessor {
 
   override process(notes: NoteList): NoteList {
     const range = this._max - this._min;
-    const r = this._seedUsed ? this._seedRandom(this._seed) : Math.random;
+    const r = this._seedUsed ? new JavaRandom(this._seed) : null;
 
     for (const note of notes) {
       let fieldVal: number;
@@ -54,7 +55,7 @@ export class RandomAddProcessor extends NoteProcessor {
       if (isNaN(fieldVal)) {
         throw new NoteProcessorException('Pfield is not a double', this._pfield);
       }
-      const randVal = (r.call(Math) * range) + this._min;
+      const randVal = ((r ? r.nextDouble() : Math.random()) * range) + this._min;
       note.setPField((fieldVal + randVal).toString(), this._pfield);
     }
     return notes;
@@ -90,13 +91,5 @@ export class RandomAddProcessor extends NoteProcessor {
     const sd = data.getTextString('seed');
     if (sd !== null) proc._seed = parseInt(sd, 10);
     return proc;
-  }
-
-  private _seedRandom(seed: number): () => number {
-    let s = seed;
-    return () => {
-      s = (s * 1103515245 + 12345) & 0x7fffffff;
-      return s / 0x7fffffff;
-    };
   }
 }
