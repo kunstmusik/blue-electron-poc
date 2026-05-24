@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type {
+  NoteProcessorChainSnapshot,
   ScoreObjectEditorDocumentSnapshot,
   ScorePatch,
 } from '../../../../../shared/project-editor';
 import TimeUnitEditor from './TimeUnitEditor';
+import NoteProcessorChainEditor from './note-processors/NoteProcessorChainEditor';
 
 interface ScoreObjectPropertiesFormProps {
   document: ScoreObjectEditorDocumentSnapshot;
@@ -113,6 +115,22 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
   const isRepeat = isRepeatBehavior(tb);
   const hasRepeatPoint = shared.repeatPoint !== null && shared.repeatPoint !== undefined;
   const repeatPointEnabled = isRepeat && hasRepeatPoint;
+  const [namedChainNames, setNamedChainNames] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (typeof window === 'undefined' || !window.blueAPI?.getNamedChainNames) {
+      return () => {};
+    }
+    window.blueAPI.getNamedChainNames().then((names) => {
+      if (!cancelled) {
+        setNamedChainNames(names);
+      }
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleNameCommit = useCallback((name: string) => {
     onPatch({
@@ -182,6 +200,26 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
       patch: { repeatPoint: value <= 0 ? null : { value, timeBase } },
     });
   }, [target, onPatch]);
+
+  const handleImportNamedChain = useCallback(async (name: string): Promise<NoteProcessorChainSnapshot | null> => {
+    if (!window.blueAPI?.getNamedChain) {
+      return null;
+    }
+    try {
+      return await window.blueAPI.getNamedChain(name);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const handleSaveNamedChain = useCallback((name: string, chain: NoteProcessorChainSnapshot): void => {
+    onPatch({
+      type: 'saveNamedNoteProcessorChain',
+      name,
+      chain,
+    });
+    setNamedChainNames((prev) => prev.includes(name) ? prev : [...prev, name]);
+  }, [onPatch]);
 
   const showSoundObjectFields = target.supportsTimeBehavior && tb !== undefined;
 
@@ -254,25 +292,23 @@ export default function ScoreObjectPropertiesForm({ document, onPatch }: ScoreOb
             </>
           )}
 
-          {target.supportsNoteProcessorChain && shared.noteProcessorChain && (
+          {target.supportsNoteProcessorChain && shared.noteProcessorChain != null && (
             <div className="px-3 py-2 mt-2 border-t border-blue-border">
               <div className="text-xs font-medium text-gray-300 mb-1">Note Processors</div>
-              {shared.noteProcessorChain.processors.length === 0 ? (
-                <div className="text-xs text-blue-muted">No processors</div>
-              ) : (
-                <div className="space-y-1">
-                  {shared.noteProcessorChain.processors.map((proc, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className={proc.supported ? 'text-gray-200' : 'text-yellow-400'}>
-                        {proc.displayName}
-                      </span>
-                      {!proc.supported && (
-                        <span className="text-yellow-500 text-[10px]">(unsupported)</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <NoteProcessorChainEditor
+                key={target.selectionId}
+                chain={shared.noteProcessorChain}
+                namedChainNames={namedChainNames}
+                onImportNamedChain={handleImportNamedChain}
+                onSaveNamedChain={handleSaveNamedChain}
+                onCommit={(updated: NoteProcessorChainSnapshot) => {
+                  onPatch({
+                    type: 'replaceNoteProcessorChain',
+                    target,
+                    chain: updated,
+                  });
+                }}
+              />
             </div>
           )}
         </>

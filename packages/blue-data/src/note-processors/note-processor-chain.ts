@@ -4,7 +4,6 @@ import { NoteList } from '../sound-objects/note-list';
 import { Element } from '../serialization/xml-reader';
 import { AddProcessor } from './add-processor';
 import { MultiplyProcessor } from './multiply-processor';
-import { Code } from './code';
 import { RandomAddProcessor } from './random-add-processor';
 import { RandomMultiplyProcessor } from './random-multiply-processor';
 import { LineAddProcessor } from './line-add-processor';
@@ -24,7 +23,6 @@ import { UnsupportedProcessor } from './unsupported-processor';
 const PROCESSOR_MAP: Record<string, { loadFromXML: (data: Element) => NoteProcessor }> = {
   AddProcessor,
   MultiplyProcessor,
-  Code,
   RandomAddProcessor,
   RandomMultiplyProcessor,
   LineAddProcessor,
@@ -44,7 +42,6 @@ const PROCESSOR_MAP: Record<string, { loadFromXML: (data: Element) => NoteProces
 const FULL_CLASS_NAME_MAP: Record<string, string> = {
   'blue.noteProcessor.AddProcessor': 'AddProcessor',
   'blue.noteProcessor.MultiplyProcessor': 'MultiplyProcessor',
-  'blue.noteProcessor.Code': 'Code',
   'blue.noteProcessor.RandomAddProcessor': 'RandomAddProcessor',
   'blue.noteProcessor.RandomMultiplyProcessor': 'RandomMultiplyProcessor',
   'blue.noteProcessor.LineAddProcessor': 'LineAddProcessor',

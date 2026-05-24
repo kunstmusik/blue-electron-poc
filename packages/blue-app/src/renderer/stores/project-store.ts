@@ -39,6 +39,7 @@ import {
   type MixerPatch,
   type MixerSendEntrySnapshot,
   type MixerSnapshot,
+  type NoteProcessorChainSnapshot,
   type PresetGroupSnapshot,
   type PresetSnapshot,
   type ProjectDocumentPatch,
@@ -1654,6 +1655,15 @@ function applyMoveScoreObjectsToSnapshot(
   return { ...score, layerGroups: newGroups };
 }
 
+function cloneVisibleNoteProcessorChain(
+  chain: NoteProcessorChainSnapshot | null,
+): NoteProcessorChainSnapshot | undefined {
+  if (!chain || chain.processors.length === 0) {
+    return undefined;
+  }
+  return cloneSnapshotValue(chain);
+}
+
 function applyScorePatchToSnapshot(
   score: ScoreDocumentSnapshot,
   patch: ScorePatch,
@@ -1855,6 +1865,33 @@ function applyScorePatchToSnapshot(
     const layerGroups = [...score.layerGroups];
     layerGroups.splice(insertAt, 0, createAddedLayerGroupSnapshot(patch.groupType));
     return { ...score, layerGroups };
+  }
+
+  if (patch.type === 'replaceScopedNoteProcessorChain') {
+    const noteProcessorChain = cloneVisibleNoteProcessorChain(patch.chain);
+
+    if (patch.scope === 'rootScore') {
+      return { ...score, rootNoteProcessorChain: noteProcessorChain };
+    }
+
+    const nextLayerGroups = score.layerGroups.map((group) => {
+      if (group.groupId !== patch.groupId) return group;
+
+      if (patch.scope === 'layerGroup') {
+        return { ...group, noteProcessorChain };
+      }
+
+      if (patch.layerIndex < 0 || patch.layerIndex >= group.layers.length) {
+        return group;
+      }
+
+      const layers = group.layers.map((layer, index) => (
+        index === patch.layerIndex ? { ...layer, noteProcessorChain } : layer
+      ));
+      return { ...group, layers };
+    });
+
+    return { ...score, layerGroups: nextLayerGroups };
   }
 
   if (patch.type === 'updateSoundObjectBehavior') {

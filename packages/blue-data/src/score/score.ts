@@ -87,7 +87,7 @@ export class Score extends Array<LayerGroup<Layer>> {
         noteList.merge(nl);
       }
     }
-    return noteList;
+    return this.npc.apply(noteList);
   }
 
   processOnLoad(session?: JavaScriptSession): void {

@@ -79,8 +79,10 @@ import {
   MeasureMeterPair,
   Meter,
   FadeType,
+  createNoteProcessorChainSnapshot as createNoteProcessorChainSnapshotFromData,
+  reifyChainFromSnapshot,
 } from '@blue/data';
-import type { Parameter as BlueDataParameter, ScoreObject as BlueDataScoreObject } from '@blue/data';
+import type { NoteProcessorChainSnapshot as DataNoteProcessorChainSnapshot, Parameter as BlueDataParameter, ScoreObject as BlueDataScoreObject } from '@blue/data';
 import { AutomationCurve as BlueDataAutomationCurve } from '@blue/data';
 import type { SnapValueName } from '@blue/data';
 import {
@@ -265,6 +267,7 @@ export interface ScoreLayerSnapshot {
   muted?: boolean;
   solo?: boolean;
   items: ScoreRowObjectSnapshot[];
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 export type ScoreLayerGroupType = 'polyObject' | 'audio' | 'patterns';
@@ -276,6 +279,7 @@ export interface PolyObjectLayerGroupSnapshot {
   layerCount: number;
   isOpenableContainer: boolean;
   layers: ScoreLayerSnapshot[];
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 export interface AudioLayerGroupSnapshot {
@@ -285,6 +289,7 @@ export interface AudioLayerGroupSnapshot {
   layerCount: number;
   isOpenableContainer: boolean;
   layers: ScoreLayerSnapshot[];
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 export interface PatternsLayerGroupSnapshot {
@@ -294,6 +299,7 @@ export interface PatternsLayerGroupSnapshot {
   layerCount: number;
   isOpenableContainer: boolean;
   layers: ScoreLayerSnapshot[];
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 export type ScoreLayerGroupSnapshot =
@@ -305,6 +311,7 @@ export interface ScoreDocumentSnapshot {
   timeState: ScoreTimeStateSnapshot;
   markers: MarkerSnapshot[];
   layerGroups: ScoreLayerGroupSnapshot[];
+  rootNoteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 // ─── Score Object Editor Target Types ───
@@ -358,16 +365,24 @@ export interface TimeValueSnapshot {
 }
 
 export interface NoteProcessorEntrySnapshot {
+  id: string;
   processorType: string;
   displayName: string;
   supported: boolean;
+  deferred: boolean;
   summary: string;
+  parameters: Record<string, string | number | boolean>;
   serializedXml: string;
 }
 
 export interface NoteProcessorChainSnapshot {
   processors: NoteProcessorEntrySnapshot[];
   hasUnsupportedProcessors: boolean;
+  hasDeferredProcessors: boolean;
+}
+
+export interface NamedChainListSnapshot {
+  names: string[];
 }
 
 export interface SharedScoreObjectPropertiesSnapshot {
@@ -592,7 +607,34 @@ export type ScorePatch =
   | { type: 'moveLayerGroup'; groupId: string; targetIndex: number }
   | { type: 'renameLayerGroup'; groupId: string; name: string }
   | { type: 'addLayerGroup'; groupType?: ScoreLayerGroupType; insertAtIndex?: number }
-  | { type: 'removeLayerGroup'; groupId: string };
+  | { type: 'removeLayerGroup'; groupId: string }
+  | {
+      type: 'replaceScopedNoteProcessorChain';
+      scope: 'soundLayer';
+      groupId: string;
+      layerIndex: number;
+      chain: NoteProcessorChainSnapshot | null;
+    }
+  | {
+      type: 'replaceScopedNoteProcessorChain';
+      scope: 'layerGroup';
+      groupId: string;
+      chain: NoteProcessorChainSnapshot | null;
+    }
+  | {
+      type: 'replaceScopedNoteProcessorChain';
+      scope: 'rootScore';
+      chain: NoteProcessorChainSnapshot | null;
+    }
+  | {
+      type: 'saveNamedNoteProcessorChain';
+      name: string;
+      chain: NoteProcessorChainSnapshot;
+    }
+  | {
+      type: 'deleteNamedNoteProcessorChain';
+      name: string;
+    };
 
 // ─── End Score Snapshot Types ───
 
@@ -1000,6 +1042,7 @@ export interface ProjectEditorSnapshot {
   blueLive?: BlueLiveProjectSnapshot;
   midiInput?: MidiInputProcessorSnapshot;
   score?: ScoreDocumentSnapshot;
+  namedChains?: NamedChainListSnapshot;
 }
 
 export interface ProjectSummarySnapshot {
@@ -1405,6 +1448,7 @@ export function createEmptyProjectEditorSnapshot(): ProjectEditorSnapshot {
     projectUdos: [],
     loaded: false,
     score: createEmptyScoreDocumentSnapshot(),
+    namedChains: { names: [] },
   };
 }
 
@@ -2373,6 +2417,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: TimeContext, roo
           : { kind: 'fallback' as const, labelLines: splitLabelLines(sObj.getName()), reason: 'unknown-type' as const },
       });
     }
+    const layerChain = layer.getNoteProcessorChain();
     layers.push({
       layerId: `${groupId}-layer-${i}`,
       name: layer.getName(),
@@ -2380,9 +2425,11 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: TimeContext, roo
       muted: layer.isMuted(),
       solo: layer.isSolo(),
       items,
+      noteProcessorChain: layerChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(layerChain) : undefined,
     });
   }
 
+  const groupChain = lg.getNoteProcessorChain();
   return {
     groupId,
     groupType: 'polyObject',
@@ -2390,6 +2437,7 @@ function createPolyObjectGroupSnapshot(lg: PolyObject, context: TimeContext, roo
     layerCount: lg.length,
     isOpenableContainer: true,
     layers,
+    noteProcessorChain: groupChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(groupChain) : undefined,
   };
 }
 
@@ -2439,6 +2487,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: TimeContext
     });
   }
 
+  const groupChain = lg.getNoteProcessorChain();
   return {
     groupId,
     groupType: 'audio',
@@ -2446,6 +2495,7 @@ function createAudioLayerGroupSnapshot(lg: AudioLayerGroup, context: TimeContext
     layerCount: lg.length,
     isOpenableContainer: false,
     layers,
+    noteProcessorChain: groupChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(groupChain) : undefined,
   };
 }
 
@@ -2465,6 +2515,7 @@ function createPatternsLayerGroupSnapshot(lg: PatternsLayerGroup): PatternsLayer
     });
   }
 
+  const groupChain = lg.getNoteProcessorChain();
   return {
     groupId,
     groupType: 'patterns',
@@ -2472,14 +2523,18 @@ function createPatternsLayerGroupSnapshot(lg: PatternsLayerGroup): PatternsLayer
     layerCount: lg.length,
     isOpenableContainer: false,
     layers,
+    noteProcessorChain: groupChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(groupChain) : undefined,
   };
 }
 
 export function createScoreDocumentSnapshot(data: BlueData): ScoreDocumentSnapshot {
+  const score = data.getScore();
+  const rootChain = score.getNoteProcessorChain();
   return {
     timeState: createScoreTimeStateSnapshot(data),
     markers: createMarkerSnapshots(data),
     layerGroups: createScoreLayerGroupSnapshots(data),
+    rootNoteProcessorChain: rootChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(rootChain) : undefined,
   };
 }
 
@@ -2499,6 +2554,7 @@ export function createEmptyScoreDocumentSnapshot(): ScoreDocumentSnapshot {
     },
     markers: [],
     layerGroups: [],
+    rootNoteProcessorChain: undefined,
   };
 }
 
@@ -2697,22 +2753,8 @@ function createTimeConversionContext(context: TimeContext): TimeConversionContex
   };
 }
 
-function createNoteProcessorChainSnapshot(chain: NoteProcessorChain): NoteProcessorChainSnapshot {
-  const processors: NoteProcessorEntrySnapshot[] = [];
-  let hasUnsupported = false;
-  for (const proc of chain.getProcessors()) {
-    const typeName = proc.constructor.name;
-    const isUnsupported = typeName === 'UnsupportedProcessor';
-    if (isUnsupported) hasUnsupported = true;
-    processors.push({
-      processorType: typeName,
-      displayName: typeName,
-      supported: !isUnsupported,
-      summary: typeName,
-      serializedXml: '',
-    });
-  }
-  return { processors, hasUnsupportedProcessors: hasUnsupported };
+export function createNoteProcessorChainSnapshot(chain: NoteProcessorChain): NoteProcessorChainSnapshot {
+  return createNoteProcessorChainSnapshotFromData(chain) as NoteProcessorChainSnapshot;
 }
 
 export function createScoreObjectEditorDocument(
@@ -3319,7 +3361,7 @@ function isNonEmptyScorePatch(patch: ScorePatch): boolean {
   if (patch.type === 'updateLayerState') {
     return Object.keys(patch.patch).length > 0;
   }
-  if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor') {
+  if (patch.type === 'updateSharedProperties' || patch.type === 'updateSoundObjectBehavior' || patch.type === 'replaceNoteProcessorChain' || patch.type === 'updateTypeSpecificEditor' || patch.type === 'replaceScopedNoteProcessorChain' || patch.type === 'saveNamedNoteProcessorChain' || patch.type === 'deleteNamedNoteProcessorChain') {
     return true;
   }
   if (patch.type === 'addScoreObjects' || patch.type === 'moveScoreObjects' || patch.type === 'addLayer' || patch.type === 'removeLayer') {
@@ -3373,6 +3415,7 @@ export function createProjectEditorSnapshot(
     blueLive: createBlueLiveProjectSnapshot(data.getLiveData()),
     midiInput: createMidiInputProcessorSnapshot(data.getMidiInputProcessor()),
     score: createScoreDocumentSnapshot(data),
+    namedChains: { names: data.getNoteProcessorChainMap().getChainNames() },
   };
 }
 
@@ -5115,6 +5158,62 @@ function applyRemoveLayerGroupPatch(data: BlueData, patch: ScorePatch & { type: 
   return true;
 }
 
+function applyScopedNoteProcessorChainPatch(data: BlueData, patch: ScorePatch & { type: 'replaceScopedNoteProcessorChain' }): boolean {
+  const score = data.getScore();
+
+  if (patch.scope === 'rootScore') {
+    if (patch.chain === null) {
+      score.setNoteProcessorChain(new NoteProcessorChain());
+    } else {
+      const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+      score.setNoteProcessorChain(reified);
+    }
+    return true;
+  }
+
+  const idx = 'groupId' in patch ? findRootLayerGroupIndexByGroupId(score, patch.groupId) : -1;
+  if (idx === -1) return false;
+  const lg = score[idx];
+
+  if (patch.scope === 'layerGroup') {
+    if (lg instanceof PolyObject) {
+      if (patch.chain === null) {
+        lg.setNoteProcessorChain(new NoteProcessorChain());
+      } else {
+        const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+        lg.setNoteProcessorChain(reified);
+      }
+      return true;
+    }
+    if (lg instanceof PatternsLayerGroup) {
+      if (patch.chain === null) {
+        lg.setNoteProcessorChain(new NoteProcessorChain());
+      } else {
+        const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+        lg.setNoteProcessorChain(reified);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  if (patch.scope === 'soundLayer') {
+    const layerIdx = patch.layerIndex;
+    if (!(lg instanceof PolyObject)) return false;
+    if (layerIdx < 0 || layerIdx >= lg.length) return false;
+    const layer = lg[layerIdx];
+    if (patch.chain === null) {
+      layer.setNoteProcessorChain(new NoteProcessorChain());
+    } else {
+      const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+      layer.setNoteProcessorChain(reified);
+    }
+    return true;
+  }
+
+  return false;
+}
+
 function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
   if (patch.type === 'addScoreObjects') {
     return applyAddScoreObjectsPatch(data, patch);
@@ -5230,6 +5329,21 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
     return applyRemoveLayerGroupPatch(data, patch);
   }
 
+  if (patch.type === 'replaceScopedNoteProcessorChain') {
+    return applyScopedNoteProcessorChainPatch(data, patch);
+  }
+
+  if (patch.type === 'saveNamedNoteProcessorChain') {
+    const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+    data.getNoteProcessorChainMap().setChain(patch.name, reified);
+    return true;
+  }
+
+  if (patch.type === 'deleteNamedNoteProcessorChain') {
+    data.getNoteProcessorChainMap().removeChain(patch.name);
+    return true;
+  }
+
   const target = (patch as { target: ScoreObjectEditorTargetSnapshot }).target;
   const resolved = resolveEditorTarget(data, target);
   if (!resolved) return false;
@@ -5290,8 +5404,8 @@ function applyScoreObjectPatch(data: BlueData, patch: ScorePatch): boolean {
       if (patch.chain === null) {
         sObj.setNoteProcessorChain(new NoteProcessorChain());
       } else {
-        // For now, preserve existing chain — full replacement requires processor reification
-        // which is deferred to a later iteration.
+        const reified = reifyChainFromSnapshot(patch.chain as DataNoteProcessorChainSnapshot);
+        sObj.setNoteProcessorChain(reified);
       }
       return true;
     }
@@ -7694,8 +7808,13 @@ export function createNestedPolyObjectSnapshot(
       muted: subLayer.isMuted(),
       solo: subLayer.isSolo(),
       items,
+      noteProcessorChain: subLayer.getNoteProcessorChain().getProcessors().length > 0
+        ? createNoteProcessorChainSnapshot(subLayer.getNoteProcessorChain())
+        : undefined,
     });
   }
+
+  const groupChain = sObj.getNoteProcessorChain();
 
   return {
     groupId,
@@ -7704,5 +7823,6 @@ export function createNestedPolyObjectSnapshot(
     layerCount: sObj.length,
     isOpenableContainer: true,
     layers,
+    noteProcessorChain: groupChain.getProcessors().length > 0 ? createNoteProcessorChainSnapshot(groupChain) : undefined,
   };
 }

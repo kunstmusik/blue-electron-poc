@@ -17,10 +17,10 @@
 
 **Purpose**: Confirm source anchors and establish shared test fixture locations.
 
-- [ ] T001 Review Java source anchors and local audit findings in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/audit.md`
-- [ ] T002 [P] Inventory current processor exports, registry entries, and helper classes in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/`
-- [ ] T003 [P] Inventory current score-object, layer, group, and root chain application points in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/`
-- [ ] T004 [P] Inventory current chain UI and patch paths in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
+- [x] T001 Review Java source anchors and local audit findings in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/audit.md`
+- [x] T002 [P] Inventory current processor exports, registry entries, and helper classes in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/`
+- [x] T003 [P] Inventory current score-object, layer, group, and root chain application points in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/`
+- [x] T004 [P] Inventory current chain UI and patch paths in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`, and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
 
 ---
 
@@ -32,20 +32,20 @@
 
 ### Tests
 
-- [ ] T005 [P] Add processor catalog tests for the 16 in-scope processors, Java plugin ordering, and exclusion of `Code`/addable Python in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-catalog.test.ts`
-- [ ] T006 [P] Add chain snapshot and reification tests for supported, deferred, unsupported, and legacy Code XML entries in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-snapshot.test.ts`
-- [ ] T007 [P] Add PythonProcessor preservation-only load/save tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/deferred-python-processor.test.ts`
-- [ ] T008 [P] Add scoped note-processor target contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/note-processor-chain-target.test.ts`
+- [x] T005 [P] Add processor catalog tests for the 16 in-scope processors, Java plugin ordering, and exclusion of `Code`/addable Python in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-catalog.test.ts`
+- [x] T006 [P] Add chain snapshot and reification tests for supported, deferred, unsupported, and legacy Code XML entries in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-snapshot.test.ts`
+- [x] T007 [P] Add PythonProcessor preservation-only load/save tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/deferred-python-processor.test.ts`
+- [x] T008 [P] Add scoped note-processor target contract tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/note-processor-chain-target.test.ts`
 
 ### Implementation
 
-- [ ] T009 Create centralized in-scope processor metadata and default constructors in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-catalog.ts`
-- [ ] T010 Create chain snapshot, parameter extraction, and chain reification helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-snapshot.ts`
-- [ ] T011 Update processor loading to use catalog metadata, preserve PythonProcessor as deferred, and treat legacy `blue.noteProcessor.Code` as preserved unsupported XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-chain.ts`
-- [ ] T012 Update unsupported/deferred processor display and XML-preservation behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/unsupported-processor.ts`
-- [ ] T013 Update public exports for catalog and snapshot helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
-- [ ] T014 Extend shared app note-processor snapshot and scoped target types in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T015 Update renderer project-store patch normalization and local score snapshot application for scoped chain patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T009 Create centralized in-scope processor metadata and default constructors in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-catalog.ts`
+- [x] T010 Create chain snapshot, parameter extraction, and chain reification helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-snapshot.ts`
+- [x] T011 Update processor loading to use catalog metadata, preserve PythonProcessor as deferred, and treat legacy `blue.noteProcessor.Code` as preserved unsupported XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-chain.ts`
+- [x] T012 Update unsupported/deferred processor display and XML-preservation behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/unsupported-processor.ts`
+- [x] T013 Update public exports for catalog and snapshot helpers in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/index.ts`
+- [x] T014 Extend shared app note-processor snapshot and scoped target types in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T015 Update renderer project-store patch normalization and local score snapshot application for scoped chain patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
 
 **Checkpoint**: Processor metadata, snapshots, reification, and scoped target contracts are available for all UI and render work.
 
@@ -59,21 +59,21 @@
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Add arithmetic and pch processor parity tests for Add, Multiply, PchAdd, Inversion, and PchInversion in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-parity.test.ts`
-- [ ] T017 [P] [US1] Add selection, ordering, and switch processor parity tests for SubList, Rotate, Retrograde, Equals, and Switch in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-parity.test.ts`
-- [ ] T018 [P] [US1] Add random processor parity tests for seeded and unseeded RandomAdd and RandomMultiply behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-random-parity.test.ts`
-- [ ] T019 [P] [US1] Add line/time/tuning processor parity tests for LineAdd, LineMultiply, TimeWarp, and Tuning in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-line-time-tuning-parity.test.ts`
-- [ ] T020 [P] [US1] Add XML serialization matrix tests for all 16 in-scope processors and deferred PythonProcessor preservation in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-serialization-parity.test.ts`
-- [ ] T021 [P] [US1] Add invalid-parameter failure tests matching Java behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-error-parity.test.ts`
+- [x] T016 [P] [US1] Add arithmetic and pch processor parity tests for Add, Multiply, PchAdd, Inversion, and PchInversion in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-parity.test.ts`
+- [x] T017 [P] [US1] Add selection, ordering, and switch processor parity tests for SubList, Rotate, Retrograde, Equals, and Switch in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-selection-ordering-parity.test.ts`
+- [x] T018 [P] [US1] Add random processor parity tests for seeded and unseeded RandomAdd and RandomMultiply behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-random-parity.test.ts`
+- [x] T019 [P] [US1] Add line/time/tuning processor parity tests for LineAdd, LineMultiply, TimeWarp, and Tuning in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-line-time-tuning-parity.test.ts`
+- [x] T020 [P] [US1] Add XML serialization matrix tests for all 16 in-scope processors and deferred PythonProcessor preservation in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-serialization-parity.test.ts`
+- [x] T021 [P] [US1] Add invalid-parameter failure tests matching Java behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-error-parity.test.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T022 [US1] Align Add, Multiply, PchAdd, Inversion, and PchInversion processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/multiply-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/pch-add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/inversion-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/pch-inversion-processor.ts`
-- [ ] T023 [US1] Align SubList, Rotate, Retrograde, Equals, and Switch processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/sublist-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/rotate-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/retrograde-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/equals-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/switch-processor.ts`
-- [ ] T024 [US1] Align RandomAdd and RandomMultiply seeded/unseeded processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/random-add-processor.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/random-multiply-processor.ts`
-- [ ] T025 [US1] Align LineAdd, LineMultiply, TimeWarp, Tuning, and ValueTimeMapper helper behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/line-add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/line-multiply-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/time-warp-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/tuning-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/value-time-mapper.ts`
-- [ ] T026 [US1] Remove `Code` from the addable processor registry while preserving legacy `blue.noteProcessor.Code` XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/code.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-chain.ts`
-- [ ] T027 [US1] Update README or package docs for in-scope processors and deferred PythonProcessor behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/README.md`
+- [x] T022 [US1] Align Add, Multiply, PchAdd, Inversion, and PchInversion processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/multiply-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/pch-add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/inversion-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/pch-inversion-processor.ts`
+- [x] T023 [US1] Align SubList, Rotate, Retrograde, Equals, and Switch processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/sublist-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/rotate-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/retrograde-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/equals-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/switch-processor.ts`
+- [x] T024 [US1] Align RandomAdd and RandomMultiply seeded/unseeded processing and XML behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/random-add-processor.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/random-multiply-processor.ts`
+- [x] T025 [US1] Align LineAdd, LineMultiply, TimeWarp, Tuning, and ValueTimeMapper helper behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/line-add-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/line-multiply-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/time-warp-processor.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/tuning-processor.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/value-time-mapper.ts`
+- [x] T026 [US1] Remove `Code` from the addable processor registry while preserving legacy `blue.noteProcessor.Code` XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/code.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/note-processor-chain.ts`
+- [x] T027 [US1] Update README or package docs for in-scope processors and deferred PythonProcessor behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/README.md`
 
 **Checkpoint**: User Story 1 is independently testable through direct processor construction, chain XML round-trip, and note-list processing.
 
@@ -87,24 +87,24 @@
 
 ### Tests for User Story 2
 
-- [ ] T028 [P] [US2] Add main/shared document tests for editable processor snapshots on selected score objects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-editor-document.test.ts`
-- [ ] T029 [P] [US2] Add reified non-empty score-object chain replacement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-note-processor-chain-patch.test.ts`
-- [ ] T030 [P] [US2] Add reusable chain editor component tests for add/remove/reorder/clear/cut/copy/paste in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-chain-editor.test.tsx`
-- [ ] T031 [P] [US2] Add processor parameter editor tests for numeric, boolean, string, multiline, and readonly/deferred fields in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-parameter-editor.test.tsx`
-- [ ] T032 [P] [US2] Add ScoreObject Properties integration tests for committing edited object chains in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
-- [ ] T033 [P] [US2] Add named-chain import/save tests for object-chain editing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-named-chain-ui.test.tsx`
+- [x] T028 [P] [US2] Add main/shared document tests for editable processor snapshots on selected score objects in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-editor-document.test.ts`
+- [x] T029 [P] [US2] Add reified non-empty score-object chain replacement tests in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-object-note-processor-chain-patch.test.ts`
+- [x] T030 [P] [US2] Add reusable chain editor component tests for add/remove/reorder/clear/cut/copy/paste in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-chain-editor.test.tsx`
+- [x] T031 [P] [US2] Add processor parameter editor tests for numeric, boolean, string, multiline, and readonly/deferred fields in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-parameter-editor.test.tsx`
+- [x] T032 [P] [US2] Add ScoreObject Properties integration tests for committing edited object chains in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-object-properties-panel.test.tsx`
+- [x] T033 [P] [US2] Add named-chain import/save tests for object-chain editing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-named-chain-ui.test.tsx`
 
 ### Implementation for User Story 2
 
-- [ ] T034 [US2] Populate score-object processor snapshots from `@blue/data` snapshot helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T035 [US2] Implement non-empty score-object chain replacement by reifying snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T036 [US2] Create reusable chain editor component in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainEditor.tsx`
-- [ ] T037 [US2] Create processor add menu and row list components in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainRows.tsx`
-- [ ] T038 [US2] Create parameter editor components in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorParameterEditor.tsx`
-- [ ] T039 [US2] Create shared chain dialog wrapper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainDialog.tsx`
-- [ ] T040 [US2] Integrate the chain editor into ScoreObject Properties in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
-- [ ] T041 [US2] Add named-chain import/save UI wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorNamedChainControls.tsx`
-- [ ] T042 [US2] Update project-store local patch application for edited object chains in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T034 [US2] Populate score-object processor snapshots from `@blue/data` snapshot helpers in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T035 [US2] Implement non-empty score-object chain replacement by reifying snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T036 [US2] Create reusable chain editor component in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainEditor.tsx`
+- [x] T037 [US2] Create processor add menu and row list components (inlined in NoteProcessorChainEditor) in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainEditor.tsx`
+- [x] T038 [US2] Create parameter editor components (inlined in NoteProcessorChainEditor) in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainEditor.tsx`
+- [x] T039 [US2] Create shared chain dialog wrapper in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorChainDialog.tsx`
+- [x] T040 [US2] Integrate the chain editor into ScoreObject Properties in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/ScoreObjectPropertiesForm.tsx`
+- [x] T041 [US2] Add named-chain import/save UI wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/score-object/note-processors/NoteProcessorNamedChainControls.tsx`
+- [x] T042 [US2] Update project-store local patch application for edited object chains in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
 
 **Checkpoint**: User Story 2 is independently usable for selected score-object chains without layer/group/root UI.
 
@@ -118,24 +118,24 @@
 
 ### Tests for User Story 3
 
-- [ ] T043 [P] [US3] Add root score chain generation tests proving final merged notes are processed in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score-note-processor-chain.test.ts`
-- [ ] T044 [P] [US3] Add object/layer/group/root scope order tests with representative processors in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/note-processor-scope-order.test.ts`
-- [ ] T045 [P] [US3] Add score snapshot tests for root, layer-group, and layer chain summaries and targets in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-note-processor-targets.test.ts`
-- [ ] T046 [P] [US3] Add main/shared patch tests for sound-layer, layer-group, and root chain replacement in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/scoped-note-processor-chain-patch.test.ts`
-- [ ] T047 [P] [US3] Add renderer ScorePanel tests for layer `N` button opening the chain dialog instead of alerting in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel-note-processor-ui.test.tsx`
-- [ ] T048 [P] [US3] Add renderer tests for layer-group and root note-processor affordances and non-empty indicators in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel-note-processor-scope-ui.test.tsx`
+- [x] T043 [P] [US3] Add root score chain generation tests proving final merged notes are processed in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score-note-processor-chain.test.ts`
+- [x] T044 [P] [US3] Add object/layer/group/root scope order tests with representative processors in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/note-processor-scope-order.test.ts`
+- [x] T045 [P] [US3] Add score snapshot tests for root, layer-group, and layer chain summaries and targets in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/score-note-processor-targets.test.ts`
+- [x] T046 [P] [US3] Add main/shared patch tests for sound-layer, layer-group, and root chain replacement in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/scoped-note-processor-chain-patch.test.ts`
+- [x] T047 [P] [US3] Add renderer ScorePanel tests for layer `N` button opening the chain dialog instead of alerting in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel-note-processor-ui.test.tsx`
+- [x] T048 [P] [US3] Add renderer tests for layer-group and root note-processor affordances and non-empty indicators in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/score-panel-note-processor-scope-ui.test.tsx`
 
 ### Implementation for User Story 3
 
-- [ ] T049 [US3] Apply the root score note processor chain after layer groups are merged in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts`
-- [ ] T050 [US3] Confirm and align layer and layer-group chain application behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-layer.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/poly-object.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/patterns/patterns-layer-group.ts`
-- [ ] T051 [US3] Add root, layer-group, and sound-layer chain summary fields to score snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T052 [US3] Add target resolution and canonical mutation for sound-layer, layer-group, and root chain patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
-- [ ] T053 [US3] Update renderer project store local snapshot updates for scoped chain summaries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
-- [ ] T054 [US3] Replace the layer `N` alert with chain dialog opening and commit wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
-- [ ] T055 [US3] Add layer-group and root note-processor affordances to the score panel header/sidebar UI in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
-- [ ] T056 [US3] Add non-empty chain visual indicators for object, layer, layer-group, and root scopes in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
-- [ ] T057 [US3] Ensure preload/main project document patch flow accepts scoped chain patches without new unsafe IPC surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
+- [x] T049 [US3] Apply the root score note processor chain after layer groups are merged in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/score.ts`
+- [x] T050 [US3] Confirm and align layer and layer-group chain application behavior in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/sound-layer.ts`, `/Users/stevenyi/work/blue-electron/packages/blue-data/src/sound-objects/poly-object.ts`, and `/Users/stevenyi/work/blue-electron/packages/blue-data/src/score/patterns/patterns-layer-group.ts`
+- [x] T051 [US3] Add root, layer-group, and sound-layer chain summary fields to score snapshots in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T052 [US3] Add target resolution and canonical mutation for sound-layer, layer-group, and root chain patches in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/shared/project-editor.ts`
+- [x] T053 [US3] Update renderer project store local snapshot updates for scoped chain summaries in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/stores/project-store.ts`
+- [x] T054 [US3] Replace the layer `N` alert with chain dialog opening and commit wiring in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
+- [x] T055 [US3] Add layer-group and root note-processor affordances to the score panel header/sidebar UI in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
+- [x] T056 [US3] Add non-empty chain visual indicators for object, layer, layer-group, and root scopes in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/components/workbench/panels/ScorePanel.tsx`
+- [x] T057 [US3] Ensure preload/main project document patch flow accepts scoped chain patches without new unsafe IPC surfaces in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/preload/preload.ts` and `/Users/stevenyi/work/blue-electron/packages/blue-app/src/main/main.ts`
 
 **Checkpoint**: User Story 3 provides functional layer, layer-group, and root chain editing plus root render application.
 
@@ -149,19 +149,19 @@
 
 ### Tests for User Story 4
 
-- [ ] T058 [P] [US4] Add reusable all-processor fixture factory in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-test-fixtures.ts`
-- [ ] T059 [P] [US4] Add all-processor object-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-object-scope-matrix.test.ts`
-- [ ] T060 [P] [US4] Add all-processor sound-layer-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-layer-scope-matrix.test.ts`
-- [ ] T061 [P] [US4] Add all-processor layer-group-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-layer-group-scope-matrix.test.ts`
-- [ ] T062 [P] [US4] Add all-processor root-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-root-scope-matrix.test.ts`
-- [ ] T063 [P] [US4] Add project round-trip test with object, layer, group, root, named chains, deferred PythonProcessor, and unsupported legacy XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/note-processor-chain-roundtrip.test.ts`
-- [ ] T064 [P] [US4] Add renderer workflow coverage for object/layer/group/root chain editing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-chain-workflows.test.tsx`
+- [x] T058 [P] [US4] Add reusable all-processor fixture factory in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-test-fixtures.ts`
+- [x] T059 [P] [US4] Add all-processor object-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-object-scope-matrix.test.ts`
+- [x] T060 [P] [US4] Add all-processor sound-layer-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-layer-scope-matrix.test.ts`
+- [x] T061 [P] [US4] Add all-processor layer-group-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-layer-group-scope-matrix.test.ts`
+- [x] T062 [P] [US4] Add all-processor root-scope matrix tests in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-root-scope-matrix.test.ts`
+- [x] T063 [P] [US4] Add project round-trip test with object, layer, group, root, named chains, deferred PythonProcessor, and unsupported legacy XML in `/Users/stevenyi/work/blue-electron/packages/blue-data/tests/integration/note-processor-chain-roundtrip.test.ts`
+- [x] T064 [P] [US4] Add renderer workflow coverage for object/layer/group/root chain editing in `/Users/stevenyi/work/blue-electron/packages/blue-app/src/renderer/tests/note-processor-chain-workflows.test.tsx`
 
 ### Implementation for User Story 4
 
-- [ ] T065 [US4] Refactor duplicated processor test setup to the fixture factory in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-test-fixtures.ts`
-- [ ] T066 [US4] Update quickstart with any final validation notes discovered during implementation in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/quickstart.md`
-- [ ] T067 [US4] Update project status notes for Note Processor parity and PythonProcessor deferral in `/Users/stevenyi/work/blue-electron/STATUS.md`
+- [x] T065 [US4] Refactor duplicated processor test setup to the fixture factory in `/Users/stevenyi/work/blue-electron/packages/blue-data/src/note-processors/processor-test-fixtures.ts`
+- [x] T066 [US4] Update quickstart with any final validation notes discovered during implementation in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/quickstart.md`
+- [x] T067 [US4] Update project status notes for Note Processor parity and PythonProcessor deferral in `/Users/stevenyi/work/blue-electron/STATUS.md`
 
 **Checkpoint**: Full requested processing, serialization, scoped application, and UI workflow coverage is present.
 
@@ -171,11 +171,11 @@
 
 **Purpose**: Final validation and cleanup after selected user stories are complete.
 
-- [ ] T068 [P] Update any changed feature documentation in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/`
-- [ ] T069 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T070 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
-- [ ] T071 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
-- [ ] T072 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
+- [x] T068 [P] Update any changed feature documentation in `/Users/stevenyi/work/blue-electron/specs/048-note-processor-parity/`
+- [x] T069 Run `pnpm --filter @blue/data test` from `/Users/stevenyi/work/blue-electron`
+- [x] T070 Run `pnpm --filter @blue/app test` from `/Users/stevenyi/work/blue-electron`
+- [x] T071 Run `pnpm --filter @blue/app build` from `/Users/stevenyi/work/blue-electron`
+- [x] T072 Run `git diff --check` from `/Users/stevenyi/work/blue-electron`
 
 ---
 

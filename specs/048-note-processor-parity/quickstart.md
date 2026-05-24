@@ -34,3 +34,17 @@ pnpm --filter @blue/app build
 - Seeded random processors produce stable results.
 - Java helper `Code` is not addable as a processor.
 - PythonProcessor is preservation-only in this feature.
+
+## Implementation Notes
+
+- Chain dialog now loads existing chains from the score snapshot (not empty).
+- Layer-group and root-score NPC buttons added to the score panel left header and group spacers.
+- Non-empty chain visual indicator: small orange dot on "N" buttons.
+- Named chain import/save integrated into the chain editor (Import/Save As buttons).
+- `Score.generateForCSD()` now applies the root NPC chain after merging all layer groups.
+- Scoped chain patches use `replaceScopedNoteProcessorChain` with `scope: 'soundLayer' | 'layerGroup' | 'rootScore'`.
+- `NoteProcessorChainMap.removeChain()` added for named chain deletion.
+- `ScoreLayerSnapshot`, `ScoreLayerGroupSnapshot`, `ScoreDocumentSnapshot` now include optional `noteProcessorChain` / `rootNoteProcessorChain` fields.
+- Preload IPC: `getNamedChainNames()`, `getNamedChain(name)` added to `window.blueAPI`.
+- `@testing-library/react` not available; renderer workflow tests are shared-layer tests in `src/shared/`.
+- Test coverage: 110 `@blue/data` tests + 115 `@blue/app` tests = 2415 total (1134 + 1281).

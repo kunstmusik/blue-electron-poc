@@ -17,6 +17,7 @@ import type {
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
   PlaybackClockSnapshot,
+  NoteProcessorChainSnapshot,
   ScoreObjectEditorRequest,
   ScoreObjectEditorDocumentSnapshot,
   ScoreObjectLocationRef,
@@ -74,6 +75,10 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('read-audio-file-bytes', filePath) as Promise<ArrayBuffer | null>,
   getScoreObjectEditorDocument: (request: ScoreObjectEditorRequest) =>
     ipcRenderer.invoke('get-score-object-editor-document', request) as Promise<ScoreObjectEditorDocumentSnapshot | null>,
+  getNamedChainNames: () =>
+    ipcRenderer.invoke('get-named-chain-names') as Promise<string[]>,
+  getNamedChain: (name: string) =>
+    ipcRenderer.invoke('get-named-chain', name) as Promise<NoteProcessorChainSnapshot | null>,
   testExternalSoundObject: (request: ScoreObjectEditorRequest) =>
     ipcRenderer.invoke('test-external-sound-object', request) as Promise<{ ok: boolean; output: string; error?: string }>,
   testJavascriptSoundObject: (request: ScoreObjectEditorRequest) =>

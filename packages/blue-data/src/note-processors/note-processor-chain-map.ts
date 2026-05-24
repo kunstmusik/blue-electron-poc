@@ -29,6 +29,10 @@ export class NoteProcessorChainMap implements BlueDataObject {
     return Array.from(this.chains.keys());
   }
 
+  removeChain(name: string): void {
+    this.chains.delete(name);
+  }
+
   saveAsXML(): Element {
     const elem = new Element('noteProcessorChainMap');
     for (const [name, chain] of this.chains) {

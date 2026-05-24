@@ -17,6 +17,7 @@ import type {
   ProjectEditorSnapshot,
   ProjectLoadedPayload,
   PlaybackClockSnapshot,
+  NoteProcessorChainSnapshot,
   ScoreObjectEditorRequest,
   ScoreObjectEditorDocumentSnapshot,
   ScoreObjectLocationRef,
@@ -146,6 +147,10 @@ declare global {
 
       // Settings
       openSettingsWindow: () => Promise<void>;
+
+      // Named Chains
+      getNamedChainNames: () => Promise<string[]>;
+      getNamedChain: (name: string) => Promise<NoteProcessorChainSnapshot | null>;
 
       // Evaluate Code
       evaluateCode: (request: EvaluateCodeRequest) => Promise<EvaluateCodeResult>;

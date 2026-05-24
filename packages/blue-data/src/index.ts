@@ -173,6 +173,10 @@ export { SwitchProcessor } from './note-processors/switch-processor';
 export { SubListProcessor } from './note-processors/sublist-processor';
 export { EqualsProcessor } from './note-processors/equals-processor';
 export { ValueTimeMapper } from './note-processors/value-time-mapper';
+export { getNoteProcessorCatalog, getNoteProcessorDefinition, isAddableProcessor } from './note-processors/note-processor-catalog';
+export type { NoteProcessorDefinition, NoteProcessorParameterDefinition, ParameterValueType } from './note-processors/note-processor-catalog';
+export { createNoteProcessorEntrySnapshot, createNoteProcessorChainSnapshot, reifyProcessorFromSnapshot, reifyChainFromSnapshot, resetSnapshotIdCounter } from './note-processors/note-processor-snapshot';
+export type { NoteProcessorEntrySnapshot, NoteProcessorChainSnapshot } from './note-processors/note-processor-snapshot';
 
 // ─── Mixer ───
 export { Mixer } from './mixer/mixer';

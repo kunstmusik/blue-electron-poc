@@ -9,7 +9,7 @@ import type {
   ScoreObjectLocationRef,
   PolyObjectLayerGroupSnapshot,
 } from "./score/types";
-import type { TempoMapSnapshot, TempoMapPatch, MeterMapPatch } from "../../../../shared/project-editor";
+import type { TempoMapSnapshot, TempoMapPatch, MeterMapPatch, NoteProcessorChainSnapshot } from "../../../../shared/project-editor";
 import type { SnapValueName } from "@blue/data";
 import type { RulerConfigChanges } from "./score/RulerConfigDialog";
 import SplitPane from "./orchestra/SplitPane";
@@ -25,6 +25,68 @@ import { useScoreSelectionStore } from "../../../stores/score-selection-store";
 import { useScoreRulerSelection } from "./score/useScoreRulerSelection";
 import { usePlaybackStore } from "../../../stores/playback-store";
 import ScoreOverlayLines from "./score/ScoreOverlayLines";
+import NoteProcessorChainDialog from "./score-object/note-processors/NoteProcessorChainDialog";
+
+type ChainDialogTarget =
+  | { scope: 'soundLayer'; groupId: string; layerIndex: number }
+  | { scope: 'layerGroup'; groupId: string }
+  | { scope: 'rootScore' };
+
+function ChainDialogWrapper({ target, onClose }: { target: ChainDialogTarget; onClose: () => void }) {
+  const applyProjectDocumentPatch = useProjectStore((s) => s.applyProjectDocumentPatch);
+  const score = useProjectStore((s) => s.score);
+
+  const title = target.scope === 'rootScore'
+    ? 'Root Score - Note Processors'
+    : target.scope === 'layerGroup'
+      ? 'Layer Group - Note Processors'
+      : `Layer ${target.layerIndex + 1} - Note Processors`;
+
+  const emptyChain: NoteProcessorChainSnapshot = {
+    processors: [],
+    hasUnsupportedProcessors: false,
+    hasDeferredProcessors: false,
+  };
+
+  let existingChain: NoteProcessorChainSnapshot | undefined;
+  if (target.scope === 'rootScore') {
+    existingChain = score.rootNoteProcessorChain;
+  } else if (target.scope === 'layerGroup') {
+    const group = score.layerGroups.find((g) => g.groupId === target.groupId);
+    existingChain = group?.noteProcessorChain;
+  } else {
+    const group = score.layerGroups.find((g) => g.groupId === target.groupId);
+    const layer = group?.layers[target.layerIndex];
+    existingChain = layer?.noteProcessorChain;
+  }
+
+  const chain = existingChain ?? emptyChain;
+
+  const handleCommit = useCallback((updated: NoteProcessorChainSnapshot) => {
+    if (target.scope === 'soundLayer') {
+      void applyProjectDocumentPatch({
+        score: { type: 'replaceScopedNoteProcessorChain', scope: 'soundLayer', groupId: target.groupId, layerIndex: target.layerIndex, chain: updated },
+      });
+    } else if (target.scope === 'layerGroup') {
+      void applyProjectDocumentPatch({
+        score: { type: 'replaceScopedNoteProcessorChain', scope: 'layerGroup', groupId: target.groupId, chain: updated },
+      });
+    } else {
+      void applyProjectDocumentPatch({
+        score: { type: 'replaceScopedNoteProcessorChain', scope: 'rootScore', chain: updated },
+      });
+    }
+  }, [target, applyProjectDocumentPatch]);
+
+  return (
+    <NoteProcessorChainDialog
+      title={title}
+      chain={chain}
+      onClose={onClose}
+      onCommit={handleCommit}
+    />
+  );
+}
 
 type ScoreMode = "score" | "singleLine" | "multiLine";
 
@@ -47,6 +109,7 @@ export default function ScorePanel() {
   const [manageDialogOpen, setManageDialogOpen] = useState(false);
   const [tempoMapEditorOpen, setTempoMapEditorOpen] = useState(false);
   const [meterMapEditorOpen, setMeterMapEditorOpen] = useState(false);
+  const [chainDialogTarget, setChainDialogTarget] = useState<{ scope: 'soundLayer'; groupId: string; layerIndex: number } | { scope: 'layerGroup'; groupId: string } | { scope: 'rootScore' } | null>(null);
 
   const [timeState, setTimeState] = useState(score.timeState);
 
@@ -335,6 +398,10 @@ export default function ScorePanel() {
             leftHeaderRef={leftHeaderRef}
             onLeftScroll={handleLeftHeaderScroll}
             onManage={() => setManageDialogOpen(true)}
+            onRootNoteProcessorChain={() => setChainDialogTarget({ scope: 'rootScore' })}
+            onLayerGroupNoteProcessorChain={(groupId) => setChainDialogTarget({ scope: 'layerGroup', groupId })}
+            onSoundLayerNoteProcessorChain={(groupId, layerIndex) => setChainDialogTarget({ scope: 'soundLayer', groupId, layerIndex })}
+            rootNoteProcessorChain={score.rootNoteProcessorChain}
           />
         }
         second={
@@ -441,6 +508,12 @@ export default function ScorePanel() {
           onClose={() => setMeterMapEditorOpen(false)}
         />
       )}
+      {chainDialogTarget && (
+        <ChainDialogWrapper
+          target={chainDialogTarget}
+          onClose={() => setChainDialogTarget(null)}
+        />
+      )}
     </div>
   );
 }
@@ -456,6 +529,10 @@ interface LeftPanelProps {
   leftHeaderRef: React.RefObject<HTMLDivElement | null>;
   onLeftScroll: () => void;
   onManage: () => void;
+  onRootNoteProcessorChain: () => void;
+  onLayerGroupNoteProcessorChain: (groupId: string) => void;
+  onSoundLayerNoteProcessorChain: (groupId: string, layerIndex: number) => void;
+  rootNoteProcessorChain?: NoteProcessorChainSnapshot;
 }
 
 function LeftPanel({
@@ -469,6 +546,10 @@ function LeftPanel({
   leftHeaderRef,
   onLeftScroll,
   onManage,
+  onRootNoteProcessorChain,
+  onLayerGroupNoteProcessorChain,
+  onSoundLayerNoteProcessorChain,
+  rootNoteProcessorChain,
 }: LeftPanelProps) {
   const visibleGroups = layerGroups;
 
@@ -507,6 +588,16 @@ function LeftPanel({
         )}
         <RowHeader onContextMenu={onRowVisibilityChange} center rowVisibility={timeState}>
           <button
+            className="relative text-[9px] text-blue-muted hover:text-blue-text px-1.5 py-0 border border-blue-border/30 rounded-sm bg-blue-surface/50 hover:bg-blue-surface"
+            title="Root Score Note Processors"
+            onClick={onRootNoteProcessorChain}
+          >
+            N
+            {rootNoteProcessorChain && rootNoteProcessorChain.processors.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full bg-orange-400" />
+            )}
+          </button>
+          <button
             className="text-[9px] text-blue-muted hover:text-blue-text px-2 py-0 border border-blue-border/30 rounded-sm bg-blue-surface/50 hover:bg-blue-surface"
             onClick={onManage}
           >
@@ -531,6 +622,8 @@ function LeftPanel({
               groupIndex={gi}
               totalGroups={visibleGroups.length}
               layerCount={group.layers.length}
+              onNoteProcessorChain={group.groupType === 'audio' ? undefined : () => onLayerGroupNoteProcessorChain(group.groupId)}
+              noteProcessorChain={group.noteProcessorChain}
             />
           );
 
@@ -543,6 +636,8 @@ function LeftPanel({
                   groupType={group.groupType}
                   groupId={group.groupId}
                   layerIndex={li}
+                  onNoteProcessorChain={onSoundLayerNoteProcessorChain}
+                  noteProcessorChain={layer.noteProcessorChain}
                 />
               ))}
               {spacer}
@@ -628,11 +723,15 @@ function SpacerPanel({
   groupIndex,
   totalGroups,
   layerCount,
+  onNoteProcessorChain,
+  noteProcessorChain,
 }: {
   groupId: string;
   groupIndex: number;
   totalGroups: number;
   layerCount: number;
+  onNoteProcessorChain?: () => void;
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }) {
   const addLayer = useProjectStore((s) => s.addLayer);
   const ctxItemClass =
@@ -649,6 +748,21 @@ function SpacerPanel({
           <span className="text-[14px] text-blue-muted opacity-0 group-hover:opacity-60 select-none">
             +
           </span>
+          {onNoteProcessorChain && (
+            <button
+              className="relative w-4 h-4 text-[10px] font-bold text-blue-muted hover:text-blue-text opacity-0 group-hover:opacity-100"
+              title="Layer Group Note Processors"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNoteProcessorChain();
+              }}
+            >
+              N
+              {noteProcessorChain && noteProcessorChain.processors.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full bg-orange-400" />
+              )}
+            </button>
+          )}
         </div>
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
@@ -686,11 +800,15 @@ function SoundLayerHeader({
   groupType,
   groupId,
   layerIndex,
+  onNoteProcessorChain,
+  noteProcessorChain,
 }: {
   layer: ScoreLayerSnapshot;
   groupType: ScoreLayerGroupSnapshot['groupType'];
   groupId: string;
   layerIndex: number;
+  onNoteProcessorChain?: (groupId: string, layerIndex: number) => void;
+  noteProcessorChain?: NoteProcessorChainSnapshot;
 }) {
   const setLayerMute = useProjectStore((s) => s.setLayerMute);
   const setLayerSolo = useProjectStore((s) => s.setLayerSolo);
@@ -784,14 +902,19 @@ function SoundLayerHeader({
             </button>
             {showNoteProcessorButton && (
               <button
-                className={btnClass(false, "")}
+                className="relative w-5 h-4 text-[10px] font-bold rounded-sm border border-blue-border/30 flex items-center justify-center bg-transparent text-blue-muted hover:text-blue-text"
                 title="Note Processors"
                 onClick={(e) => {
                   e.stopPropagation();
-                  alert("Not yet implemented");
+                  if (onNoteProcessorChain) {
+                    onNoteProcessorChain(groupId, layerIndex);
+                  }
                 }}
               >
                 N
+                {noteProcessorChain && noteProcessorChain.processors.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full bg-orange-400" />
+                )}
               </button>
             )}
             <button

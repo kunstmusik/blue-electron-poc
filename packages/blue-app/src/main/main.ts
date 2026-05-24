@@ -53,6 +53,7 @@ import {
   createEffectEditorSnapshot,
   createScoreObjectEditorDocument,
   createNestedPolyObjectSnapshot,
+  createNoteProcessorChainSnapshot,
   getMixerChannelSnapshotId,
   getMixerEntrySnapshotId,
   isEmptyProjectDocumentPatch,
@@ -65,6 +66,7 @@ import {
   type BsbRealtimeControlUpdate,
   type ProjectDocumentCommitReceipt,
   type ProjectDocumentPatch,
+  type NoteProcessorChainSnapshot,
   type ScoreObjectEditorRequest,
   type ScoreObjectEditorDocumentSnapshot,
   type ScoreObjectLocationRef,
@@ -1706,6 +1708,18 @@ ipcMain.handle('read-audio-file-bytes', async (_event, filePath: string): Promis
 ipcMain.handle('get-score-object-editor-document', (_event, request: ScoreObjectEditorRequest): ScoreObjectEditorDocumentSnapshot | null => {
   if (!currentData) return null;
   return createScoreObjectEditorDocument(currentData, request);
+});
+
+ipcMain.handle('get-named-chain-names', (): string[] => {
+  if (!currentData) return [];
+  return currentData.getNoteProcessorChainMap().getChainNames();
+});
+
+ipcMain.handle('get-named-chain', (_event, name: string): NoteProcessorChainSnapshot | null => {
+  if (!currentData) return null;
+  const chain = currentData.getNoteProcessorChainMap().getNoteProcessorChain(name);
+  if (!chain) return null;
+  return createNoteProcessorChainSnapshot(chain);
 });
 
 ipcMain.handle('get-nested-poly-object-snapshot', (_event, location: ScoreObjectLocationRef): PolyObjectLayerGroupSnapshot | null => {

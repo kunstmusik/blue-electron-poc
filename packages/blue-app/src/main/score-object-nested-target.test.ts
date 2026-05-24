@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { BlueData, GenericScore, PolyObject, SoundLayer } from '@blue/data';
+import { AddProcessor, BlueData, GenericScore, MultiplyProcessor, NoteProcessorChain, PolyObject, SoundLayer } from '@blue/data';
 import {
   applyProjectDocumentPatch,
+  createNestedPolyObjectSnapshot,
   createScoreObjectEditorDocument,
   type ScoreObjectEditorTargetSnapshot,
 } from '../shared/project-editor';
@@ -73,5 +74,33 @@ describe('Nested score object target resolution', () => {
     if (doc!.editor.kind === 'fallback') {
       expect(doc!.editor.reason).toBe('removed-target');
     }
+  });
+
+  it('snapshots nested PolyObject metadata and scoped chains', () => {
+    const { data } = buildNestedGenericScoreData();
+    const rootGroup = data.getScore()[0] as PolyObject;
+    const nestedPoly = rootGroup[0]![0] as PolyObject;
+    nestedPoly.setName('Nested Container');
+
+    const groupChain = new NoteProcessorChain();
+    groupChain.addProcessor(new AddProcessor());
+    nestedPoly.setNoteProcessorChain(groupChain);
+
+    const layerChain = new NoteProcessorChain();
+    layerChain.addProcessor(new MultiplyProcessor());
+    nestedPoly[0]!.setNoteProcessorChain(layerChain);
+
+    const snapshot = createNestedPolyObjectSnapshot(data, {
+      rootGroupIndex: 0,
+      containerPath: [],
+      layerIndex: 0,
+      objectIndex: 0,
+    });
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.name).toBe('Nested Container');
+    expect(snapshot!.layerCount).toBe(1);
+    expect(snapshot!.noteProcessorChain!.processors[0]!.processorType).toBe('AddProcessor');
+    expect(snapshot!.layers[0]!.noteProcessorChain!.processors[0]!.processorType).toBe('MultiplyProcessor');
   });
 });

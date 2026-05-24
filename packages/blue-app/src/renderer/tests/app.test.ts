@@ -853,6 +853,66 @@ describe('Project Store', () => {
     expect(mockBlueAPI.updateProjectDocument).not.toHaveBeenCalled();
   });
 
+  it('optimistically updates scoped note processor chain summaries', async () => {
+    const snapshot = createEmptyProjectEditorSnapshot();
+    snapshot.loaded = true;
+    snapshot.score.layerGroups = [
+      {
+        groupId: 'g0',
+        groupType: 'polyObject',
+        name: 'Group',
+        layerCount: 2,
+        isOpenableContainer: true,
+        layers: [
+          { layerId: 'l0', name: 'Layer 0', height: 44, muted: false, solo: false, items: [] },
+          { layerId: 'l1', name: 'Layer 1', height: 44, muted: false, solo: false, items: [] },
+        ],
+      },
+    ];
+    useProjectStore.getState().setProjectInfo(snapshot);
+
+    const chain = {
+      processors: [{
+        id: 'np-test',
+        processorType: 'AddProcessor',
+        displayName: 'AddProcessor',
+        supported: true,
+        deferred: false,
+        summary: 'AddProcessor',
+        parameters: { pfield: '4', val: '5' },
+        serializedXml: '',
+      }],
+      hasUnsupportedProcessors: false,
+      hasDeferredProcessors: false,
+    };
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: { type: 'replaceScopedNoteProcessorChain', scope: 'rootScore', chain },
+    });
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: { type: 'replaceScopedNoteProcessorChain', scope: 'layerGroup', groupId: 'g0', chain },
+    });
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: { type: 'replaceScopedNoteProcessorChain', scope: 'soundLayer', groupId: 'g0', layerIndex: 1, chain },
+    });
+
+    const score = useProjectStore.getState().score;
+    expect(score.rootNoteProcessorChain?.processors[0]?.processorType).toBe('AddProcessor');
+    expect(score.layerGroups[0]?.noteProcessorChain?.processors[0]?.processorType).toBe('AddProcessor');
+    expect(score.layerGroups[0]?.layers[1]?.noteProcessorChain?.processors[0]?.processorType).toBe('AddProcessor');
+
+    await useProjectStore.getState().applyProjectDocumentPatch({
+      score: {
+        type: 'replaceScopedNoteProcessorChain',
+        scope: 'soundLayer',
+        groupId: 'g0',
+        layerIndex: 1,
+        chain: { ...chain, processors: [] },
+      },
+    });
+    expect(useProjectStore.getState().score.layerGroups[0]?.layers[1]?.noteProcessorChain).toBeUndefined();
+  });
+
   it('clears the active project session when the project is closed', () => {
     const snapshot = createEmptyProjectEditorSnapshot();
 
