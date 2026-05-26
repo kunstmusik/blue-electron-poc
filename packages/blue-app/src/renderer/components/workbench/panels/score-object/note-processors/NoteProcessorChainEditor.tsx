@@ -320,6 +320,7 @@ function NoteProcessorParameterEditor({
       <div className="text-[10px] font-medium text-gray-400">{def.displayName} Properties</div>
       {def.parameters.map((param) => {
         const value = parameters[param.name];
+        const isReadOnly = processorType === 'TuningProcessor' && param.name === 'ratios';
         return (
           <div key={param.name} className="flex items-center gap-2">
             <label className="w-24 shrink-0 text-[10px] text-blue-muted text-right">{param.label}</label>
@@ -332,9 +333,10 @@ function NoteProcessorParameterEditor({
               />
             ) : param.valueType === 'multilineText' ? (
               <textarea
-                className="flex-1 min-h-16 rounded border border-blue-border bg-blue-bg px-1.5 py-0.5 text-xs text-gray-100 focus:border-blue-accent focus:outline-none min-w-0 resize-y"
+                className={`flex-1 min-h-16 rounded border border-blue-border bg-blue-bg px-1.5 py-0.5 text-xs text-gray-100 focus:border-blue-accent focus:outline-none min-w-0 resize-y ${isReadOnly ? 'opacity-60 cursor-default' : ''}`}
                 value={String(value ?? param.defaultValue)}
                 onChange={(e) => onChange(param.name, e.target.value)}
+                readOnly={isReadOnly}
               />
             ) : (
               <input

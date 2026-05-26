@@ -12,7 +12,7 @@ import {
 import * as path from 'path';
 import * as fs from 'fs';
 
-import { BlueData, Effect, Send, BSBGroup, BSBWidget, External, JavaScriptObject, setExternalCommandExecutor, CompileData, setJavaScriptSession } from '@blue/data';
+import { BlueData, Effect, Send, BSBGroup, BSBWidget, setExternalCommandExecutor } from '@blue/data';
 import { openSettingsWindow } from './settings-window';
 import {
   loadProgramSettings,
@@ -44,6 +44,7 @@ import { cleanupTempCsdSnapshots } from './render-command';
 import { saveGeneratedCsdToDisk } from './csd-export';
 import { executeExternalTest } from './external-executor';
 import { createMainExternalExecutor } from './external-command-executor';
+import { testScoreObject } from './score-object-test';
 import { syncCompiledRuntimeParameterNames } from './runtime-parameter-sync';
 import { getWindowTitle } from '../shared/window-title';
 import {
@@ -1727,67 +1728,25 @@ ipcMain.handle('get-nested-poly-object-snapshot', (_event, location: ScoreObject
   return createNestedPolyObjectSnapshot(currentData, location);
 });
 
+ipcMain.handle('test-score-object', async (_event, request: ScoreObjectEditorRequest) => {
+  return testScoreObject(currentData, request, {
+    ensureJavaScriptEngine,
+    javaScriptSession,
+  });
+});
+
 ipcMain.handle('test-external-sound-object', async (_event, request: ScoreObjectEditorRequest) => {
-  if (!currentData) return { ok: false, output: '', error: 'No project loaded.' };
-
-  const loc = request.target.location;
-  if (!loc) return { ok: false, output: '', error: 'No location for selected object.' };
-  const score = currentData.getScore();
-  const lg = score[loc.rootGroupIndex];
-  if (!lg) return { ok: false, output: '', error: 'Layer group not found.' };
-  const layer = (lg as any)[loc.layerIndex];
-  if (!layer) return { ok: false, output: '', error: 'Layer not found.' };
-  const ext = layer[loc.objectIndex];
-
-  if (!(ext instanceof External)) {
-    return { ok: false, output: '', error: 'Selected object is not an External.' };
-  }
-  try {
-    const noteList = ext.generateForCSD(
-      currentData.getScore().getTimeContext(),
-      { getCloneDataDirectives: () => '' } as any,
-      0.0,
-      -1.0,
-    );
-    return { ok: true, output: noteList.toScoreText() };
-  } catch (err) {
-    return { ok: false, output: '', error: err instanceof Error ? err.message : String(err) };
-  }
+  return testScoreObject(currentData, request, {
+    ensureJavaScriptEngine,
+    javaScriptSession,
+  });
 });
 
 ipcMain.handle('test-javascript-sound-object', async (_event, request: ScoreObjectEditorRequest) => {
-  if (!currentData) return { ok: false, output: '', error: 'No project loaded.' };
-
-  const loc = request.target.location;
-  if (!loc) return { ok: false, output: '', error: 'No location for selected object.' };
-  const score = currentData.getScore();
-  const lg = score[loc.rootGroupIndex];
-  if (!lg) return { ok: false, output: '', error: 'Layer group not found.' };
-  const layer = (lg as any)[loc.layerIndex];
-  if (!layer) return { ok: false, output: '', error: 'Layer not found.' };
-  const sObj = layer[loc.objectIndex];
-
-  if (!(sObj instanceof JavaScriptObject)) {
-    return { ok: false, output: '', error: 'Selected object is not a JavaScriptObject.' };
-  }
-
-  await ensureJavaScriptEngine();
-
-  try {
-    const compileData = CompileData.createEmptyCompileData();
-    if (javaScriptSession) {
-      setJavaScriptSession(compileData, javaScriptSession);
-    }
-    const noteList = sObj.generateForCSD(
-      currentData.getScore().getTimeContext(),
-      compileData,
-      0.0,
-      -1.0,
-    );
-    return { ok: true, output: noteList.toScoreText() };
-  } catch (err) {
-    return { ok: false, output: '', error: err instanceof Error ? err.message : String(err) };
-  }
+  return testScoreObject(currentData, request, {
+    ensureJavaScriptEngine,
+    javaScriptSession,
+  });
 });
 
 ipcMain.handle('send-bsb-realtime-control-update', (_event, update: BsbRealtimeControlUpdate) => {

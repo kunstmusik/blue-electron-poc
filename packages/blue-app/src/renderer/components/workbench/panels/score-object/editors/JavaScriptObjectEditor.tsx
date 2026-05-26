@@ -1,35 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { ScoreObjectEditorComponentProps } from '../editor-registry';
 import SelectedCodeEditor from '../../editors/SelectedCodeEditor';
-
-function GeneratedScoreModal({ text, onClose }: { text: string; onClose: () => void }): React.ReactElement {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="flex h-[400px] w-[760px] flex-col rounded-lg border border-[#1e2d44] bg-[#0d1524] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#1e2d44] px-4 py-3">
-          <h2 className="text-sm font-medium text-[#dbe7ff]">Generated Score</h2>
-          <button
-            className="px-2 text-lg leading-none text-[#5a7299] hover:text-[#dbe7ff]"
-            onClick={onClose}
-            aria-label="Close"
-          >x</button>
-        </div>
-        <div className="min-h-0 flex-1">
-          <SelectedCodeEditor
-            value={text}
-            onChange={() => {}}
-            ariaLabel="Generated score"
-            readOnly
-            mode="sco"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 export default function JavaScriptObjectEditor({ document, onPatch }: ScoreObjectEditorComponentProps): React.ReactElement {
   const editor = document.editor;
@@ -37,9 +10,14 @@ export default function JavaScriptObjectEditor({ document, onPatch }: ScoreObjec
 
   const onLoadProcessable = editor.auxiliaryFlags?.onLoadProcessable === true;
 
-  const [testing, setTesting] = useState(false);
-  const [testOutput, setTestOutput] = useState<string | null>(null);
-  const [testError, setTestError] = useState<string | null>(null);
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(document.target);
 
   const patch = useCallback((p: Record<string, unknown>) => {
     onPatch({
@@ -58,21 +36,8 @@ export default function JavaScriptObjectEditor({ document, onPatch }: ScoreObjec
   }, [patch]);
 
   const handleTest = useCallback(async () => {
-    setTesting(true);
-    setTestError(null);
-    try {
-      const result = await window.blueAPI.testJavascriptSoundObject({ target: document.target });
-      if (result.ok) {
-        setTestOutput(result.output);
-      } else {
-        setTestError(result.error ?? 'Unknown error');
-      }
-    } catch (err) {
-      setTestError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setTesting(false);
-    }
-  }, [document.target]);
+    await runTest();
+  }, [runTest]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -113,7 +78,7 @@ export default function JavaScriptObjectEditor({ document, onPatch }: ScoreObjec
       {testError && (
         <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
           <span>Error: {testError}</span>
-          <button className="underline text-blue-muted hover:text-gray-200" onClick={() => setTestError(null)}>dismiss</button>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
         </div>
       )}
       <div className="flex-1 overflow-hidden">
@@ -127,7 +92,7 @@ export default function JavaScriptObjectEditor({ document, onPatch }: ScoreObjec
         />
       </div>
       {testOutput !== null && (
-        <GeneratedScoreModal text={testOutput} onClose={() => setTestOutput(null)} />
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
       )}
     </div>
   );

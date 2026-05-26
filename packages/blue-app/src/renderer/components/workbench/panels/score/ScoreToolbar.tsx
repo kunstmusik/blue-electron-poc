@@ -2,6 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { getSnapValue, type SnapValueName, type SnapCategory } from '@blue/data';
 import type { ScorePathSegment } from './types';
+import type { NoteProcessorChainSnapshot } from '../../../../../shared/project-editor';
 
 type ScoreMode = 'score' | 'singleLine' | 'multiLine';
 
@@ -16,7 +17,8 @@ interface Props {
   onSnapToggle: (enabled: boolean) => void;
   onSnapValueChange: (value: SnapValueName) => void;
   onRulerConfig: () => void;
-  onManage: () => void;
+  onOpenNoteProcessorChain?: (scope: 'rootScore' | 'layerGroup', groupId?: string) => void;
+  getSegmentNoteProcessorChain?: (index: number) => NoteProcessorChainSnapshot | undefined;
 }
 
 const MODE_OPTIONS: { value: ScoreMode; label: string }[] = [
@@ -44,7 +46,8 @@ export default function ScoreToolbar({
   onSnapToggle,
   onSnapValueChange,
   onRulerConfig,
-  onManage,
+  onOpenNoteProcessorChain,
+  getSegmentNoteProcessorChain,
 }: Props) {
   const snapDef = getSnapValue(snapValue);
 
@@ -69,21 +72,62 @@ export default function ScoreToolbar({
 
       {/* Breadcrumb navigation path (inline) */}
       <div className="flex items-center gap-1 overflow-x-auto min-w-0">
-        {pathSegments.map((segment, i) => (
-          <span key={segment.groupId ?? 'root'} className="flex items-center gap-1 whitespace-nowrap">
-            {i > 0 && <span className="text-blue-muted">/</span>}
-            <button
-              className={`px-1 py-0.5 rounded text-[11px] cursor-pointer ${
-                i === pathSegments.length - 1
-                  ? 'font-medium bg-blue-surface/80 text-blue-text'
-                  : 'text-blue-muted hover:bg-blue-hover hover:text-blue-text'
-              }`}
-              onClick={() => (i === 0 ? onNavigateToRoot() : onNavigateToSegment(i))}
-            >
-              {segment.label}
-            </button>
-          </span>
-        ))}
+        {pathSegments.map((segment, i) => {
+          const hasNpc = !!onOpenNoteProcessorChain;
+          const npcChain = getSegmentNoteProcessorChain?.(i);
+          const hasChain = npcChain && npcChain.processors.length > 0;
+
+          return (
+            <span key={segment.groupId ?? 'root'} className="flex items-center gap-0 whitespace-nowrap">
+              {i > 0 && <span className="text-blue-muted mr-1">/</span>}
+              <button
+                className={`px-1 py-0.5 rounded text-[11px] cursor-pointer ${
+                  i === pathSegments.length - 1
+                    ? 'font-medium bg-blue-surface/80 text-blue-text'
+                    : 'text-blue-muted hover:bg-blue-hover hover:text-blue-text'
+                }`}
+                onClick={() => (i === 0 ? onNavigateToRoot() : onNavigateToSegment(i))}
+              >
+                {segment.label}
+              </button>
+              {hasNpc && (
+                <DropdownMenu.Root>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      className="relative px-0.5 py-0 text-blue-muted hover:text-blue-text cursor-pointer transition-colors"
+                      title={`Note Processors – ${segment.label}`}
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                      {hasChain && (
+                        <span className="absolute -top-0.5 -right-0.5 w-1 h-1 rounded-full bg-red-500" />
+                      )}
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      className="min-w-[160px] bg-[#1e1e3a] border border-blue-border/50 rounded shadow-lg py-1 z-50"
+                      sideOffset={4}
+                      align="start"
+                    >
+                      <DropdownMenu.Item
+                        className="flex items-center gap-2 px-3 py-1 text-[11px] text-blue-text rounded-sm outline-none cursor-pointer data-[highlighted]:bg-[rgba(86,119,182,0.46)]"
+                        onSelect={() => {
+                          if (i === 0) onOpenNoteProcessorChain('rootScore');
+                          else onOpenNoteProcessorChain('layerGroup', segment.groupId ?? undefined);
+                        }}
+                      >
+                        Edit Note Processors
+                        {hasChain && (
+                          <span className="text-red-400 text-[9px]">({npcChain.processors.length})</span>
+                        )}
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              )}
+            </span>
+          );
+        })}
       </div>
 
       {/* Spacer */}
@@ -178,14 +222,6 @@ export default function ScoreToolbar({
         Ruler
       </button>
 
-      {/* Manage button */}
-      <button
-        className="px-2 py-0.5 text-[11px] border border-blue-border/40 rounded bg-blue-surface hover:bg-blue-hover text-blue-text cursor-pointer transition-colors ml-1"
-        onClick={onManage}
-        title="Manage score structure"
-      >
-        Manage
-      </button>
     </div>
   );
 }

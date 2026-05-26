@@ -4,38 +4,9 @@ import type { ScoreObjectEditorComponentProps } from '../editor-registry';
 import type { FieldSnapshot, ParameterSnapshot } from './jmask/jmask-utils';
 import { getParameters, cloneField } from './jmask/jmask-utils';
 import ParameterRow from './jmask/ParameterRow';
-import SelectedCodeEditor from '../../editors/SelectedCodeEditor';
 import CommitNumberInput from './jmask/CommitNumberInput';
-import { JMask, loadFieldFromSnapshot, TimeContext, TimeDuration } from '@blue/data';
-
-function GeneratedScoreModal({ text, onClose }: { text: string; onClose: () => void }): React.ReactElement {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="flex h-[400px] w-[760px] flex-col rounded-lg border border-[#1e2d44] bg-[#0d1524] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#1e2d44] px-4 py-3">
-          <h2 className="text-sm font-medium text-[#dbe7ff]">Generated Score</h2>
-          <button
-            className="px-2 text-lg leading-none text-[#5a7299] hover:text-[#dbe7ff]"
-            onClick={onClose}
-            aria-label="Close"
-          >x</button>
-        </div>
-        <div className="min-h-0 flex-1">
-          <SelectedCodeEditor
-            value={text}
-            onChange={() => {}}
-            ariaLabel="Generated score"
-            readOnly
-            mode="sco"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 export default function JMaskEditor({ document, onPatch }: ScoreObjectEditorComponentProps): React.ReactElement {
   const editor = document.editor;
@@ -79,22 +50,18 @@ export default function JMaskEditor({ document, onPatch }: ScoreObjectEditorComp
   }, [field, patch]);
 
   const [showVisibilityPopup, setShowVisibilityPopup] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(document.target);
 
   const handleTest = useCallback(() => {
-    try {
-      const jm = new JMask();
-      jm.setSeedUsed(payload.seedUsed);
-      jm.setSeed(typeof payload.seed === 'number' ? payload.seed : 0);
-      jm.setSubjectiveDuration(TimeDuration.beats(duration));
-      jm.setField(loadFieldFromSnapshot(structuredClone(payload.field)));
-      const context = new TimeContext();
-      const notes = jm.generateNotes(context, 0.0, -1.0);
-      setTestResult(notes.toString());
-    } catch (err) {
-      setTestResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }, [payload]);
+    void runTest();
+  }, [runTest]);
 
   const testRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -175,13 +142,20 @@ export default function JMaskEditor({ document, onPatch }: ScoreObjectEditorComp
           type="button"
           className="rounded border border-blue-border px-2 py-0.5 text-[11px] text-gray-300 hover:border-blue-accent"
           onClick={handleTest}
+          disabled={testing}
           title="Test (Cmd/Ctrl+T)"
         >
-          Test
+          {testing ? 'Testing...' : 'Test'}
         </button>
       </div>
-      {testResult !== null && (
-        <GeneratedScoreModal text={testResult} onClose={() => setTestResult(null)} />
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
       )}
       <div className="flex-1 overflow-auto p-1 space-y-1">
         {visibleRows

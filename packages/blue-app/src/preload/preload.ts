@@ -20,6 +20,7 @@ import type {
   NoteProcessorChainSnapshot,
   ScoreObjectEditorRequest,
   ScoreObjectEditorDocumentSnapshot,
+  ScoreObjectTestResult,
   ScoreObjectLocationRef,
 } from '../shared/project-editor';
 import type { NativeMenuCommand } from '../shared/workbench-menu';
@@ -79,10 +80,12 @@ contextBridge.exposeInMainWorld('blueAPI', {
     ipcRenderer.invoke('get-named-chain-names') as Promise<string[]>,
   getNamedChain: (name: string) =>
     ipcRenderer.invoke('get-named-chain', name) as Promise<NoteProcessorChainSnapshot | null>,
+  testScoreObject: (request: ScoreObjectEditorRequest) =>
+    ipcRenderer.invoke('test-score-object', request) as Promise<ScoreObjectTestResult>,
   testExternalSoundObject: (request: ScoreObjectEditorRequest) =>
-    ipcRenderer.invoke('test-external-sound-object', request) as Promise<{ ok: boolean; output: string; error?: string }>,
+    ipcRenderer.invoke('test-external-sound-object', request) as Promise<ScoreObjectTestResult>,
   testJavascriptSoundObject: (request: ScoreObjectEditorRequest) =>
-    ipcRenderer.invoke('test-javascript-sound-object', request) as Promise<{ ok: boolean; output: string; error?: string }>,
+    ipcRenderer.invoke('test-javascript-sound-object', request) as Promise<ScoreObjectTestResult>,
   getNestedPolyObjectSnapshot: (location: ScoreObjectLocationRef) =>
     ipcRenderer.invoke('get-nested-poly-object-snapshot', location) as Promise<PolyObjectLayerGroupSnapshot | null>,
   sendBsbRealtimeControlUpdate: (update: BsbRealtimeControlUpdate) =>

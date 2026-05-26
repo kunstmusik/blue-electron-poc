@@ -8,7 +8,15 @@ From `/Users/stevenyi/work/blue-electron`:
 pnpm --filter @blue/data test
 pnpm --filter @blue/app test
 pnpm --filter @blue/app build
+git diff --check
 ```
+
+Closeout validation on 2026-05-26:
+
+- `pnpm --filter @blue/data test` - pass (`110` files, `1135` tests)
+- `pnpm --filter @blue/app test` - pass (`118` files, `1288` passed, `2` skipped)
+- `pnpm --filter @blue/app build` - pass
+- `git diff --check` - pass
 
 ## Manual Validation
 
@@ -24,6 +32,11 @@ pnpm --filter @blue/app build
 10. Render or generate CSD with object, layer, group, and root chains. Confirm output changes according to processor order.
 11. Load a project containing PythonProcessor XML. Confirm it is preserved and clearly labeled as deferred, with no Jython/Python execution implied.
 12. Load a project containing an unknown processor. Confirm it is preserved and cannot be accidentally overwritten by editing adjacent supported processors.
+
+Manual helper fixture:
+
+- `fixtures/noteprocessor_test.blue` contains one GenericScore object per addable note processor type.
+- Regenerate it with `packages/blue-data/scripts/generate-note-processor-fixture.ts` if processor defaults change.
 
 ## Focused Regression Cases
 
@@ -47,4 +60,4 @@ pnpm --filter @blue/app build
 - `ScoreLayerSnapshot`, `ScoreLayerGroupSnapshot`, `ScoreDocumentSnapshot` now include optional `noteProcessorChain` / `rootNoteProcessorChain` fields.
 - Preload IPC: `getNamedChainNames()`, `getNamedChain(name)` added to `window.blueAPI`.
 - `@testing-library/react` not available; renderer workflow tests are shared-layer tests in `src/shared/`.
-- Test coverage: 110 `@blue/data` tests + 115 `@blue/app` tests = 2415 total (1134 + 1281).
+- Test coverage at closeout: 110 `@blue/data` test files + 118 `@blue/app` test files = 2423 passing tests, with 2 skipped app tests.

@@ -2,7 +2,7 @@
 
 **Feature Branch**: `048-note-processor-parity`  
 **Created**: 2026-05-23  
-**Status**: Draft  
+**Status**: Closed
 **Input**: User description: "Research status of NoteProcessors and NoteProcessorChains and support for them within the application in regards to parity for Java Blue. We need all Note Processor types implemented, a Note Processor panel within ScoreObject Properties, a Note Processor chain edit dialog, support for noteprocessors on SoundObject layers, Layer Groups, and Root, unit tests for processing and serialization including each processor's processing on objects/layers/layer groups/root, and all UI changes. Need a full audit of what's missing, then produce a new spec using spec-kit for implementing full parity."
 
 ## User Scenarios & Testing *(mandatory)*

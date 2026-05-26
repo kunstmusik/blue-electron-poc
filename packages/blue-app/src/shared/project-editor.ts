@@ -512,6 +512,12 @@ export interface ScoreObjectEditorRequest {
   target: ScoreObjectEditorTargetSnapshot;
 }
 
+export interface ScoreObjectTestResult {
+  ok: boolean;
+  output: string;
+  error?: string;
+}
+
 // ─── End Score Object Editor Document Types ───
 
 export type ScorePatch =
@@ -2653,7 +2659,7 @@ function getSyntaxForType(objectType: string): 'text' | 'csound-score' | 'python
   }
 }
 
-function resolveTimelineTarget(
+export function resolveTimelineTarget(
   score: Score,
   location: ScoreObjectLocationRef,
 ): { sObj: SoundObject | AudioClip; layer: Array<SoundObject | AudioClip>; objectIndex: number } | null {
@@ -2690,7 +2696,7 @@ function resolveTimelineTarget(
   return null;
 }
 
-function resolveEditorTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): { sObj: SoundObject | AudioClip; isLibraryOwned: boolean } | null {
+export function resolveEditorTarget(data: BlueData, target: ScoreObjectEditorTargetSnapshot): { sObj: SoundObject | AudioClip; isLibraryOwned: boolean } | null {
   const score = data.getScore();
 
   let sObj: SoundObject | AudioClip | null = null;
@@ -2847,7 +2853,7 @@ export function createScoreObjectEditorDocument(
         scoreText: ext.getText(),
         commandLine: ext.getCommandLine(),
         syntaxType: ext.getSyntaxType(),
-        canTest: false,
+        canTest: true,
       };
       break;
     }
@@ -2929,7 +2935,7 @@ export function createScoreObjectEditorDocument(
         children,
         generatedScoreText: '',
         canOpenInScore: true,
-        canTest: false,
+        canTest: true,
       };
       break;
     }
@@ -2999,7 +3005,7 @@ export function createScoreObjectEditorDocument(
         octave: 0,
         tracks,
         rows,
-        canTest: false,
+        canTest: true,
       };
       break;
     }

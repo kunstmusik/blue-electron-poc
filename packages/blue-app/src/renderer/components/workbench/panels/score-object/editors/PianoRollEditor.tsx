@@ -6,9 +6,7 @@ import {
   applyPianoRollPatchToPayload,
   buildPianoRollRestorePatch,
   clonePianoRollPayload,
-  GENERATE_FREQUENCY,
   GENERATE_MIDI,
-  GENERATE_PCH,
   MIDI_NOTE_COUNT,
   OCTAVES,
   PITCH_HEADER_WIDTH,
@@ -29,6 +27,8 @@ import PianoRollRulerConfigDialog, { type PianoRollRulerConfigChanges } from './
 import SplitPane from '../../orchestra/SplitPane';
 import { NoteCanvasMouseListener } from './pianoroll/NoteCanvasMouseListener';
 import type { SnapValueName } from '@blue/data';
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 type Tab = 'notes' | 'properties';
 
@@ -64,7 +64,14 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
   const [scrollTop, setScrollTop] = useState(0);
   const [pasteTarget, setPasteTarget] = useState<PasteTarget | null>(null);
   const [rulerDialogOpen, setRulerDialogOpen] = useState(false);
-  const [testScoreText, setTestScoreText] = useState<string | null>(null);
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(scoreDocument.target);
   const [, forceUpdate] = useState(0);
   const redraw = useCallback(() => forceUpdate((n) => n + 1), []);
 
@@ -457,8 +464,8 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
     setScrollTop(scrollRef.current?.scrollTop ?? 0);
   }, []);
   const handleGenerateTest = useCallback(() => {
-    setTestScoreText(generatePianoRollScorePreview(payload));
-  }, [payload]);
+    void runTest();
+  }, [runTest]);
 
   return (
     <ContextMenu.Root>
@@ -513,9 +520,10 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
                 <button
                   className="h-5.5 px-2 text-[11px] border border-blue-border/40 rounded bg-blue-surface hover:bg-blue-hover text-blue-text cursor-pointer transition-colors"
                   onClick={handleGenerateTest}
+                  disabled={testing}
                   title="Generate a preview score from this PianoRoll"
                 >
-                  Test
+                  {testing ? 'Testing...' : 'Test'}
                 </button>
               </div>
 
@@ -611,6 +619,12 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
           )}
         </div>
       </ContextMenu.Trigger>
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
       {rulerDialogOpen && (
         <PianoRollRulerConfigDialog
           useGlobalRuler={payload.useGlobalRuler}
@@ -621,23 +635,8 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
           onClose={() => setRulerDialogOpen(false)}
         />
       )}
-      {testScoreText !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-[min(720px,calc(100vw-48px))] max-h-[min(560px,calc(100vh-48px))] flex flex-col bg-blue-bg border border-blue-border rounded shadow-2xl">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-blue-border/40">
-              <h2 className="text-sm font-semibold text-blue-text">Generated Score</h2>
-              <button
-                className="h-5.5 px-2 text-[11px] border border-blue-border/40 rounded bg-blue-surface hover:bg-blue-hover text-blue-text"
-                onClick={() => setTestScoreText(null)}
-              >
-                Close
-              </button>
-            </div>
-            <pre className="m-0 p-3 overflow-auto text-xs leading-5 text-blue-text whitespace-pre-wrap font-mono">
-              {testScoreText.length > 0 ? testScoreText : '(no notes)'}
-            </pre>
-          </div>
-        </div>
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
       )}
       <ContextMenu.Portal>
         <ContextMenu.Content className="min-w-40 bg-[#1e293b] border border-blue-border/50 rounded-md p-1 shadow-2xl z-50">
@@ -651,108 +650,6 @@ export default function PianoRollEditor({ document: scoreDocument, onPatch }: Sc
       </ContextMenu.Portal>
     </ContextMenu.Root>
   );
-}
-
-function generatePianoRollScorePreview(payload: PianoRollPayload): string {
-  const instrumentId = payload.instrumentId.trim();
-  const instrReplacement = isIntegerText(instrumentId) ? instrumentId : `"${instrumentId}"`;
-  const numScaleDegrees = payload.pchGenerationMethod === GENERATE_MIDI
-    ? 12
-    : (payload.scale.ratios.length || 12);
-
-  return [...payload.notes]
-    .sort((a, b) => a.start - b.start)
-    .map((note) => {
-      const pitch = normalizeGeneratedPitch(
-        note.octave,
-        note.scaleDegree + payload.transposition,
-        numScaleDegrees,
-      );
-      const freq = getGeneratedPitchValue(payload, pitch.octave, pitch.scaleDegree);
-      let template = (note.noteTemplate ?? payload.noteTemplate).trim();
-
-      template = replaceAllText(template, '<INSTR_ID>', instrReplacement);
-      template = replaceAllText(template, '<INSTR_NAME>', instrumentId);
-      template = replaceAllText(template, '<START>', String(note.start));
-      template = replaceAllText(template, '<DUR>', String(note.duration));
-      template = replaceAllText(template, '<FREQ>', freq);
-
-      for (let i = 0; i < payload.fieldDefinitions.length; i += 1) {
-        const field = payload.fieldDefinitions[i]!;
-        const value = note.fieldValues[i] ?? field.defaultValue;
-        const replacement = field.fieldType === 'DISCRETE' ? String(Math.round(value)) : String(value);
-        template = replaceAllText(template, `<${field.fieldName}>`, replacement);
-      }
-
-      return template;
-    })
-    .join('\n');
-}
-
-function normalizeGeneratedPitch(octave: number, scaleDegree: number, numScaleDegrees: number): { octave: number; scaleDegree: number } {
-  let nextOctave = octave;
-  let nextScaleDegree = scaleDegree;
-
-  if (nextScaleDegree >= numScaleDegrees) {
-    nextOctave += Math.floor(nextScaleDegree / numScaleDegrees);
-    nextScaleDegree %= numScaleDegrees;
-  }
-
-  if (nextScaleDegree < 0) {
-    const octaveDiff = Math.floor((nextScaleDegree * -1) / numScaleDegrees) + 1;
-    nextScaleDegree %= numScaleDegrees;
-    nextOctave -= octaveDiff;
-    nextScaleDegree = numScaleDegrees + nextScaleDegree;
-  }
-
-  return { octave: nextOctave, scaleDegree: nextScaleDegree };
-}
-
-function getGeneratedPitchValue(payload: PianoRollPayload, octave: number, scaleDegree: number): string {
-  switch (payload.pchGenerationMethod) {
-    case GENERATE_FREQUENCY:
-      return String(getScaleFrequency(payload, octave, scaleDegree));
-    case GENERATE_PCH:
-      return `${octave}.${scaleDegree}`;
-    case GENERATE_MIDI:
-      return String((octave * 12) + scaleDegree);
-    default:
-      return '';
-  }
-}
-
-function getScaleFrequency(payload: PianoRollPayload, octave: number, scaleDegree: number): number {
-  let oct = octave;
-  let pitchIndex = scaleDegree;
-  const ratios = payload.scale.ratios.length > 0 ? payload.scale.ratios : [1];
-
-  if (pitchIndex >= ratios.length) {
-    oct += Math.floor(pitchIndex / ratios.length);
-    pitchIndex %= ratios.length;
-  }
-
-  if (pitchIndex < 0) {
-    const octaveDiff = Math.floor((pitchIndex * -1) / ratios.length) + 1;
-    pitchIndex %= ratios.length;
-    oct -= octaveDiff;
-    pitchIndex = ratios.length + pitchIndex;
-  }
-
-  if (pitchIndex >= ratios.length) {
-    oct += Math.floor(pitchIndex / ratios.length);
-    pitchIndex %= ratios.length;
-  }
-
-  const multiplier = Math.pow(payload.scale.octave, oct - 8);
-  return multiplier * payload.scale.baseFrequency * ratios[pitchIndex]!;
-}
-
-function replaceAllText(text: string, search: string, replacement: string): string {
-  return text.split(search).join(replacement);
-}
-
-function isIntegerText(text: string): boolean {
-  return /^[-+]?\d+$/.test(text);
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {

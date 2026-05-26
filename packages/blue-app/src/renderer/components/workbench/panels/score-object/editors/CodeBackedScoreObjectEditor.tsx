@@ -1,6 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import type { ScoreObjectEditorComponentProps } from '../editor-registry';
 import SelectedCodeEditor from '../../editors/SelectedCodeEditor';
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 export default function CodeBackedScoreObjectEditor({ document, onPatch }: ScoreObjectEditorComponentProps): React.ReactElement {
   const editor = document.editor;
@@ -13,6 +15,17 @@ export default function CodeBackedScoreObjectEditor({ document, onPatch }: Score
     'text': 'text',
   };
 
+  const isCsoundScore = editor.syntax === 'csound-score';
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(document.target);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const handleChange = useCallback((text: string) => {
     onPatch({
       type: 'updateTypeSpecificEditor',
@@ -21,8 +34,44 @@ export default function CodeBackedScoreObjectEditor({ document, onPatch }: Score
     });
   }, [document.target, onPatch]);
 
+  const handleTest = useCallback(() => {
+    void runTest();
+  }, [runTest]);
+
+  useEffect(() => {
+    if (!isCsoundScore) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault();
+        handleTest();
+      }
+    };
+    const el = containerRef.current;
+    el?.addEventListener('keydown', handler);
+    return () => { el?.removeEventListener('keydown', handler); };
+  }, [handleTest, isCsoundScore]);
+
   return (
-    <div className="h-full flex flex-col">
+    <div ref={containerRef} className="h-full flex flex-col" tabIndex={-1}>
+      {isCsoundScore && (
+        <div className="flex items-center justify-end border-b border-blue-border/30 bg-[#1a2540] px-2 py-1 shrink-0">
+          <button
+            type="button"
+            className="rounded border border-blue-border px-2 py-0.5 text-[11px] text-gray-300 hover:border-blue-accent"
+            onClick={handleTest}
+            disabled={testing}
+            title="Test (Cmd/Ctrl+T)"
+          >
+            {testing ? 'Testing...' : 'Test'}
+          </button>
+        </div>
+      )}
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
       <SelectedCodeEditor
         value={editor.text}
         mode={modeMap[editor.syntax] ?? 'text'}
@@ -31,6 +80,9 @@ export default function CodeBackedScoreObjectEditor({ document, onPatch }: Score
         ariaLabel={`Score object code editor (${editor.syntax})`}
         onChange={handleChange}
       />
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
+      )}
     </div>
   );
 }

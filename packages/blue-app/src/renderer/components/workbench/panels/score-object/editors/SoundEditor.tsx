@@ -15,6 +15,8 @@ import {
   getJavaLineColor,
   useMeasuredElementSize,
 } from '../../shared/line-editor/EditableLineCanvas';
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 type SoundTabId = 'interface' | 'automation' | 'code' | 'udo' | 'comments';
 
@@ -33,6 +35,14 @@ export default function SoundEditor({ document, onPatch }: ScoreObjectEditorComp
   const payload = editor.payload as unknown as SoundEditorPayload;
   const { comment, bsbInstrument, automationParameters, availableTabs } = payload;
   const [activeTab, setActiveTab] = useState<SoundTabId>(availableTabs[0] ?? 'comments');
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(document.target);
 
   const handleInstrumentPatch = useCallback((patch: InstrumentPatch) => {
     const scorePatch: Record<string, unknown> = {};
@@ -98,8 +108,23 @@ export default function SoundEditor({ document, onPatch }: ScoreObjectEditorComp
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            className="mb-1 rounded border border-blue-border px-2 py-0.5 text-[11px] text-gray-300 hover:border-blue-accent disabled:opacity-50"
+            disabled={testing}
+            onClick={() => { void runTest(); }}
+            title="Test generated score"
+          >
+            {testing ? 'Testing...' : 'Test'}
+          </button>
         </div>
       </div>
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-hidden">
         {activeTab === 'interface' && bsbInstrument && (
           <div className="h-full" aria-hidden={activeTab !== 'interface'}>
@@ -148,6 +173,9 @@ export default function SoundEditor({ document, onPatch }: ScoreObjectEditorComp
           </div>
         )}
       </div>
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
+      )}
     </div>
   );
 }

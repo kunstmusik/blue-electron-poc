@@ -1,5 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import type { ScoreObjectEditorComponentProps } from '../editor-registry';
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 interface PatternSnapshot {
   patternName: string;
@@ -196,6 +198,14 @@ export default function PatternObjectEditor({
   const [splitX, setSplitX] = useState(140);
   const draggingSplitY = useRef(false);
   const draggingSplitX = useRef(false);
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(document.target);
 
   const patch = useCallback(
     (p: Record<string, unknown>) => {
@@ -377,7 +387,22 @@ export default function PatternObjectEditor({
           />
         </div>
         <span className="text-[11px] text-blue-muted">{numSteps} steps</span>
+        <button
+          type="button"
+          className="ml-auto rounded border border-blue-border px-2 py-0.5 text-[11px] text-gray-300 hover:border-blue-accent disabled:opacity-50"
+          disabled={testing}
+          onClick={() => { void runTest(); }}
+          title="Test generated score"
+        >
+          {testing ? 'Testing...' : 'Test'}
+        </button>
       </div>
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
 
       <div
         className="pattern-top flex shrink-0 overflow-hidden"
@@ -570,6 +595,9 @@ export default function PatternObjectEditor({
           </div>
         )}
       </div>
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
+      )}
     </div>
   );
 }

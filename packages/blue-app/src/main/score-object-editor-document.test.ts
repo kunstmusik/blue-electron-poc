@@ -140,7 +140,7 @@ describe('createScoreObjectEditorDocument — code-backed types', () => {
       expect(doc!.editor.scoreText).toBe('ls -la');
       expect(doc!.editor.commandLine).toBe('python script.py');
       expect(doc!.editor.syntaxType).toBe('Python');
-      expect(doc!.editor.canTest).toBe(false);
+      expect(doc!.editor.canTest).toBe(true);
     }
   });
 });
@@ -223,7 +223,7 @@ describe('createScoreObjectEditorDocument — Tier 1: polyObject', () => {
       expect(doc!.editor.children[0].objectType).toBe('GenericScore');
       expect(doc!.editor.children[0].layerLabel).toBe('');
       expect(doc!.editor.canOpenInScore).toBe(true);
-      expect(doc!.editor.canTest).toBe(false);
+      expect(doc!.editor.canTest).toBe(true);
     }
   });
 

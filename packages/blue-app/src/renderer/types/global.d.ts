@@ -20,6 +20,7 @@ import type {
   NoteProcessorChainSnapshot,
   ScoreObjectEditorRequest,
   ScoreObjectEditorDocumentSnapshot,
+  ScoreObjectTestResult,
   ScoreObjectLocationRef,
 } from '../../shared/project-editor';
 import type { NativeMenuCommand } from '../../shared/workbench-menu';
@@ -90,12 +91,15 @@ declare global {
       getScoreObjectEditorDocument: (
         request: ScoreObjectEditorRequest,
       ) => Promise<ScoreObjectEditorDocumentSnapshot | null>;
+      testScoreObject: (
+        request: ScoreObjectEditorRequest,
+      ) => Promise<ScoreObjectTestResult>;
       testExternalSoundObject: (
         request: ScoreObjectEditorRequest,
-      ) => Promise<{ ok: boolean; output: string; error?: string }>;
+      ) => Promise<ScoreObjectTestResult>;
       testJavascriptSoundObject: (
         request: ScoreObjectEditorRequest,
-      ) => Promise<{ ok: boolean; output: string; error?: string }>;
+      ) => Promise<ScoreObjectTestResult>;
       getNestedPolyObjectSnapshot: (
         location: ScoreObjectLocationRef,
       ) => Promise<PolyObjectLayerGroupSnapshot | null>;

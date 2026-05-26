@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as ContextMenu from '@radix-ui/react-context-menu';
 import type { ScoreObjectEditorComponentProps } from '../editor-registry';
 import type { TrackerColumnSnapshot } from '../../../../../../shared/project-editor';
+import GeneratedScoreModal from './GeneratedScoreModal';
+import { useScoreObjectTest } from './useScoreObjectTest';
 
 const COLUMN_TYPES = [
   { label: 'PCH', value: 0 },
@@ -804,6 +806,14 @@ export default function TrackerScoreObjectEditor({
   const [localSteps, setLocalSteps] = useState<string>(String(editor.steps));
   const [useKeyboardNotes, setUseKeyboardNotes] = useState(editor.showNoteNames);
   const [draftCells, setDraftCells] = useState<Record<string, string>>({});
+  const {
+    testing,
+    testOutput,
+    testError,
+    runTest,
+    clearTestOutput,
+    clearTestError,
+  } = useScoreObjectTest(scoreDocument.target);
   const gridRef = useRef<HTMLTableElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const draftCellsRef = useRef<Record<string, string>>({});
@@ -1395,10 +1405,11 @@ export default function TrackerScoreObjectEditor({
         <div className="w-px h-4 bg-blue-border" />
         <button
           className="ml-auto px-3 py-0.5 text-[11px] font-bold rounded bg-blue-accent/20 text-blue-accent border border-blue-accent/40 hover:bg-blue-accent/30 disabled:opacity-40"
-          disabled={!editor.canTest}
+          disabled={!editor.canTest || testing}
+          onClick={() => { void runTest(); }}
           title="Generate score from tracker and show results"
         >
-          TEST
+          {testing ? 'TESTING...' : 'TEST'}
         </button>
         <button
           className="flex items-center justify-center w-6 h-6 rounded-full border border-blue-border text-blue-muted hover:text-blue-accent hover:border-blue-accent/60 hover:bg-blue-accent/10 transition-colors cursor-pointer"
@@ -1576,6 +1587,12 @@ export default function TrackerScoreObjectEditor({
           </table>
         )}
       </div>
+      {testError && (
+        <div className="px-3 py-1.5 text-xs border-b shrink-0 bg-red-900/20 text-red-300 flex items-center gap-2">
+          <span>Error: {testError}</span>
+          <button className="underline text-blue-muted hover:text-gray-200" onClick={clearTestError}>dismiss</button>
+        </div>
+      )}
 
       {editingTrackIndex !== null && (
         <TrackPropertiesModal
@@ -1586,6 +1603,9 @@ export default function TrackerScoreObjectEditor({
       )}
       {showShortcutHelp && (
         <ShortcutHelpModal onClose={() => setShowShortcutHelp(false)} />
+      )}
+      {testOutput !== null && (
+        <GeneratedScoreModal text={testOutput} onClose={clearTestOutput} />
       )}
     </div>
   );
