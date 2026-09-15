@@ -22,13 +22,16 @@ if (tracking) {
   buildArgs.push('--performance-tracking');
 }
 run(process.execPath, buildArgs);
-run('cmake', ['--build', buildDir, '--config', buildType]);
+run('cmake', ['--build', buildDir, '--config', buildType, '--parallel']);
 
 const ctestArgs = ['--test-dir', buildDir, '--output-on-failure', '-C', buildType];
 if (mode === 'integration') {
   ctestArgs.push('-L', 'requires-csound');
 } else {
   ctestArgs.push('-LE', 'requires-csound');
+}
+if (mode !== 'integration') {
+  ctestArgs.push('--parallel');
 }
 run('ctest', ctestArgs);
 
