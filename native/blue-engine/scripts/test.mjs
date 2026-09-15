@@ -30,9 +30,6 @@ if (mode === 'integration') {
 } else {
   ctestArgs.push('-LE', 'requires-csound');
 }
-if (mode !== 'integration') {
-  ctestArgs.push('--parallel');
-}
 run('ctest', ctestArgs);
 
 if (mode === 'profiling') {
