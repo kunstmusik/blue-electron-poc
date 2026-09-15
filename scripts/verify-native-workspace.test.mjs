@@ -39,7 +39,7 @@ test('registers the private native package and topological app dependency', asyn
   assert.equal(appPackage.devDependencies['@blue/engine-native'], 'workspace:*');
   assert.match(lockfile, /native\/blue-engine:/);
   assert.match(rootPackage.scripts.build, /pnpm -r run build/);
-  assert.match(rootPackage.scripts.test, /pnpm -r run test/);
+  assert.match(rootPackage.scripts.test, /pnpm -r (?:--parallel )?run test/);
   assert.match(rootPackage.scripts.lint, /pnpm -r run lint/);
 });
 
