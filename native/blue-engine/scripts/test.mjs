@@ -22,7 +22,8 @@ if (tracking) {
   buildArgs.push('--performance-tracking');
 }
 run(process.execPath, buildArgs);
-run('cmake', ['--build', buildDir, '--config', buildType]);
+const nativeBuildParallelism = process.platform === 'linux' ? ['--parallel', '1'] : ['--parallel'];
+run('cmake', ['--build', buildDir, '--config', buildType, ...nativeBuildParallelism]);
 
 const ctestArgs = ['--test-dir', buildDir, '--output-on-failure', '-C', buildType];
 if (mode === 'integration') {
